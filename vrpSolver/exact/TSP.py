@@ -9,6 +9,7 @@
 # - 11/01/2020 Add ShortestPath                                               #
 # - 11/01/2020 Add QAP                                                        #
 # lrTSP - Use Lagrangian Relaxation to Give Held & Karp Bound                 #
+# - 11/09/2020 Add Held & Karp Bound                                          #
 ###############################################################################
 
 import heapq
@@ -212,7 +213,7 @@ def _ipTSPMultiCommodityFlow(tau, nodeIDs, timeLimit):
 			if (j != k):
 				TSP.addConstr(quicksum(y[i, j, k] for i in range(n) if i != j) - quicksum(y[j, i, k] for i in range(n) if i != j) == 0)
 
-	# TSP with callback =======================================================
+	# TSP =====================================================================
 	if (timeLimit != None):
 		TSP.setParam(GRB.Param.TimeLimit, timeLimit)
 	TSP.optimize()
@@ -722,10 +723,5 @@ def lrTSP(
 			k += 1
 
 	return {
-		'costSum': costSum,
-		'm1t': m1t,
-		'oldL': oldL,
-		'L': L,
-		'd': d,
-		'u': u
+		'lrLowerBound': costSum
 	}

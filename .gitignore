@@ -77,11 +77,11 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
-.ipynb
+*.ipynb
 
 # Data
-.csv
-.xlsx
+*.csv
+*.xlsx
 
 # IPython
 profile_default/
