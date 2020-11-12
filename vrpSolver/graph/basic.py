@@ -1,3 +1,5 @@
+import random
+
 def findComponentsUndirected(
 	arcs:		"A list of 2-tuples, indexes of vertices must start from 0", 
 	numVertices:"1) An integer, number of vertices, or \

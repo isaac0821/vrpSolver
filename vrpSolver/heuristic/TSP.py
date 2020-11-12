@@ -4,6 +4,10 @@
 # consTSP() - Constructive Heuristic for TSP                                  #
 # - 11/09/2020 DepthFirst Method                                              #
 # - 11/09/2020 Christofides Algorithm                                         #
+# - 11/11/2020 Nearest Neighborhood Method                                    #
+# - 11/11/2020 Farthest Neighborhood Method                                   #
+# - 11/11/2020 Random Sequence                                                #
+# localTSP() - Local Improvement Heuristic for TSP                            #
 ###############################################################################
 
 from vrpSolver.common import *
@@ -24,13 +28,15 @@ def consTSP(
 			 3) Dictionary {(nodeID1, nodeID2): dist, ...}" = "SphereEuclidean",
 	nodeIDs:"1) String (default) 'All', or \
 			 2) A list of node IDs" = 'All',
-	algo:	"1) String (not available) 'NearestNeighborhood' or \
-			 2) String (not available) 'Insertion' or \
-			 3) String (not available) 'Patching' or \
-			 4) String (not available) 'Sweep' or \
-			 5) String 'DepthFirst' or \
-			 6) String (default) 'Christofides'" = 'Christofides'
-	) -> "Exact solution for TSP":
+	algo:	"1) String 'NearestNeighbor' or \
+			 2) String 'FarthestNeighbor' or \
+			 3) String (not available) 'Insertion' or \
+			 4) String (not available) 'Patching' or \
+			 5) String (not available) 'Sweep' or \
+			 6) String 'DepthFirst' or \
+			 7) String (default) 'Christofides' or \
+			 8) String 'Random'" = 'Christofides'
+	) -> "Heuristic solution for TSP":
 
 	# Define nodeIDs ==========================================================
 	if (type(nodeIDs) is not list):
@@ -50,6 +56,19 @@ def consTSP(
 			print("Error: Incorrect type `tau`")
 			return None
 
+	# Heuristics that don't need to transform arc representation ==============
+	res = None
+	if (algo == 'NearestNeighbor'):
+		res = _consTSPNearestNeighbor(nodeIDs, tau)
+	elif (algo == 'FarthestNeighbor'):
+		res = _consTSPFarthestNeighbor(nodeIDs, tau)
+	elif (algo == 'Random'):
+		res = _consTSPRandomSeq(nodeIDs, tau)
+	else:
+		pass
+	if (res != None):
+		return res
+
 	# Create arcs =============================================================
 	# FIXME! indexes of nodes starts from 0 here!
 	# FIXME! Add mapping between 0 to n and nodeIDs
@@ -66,6 +85,80 @@ def consTSP(
 		res = _consTSPChristofides(weightArcs)
 
 	return res
+
+def _consTSPRandomSeq(nodeIDs, tau):
+	# Get random seq ==========================================================
+	seqIndex = rndSeq(len(nodeIDs), closed=True)
+	seq = []
+	for i in range(len(seqIndex)):
+		seq.append(nodeIDs[seqIndex[i]])
+
+	# Calculate Ofv ===========================================================
+	ofv = calSeqCostMatrix(tau, seq)
+	return {
+		'ofv': ofv,
+		'seq': seq
+	}
+
+def _consTSPNearestNeighbor(nodeIDs, tau):
+	# Initialize ==============================================================
+	seq = [nodeIDs[0]]
+	remain = [nodeIDs[i] for i in range(1, len(nodeIDs))]
+	ofv = 0
+
+	# Accumulate seq ==========================================================
+	while (len(remain) > 0):
+		nextLeng = None
+		nextID = None
+		for node in remain:
+			if ((node, seq[-1]) in tau):
+				if (nextLeng == None or tau[node, seq[-1]] < nextLeng):
+					nextID = node
+					nextLeng = tau[node, seq[-1]]
+			elif ((seq[-1], node) in tau):
+				if (nextLeng == None or tau[seq[-1], node] < nextLeng):
+					nextID = node
+					nextLeng = tau[seq[-1], node]
+		seq.append(nextID)
+		remain.remove(nextID)
+		ofv += nextLeng
+	ofv += tau[seq[0], seq[-1]]
+	seq.append(seq[0])
+
+	return {
+		'ofv': ofv,
+		'seq': seq
+	}
+
+def _consTSPFarthestNeighbor(nodeIDs, tau):
+	# Initialize ==============================================================
+	seq = [nodeIDs[0]]
+	remain = [nodeIDs[i] for i in range(1, len(nodeIDs))]
+	ofv = 0
+
+	# Accumulate seq ==========================================================
+	while (len(remain) > 0):
+		nextLeng = None
+		nextID = None
+		for node in remain:
+			if ((node, seq[-1]) in tau):
+				if (nextLeng == None or tau[node, seq[-1]] > nextLeng):
+					nextID = node
+					nextLeng = tau[node, seq[-1]]
+			elif ((seq[-1], node) in tau):
+				if (nextLeng == None or tau[seq[-1], node] > nextLeng):
+					nextID = node
+					nextLeng = tau[seq[-1], node]
+		seq.append(nextID)
+		remain.remove(nextID)
+		ofv += nextLeng	
+	ofv += tau[seq[0], seq[-1]]
+	seq.append(seq[0])
+
+	return {
+		'ofv': ofv,
+		'seq': seq
+	}
 
 def _consTSPDepthFirst(weightArcs):
 	# Create MST ==============================================================
@@ -129,3 +222,4 @@ def _consTSPChristofides(weightArcs):
 		'newGraph': newGraph,
 		'matching': minMatching,
 	}
+	
