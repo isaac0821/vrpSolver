@@ -27,13 +27,14 @@ def saTSP(
 				 3) String, 'FarthestNeighbor'" = 'Random',
 	initTemp:	"Float, Initial temperature" = None, 
 	lengTemp:	"Integer, Temperature length" = None,
-	neighRatio:	"A 4-tuple, sum to 1, (swap, exchange, rotate, insert)" = (0.2, 0.2, 0.3, 0.0),
+	neighRatio:	"A 4-tuple, sum to 1, (swap, exchange, rotate)" = (0.2, 0.2, 0.3),
 	coolRate:	"Float, Temperature drop rate, (0, 1)" = None,
-	stopType:	"1) String, 'Final_Temperature' or \
+	stopType:	"List, with options as follows: \
+				 1) String, 'Final_Temperature' or \
 				 2) String, 'Num_Iterations_Without_Improving' or \
 				 3) String, 'Percent_of_Accepted_Move' or \
 				 4) String, 'Num_Iterations' or \
-				 5) String, 'Executed_Time' " = 'Final_Temperature',
+				 5) String, 'Executed_Time' " = ['Final_Temperature'],
 	stopTemp:	"Float, stopping temperature, if stopType is 'Final_Temperature'" = None,
 	stopNoImp:	"Integer, number of iteration without improving, if stopType is 'Num_Iterations_Without_Improving" = None,
 	stopAptRate:"Float, ratio of acceptance, (0, 1), if stopType is 'Percent_of_Accepted_Move'" = None,
@@ -142,13 +143,6 @@ def saTSP(
 			'seq': newSeq,
 			'deltaC': deltaC
 		}
-	# Randomly insert a node between two nodes
-	def insert(seq):
-
-		return {
-			'seq': newSeq,
-			'deltaC': deltaC
-		}
 
 	# Initialize ==============================================================
 	# Initial temperature
@@ -166,13 +160,29 @@ def saTSP(
 		return None
 
 	# Main cooling ============================================================
-	finishFlag = True
+	contFlag = True
 	iterTotal = 0
 	iterNoImp = 0
 	iterAcc = 0
-	while (finishFlag):
+	apRate = 1
+	reportTime = 0
+	ofvCurve = []
+	while (contFlag):
 		# Repeat in the same temperature
-		for i in range(L):
+		for l in range(L):
+			# Export time
+			currTime = (datetime.datetime.now() - startTime).total_seconds()
+			if (currTime > reportTime):
+				print('t: %ss \t T: %s \t iter %s \t noImp %s \t apRate %s \t ofv: %s' % (
+					round(currTime, 2), 
+					round(T, 2), 
+					iterTotal,
+					iterNoImp,
+					round(apRate, 3),
+					ofv))
+				reportTime += 10
+				ofvCurve.append(ofv)
+
 			# Increment iterator
 			iterTotal += 1
 
@@ -198,6 +208,7 @@ def saTSP(
 				curSeq = [i for i in newSeq]				
 				ofv += deltaC
 				iterAcc += 1
+				iterNoImp = 0
 			else:
 				sample = random.random()
 				if (sample < math.exp(- deltaC / T)):
@@ -206,32 +217,46 @@ def saTSP(
 					iterAcc += 1
 				else:
 					iterNoImp += 1
+			apRate = iterAcc / iterTotal
 
+			# Check stopping criteria
+			endCriteria = None
+			if ('Final_Temperature' in stopType):
+				if (T < stopTemp):
+					contFlag = False
+					endCriteria = 'Final_Temperature'
+					break
+			if ('Num_Iterations_Without_Improving' in stopType):
+				if (iterNoImp > stopNoImp):
+					contFlag = False
+					endCriteria = 'Num_Iterations_Without_Improving'
+					break
+			if ('Percent_of_Accepted_Move' in stopType):
+				if (iterTotal > 0 and apRate < stopAptRate):
+					contFlag = False
+					endCriteria = 'Percent_of_Accepted_Move'
+					break
+			if ('Num_Iterations' in stopType):
+				if (iterTotal > stopIter):
+					contFlag = False
+					endCriteria = 'Num_Iterations'
+					break
+			if ('Executed_Time' in stopType):
+				if ((datetime.datetime.now() - startTime).total_seconds() > stopTime):
+					contFlag = False
+					endCriteria = 'Executed_Time'
+					break
+		
 		# Cool down
 		T = coolRate * T
-
-		# Check stopping criteria
-		if (stopType == 'Final_Temperature'):
-			if (T < stopTemp):
-				finishFlag = False
-		elif (stopType == 'Num_Iterations_Without_Improving'):
-			if (iterNoImp > stopNoImp):
-				finishFlag = False
-		elif (stopType == 'Percent_of_Accepted_Move'):
-			if ((iterAcc + iterNoImp) > 0 and iterAcc / (iterAcc + iterNoImp) > stopAptRate):
-				finishFlag = False
-		elif (stopType == 'Num_Iterations'):
-			if (iterTotal > stopIter):
-				finishFlag = False
-		elif (stopType == 'Executed_Time'):
-			if ((datetime.datetime.now() - startTime).total_seconds() > stopTime):
-				finishFlag = False
 
 	curSeq.append(curSeq[0])
 	runtime = (datetime.datetime.now() - startTime).total_seconds()
 	return {
 		'seq': curSeq,
 		'ofv': ofv,
-		'runtime': runtime
+		'runtime': runtime,
+		'endCriteria': endCriteria,
+		'ofvCurve': ofvCurve
 	}
 
