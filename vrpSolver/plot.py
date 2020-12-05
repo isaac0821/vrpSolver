@@ -1,4 +1,9 @@
 import matplotlib.pyplot as plt
+import random
+
+def randomColor():
+	color = "#%06x" % random.randint(0, 0xFFFFFF)
+	return color
 
 def plotSeq(
 	nodeLoc:"Dictionary, returns the coordinate of given nodeID, \
@@ -10,7 +15,8 @@ def plotSeq(
 	nodeIDs:"1) String (default) 'All', or \
 			 2) A list of node IDs" = 'All',
 	seq:	"List of visiting sequences" = None,
-	color:	"Color of seq" = 'green'
+	color:	"1) String 'Random', or\
+			 2) List of color of seq i" = 'Random'
 	) -> "Draw sequences of visiting":
 
 	# Define nodeIDs ==========================================================
@@ -30,14 +36,19 @@ def plotSeq(
 	plt.plot(x, y, 'ro')
 
 	# Draw Seq ================================================================
-	lx = []
-	ly = []
-	for s in range(len(seq) - 1):
-		lx.append(nodeLoc[seq[s]][0])
-		ly.append(nodeLoc[seq[s]][1])
-	lx.append(nodeLoc[seq[len(seq) - 1]][0])
-	ly.append(nodeLoc[seq[len(seq) - 1]][1])
-	plt.plot(lx, ly, color=color)
+	for i in range(len(seq)):
+		lx = []
+		ly = []
+		newColor = randomColor()
+		for s in range(len(seq[i]) - 1):
+			lx.append(nodeLoc[seq[i][s]][0])
+			ly.append(nodeLoc[seq[i][s]][1])
+		lx.append(nodeLoc[seq[i][len(seq[i]) - 1]][0])
+		ly.append(nodeLoc[seq[i][len(seq[i]) - 1]][1])
+		if (color == 'Random'):
+			plt.plot(lx, ly, color=newColor)
+		else:
+			plt.plot(lx, ly, color=color[i])
 
 	return
 

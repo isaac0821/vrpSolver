@@ -1,22 +1,28 @@
 import random
 
 def findComponentsUndirected(
-	arcs:		"A list of 2-tuples, indexes of vertices must start from 0", 
-	numVertices:"1) An integer, number of vertices, or \
-				 2) (default) None, assuming all vertices are mentioned in `arcs`" = None,
+	arcs:		"A list of 2-tuples", 
 	) -> "A list of components":
-
 	# Create adj list, each vertex start with an empty list
-	adjList = [[] for i in range(numVertices)]
-	for (i, j) in arcs:
-		adjList[i].append(j)
+	adjList = {}
+	for e in arcs:
+		if (e[0] not in adjList):
+			adjList[e[0]] = [e[1]]
+		else:
+			adjList[e[0]].append(e[1])
+		if (e[1] not in adjList):
+			adjList[e[1]] = [e[0]]
+		else:
+			adjList[e[1]].append(e[0])
 
 	# Initialize
-	found = [0 for i in range(numVertices)]
+	found = {}
+	for node in adjList:
+		found[node] = 0
 	components = []
 
 	# Main algorithm, mark neighbors
-	for i in range(numVertices):
+	for i in adjList:
 		comp = []
 		q = []
 		if (found[i] == 0):

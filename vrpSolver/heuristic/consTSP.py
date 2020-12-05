@@ -7,7 +7,6 @@
 # - 11/11/2020 Nearest Neighborhood Method                                    #
 # - 11/11/2020 Farthest Neighborhood Method                                   #
 # - 11/11/2020 Random Sequence                                                #
-# localTSP() - Local Improvement Heuristic for TSP                            #
 ###############################################################################
 
 from vrpSolver.common import *

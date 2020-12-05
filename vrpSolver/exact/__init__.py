@@ -1,2 +1,2 @@
-from .TSP import *
-from .TSPPD import *
+from .ip import *
+from .columnGeneration import *

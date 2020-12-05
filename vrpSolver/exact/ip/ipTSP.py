@@ -8,8 +8,6 @@
 # - 11/01/2020 Add MultiCommodityFlow                                         #
 # - 11/01/2020 Add ShortestPath                                               #
 # - 11/01/2020 Add QAP                                                        #
-# lrTSP - Use Lagrangian Relaxation to Give Held & Karp Bound                 #
-# - 11/09/2020 Add Held & Karp Bound                                          #
 ###############################################################################
 
 import heapq
@@ -51,7 +49,7 @@ def ipTSP(
 			for i in nodeLoc:
 				nodeIDs.append(i)
 
-	# Define tau ==============================================================
+	# Define tau ============================================================`==
 	if (type(tau) is not dict):
 		lstNodeID = nodeIDs.copy()
 		if (tau == 'Euclidean'):
@@ -105,7 +103,20 @@ def _ipTSPQAP(tau, nodeIDs, timeLimit):
 						vtype = GRB.CONTINUOUS)
 
 	# TSP objective function ==================================================
-	TSP.setObjective(quicksum(quicksum(quicksum(tau[nodeIDs[i], nodeIDs[j]] * w[i, j, k] for k in range(n - 1)) for j in range(n) if j != i) for i in range(n)) + quicksum(quicksum(tau[nodeIDs[i], nodeIDs[j]] * w[i, j, n - 1] for j in range(n) if j != i) for i in range(n)))
+	TSP.setObjective(
+		quicksum(
+			quicksum(
+				quicksum(
+					tau[nodeIDs[i], nodeIDs[j]] * w[i, j, k] for k in range(n - 1)
+				) for j in range(n) if j != i
+			) for i in range(n)
+		) + 
+		quicksum(
+			quicksum(
+				tau[nodeIDs[i], nodeIDs[j]] * w[i, j, n - 1] for j in range(n) if j != i
+			) for i in range(n)
+		)
+	)
 
 	# Assignment constraints ==================================================
 	for i in range(n):
@@ -454,7 +465,7 @@ def _ipTSPPlainLoop(tau, nodeIDs, timeLimit):
 		if (TSP.status == GRB.status.OPTIMAL):
 			accRuntime += TSP.Runtime
 			arcs = tuplelist((i, j) for i, j in x.keys() if x[i, j].X > 0.9)
-			components = findComponentsUndirected(arcs, n)
+			components = findComponentsUndirected(arcs)
 			if (len(components) == 1):
 				noSubtourFlag = True
 				break
@@ -532,10 +543,10 @@ def _ipTSPLazyCuts(tau, nodeIDs, timeLimit):
 	# Sub-tour elimination ====================================================
 	TSP._x = x
 	def subtourelim(model, where):
-		if where == GRB.Callback.MIPSOL:
+		if (where == GRB.Callback.MIPSOL):
 			x_sol = model.cbGetSolution(model._x)
 			arcs = tuplelist((i, j) for i, j in model._x.keys() if x_sol[i, j] > 0.9)
-			components = findComponentsUndirected(arcs, n)
+			components = findComponentsUndirected(arcs)
 			for component in components:
 				if (len(component) < n):
 					model.cbLazy(quicksum(x[i,j] for i in component for j in component if i != j) <= len(component) - 1)
@@ -583,145 +594,4 @@ def _ipTSPLazyCuts(tau, nodeIDs, timeLimit):
 		'lowerBound': lb,
 		'upperBound': ub,
 		'runtime': runtime
-	}
-
-def lrTSP(
-	nodeLoc:	"Dictionary, returns the coordinate of given nodeID, \
-					{\
-						nodeID1: (lat, lon), \
-						nodeID2: (lat, lon), \
-						... \
-					}" = None, 
-	tau:		"1) String 'Euclidean' or \
-				 2) String (default) 'SphereEuclidean' or \
-				 3) Dictionary {(nodeID1, nodeID2): dist, ...}" = "SphereEuclidean",
-	nodeIDs:	"1) String (default) 'All', or \
-				 2) A list of node IDs" = 'All',
-	subgradM:	"Double" = 1,
-	subgradRho:	"Double, (0, 1)" = 0.95,
-	stopType:	"1) String, (default) 'Epsilon' (`stopEpsilon` will be used) or \
-				 2) String, 'IterationNum' (`stopK` will be used) or \
-				 3) String, 'Runtime' (`stopTime` will be used)" = 'Epsilon',
-	stopEpsilon:"Double, small number" = 0.01,
-	stopK:		"Integer, large number" = 200,
-	stopTime:	"Double, in seconds" = 600
-	) -> "Returns a Held & Karp lower bound of the TSP using Lagrangian Relaxation":
-
-	# Define nodeIDs ==========================================================
-	if (type(nodeIDs) is not list):
-		if (nodeIDs == 'All'):
-			nodeIDs = []
-			for i in nodeLoc:
-				nodeIDs.append(i)
-
-	# Define tau ==============================================================
-	if (type(tau) is not dict):
-		lstNodeID = nodeIDs.copy()
-		if (tau == 'Euclidean'):
-			tau = getTauEuclidean(nodeLoc, lstNodeID)
-		elif (tau == 'SphereEuclidean'):
-			tau = getTauSphereEuclidean(nodeLoc, lstNodeID)
-		else:
-			print("Error: Incorrect type `tau`")
-			return None
-
-	# Initialize ==============================================================
-	k = 0
-	u = [0 for i in range(len(nodeIDs))]
-	d = None
-	costSum = None
-	L = None
-	oldL = None
-
-	# Calculate 1 tree ========================================================
-	def cal1Tree(weightArcs):
-		# Separate first node
-		arcsWithVertexOne = []
-		arcsWithoutVertexOne = []
-		for i in range(len(weightArcs)):
-			if (weightArcs[i][0] == 0 or weightArcs[i][1] == 0):
-				arcsWithVertexOne.append(weightArcs[i])
-			else:
-				arcsWithoutVertexOne.append(weightArcs[i])
-
-		# MST for the rest of vertices
-		mst = graphMST(arcsWithoutVertexOne)['mst']
-
-		# Find two cheapest arcs to vertex one
-		sortedArcswithVertexOne = []
-		for i in range(len(arcsWithVertexOne)):
-			heapq.heappush(sortedArcswithVertexOne, (arcsWithVertexOne[i][2], arcsWithVertexOne[i]))
-
-		# Build 1-tree
-		leastTwo = []
-		leastTwo.append(heapq.heappop(sortedArcswithVertexOne))
-		leastTwo.append(heapq.heappop(sortedArcswithVertexOne))
-
-		m1t = [i for i in mst]
-		m1t.append(leastTwo[0][1])
-		m1t.append(leastTwo[1][1])
-
-		# Calculate total cost
-		costSum = 0
-		for i in range(len(m1t)):
-			costSum += m1t[i][2]
-
-		# Arcs to neighbors
-		neighbors = convertArcs2Neighbor(m1t)
-		d = []
-		for i in range(len(nodeIDs)):
-			d.append(2 - len(neighbors[i]))
-
-		return {
-			'costSum': costSum,
-			'm1t': m1t,
-			'd': d
-		}
-
-	# Main iteration ==========================================================
-	continueFlag = True
-	while (continueFlag):
-		# Update cost of each edge
-		weightArcs = []
-		for i in range(len(nodeIDs)):
-			for j in range(len(nodeIDs)):
-				if (i != None and j != None and i < j):
-					weightArcs.append((i, j, tau[i, j] - u[i] - u[j]))
-
-		# Calculate 1-tree
-		oneTree = cal1Tree(weightArcs)
-
-		# Update L and d
-		costSum = oneTree['costSum']
-		m1t = oneTree['m1t']
-		uSum = sum(u)
-		if (L != None):
-			oldL = L
-		L = costSum + 2 * uSum
-		d = oneTree['d']
-
-		# update u
-		oldU = [i for i in u]
-		u = []
-		eff = subgradM * math.pow(subgradRho, k)
-		for i in range(len(nodeIDs)):
-			u.append(oldU[i] + eff * d[i])
-
-		# Check if continue
-		def allZero(d):
-			for i in d:
-				if (i != 0):
-					return False
-			return True
-		if (k >= stopK):
-			continueFlag = False
-		elif (oldL != None and abs(oldL - L) < stopEpsilon):
-			continueFlag = False
-		elif (allZero(d)):
-			continueFlag = False
-		else:
-			k += 1
-
-	return {
-		'lrLowerBound': costSum
 	}

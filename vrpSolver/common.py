@@ -4,16 +4,24 @@ import random
 from vrpSolver.const import *
 
 def rndInstance(
-	N: "Number of vertices",
+	N: "Number of vertices" = None,
+	nodeIDs: "A list of node IDs, `N` will be overwritten if `nodeIDs` is given" = None,
 	xRange: "A 2-tuple with minimum/maximum range of x" = (0, 100),
 	yRange: "A 2-tuple with minimum/maximum range of y" = (0, 100),
 	) -> "A set of nodes with id start from 0 to N":
+
+	# The Dictionary
 	nodeLoc = {}
-	for i in range(N):
+
+	# Node IDs
+	if (nodeIDs != None):
+		nodeIDs = [i for i in range(N)]
+
+	# Generate instance
+	for i in nodeIDs:
 		x = random.randrange(xRange[0], xRange[1])
 		y = random.randrange(yRange[0], yRange[1])
 		nodeLoc[i] = (x, y)
-
 	return nodeLoc
 
 def rndSeq(
@@ -21,6 +29,7 @@ def rndSeq(
 	s0		: "Integer, Staring index of sequence" = 0,
 	closed	: "Boolean, If the sequence is closed, if true, the last element is a duplicate of the first" = False,
 	) -> "Randomly generate sequence starting from `start'":
+
 	seq = [i for i in range(s0, N + s0)]
 	# Randomly swap
 	for i in range(N):
@@ -100,6 +109,15 @@ def getTauSphereEuclidean(
 		tau[i, None] = CONST_EPSILON
 
 	return tau
+
+def euclidean2D(
+	coord1	: "First coordinate, in (x, y)", 
+	coord2	: "Second coordinate, in (x, y)"
+	) -> "Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number":
+	if (coord1 != None and coord2 != None):
+		return math.sqrt((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2)
+	else:
+		return 0
 
 def sphereEuclidean2D(
 	coord1	: "First coordinate, in (lat, lon)", 

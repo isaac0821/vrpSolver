@@ -8,7 +8,7 @@ import datetime
 
 from vrpSolver.common import *
 from vrpSolver.graph.basic import *
-from vrpSolver.heuristic.TSP import *
+from vrpSolver.heuristic.consTSP import *
 
 def saTSP(
 	nodeLoc:	"Dictionary, returns the coordinate of given nodeID, \
@@ -27,7 +27,7 @@ def saTSP(
 				 3) String, 'FarthestNeighbor'" = 'Random',
 	initTemp:	"Float, Initial temperature" = None, 
 	lengTemp:	"Integer, Temperature length" = None,
-	neighRatio:	"A 4-tuple, sum to 1, (swap, exchange, rotate)" = (0.2, 0.2, 0.3),
+	neighRatio:	"A 3-tuple, sum to 1, (swap, exchange, rotate)" = (0.2, 0.2, 0.3),
 	coolRate:	"Float, Temperature drop rate, (0, 1)" = None,
 	stopType:	"List, with options as follows: \
 				 1) String, 'Final_Temperature' or \
