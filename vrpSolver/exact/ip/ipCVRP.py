@@ -29,14 +29,8 @@ def ipCVRP(
 					 2) Dictionary {(nodeID1, nodeID2): dist, ...}" = "Complete_Euclidean",
 	vehCap:			"Capacity of each vehicle" = None,
 	vehNum:			"Number of vehicles" = None,
-	vehicles: 		"Dictionary, return the detail info of given vehicleID, \
-						{\
-							vehID1: {'cap': c},\
-							vehID2: {'cap': c},\
-							... \
-						}" = None, 
 	fml:			"1) String 'Golden77' or \
-					 2) String 'Two-Index Flow' or \
+					 2) String 'Two-Index' or \
 					 3) String (not available) 'MultiCommodity Flow' or \
 					 4) String (not available) 'Set Partitioning'" = 'Golden77',
 
@@ -154,13 +148,17 @@ def _ipCVRPTwoIndex(nodes, depotID, customerID, edges, vehCap, vehNum, cutoffTim
 		ofv = CVRP.getObjective().getValue()
 		arcSet = []
 		for i, j in x:
-			if (x[i, j].X > 0.9):
+			if (x[i, j].X > 0.9 and x[i, j].X < 1.1):
 				arcSet.append((i, j))
+			elif (x[i, j].X > 1.9):
+				arcSet.append((i, j))
+				arcSet.append((j, i))
+		print(arcSet)
 		for k in range(1, vehNum + 1):
 			route[k] = [depotID]
 			while (len(arcSet) > 0):
 				cur = None
-				for arc in arcSet:					
+				for arc in arcSet:
 					if (arc[0] == route[k][-1]):
 						route[k].append(arc[1])
 						arcSet.remove(arc)

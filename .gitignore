@@ -82,6 +82,8 @@ target/
 # Data
 *.csv
 *.xlsx
+*.txt
+*.vrp
 
 # Backups
 backup

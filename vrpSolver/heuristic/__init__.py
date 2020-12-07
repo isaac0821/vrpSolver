@@ -1,2 +1,2 @@
 from .consTSP import *
-from .consVRP import *
+from .consCVRP import *
