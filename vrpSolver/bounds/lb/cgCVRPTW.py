@@ -5,6 +5,7 @@
 ###############################################################################
 
 import math
+import datetime
 from gurobipy import *
 
 from vrpSolver.const import *
@@ -23,7 +24,9 @@ def cgCVRPTW(
 	edges:			"1) String (default) 'Complete_Euclidean' or \
 					 2) Dictionary {(nodeID1, nodeID2): dist, ...}" = "Complete_Euclidean",
 	vehCap:			"Capacity of each vehicle" = None,
-	vehNum:			"Number of vehicles" = None
+	vehNum:			"Number of vehicles" = None,
+	cutoffTimeSub:	"Cutoff time (s) for subproblem, if no incumbent sol found within cutoff time, stop adding variables" = 10,
+	cutoffTimeMas:	"Accumulated runtime (s) for entire problem" = 300,
 	) -> "Exact solution for VRP":
 
 	# Define nodes ============================================================
@@ -116,6 +119,7 @@ def cgCVRPTW(
 		# Solve
 		# sub.write('sub.lp')
 		sub.setParam("OutputFlag", 0)
+		sub.setParam(GRB.Param.TimeLimit, cutoffTimeSub)
 		sub.modelSense = GRB.MINIMIZE
 		sub.optimize()
 
@@ -154,8 +158,44 @@ def cgCVRPTW(
 					a[i] = 1
 				else:
 					a[i] = 0
-		else:
-			print("WTF???")
+		elif (sub.status == GRB.status.TIME_LIMIT):
+			try:
+				print("Current best solution")
+				ofv = sub.getObjective().getValue()
+				arcSet = []
+				for i, j in w:
+					if (w[i, j].x > 0.9):
+						c += edges[i, j]
+						arcSet.append((i, j))
+
+				route = [depotID]
+				while (len(arcSet) > 0):
+					cur = None
+					for arc in arcSet:					
+						if (arc[0] == route[-1]):
+							route.append(arc[1])
+							arcSet.remove(arc)
+							cur = arc[1]
+							break
+						if (arc[1] == route[-1]):
+							route.append(arc[0])
+							arcSet.remove(arc)
+							cur = arc[0]
+							break
+					if (cur == depotID):
+						break
+				a = {}
+				for i in customerID:
+					if (i in route):
+						a[i] = 1
+					else:
+						a[i] = 0
+			except:
+				print("No incumbent for subproblem")
+				ofv = None
+				c = None
+				a = None
+				route = None
 		return {
 			'ofv': ofv,
 			'cr': c,
@@ -197,15 +237,17 @@ def cgCVRPTW(
 		cons[i] = CVRPTW.addConstr(quicksum(a[i, r] * y[r] for r in y) == 1)
 	CVRPTW.update()
 
+	# Initial Optimize
+	CVRPTW.setParam("OutputFlag", 0)
+	CVRPTW.modelSense = GRB.MINIMIZE
+	CVRPTW.optimize()
+
 	# Now solve the Master (Set Partition Formulation) problem ================
+	accTime = 0
 	canAddVarFlag = True
 	while(canAddVarFlag):
+		startIter = datetime.datetime.now()
 		canAddVarFlag = False
-
-		# Optimize
-		CVRPTW.setParam("OutputFlag", 0)
-		CVRPTW.modelSense = GRB.MINIMIZE
-		CVRPTW.optimize()
 		
 		if (CVRPTW.status == GRB.status.OPTIMAL):
 			# Solve subproblem
@@ -214,30 +256,39 @@ def cgCVRPTW(
 				pi[constraint] = cons[constraint].Pi
 			subproblem = pricing(pi)
 			print(subproblem['route'])
-			
-			# Add route into route set
-			if (cons[depotID].Pi - subproblem['ofv'] > CONST_EPSILON):
-				canAddVarFlag = True
-				newRouteIndex = max(list(y.keys())) + 1
-				c[newRouteIndex] = subproblem['cr']
-				y[newRouteIndex] = CVRPTW.addVar(vtype=GRB.CONTINUOUS, obj=c[newRouteIndex])
-				CVRPTW.update()
-				for i in customerID:
-					a[i, newRouteIndex] = subproblem['ai'][i]
-				routes[newRouteIndex] = subproblem['route']
+			if (subproblem['ofv'] != None):	
+				# Add route into route set
+				if (cons[depotID].Pi - subproblem['ofv'] > CONST_EPSILON):
+					canAddVarFlag = True
+					newRouteIndex = max(list(y.keys())) + 1
+					c[newRouteIndex] = subproblem['cr']
+					y[newRouteIndex] = CVRPTW.addVar(vtype=GRB.CONTINUOUS, obj=c[newRouteIndex])
+					CVRPTW.update()
+					for i in customerID:
+						a[i, newRouteIndex] = subproblem['ai'][i]
+					routes[newRouteIndex] = subproblem['route']
 
-				# Update columns, add one more
-				CVRPTW.chgCoeff(cons[depotID], y[newRouteIndex], -1)
-				for i in customerID:
-					CVRPTW.chgCoeff(cons[i], y[newRouteIndex], a[i, newRouteIndex])
-				CVRPTW.update()
+					# Update columns, add one more
+					CVRPTW.chgCoeff(cons[depotID], y[newRouteIndex], -1)
+					for i in customerID:
+						CVRPTW.chgCoeff(cons[i], y[newRouteIndex], a[i, newRouteIndex])
+					CVRPTW.update()
+				else:
+					canAddVarFlag = False
 			else:
 				canAddVarFlag = False
 		else:
-			break
+			canAddVarFlag = False
+
+		# Re-optimize
+		CVRPTW.optimize()
+		oneIter = (datetime.datetime.now() - startIter).total_seconds()
+		accTime += oneIter
+		if (accTime > cutoffTimeMas):
+			canAddVarFlag = False
 
 	# Interpret solution for lower bound ======================================
-	lb = CVRPTW.getObjective().getValue()
+	ColGen = CVRPTW.getObjective().getValue()
 
 	# Early branching heuristic ===============================================
 	for i in y:
@@ -255,11 +306,11 @@ def cgCVRPTW(
 				'length': c[i]
 			}
 			acc += 1
-	ub = CVRPTW.getObjective().getValue()
+	EarlyBraching = CVRPTW.getObjective().getValue()
 
 	return {
-		'lb': lb,
-		'ub': ub,
+		'ColGen': ColGen,
+		'EarlyBraching': EarlyBraching,
 		'routes': solRoute
 	}
 

@@ -130,7 +130,7 @@ def _ipCVRPTwoIndex(nodes, depotID, customerID, edges, vehCap, vehNum, cutoffTim
 				for (i, j) in x:
 					if (i in comp and j in comp):
 						edgesInComp.append((i, j))
-				model.cbLazy(quicksum(x[i, j] for (i, j) in edgesInComp) <= len(comp) - vS)
+				model.cbLazy(quicksum(x[i, j] for (i, j) in edgesInComp if i < j) <= len(comp) - vS)
 
 	# CVRP with callback ======================================================
 	if (cutoffTime != None):
@@ -187,8 +187,9 @@ def _ipCVRPTwoIndex(nodes, depotID, customerID, edges, vehCap, vehNum, cutoffTim
 		'ofv': ofv,
 		'route': route,
 		'gap': gap,
-		'lowerBound': lb,
-		'upperBound': ub,
+		'lb': lb,
+		'ub': ub,
+		'runtime': runtime
 	}
 
 def _ipCVRPGolden77(nodes, depotID, customerID, edges, vehCap, vehNum, cutoffTime):
@@ -301,7 +302,7 @@ def _ipCVRPGolden77(nodes, depotID, customerID, edges, vehCap, vehNum, cutoffTim
 		'ofv': ofv,
 		'route': route,
 		'gap': gap,
-		'lowerBound': lb,
-		'upperBound': ub,
+		'lb': lb,
+		'ub': ub,
 		'runtime': runtime
 	}
