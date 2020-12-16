@@ -4,10 +4,6 @@
 # ipCVRP - Basic Integer Programming Method for Solving CVRP                  #
 # - 12/03/2020 Add Golden77                                                   #
 # - 12/04/2020 Add Two-Index Flow                                             #
-# - 12/03/2020 Add MTZ                                                        #
-# - 11/01/2020 Add MultiCommodityFlow                                         #
-# - 11/01/2020 Add ShortestPath                                               #
-# - 11/01/2020 Add QAP                                                        #
 ###############################################################################
 
 from gurobipy import *
