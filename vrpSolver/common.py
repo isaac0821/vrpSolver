@@ -3,27 +3,6 @@ import random
 
 from vrpSolver.const import *
 
-def rndInstance(
-	N: "Number of vertices" = None,
-	nodeIDs: "A list of node IDs, `N` will be overwritten if `nodeIDs` is given" = None,
-	xRange: "A 2-tuple with minimum/maximum range of x" = (0, 100),
-	yRange: "A 2-tuple with minimum/maximum range of y" = (0, 100),
-	) -> "A set of nodes with id start from 0 to N":
-
-	# The Dictionary
-	nodeLoc = {}
-
-	# Node IDs
-	if (nodeIDs != None):
-		nodeIDs = [i for i in range(N)]
-
-	# Generate instance
-	for i in nodeIDs:
-		x = random.randrange(xRange[0], xRange[1])
-		y = random.randrange(yRange[0], yRange[1])
-		nodeLoc[i] = (x, y)
-	return nodeLoc
-
 def rndSeq(
 	N		: "Integer, Length of sequence",
 	s0		: "Integer, Staring index of sequence" = 0,
@@ -73,15 +52,19 @@ def randomPick(coefficients):
 	return index
 
 def getTauEuclidean(
-	dicNodeLoc	: "Dictionary, {nodeID1: (x, y), ...}",
-	lstNodeID	: "List, [nodeID1, nodeID2, ...]"
+	nodes:		"Dictionary, returns the coordinate of given nodeID, \
+					{\
+						nodeID1: {'loc': (x, y)}, \
+						nodeID2: {'loc': (x, y)}, \
+						... \
+					}" = None
 	) -> "Dictionary, {(nodeID1, nodeID2): dist, ...}":
-
 	tau = {}
+	lstNodeID = list(nodes.keys())
 	for i in lstNodeID:
 		for j in lstNodeID:
 			if (i != j):
-				d = math.sqrt((dicNodeLoc[i][0] - dicNodeLoc[j][0]) ** 2 + (dicNodeLoc[i][1] - dicNodeLoc[j][1]) ** 2)
+				d = math.sqrt((nodes[i]['loc'][0] - nodes[j]['loc'][0]) ** 2 + (nodes[i]['loc'][1] - nodes[j]['loc'][1]) ** 2)
 				tau[i, j] = d
 				tau[j, i] = d
 			else:
@@ -92,15 +75,19 @@ def getTauEuclidean(
 	return tau
 
 def getTauSphereEuclidean(
-	dicNodeLoc	: "Dictionary, {nodeID1: (lat, lon), ...}",
-	lstNodeID	: "List, [nodeID1, nodeID2, ...]"
+	nodes:		"Dictionary, returns the coordinate of given nodeID, \
+					{\
+						nodeID1: {'loc': (x, y)}, \
+						nodeID2: {'loc': (x, y)}, \
+						... \
+					}" = None
 	) -> "Dictionary, {(nodeID1, nodeID2): dist, ...}":
-	
 	tau = {}
+	lstNodeID = list(nodes.keys())
 	for i in lstNodeID:
 		for j in lstNodeID:
 			if (i != j):
-				d = sphereEuclidean2D(dicNodeLoc[i], dicNodeLoc[j])
+				d = sphereEuclidean2D(nodes[i]['loc'], nodes[j]['loc'])
 				tau[i, j] = d
 				tau[j, i] = d
 			else:
@@ -111,8 +98,8 @@ def getTauSphereEuclidean(
 	return tau
 
 def euclidean2D(
-	coord1	: "First coordinate, in (x, y)", 
-	coord2	: "Second coordinate, in (x, y)"
+	coord1: "First coordinate, in (x, y)", 
+	coord2: "Second coordinate, in (x, y)"
 	) -> "Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number":
 	if (coord1 != None and coord2 != None):
 		return math.sqrt((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2)
@@ -120,8 +107,8 @@ def euclidean2D(
 		return 0
 
 def sphereEuclidean2D(
-	coord1	: "First coordinate, in (lat, lon)", 
-	coord2	: "Second coordinate, in (lat, lon)"
+	coord1: "First coordinate, in (lat, lon)", 
+	coord2: "Second coordinate, in (lat, lon)"
 	) -> "Gives a Euclidean distance based on two lat/lon coords, if two coordinates are the same, return a small number":
 	if (coord1 != None and coord2 != None):
 		R = 3958.8  # Earth radius in miles

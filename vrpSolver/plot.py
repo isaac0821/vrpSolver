@@ -5,6 +5,45 @@ def randomColor():
 	color = "#%06x" % random.randint(0, 0xFFFFFF)
 	return color
 
+def plotTSP(
+	nodes:		"Dictionary, returns the coordinate of given nodeID, \
+					{\
+						nodeID1: {'loc': (x, y)}, \
+						nodeID2: {'loc': (x, y)}, \
+						... \
+					}" = None, 
+	seq:	"List of visiting sequences" = None,
+	color:	"1) String 'Random', or\
+			 2) List of color of seq i" = 'Random'
+	) -> "Draw TSP solution":
+
+	# Draw nodes ==============================================================
+	x = []
+	y = []
+	for node in nodes:
+		x.append(nodes[node]['loc'][0])
+		y.append(nodes[node]['loc'][1])
+		plt.annotate(node, (nodes[node]['loc'][0], nodes[node]['loc'][1]))
+	plt.plot(x, y, 'ro')
+
+	# Draw Seq ================================================================
+	if (seq != None):
+		for i in range(len(seq)):
+			lx = []
+			ly = []
+			newColor = randomColor()
+			for s in range(len(seq[i]) - 1):
+				lx.append(nodes[seq[i][s]]['loc'][0])
+				ly.append(nodes[seq[i][s]]['loc'][1])
+			lx.append(nodes[seq[i][len(seq[i]) - 1]]['loc'][0])
+			ly.append(nodes[seq[i][len(seq[i]) - 1]]['loc'][1])
+			if (color == 'Random'):
+				plt.plot(lx, ly, color=newColor)
+			else:
+				plt.plot(lx, ly, color=color[i])
+
+	return
+
 def plotSeq(
 	nodeLoc:"Dictionary, returns the coordinate of given nodeID, \
 			{\
@@ -12,8 +51,6 @@ def plotSeq(
 				nodeID2: (lat, lon), \
 				... \
 			}" = None, 
-	nodeIDs:"1) String (default) 'All', or \
-			 2) A list of node IDs" = 'All',
 	seq:	"List of visiting sequences" = None,
 	color:	"1) String 'Random', or\
 			 2) List of color of seq i" = 'Random'

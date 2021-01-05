@@ -7,8 +7,8 @@
 import datetime
 
 from vrpSolver.common import *
-from vrpSolver.graph.basic import *
-from vrpSolver.heuristic.consTSP import *
+from vrpSolver.graph import *
+from vrpSolver.heuristic import *
 
 def saTSP(
 	nodeLoc:	"Dictionary, returns the coordinate of given nodeID, \
@@ -259,4 +259,3 @@ def saTSP(
 		'endCriteria': endCriteria,
 		'ofvCurve': ofvCurve
 	}
-
