@@ -20,9 +20,9 @@ import heapq
 import math
 from gurobipy import *
 
-from vrpSolver.const import *
-from vrpSolver.common import *
-from vrpSolver.graph import *
+from .const import *
+from .common import *
+from .graph import *
 
 def ipTSP(
 	nodes:		"Dictionary, returns the coordinate of given nodeID, \

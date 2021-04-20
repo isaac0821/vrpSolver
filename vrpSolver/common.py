@@ -1,7 +1,7 @@
 import math
 import random
 
-from vrpSolver.const import *
+from .const import *
 
 def rndSeq(
 	N		: "Integer, Length of sequence",

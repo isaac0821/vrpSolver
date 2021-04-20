@@ -13,8 +13,8 @@
 
 import heapq
 
-from vrpSolver.common import *
-from vrpSolver.graph import *
+from .common import *
+from .graph import *
 
 def consTSP(
 	nodes:		"Dictionary, returns the coordinate of given nodeID, \
@@ -36,7 +36,7 @@ def consTSP(
 				 8) String 'Random'" = 'Christofides'
 	) -> "Constructive heuristic solution for TSP":
 
-	# Define edges ==============================================================
+	# Define edges ============================================================
 	if (type(edges) is not dict):
 		if (edges == 'Euclidean'):
 			edges = getTauEuclidean(nodes)
@@ -164,7 +164,6 @@ def _consTSPDepthFirst(weightArcs):
 
 	return {
 		'ofv': ofv,
-		'mst': mst,
 		'seq': seq
 	}
 
@@ -208,12 +207,8 @@ def _consTSPChristofides(weightArcs):
 
 	return {
 		'ofv': ofv,
-		'seq': seq,
-		'mst': mst,
-		'newGraph': newGraph,
-		'matching': minMatching,
+		'seq': seq
 	}
-
 
 def consVRP(
 	nodes: 			"Dictionary, returns the detail info of given nodeID, \
@@ -401,3 +396,76 @@ def _consVRPClarkeWright(nodes, depotID, customerID, edges, vehCap, vehNum, fixV
 def localTSP():
 
 	return
+
+def consTSPPD(
+	nodes:		"Dictionary, returns the coordinate of given nodeID, \
+					{\
+						nodeID1: {'loc': (x, y)}, \
+						nodeID2: {'loc': (x, y)}, \
+						... \
+					}" = None, 
+	edges:		"1) String (default) 'Euclidean' or \
+				 2) String 'SphereEuclidean' or \
+				 3) Dictionary {(nodeID1, nodeID2): dist, ...}" = "Euclidean",
+	depot:		"Node ID of depot" = None,
+	reqs:		"Dictionary, returns the pairs of pickup and delivery node IDs, \
+					{\
+						reqID1: {'pickup': nodeID, 'delivery': nodeID, 'size': size}, \
+						reqID2: {'pickup': nodeID, 'delivery': nodeID, 'size': size}, \
+						... \
+					}" = None,
+	algo:		"1) String 'CheapestFeasibleInsertion' or \
+				 2) String 'Mosheiov99' or \
+				 3) " = None,
+	) -> "":
+
+	return res
+
+# [Constructing]
+def _consTSPPDCheapestFeasibleInsertion(nodeIDs, edges, reqs, veh):
+	ofv = 0
+	seq = []
+
+	# Get all delivery locs ===================================================
+	deliveryIDs = []
+	for r in reqs:
+		deliveryIDs.append(reqs[r]['delivery'])
+
+	# Create a route using all delivered locs =================================
+	seq = _consTSPNearestNeighbor(deliveryIDs, edges)
+
+	# Create initial action list with all delivery actions ====================
+	# for i in 
+
+	# Subroutine to cal the cost of inserting a pickup location ===============
+	def insertPickup(req, actions):
+
+		return {
+			'newSeq': newSeq
+		}
+
+	# Cheapest insertion, each iteration insert a pickup location =============
+	finishedReqs = []
+	updatedSeq = [i for i in deliveryIDs]
+	while (len(finishedReqs) < len(reqs)):
+		tmpCost = None
+		tmpUpdatedSeq = None
+		# For each request, try to insert the pickup location
+		for r in reqs:
+			if (r not in finishedReqs):
+				pickupNode = reqs[r]['pickup']
+				res = insertPickup(r, updatedSeq)
+				# If this request is feasible to be inserted and the cost is cheaper
+				if (res['feasible'] and (res['cost'] < tmpCost or tmpCost == None)):
+					tmpCost = res['cost']
+					tmpUpdatedSeq = res['newSeq']
+				# If at least one request be added into the seq
+				if (tmpCost != None):
+					updatedSeq = tmpUpdatedSeq
+					finishedReqs.append(r)
+
+	return {
+		'ofv': ofv,
+		'seq': seq
+	}
+

@@ -6,9 +6,9 @@
 
 import datetime
 
-from vrpSolver.common import *
-from vrpSolver.graph import *
-from vrpSolver.heuristic import *
+from .common import *
+from .graph import *
+from .heuristic import *
 
 def saTSP(
 	nodeLoc:	"Dictionary, returns the coordinate of given nodeID, \

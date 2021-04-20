@@ -1,10 +1,10 @@
 import random
 
 def rndTSPInstance(
-	N: "Number of vertices" = None,
-	nodeIDs: "A list of node IDs, `N` will be overwritten if `nodeIDs` is given" = None,
-	xRange: "A 2-tuple with minimum/maximum range of x" = (0, 100),
-	yRange: "A 2-tuple with minimum/maximum range of y" = (0, 100),
+	N:			 "Number of vertices" = None,
+	nodeIDs: 	"A list of node IDs, `N` will be overwritten if `nodeIDs` is given" = None,
+	xRange: 	"A 2-tuple with minimum/maximum range of x" = (0, 100),
+	yRange: 	"A 2-tuple with minimum/maximum range of y" = (0, 100),
 	) -> "A set of nodes with id start from 0 to N":
 
 	# The Dictionary
