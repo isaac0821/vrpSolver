@@ -195,12 +195,12 @@ def graphMST(
 
 	# Call MST ================================================================
 	if (algo == 'Krusal'):
-		res = mstKrusal(weightArcs, numVertices)
+		res = _mstKrusal(weightArcs, numVertices)
 	else:
 		print("Error: Incorrect or not available MST option!")
 	return res
 
-def mstKrusal(weightArcs, numVertices):
+def _mstKrusal(weightArcs, numVertices):
 	# Initialize ==============================================================
 	mst = []
 	val = 0

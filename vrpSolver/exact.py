@@ -45,7 +45,7 @@ def ipTSP(
 				 2) (default) None, no time limit" = None
 	) -> "Exact solution for TSP":
 
-	# Define edges ============================================================`==
+	# Define edges ============================================================
 	if (type(edges) is not dict):
 		if (edges == 'Euclidean'):
 			edges = getTauEuclidean(nodes)
@@ -752,7 +752,6 @@ def ipCVRP(
 					 2) String 'Two-Index' or \
 					 3) String (not available) 'MultiCommodity Flow' or \
 					 4) String (not available) 'Set Partitioning'" = 'Golden77',
-
 	cutoffTime: 	"1) Double, in seconds or \
 					 2) (default) None, no time limit" = None
 	) -> "Exact solution for TSP":

@@ -23,15 +23,15 @@ def plotNodes(
 	# If no based matplotlib figure, define boundary ==========================
 	if (fig == None or ax == None):
 		fig, ax = plt.subplots()
-		allLats = []
-		allLons = []
+		allX = []
+		allY = []
 		for i in nodes:
-			allLats.append(nodes[i][0])
-			allLons.append(nodes[i][1])
-		xMin = min(allLons) - 0.25
-		xMax = max(allLons) + 0.25
-		yMin = min(allLats) - 0.25
-		yMax = max(allLats) + 0.25
+			allX.append(nodes[i]['loc'][0])
+			allY.append(nodes[i]['loc'][1])
+		xMin = min(allX) - 0.25
+		xMax = max(allX) + 0.25
+		yMin = min(allY) - 0.25
+		yMax = max(allY) + 0.25
 		xSpan = None
 		ySpan = None
 		if (xMax - xMin > yMax - yMin):
@@ -80,17 +80,17 @@ def plotArcs(
 	# If no based matplotlib figure, define boundary ==========================
 	if (fig == None or ax == None):
 		fig, ax = plt.subplots()
-		allLats = []
-		allLons = []
+		allX = []
+		allY = []
 		for i in arcs:
-			allLats.append(i[0][0])
-			allLons.append(i[0][1])
-			allLats.append(i[1][0])
-			allLons.append(i[1][1])
-		xMin = min(allLons) - 0.25
-		xMax = max(allLons) + 0.25
-		yMin = min(allLats) - 0.25
-		yMax = max(allLats) + 0.25
+			allX.append(i[0][0])
+			allY.append(i[0][1])
+			allX.append(i[1][0])
+			allY.append(i[1][1])
+		xMin = min(allX) - 0.25
+		xMax = max(allX) + 0.25
+		yMin = min(allY) - 0.25
+		yMax = max(allY) + 0.25
 		xSpan = None
 		ySpan = None
 		if (xMax - xMin > yMax - yMin):
@@ -140,15 +140,15 @@ def plotRoutes(
 	# If no based matplotlib figure, define boundary ==========================
 	if (fig == None or ax == None):
 		fig, ax = plt.subplots()
-		allLats = []
-		allLons = []
+		allX = []
+		allY = []
 		for i in seq:
-			allLats.append(nodes[i]['loc'][0])
-			allLons.append(nodes[i]['loc'][1])
-		xMin = min(allLons) - 0.25
-		xMax = max(allLons) + 0.25
-		yMin = min(allLats) - 0.25
-		yMax = max(allLats) + 0.25
+			allX.append(nodes[i]['loc'][0])
+			allY.append(nodes[i]['loc'][1])
+		xMin = min(allX) - 0.25
+		xMax = max(allX) + 0.25
+		yMin = min(allY) - 0.25
+		yMax = max(allY) + 0.25
 		xSpan = None
 		ySpan = None
 		if (xMax - xMin > yMax - yMin):
@@ -168,10 +168,10 @@ def plotRoutes(
 		lx = []
 		ly = []
 		for s in range(len(seq) - 1):
-			lx.append(nodes[seq[s]]['loc'][1])
-			ly.append(nodes[seq[s]]['loc'][0])
-		lx.append(nodes[seq[len(seq) - 1]]['loc'][1])
-		ly.append(nodes[seq[len(seq) - 1]]['loc'][0])
+			lx.append(nodes[seq[s]]['loc'][0])
+			ly.append(nodes[seq[s]]['loc'][1])
+		lx.append(nodes[seq[len(seq) - 1]]['loc'][0])
+		ly.append(nodes[seq[len(seq) - 1]]['loc'][1])
 		if (color == 'Random'):
 			ax.plot(lx, ly, color=rndColor)
 		else:
@@ -180,10 +180,10 @@ def plotRoutes(
 	# Draw arrows =============================================================
 	if (seq != None and len(seq) > 0):
 		for s in range(len(seq) - 1):
-			x1 = nodes[seq[s]]['loc'][1]
-			y1 = nodes[seq[s]]['loc'][0]
-			x2 = nodes[seq[s + 1]]['loc'][1]
-			y2 = nodes[seq[s + 1]]['loc'][0]
+			x1 = nodes[seq[s]]['loc'][0]
+			y1 = nodes[seq[s]]['loc'][1]
+			x2 = nodes[seq[s + 1]]['loc'][0]
+			y2 = nodes[seq[s + 1]]['loc'][1]
 			dx = x2 - x1
 			dy = y2 - y1
 			if (color == 'Random'):
@@ -226,17 +226,17 @@ def plotReqs(
 	# If no based matplotlib figure, define boundary ==========================
 	if (fig == None or ax == None):
 		fig, ax = plt.subplots()
-		allLats = []
-		allLons = []
+		allX = []
+		allY = []
 		for r in reqs:
-			allLats.append(nodes[reqs[r]['pickup']]['loc'][0])
-			allLats.append(nodes[reqs[r]['delivery']]['loc'][0])
-			allLons.append(nodes[reqs[r]['pickup']]['loc'][1])
-			allLons.append(nodes[reqs[r]['delivery']]['loc'][1])
-		xMin = min(allLons) - 0.25
-		xMax = max(allLons) + 0.25
-		yMin = min(allLats) - 0.25
-		yMax = max(allLats) + 0.25
+			allX.append(nodes[reqs[r]['pickup']]['loc'][0])
+			allX.append(nodes[reqs[r]['delivery']]['loc'][0])
+			allY.append(nodes[reqs[r]['pickup']]['loc'][1])
+			allY.append(nodes[reqs[r]['delivery']]['loc'][1])
+		xMin = min(allX) - 0.25
+		xMax = max(allX) + 0.25
+		yMin = min(allY) - 0.25
+		yMax = max(allY) + 0.25
 		xSpan = None
 		ySpan = None
 		if (xMax - xMin > yMax - yMin):
@@ -252,10 +252,10 @@ def plotReqs(
 
 	# Each request will be plot as arrow ======================================
 	for r in reqs:
-		x1 = nodes[reqs[r]['pickup']]['loc'][1]
-		y1 = nodes[reqs[r]['pickup']]['loc'][0]
-		x2 = nodes[reqs[r]['delivery']]['loc'][1]
-		y2 = nodes[reqs[r]['delivery']]['loc'][0]
+		x1 = nodes[reqs[r]['pickup']]['loc'][0]
+		y1 = nodes[reqs[r]['pickup']]['loc'][1]
+		x2 = nodes[reqs[r]['delivery']]['loc'][0]
+		y2 = nodes[reqs[r]['delivery']]['loc'][1]
 		dx = x2 - x1
 		dy = y2 - y1
 
@@ -294,15 +294,15 @@ def plotActions(
 	# If no based matplotlib figure, define boundary ==========================
 	if (fig == None or ax == None):
 		fig, ax = plt.subplots()
-		allLats = []
-		allLons = []
+		allX = []
+		allY = []
 		for r in actions:
-			allLats.append(nodes[r[2]]['loc'][0])
-			allLons.append(nodes[r[2]]['loc'][1])
-		xMin = min(allLons) - 0.25
-		xMax = max(allLons) + 0.25
-		yMin = min(allLats) - 0.25
-		yMax = max(allLats) + 0.25
+			allX.append(nodes[r[2]]['loc'][0])
+			allY.append(nodes[r[2]]['loc'][1])
+		xMin = min(allX) - 0.25
+		xMax = max(allX) + 0.25
+		yMin = min(allY) - 0.25
+		yMax = max(allY) + 0.25
 		xSpan = None
 		ySpan = None
 		if (xMax - xMin > yMax - yMin):
