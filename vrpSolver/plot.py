@@ -5,6 +5,115 @@ def randomColor():
 	color = "#%06x" % random.randint(0, 0xFFFFFF)
 	return color
 
+def plotGantt(
+	fig:		"Based matplotlib figure object" = None,
+	ax:			"Based matplotlib ax object" = None,
+	gantt:		"List of dictionaries, in the following format\
+					[{\
+						'entityID': entityID, \
+						'timeWindow': [startTime, endTime], \
+						'color': color, \
+						'style': 'solid' \
+					}, ... , \
+					{\
+						'entityID': entityID, \
+						'timeStamps': [timeStamp1, timeStamp2, ..., timeStampN], \
+						'color': color, \
+						'style': 'solid' \
+					}]\
+				" = None,
+	entities:	"The Gantt chart will be drawn in this order, if None, takes the entities in `gantt`" = None,
+	startTime:	"Start time of Gantt, default to be 0, if None, use the earliest time in `gantt`" = 0,
+	endTime:	"End time of Gantt, default to be None, if None, use the latest time in `gantt`" = None,
+	width:		"Width of the figure" = 12,
+	height:		"Height of the figure" = 5,
+	saveFigPath:"1) None, if not exporting image, or \
+				 2) String, the path for exporting image" = None
+	) -> "Given a Gantt dictionary, plot Gantt":
+
+	# Precalculate ============================================================
+	s = None
+	e = None
+	entList = []
+	for g in gantt:
+		if (g['entityID'] not in entList):
+			entList.append(g['entityID'])
+		if ('timeWindow' in g):
+			if (s == None or s > g['timeWindow'][0]):
+				s = g['timeWindow'][0]
+			if (e == None or e < g['timeWindow'][1]):
+				e = g['timeWindow'][1]
+		elif ('timeStamps' in g):
+			if (s == None or s > g['timeStamps'][0]):
+				s = g['timeStamps'][0]
+			if (e == None or e < g['timeStamps'][-1]):
+				e = g['timeStamps'][-1]
+
+	if (entities != None):
+		for g in entList:
+			if (g not in entities):
+				print("ERROR: Missing entity in `entities`")
+				return
+	else:
+		entities = [i for i in entList]
+	if (startTime != None):
+		if (startTime > s):
+			print("WARNING: `startTime` later than earliest time in `gantt`, auto-fixed")
+			startTime = s
+	else:
+		startTime = s
+	if (endTime != None):
+		if (endTime < e):
+			print("WARNING: `endTime` earlier than latest time in `gantt`, auto-fixed")
+			endTime = e
+	else:
+		endTime = e
+
+	# If no based matplotlib figure, define fig size ==========================
+	if (fig == None or ax == None):
+		fig, ax = plt.subplots()
+		fig.set_figheight(height)
+		fig.set_figwidth(width)
+		ax.set_xlim(startTime, endTime)
+		ax.set_ylim(0, len(entities))
+
+	# Set axis ================================================================
+	ax.set_yticks([i + 0.5 for i in range(len(entities))])
+	entities.reverse()
+	ax.set_yticklabels(entities)
+	entities.reverse()
+	ax.set_xlabel("Time")
+
+	# Loop through `gantt` and draw gantt =====================================
+	for g in gantt:
+		bottom = len(entities) - entities.index(g['entityID']) - 1
+		top = len(entities) - entities.index(g['entityID'])
+		if ('timeWindow' in g):
+			s = g['timeWindow'][0]
+			e = g['timeWindow'][1]
+			x = [s, s, e, e, s]
+			y = [bottom, top, top, bottom, bottom]
+			ax.plot(x, y, color = 'black', linewidth = 2)
+			ax.fill(x, y, color = g['color'])
+			if (g['style'] == 'shadow'):
+				ax.fill(x, y, hatch = "/", fill=False)
+		elif ('timeStamps' in g):
+			for i in range(len(g['timeStamps']) - 1):
+				s = g['timeStamps'][i]
+				e = g['timeStamps'][i + 1]
+				x = [s, s, e, e, s]
+				y = [bottom, top, top, bottom, bottom]
+				ax.plot(x, y, color = 'black', linewidth = 2)
+				ax.fill(x, y, color = g['color'])
+				if (g['style'] == 'shadow'):
+					ax.fill(x, y, hatch = "/", fill=False)
+
+	# Save figure =============================================================
+	if (saveFigPath != None):
+		fig.savefig(saveFigPath)
+
+	return fig, ax
+
 def plotNodes(
 	fig:		"Based matplotlib figure object" = None,
 	ax:			"Based matplotlib ax object" = None,

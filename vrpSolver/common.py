@@ -121,4 +121,3 @@ def sphereEuclidean2D(
 		return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 	else:
 		return CONST_EPSILON
-
