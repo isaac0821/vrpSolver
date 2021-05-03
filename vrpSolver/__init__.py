@@ -1,4 +1,10 @@
-__version__ = "0.0.1"
+__version__ = "0.0.2"
+__author__ = "Lan Peng"
+
+# History =====================================================================
+# v0.0.1 - Initial upload
+# v0.0.2 - Add `plotGantt()` function to plot Gantt chart
+# =============================================================================
 
 from .common import *
 from .const import *

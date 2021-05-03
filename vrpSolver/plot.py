@@ -12,12 +12,14 @@ def plotGantt(
 					[{\
 						'entityID': entityID, \
 						'timeWindow': [startTime, endTime], \
+						'desc': description of the window,\
 						'color': color, \
 						'style': 'solid' \
 					}, ... , \
 					{\
 						'entityID': entityID, \
 						'timeStamps': [timeStamp1, timeStamp2, ..., timeStampN], \
+						'desc': [List of descriptions, correspond to `timeStamps`],\
 						'color': color, \
 						'style': 'solid' \
 					}]\
@@ -74,8 +76,8 @@ def plotGantt(
 		fig, ax = plt.subplots()
 		fig.set_figheight(height)
 		fig.set_figwidth(width)
-		ax.set_xlim(startTime, endTime)
-		ax.set_ylim(0, len(entities))
+		ax.set_xlim(startTime, endTime + (endTime - startTime) * 0.152)
+		ax.set_ylim(0, len(entities) + 0.2)
 
 	# Set axis ================================================================
 	ax.set_yticks([i + 0.5 for i in range(len(entities))])
@@ -87,7 +89,7 @@ def plotGantt(
 	# Loop through `gantt` and draw gantt =====================================
 	for g in gantt:
 		bottom = len(entities) - entities.index(g['entityID']) - 1
-		top = len(entities) - entities.index(g['entityID'])
+		top = len(entities) - entities.index(g['entityID']) - 0.5
 		if ('timeWindow' in g):
 			s = g['timeWindow'][0]
 			e = g['timeWindow'][1]
@@ -95,6 +97,7 @@ def plotGantt(
 			y = [bottom, top, top, bottom, bottom]
 			ax.plot(x, y, color = 'black', linewidth = 2)
 			ax.fill(x, y, color = g['color'])
+			ax.annotate(g['desc'], (s, top + 0.1))
 			if (g['style'] == 'shadow'):
 				ax.fill(x, y, hatch = "/", fill=False)
 		elif ('timeStamps' in g):
@@ -104,9 +107,11 @@ def plotGantt(
 				x = [s, s, e, e, s]
 				y = [bottom, top, top, bottom, bottom]
 				ax.plot(x, y, color = 'black', linewidth = 2)
+				ax.annotate(g['desc'][i], (s, top + 0.1))
 				ax.fill(x, y, color = g['color'])
 				if (g['style'] == 'shadow'):
 					ax.fill(x, y, hatch = "/", fill=False)
+			ax.annotate(g['desc'][-1], (g['timeStamps'][-1], top + 0.1))
 
 	# Save figure =============================================================
 	if (saveFigPath != None):
