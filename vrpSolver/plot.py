@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import random
 
+from .msg import *
+
 def randomColor():
 	color = "#%06x" % random.randint(0, 0xFFFFFF)
 	return color
@@ -33,50 +35,57 @@ def plotGantt(
 				 2) String, the path for exporting image" = None
 	) -> "Given a Gantt dictionary, plot Gantt":
 
+	# Check for required fields ===============================================
+	if (gantt == None):
+		print(ERROR_MISSING_GANTT)
+		return
+
 	# Precalculate ============================================================
-	s = None
-	e = None
+	realStart = None
+	realEnd = None
 	entList = []
 	for g in gantt:
 		if (g['entityID'] not in entList):
 			entList.append(g['entityID'])
 		if ('timeWindow' in g):
-			if (s == None or s > g['timeWindow'][0]):
-				s = g['timeWindow'][0]
-			if (e == None or e < g['timeWindow'][1]):
-				e = g['timeWindow'][1]
+			if (realStart == None or realStart > g['timeWindow'][0]):
+				realStart = g['timeWindow'][0]
+			if (realEnd == None or realEnd < g['timeWindow'][1]):
+				realEnd = g['timeWindow'][1]
 		elif ('timeStamps' in g):
-			if (s == None or s > g['timeStamps'][0]):
-				s = g['timeStamps'][0]
-			if (e == None or e < g['timeStamps'][-1]):
-				e = g['timeStamps'][-1]
-
+			if (realStart == None or realStart > g['timeStamps'][0]):
+				realStart = g['timeStamps'][0]
+			if (realEnd == None or realEnd < g['timeStamps'][-1]):
+				realEnd = g['timeStamps'][-1]
 	if (entities != None):
-		for g in entList:
-			if (g not in entities):
-				print("ERROR: Missing entity in `entities`")
+		for g in entities:
+			if (g not in entList):
+				print(ERROR_INCOR_GANTT_MISSENT)
 				return
 	else:
 		entities = [i for i in entList]
+
+	# Check overwritten fields ================================================
 	if (startTime != None):
-		if (startTime > s):
-			print("WARNING: `startTime` later than earliest time in `gantt`, auto-fixed")
-			startTime = s
+		if (startTime > realStart):
+			print(WARNING_OVERWRITE_STARTTIME)
+			startTime = realStart
 	else:
-		startTime = s
+		startTime = realStart
+
 	if (endTime != None):
-		if (endTime < e):
-			print("WARNING: `endTime` earlier than latest time in `gantt`, auto-fixed")
-			endTime = e
+		if (endTime < realEnd):
+			print(WARNING_OVERWRITE_ENDTIME)
+			endTime = realEnd
 	else:
-		endTime = e
+		endTime = realEnd
 
 	# If no based matplotlib figure, define fig size ==========================
 	if (fig == None or ax == None):
 		fig, ax = plt.subplots()
 		fig.set_figheight(height)
 		fig.set_figwidth(width)
-		ax.set_xlim(startTime, endTime + (endTime - startTime) * 0.152)
+		ax.set_xlim(startTime, endTime + (endTime - startTime) * 0.12)
 		ax.set_ylim(0, len(entities) + 0.2)
 
 	# Set axis ================================================================
@@ -88,30 +97,39 @@ def plotGantt(
 
 	# Loop through `gantt` and draw gantt =====================================
 	for g in gantt:
-		bottom = len(entities) - entities.index(g['entityID']) - 1
-		top = len(entities) - entities.index(g['entityID']) - 0.5
-		if ('timeWindow' in g):
-			s = g['timeWindow'][0]
-			e = g['timeWindow'][1]
-			x = [s, s, e, e, s]
-			y = [bottom, top, top, bottom, bottom]
-			ax.plot(x, y, color = 'black', linewidth = 2)
-			ax.fill(x, y, color = g['color'])
-			ax.annotate(g['desc'], (s, top + 0.1))
-			if (g['style'] == 'shadow'):
-				ax.fill(x, y, hatch = "/", fill=False)
-		elif ('timeStamps' in g):
-			for i in range(len(g['timeStamps']) - 1):
-				s = g['timeStamps'][i]
-				e = g['timeStamps'][i + 1]
+		if (g['entityID'] in entities):
+			bottom = len(entities) - entities.index(g['entityID']) - 1
+			top = len(entities) - entities.index(g['entityID']) - 0.5
+			if ('timeWindow' in g):
+				s = g['timeWindow'][0]
+				e = g['timeWindow'][1]
 				x = [s, s, e, e, s]
 				y = [bottom, top, top, bottom, bottom]
 				ax.plot(x, y, color = 'black', linewidth = 2)
-				ax.annotate(g['desc'][i], (s, top + 0.1))
-				ax.fill(x, y, color = g['color'])
+				if (g['color'] != 'random'):
+					ax.fill(x, y, color = g['color'])
+				else:
+					rndColor = randomColor()
+					ax.fill(x, y, color = rndColor)
+				ax.annotate(g['desc'], (s, top + 0.1))
 				if (g['style'] == 'shadow'):
 					ax.fill(x, y, hatch = "/", fill=False)
-			ax.annotate(g['desc'][-1], (g['timeStamps'][-1], top + 0.1))
+			elif ('timeStamps' in g):
+				for i in range(len(g['timeStamps']) - 1):
+					s = g['timeStamps'][i]
+					e = g['timeStamps'][i + 1]
+					x = [s, s, e, e, s]
+					y = [bottom, top, top, bottom, bottom]
+					ax.plot(x, y, color = 'black', linewidth = 2)
+					ax.annotate(g['desc'][i], (s, top + 0.1))
+					if (g['color'] != 'random'):
+						ax.fill(x, y, color = g['color'])
+					else:
+						rndColor = randomColor()
+						ax.fill(x, y, color = rndColor)
+					if (g['style'] == 'shadow'):
+						ax.fill(x, y, hatch = "/", fill=False)
+				ax.annotate(g['desc'][-1], (g['timeStamps'][-1], top + 0.1))
 
 	# Save figure =============================================================
 	if (saveFigPath != None):
@@ -133,6 +151,11 @@ def plotNodes(
 	saveFigPath:"1) None, if not exporting image, or \
 				 2) String, the path for exporting image" = None
 	) -> "Draw nodes":
+
+	# Check for required fields ===============================================
+	if (nodes == None):
+		print(ERROR_MISSING_NODES)
+		return
 
 	# If no based matplotlib figure, define boundary ==========================
 	if (fig == None or ax == None):
