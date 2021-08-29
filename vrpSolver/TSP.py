@@ -7,6 +7,7 @@ from .common import *
 from .mst import *
 from .matching import *
 from .traversal import *
+from .geometry import *
 
 def ipTSP(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
@@ -605,13 +606,12 @@ def lrTSP(
             for i in nodes:
                 nodeIDs.append(i)
 
-    # Define edges ==============================================================
+    # Define edges ============================================================
     if (type(edges) is not dict):
-        lstNodeID = nodeIDs.copy()
         if (edges == 'Euclidean'):
-            edges = getTauEuclidean(nodes, lstNodeID)
+            edges = getTauEuclidean(nodes)
         elif (edges == 'SphereEuclidean'):
-            edges = getTauSphereEuclidean(nodes, lstNodeID)
+            edges = getTauSphereEuclidean(nodes)
         else:
             print("Error: Incorrect type `edges`")
             return None
@@ -772,7 +772,7 @@ def consTSP(
                  2) String 'FarthestNeighbor' or \
                  3) String (not available) 'Insertion' or \
                  4) String (not available) 'Patching' or \
-                 5) String (not available) 'Sweep' or \
+                 5) String 'Sweep' or \
                  6) String 'DepthFirst' or \
                  7) String (default) 'Christofides' or \
                  8) String 'Random'" = 'Christofides'
@@ -795,6 +795,8 @@ def consTSP(
         res = _consTSPNearestNeighbor(nodeIDs, edges)
     elif (algo == 'FarthestNeighbor'):
         res = _consTSPFarthestNeighbor(nodeIDs, edges)
+    elif (algo == 'Sweep'):
+        res = _consTSPSweep(nodes, edges)
     elif (algo == 'Random'):
         res = _consTSPRandomSeq(nodeIDs, edges)
     else:
@@ -892,6 +894,29 @@ def _consTSPFarthestNeighbor(nodeIDs, edges):
         'ofv': ofv,
         'seq': seq
     }
+
+def _consTSPSweep(nodes, edges):
+    # Find a center loc =======================================================
+    centerX = 0
+    centerY = 0
+    for n in nodes:
+        centerX += nodes[n]['loc'][0]
+        centerY += nodes[n]['loc'][1]
+    centerX /= len(nodes)
+    centerY /= len(nodes)
+
+    # Sweep seq ===============================================================
+    sweepSeq = getSweepSeq(nodes = nodes, centerLoc = [centerX, centerY])
+    sweepSeq.append(sweepSeq[0])
+
+    # Calculate ofv ===========================================================
+    ofv = calSeqCostMatrix(edges, sweepSeq)
+
+    return {
+        'ofv': ofv,
+        'seq': sweepSeq
+    }
+
 
 def _consTSPDepthFirst(weightArcs):
     # Create MST ==============================================================

@@ -208,3 +208,25 @@ def arcs2AdjList(
 
     return neighbors
 
+def insideInterval(
+    val:            "The value to be compared with the interval" = None,
+    interval:   "List, in the format of [start, end], None if no constraint on that side" = [None, None]    
+    ) -> "Given a value `val`, returns true if `val` is inside the interval (or on the edge), false else wise.":
+
+    # Initialize ==============================================================
+    insideFlag = True
+    [s, e] = interval
+
+    # Check left side =========================================================
+    if (s != None):
+        if (val < s):
+            insideFlag = False
+            return insideFlag
+
+    # Check right side ========================================================
+    if (e != None):
+        if (val > e):
+            insideFlag = False
+            return insideFlag
+
+    return insideFlag

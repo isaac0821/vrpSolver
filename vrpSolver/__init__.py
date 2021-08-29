@@ -1,4 +1,4 @@
-__version__ = "0.0.8"
+__version__ = "0.0.10"
 __author__ = "Lan Peng"
 
 # History =====================================================================
@@ -15,6 +15,8 @@ __author__ = "Lan Peng"
 # v0.0.8  - 07182021 - Massive change of structure
 #                    - Add `heuTSP()` for TSP heuristic
 #                    - Add time window functions
+# v0.0.9  - 07212021 - Fix some functions in `timeWindows.py` and `plotGantt()`
+# v0.0.10 - 08252021 - Sweep algorithm for TSP
 # =============================================================================
 
 # Constants and messages
@@ -28,10 +30,16 @@ from .instance import *
 from .timeWindows import *
 from .color import *
 
+# Geometry
+from .geometry import *
+
 # Graph/network algorithms
 from .mst import *
 from .matching import *
 from .shortestPath import *
+
+# Parallel machine scheduling problem
+from .PMS import *
 
 # TSP
 from .TSP import *

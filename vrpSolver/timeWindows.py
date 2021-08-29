@@ -36,6 +36,79 @@ def sortTimeWindows(
 
     return sortedTW
 
+def mergeTimeWindows(
+    tws:        "List of time windows, might be overlapping" = None,
+    ) -> "Given a list of time windows, which might be overlapping, merge the time windows that are overlapping":
+
+    # Initialize ==============================================================
+    mergedTWs = []
+
+    # Merge tws ===============================================================
+    for tw in tws:
+        # Find the index of tw that involves the s/e of tw, if there is any
+        sIndex = None
+        eIndex = None
+        for bgTwIndex in range(len(mergedTWs)):
+            if (insideInterval(tw[0], mergedTWs[bgTwIndex])):
+                sIndex = bgTwIndex
+            if (insideInterval(tw[1], mergedTWs[bgTwIndex])):
+                eIndex = bgTwIndex
+            if (sIndex != None and eIndex != None):
+                break
+        # Find the s/e of merged tw
+        ts = None
+        te = None
+        if (sIndex != None):
+            ts = mergedTWs[sIndex][0]
+        else:
+            ts = tw[0]
+        if (eIndex != None):
+            te = mergedTWs[eIndex][1]
+        else:
+            te = tw[1]
+        mergedTWs.append([ts, te])
+
+        # Remove the tws that partially covered by [ts, te], remove them
+        tmpMergedTWs = [i for i in mergedTWs]
+        mergedTWs = [[ts, te]] # merged tw should be included
+        for newTW in tmpMergedTWs:
+            # For existed tws, both s and e should not inside the [ts, te]
+            if (not insideInterval(newTW[0], [ts, te]) and not insideInterval(newTW[1], [ts, te])):
+                mergedTWs.append(newTW)
+        
+        # Sort tws
+        mergedTWs = sortTimeWindows(mergedTWs)
+
+    return mergedTWs
+
+def lenTWOverlap(
+    tw1:        "The first time window" = None,
+    tw2:        "The second time window" = None
+    ) -> "Given two time windows, returns the length of time that these two time windows are overlapping":
+
+    # Initialize ==============================================================
+    overlapTime = 0
+
+    # Case by case ============================================================
+    if (not insideInterval(tw2[0], tw1) and not insideInterval(tw2[1], tw1)):
+        # Case 1: tw1 is entirely inside tw2
+        if (tw2[0] < tw1[0] and tw1[1] < tw2[1]):
+            overlapTime = tw1[1] - tw1[0]
+        # Case 2: No overlapping
+        else:
+            overlapTime = 0
+    elif (insideInterval(tw2[0], tw1) and not insideInterval(tw2[1], tw1)):
+        # Case 3: First half of tw2 is inside tw1
+        overlapTime = tw1[1] - tw2[0]
+    elif (not insideInterval(tw2[0], tw1) and insideInterval(tw2[1], tw1)):
+        # Case 4: Last half of tw2 is inside tw1
+        overlapTime = tw2[1] - tw1[0]
+    else:
+        # Case 5: tw2 is entirely inside tw1
+        overlapTime = tw2[1] - tw2[0]
+
+    return overlapTime
+
 # [Done]
 def reverseTimeWindows(
     tws:        "List of existing time windows" = None,
@@ -53,7 +126,7 @@ def reverseTimeWindows(
 
 # [Done]
 def blockTimeWindows(
-    tws:        "List of existing time windows" = None,
+    tws:        "List of existing available time windows" = None,
     block:      "A piece of time make part of tws unavailable" = None,
     ) -> "Given a list of non-overlapping time windows, use a time window to block the existing `tws`":
     newTWs = []
@@ -106,6 +179,27 @@ def getEarliestNextAvailTime(
         else:
             return t
     return earliestNext
+
+def getAvailStartTW(
+    bgTws:      "List of non-overlapping time windows as background (CANNOT be covered by inserting time window)" = None,
+    epoch:      "The outer epoch of `bgTws` time windows" = None,
+    twLen:      "Length of time window that trying to add into bgTws (within epoch)" = None
+    ) -> "Given a list of background time windows and an outer epoch, given the length of a new time window, \
+          return a list of time windows that can start the tw with the length of `twLen`":
+
+    # Initialize ==============================================================
+    startTws = []
+
+    # Get the list of time windows that can insert new time window ============
+    availTws = reverseTimeWindows(bgTws, epoch)
+
+    # For each available time windows, try to see if it is long enough ========
+    for tw in availTws:
+        bgTwLen = tw[1] - tw[0]
+        if (bgTwLen >= twLen):
+            startTws.append([tw[0], tw[0] + (bgTwLen - twLen)])
+
+    return startTws
 
 # [Done] NOTICE: this is for sorted and non-overlapping time windows
 def getTWInsertFlexibility(
@@ -196,3 +290,4 @@ def getTWInsertFlexibility(
             'minAdvanceNeeded': minAdvanceNeeded,
             'minDelayNeeded': minDelayNeeded
         }
+
