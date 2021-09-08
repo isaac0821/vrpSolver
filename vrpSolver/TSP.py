@@ -917,7 +917,6 @@ def _consTSPSweep(nodes, edges):
         'seq': sweepSeq
     }
 
-
 def _consTSPDepthFirst(weightArcs):
     # Create MST ==============================================================
     mst = graphMST(weightArcs)['mst']

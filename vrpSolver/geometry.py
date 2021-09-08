@@ -4,100 +4,6 @@ import heapq
 from .const import *
 from .common import *
 
-def valDeg2Vec(
-    vVal:       "Norm of the vector",
-    vDeg:       "Degree of the vector, 0 as North, in [0, 360)"
-    ) -> "Given vector's norm and its degree to North, convert it into a 2-tuple vector":
-
-    vX = None
-    vY = None
-
-    while(vDeg < 0):
-        vDeg = vDeg + 360
-
-    while(vDeg >= 360):
-        vDeg = vDeg - 360
-
-    vX = vVal * math.sin(math.radians(vDeg))
-    vY = vVal * math.cos(math.radians(vDeg))
-
-    return (vX, vY)
-
-def vec2ValDeg(
-    vec:        "2-tuple, as the vector"
-    ) -> "Given a 2-tuple, convert it into a norm and a direction in degree":
-    
-    (vX, vY) = vec
-    
-    vDeg = None
-    vVal = None
-    if (abs(vX) <= 0.0001):
-        if (vY >= 0):
-            vDeg = 0
-            vVal = vY
-        elif (vY < 0):
-            vDeg = 180
-            vVal = -vY
-    elif (abs(vY) <= 0.0001):
-        if (vX >= 0):
-            vVal = vX
-            vDeg = 90
-        elif (vX < 0):
-            vVal = -vX
-            vDeg = 270
-    else:
-        vVal = math.sqrt(vX**2 + vY**2)
-        # 1st quad
-        if (vX > 0 and vY >= 0):
-            vDeg = math.degrees(math.atan(vX / vY))
-        # 2nd quad
-        elif (vX > 0 and vY < 0):
-            vDeg = 180 + math.degrees(math.atan(vX / vY))
-        # 3rd quad
-        elif (vX < 0 and vY < 0):
-            vDeg = 180 + math.degrees(math.atan(vX / vY))
-        # 4th quad
-        elif (vX < 0 and vY >= 0):
-            vDeg = 360 + math.degrees(math.atan(vX / vY))
-
-    return vVal, vDeg
-
-def calVecAddition(
-    v1Val:      "Norm of vector 1", 
-    v1Deg:      "Degree of the vector 1, 0 as North, in [0, 360)", 
-    v2Val:      "Norm of vector 2", 
-    v2Deg:      "Degree of the vector 2, 0 as North, in [0, 360)",
-    ) -> "Given two vectors' norm and their meteorological degrees, get v3 that v3 = v1 + v2":
-    # Change to 2-tuple vector ================================================
-    (v1X, v1Y) = valDeg2Vec(v1Val, v1Deg)
-    (v2X, v2Y) = valDeg2Vec(v2Val, v2Deg)
-
-    # Get v3 ==================================================================
-    (v3X, v3Y) = (v1X + v2X, v1Y + v2Y)
-
-    # Get vector norm and direction ===========================================
-    v3Val, v3Deg = vec2ValDeg((v3X, v3Y))
-
-    return v3Val, v3Deg
-
-def calVecSubtract(
-    v1Val:      "Norm of vector 1", 
-    v1Deg:      "Degree of the vector 1, 0 as North, in [0, 360)", 
-    v2Val:      "Norm of vector 2", 
-    v2Deg:      "Degree of the vector 2, 0 as North, in [0, 360)", 
-    ) -> "Given two vectors' norm and their meteorological degrees, get v3 that v1 = v2 + v3":
-    # Change to 2-tuple vector ================================================
-    (v1X, v1Y) = valDeg2Vec(v1Val, v1Deg)
-    (v2X, v2Y) = valDeg2Vec(v2Val, v2Deg)
-
-    # Get v3 ==================================================================
-    (v3X, v3Y) = (v1X - v2X, v1Y - v2Y)
-
-    # Get vector norm and direction ===========================================
-    v3Val, v3Deg = vec2ValDeg((v3X, v3Y))
-
-    return v3Val, v3Deg
-
 def getSweepSeq(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
@@ -105,6 +11,7 @@ def getSweepSeq(
                         nodeID2: {'loc': (x, y)}, \
                         ... \
                     }" = None,
+    excludeIDs: "List of nodeIDs that will be excluded in sweeping, usually includes depot" = [],
     centerLoc:  "List, [x, y], the center point" = None,
     isClockwise: "True if the sweeping direction is clock-wise, False otherwise" = True,
     initDeg:    "Starting direction of the sweeping, 0 as North" = 0
@@ -116,25 +23,26 @@ def getSweepSeq(
     
     # Build heap ==============================================================
     for nodeID in nodes:
-        dist = distEuclidean2D(nodes[nodeID]['loc'], centerLoc)
-        # If the nodes are too close, separate it/them
-        if (dist <= CONST_EPSILON):
-            centerLocNodes.append(nodeID)
-        else:
-            dx = nodes[nodeID]['loc'][0] - centerLoc[0]
-            dy = nodes[nodeID]['loc'][1] - centerLoc[1]
-            (_, deg) = vec2ValDeg([dx, dy])
-            # Calculate angles
-            evalDeg = None
-            if (isClockwise):
-                evalDeg = deg - initDeg
+        if (nodeID not in excludeIDs):
+            dist = distEuclidean2D(nodes[nodeID]['loc'], centerLoc)
+            # If the nodes are too close, separate it/them
+            if (dist <= CONST_EPSILON):
+                centerLocNodes.append(nodeID)
             else:
-                evalDeg = initDeg - deg
-            while(evalDeg > 360):
-                evalDeg -= 360
-            while(evalDeg < 0):
-                evalDeg += 360
-            heapq.heappush(degHeap, (evalDeg, nodeID))
+                dx = nodes[nodeID]['loc'][0] - centerLoc[0]
+                dy = nodes[nodeID]['loc'][1] - centerLoc[1]
+                (_, deg) = vec2ValDeg([dx, dy])
+                # Calculate angles
+                evalDeg = None
+                if (isClockwise):
+                    evalDeg = deg - initDeg
+                else:
+                    evalDeg = initDeg - deg
+                while(evalDeg > 360):
+                    evalDeg -= 360
+                while(evalDeg < 0):
+                    evalDeg += 360
+                heapq.heappush(degHeap, (evalDeg, nodeID))
 
     # Sweep ===================================================================
     sweepSeq = []
@@ -143,4 +51,94 @@ def getSweepSeq(
     sweepSeq.extend(centerLocNodes)
 
     return sweepSeq
-                
+
+def getNodesConvexHull(
+    nodes:      "Dictionary, returns the coordinate of given nodeID, \
+                    {\
+                        nodeID1: {'loc': (x, y)}, \
+                        nodeID2: {'loc': (x, y)}, \
+                        ... \
+                    }" = None,
+    algo:       "1) String, 'Jarvis', O(nH) (current implementation is O(nHlog n)) or\
+                 2) String, (not available) 'DNC', O(nlog n) or\
+                 3) String, (not available) 'Graham', O(nlog n) or\
+                 4) String, (not available) 'Melkman'" = "Jarvis"
+    ) -> "Given a set of node locations, return a list of nodeID which construct the convex hull":
+
+    # Initialize ==============================================================
+    chSeq = None
+
+    # Some extreme cases ======================================================
+    if (len(nodes) == 0):
+        return None
+    elif (len(nodes) <= 3):
+        chSeq = []
+        for n in nodes:
+            chSeq.append(n)
+        return chSeq
+
+    # Call subroutines ========================================================
+    if (algo == "Jarvis"):
+        chSeq = _getNodesConvexHullJavis(nodes)
+    else:
+        return None
+    
+    return chSeq
+
+def _getNodesConvexHullJavis(nodes):
+    # References ==============================================================
+    # 1. https://blog.csdn.net/Bone_ACE/article/details/46239187
+    # 2. chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/viewer.html?pdfurl=http%3A%2F%2Fwww.ams.sunysb.edu%2F~jsbm%2Fcourses%2F345%2F13%2Fmelkman.pdf&clen=46562&chunk=true
+    # 3. https://en.wikipedia.org/wiki/Convex_hull_algorithms
+
+    # Initialize ==============================================================
+    chSeq = []
+
+    # Get the location of the left-most nodeID ================================
+    # Find an initial point which guaranteed to be in convex hull
+    leftMostID = None
+    leftMostX = None
+    for n in nodes:
+        if (leftMostID == None or nodes[n]['loc'][0] < leftMostX):
+            leftMostID = n
+            leftMostX = nodes[n]['loc'][0]
+
+    # Jarvis march ============================================================
+    curNodeID = leftMostID
+    curDirection = 0
+    marchFlag = True
+    while (marchFlag):
+        sweepSeq = getSweepSeq(
+            nodes = nodes,
+            excludeIDs = chSeq,
+            centerLoc = nodes[curNodeID]['loc'],
+            initDeg = curDirection)
+        chSeq.append(sweepSeq[0])
+        curDirection = getHeading(nodes[curNodeID]['loc'], nodes[sweepSeq[0]]['loc'])
+        if (sweepSeq[0] == leftMostID):
+            marchFlag = False
+        
+        curNodeID = sweepSeq[0]
+    chSeq.append(leftMostID)
+
+    return chSeq
+
+
+
+def isClockWise(
+    loc1:       "List, coordinate of location 1, in the format of [x, y]", 
+    loc2:       "List, coordinate of location 2, in the format of [x, y]", 
+    loc3:       "List, coordinate of location 3, in the format of [x, y]"
+    ) -> "True if three given locs are clock-wised, false if three given locs are collinear or counter-clockwised":
+    [x1, y1] = [loc1[0], loc1[1]]
+    [x2, y2] = [loc2[0], loc2[1]]
+    [x3, y3] = [loc3[0], loc3[1]]
+
+    val = (x2 * y3 + x3 * y1 + x1 * y2) - (x2 * y1 + x3 * y2 + x1 * y3)
+
+    if (val > 0):
+        clockWise = True
+    else:
+        clockWise = False
+
+    return clockWise

@@ -3,7 +3,6 @@ import math
 from .common import *
 from .const import *
 
-# [Done]
 def sortTimeWindows(
     unsortedTW: "List of unsorted time windows" = None,
     ) -> "Given a list of time windows, returns None if the TWs are overlapping returns a sorted list of time windows":
@@ -109,7 +108,6 @@ def lenTWOverlap(
 
     return overlapTime
 
-# [Done]
 def reverseTimeWindows(
     tws:        "List of existing time windows" = None,
     epoch:      "Another time window that we wanna find opposite time windows of `tws` inside `epoch`" = None
@@ -124,7 +122,6 @@ def reverseTimeWindows(
         oppTws = blockTimeWindows(oppTws, tw)
     return oppTws
 
-# [Done]
 def blockTimeWindows(
     tws:        "List of existing available time windows" = None,
     block:      "A piece of time make part of tws unavailable" = None,
@@ -155,7 +152,6 @@ def blockTimeWindows(
             pass
     return newTWs
 
-# [Done]
 def getIndexInTimeWindow(
     bgTws:      "List of non-overlapping time windows as background (CANNOT be covered by inserting time window)" = None,
     t:          "Time stamp" = None
@@ -165,7 +161,6 @@ def getIndexInTimeWindow(
             return i
     return None
 
-# [Done]
 def getEarliestNextAvailTime(
     bgTws:      "List of non-overlapping time windows as background (CANNOT be covered by inserting time window)" = None,
     t:          "Time stamp" = None
@@ -201,7 +196,6 @@ def getAvailStartTW(
 
     return startTws
 
-# [Done] NOTICE: this is for sorted and non-overlapping time windows
 def getTWInsertFlexibility(
     bgTws:      "List of non-overlapping time windows as background (CANNOT be covered by inserting time window)" = None,
     epoch:      "The outer epoch of `bgTws` time windows" = None,
@@ -210,7 +204,7 @@ def getTWInsertFlexibility(
                  changing length. Also, tdRange[0] <= 0 and tdRange[1] >= 0" = [None, None]
     ) -> "Given a list of non-overlapping time windows (and the outer epoch), \
           for a new time window to be inserted, find \
-          1) if it can be inserted; \
+          1) Can it be inserted? \
           2) if it can be inserted, the maximum time the tw can be advanced/delayed; \
           3) if it can not be inserted, the minimum time advanced/delayed to make the tw can be inserted":
 

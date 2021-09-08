@@ -29,6 +29,7 @@ from .plot import *
 from .instance import *
 from .timeWindows import *
 from .color import *
+# from .cluster import *
 
 # Geometry
 from .geometry import *
