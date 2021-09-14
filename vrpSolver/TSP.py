@@ -4,9 +4,7 @@ from gurobipy import *
 
 from .const import *
 from .common import *
-from .mst import *
-from .matching import *
-from .traversal import *
+from .graph import *
 from .geometry import *
 
 def ipTSP(
@@ -535,6 +533,7 @@ def _ipTSPLazyCuts(edges, nodeIDs, timeLimit):
     # TSP with callback =======================================================
     if (timeLimit != None):
         TSP.setParam(GRB.Param.TimeLimit, timeLimit)
+    TSP.setParam('OutputFlag', 0)
     TSP.optimize(subtourelim)
 
     # Reconstruct solution ====================================================

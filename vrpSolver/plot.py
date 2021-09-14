@@ -195,6 +195,7 @@ def plotNodes(
                         nodeID2: {'loc': (x, y)}, \
                         ... \
                     }" = None, 
+    xyReverseFlag: "Reverse x, y. Usually use for (lat, lon)" = False,
     color:      "1) String 'Random', or\
                  2) String, color" = 'Random',
     xMin:       "min of x-axis" = None,
@@ -217,8 +218,12 @@ def plotNodes(
         allX = []
         allY = []
         for i in nodes:
-            allX.append(nodes[i]['loc'][0])
-            allY.append(nodes[i]['loc'][1])
+            if (not xyReverseFlag):
+                allX.append(nodes[i]['loc'][0])
+                allY.append(nodes[i]['loc'][1])
+            else:
+                allX.append(nodes[i]['loc'][1])
+                allY.append(nodes[i]['loc'][0])
         if (xMin == None):
             xMin = min(allX) - edgeWidth
         if (xMax == None):
@@ -244,9 +249,14 @@ def plotNodes(
     x = []
     y = []
     for node in nodes:
-        x.append(nodes[node]['loc'][0])
-        y.append(nodes[node]['loc'][1])
-        ax.annotate(node, (nodes[node]['loc'][0], nodes[node]['loc'][1]))
+        if (not xyReverseFlag):
+            x.append(nodes[node]['loc'][0])
+            y.append(nodes[node]['loc'][1])
+            ax.annotate(node, (nodes[node]['loc'][0], nodes[node]['loc'][1]))
+        else:
+            x.append(nodes[node]['loc'][1])
+            y.append(nodes[node]['loc'][0])
+            ax.annotate(node, (nodes[node]['loc'][1], nodes[node]['loc'][0]))
     ax.plot(x, y, 'ro')
 
     # Save figure =============================================================
@@ -264,6 +274,7 @@ def plotArcs(
                         nodeID2: {'loc': (x, y)}, \
                         ... \
                     }" = None, 
+    xyReverseFlag: "Reverse x, y. Usually use for (lat, lon)" = False,
     arcs:       "List of 2-tuples, arcs in format of [(nodeID1, nodeID2), ...]" = None,
     linewidth:  "Width of arcs" = 1,
     arrowFlag:  "Boolean, whether or not add arrows to route" = True,
@@ -286,10 +297,16 @@ def plotArcs(
         allX = []
         allY = []
         for i in arcs:
-            allX.append(nodes[i[0]]['loc'][0])
-            allY.append(nodes[i[0]]['loc'][1])
-            allX.append(nodes[i[1]]['loc'][0])
-            allY.append(nodes[i[1]]['loc'][1])
+            if (not xyReverseFlag):
+                allX.append(nodes[i[0]]['loc'][0])
+                allY.append(nodes[i[0]]['loc'][1])
+                allX.append(nodes[i[1]]['loc'][0])
+                allY.append(nodes[i[1]]['loc'][1])
+            else:
+                allX.append(nodes[i[0]]['loc'][1])
+                allY.append(nodes[i[0]]['loc'][0])
+                allX.append(nodes[i[1]]['loc'][1])
+                allY.append(nodes[i[1]]['loc'][0])
         if (xMin == None):
             xMin = min(allX) - edgeWidth
         if (xMax == None):
@@ -313,19 +330,25 @@ def plotArcs(
 
     # Draw arcs ===============================================================
     for arc in arcs:
-        x1 = nodes[arc[0]]['loc'][0]
-        y1 = nodes[arc[0]]['loc'][1]
-        x2 = nodes[arc[1]]['loc'][0]
-        y2 = nodes[arc[1]]['loc'][1]
+        if (not xyReverseFlag):
+            x1 = nodes[arc[0]]['loc'][0]
+            y1 = nodes[arc[0]]['loc'][1]
+            x2 = nodes[arc[1]]['loc'][0]
+            y2 = nodes[arc[1]]['loc'][1]
+        else:
+            x1 = nodes[arc[0]]['loc'][1]
+            y1 = nodes[arc[0]]['loc'][0]
+            x2 = nodes[arc[1]]['loc'][1]
+            y2 = nodes[arc[1]]['loc'][0]
         dx = x2 - x1
         dy = y2 - y1
         if (color == 'Random'):
             rndColor = colorRandom()
-            plt.plot([x1, x2], [y1, y2], color = rndColor)
+            ax.plot([x1, x2], [y1, y2], color = rndColor)
             if (arrowFlag):
                 ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=linewidth, head_width=arrowHeadwidth, head_length=arrowHeadlength, color=rndColor)
         else:
-            plt.plot([x1, x2], [y1, y2], color = color)
+            ax.plot([x1, x2], [y1, y2], color = color)
             if (arrowFlag):
                 ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=linewidth, head_width=arrowHeadwidth, head_length=arrowHeadlength, color=color)
 
@@ -344,6 +367,7 @@ def plotSeq(
                         nodeID2: {'loc': (x, y)}, \
                         ... \
                     }" = None, 
+    xyReverseFlag: "Reverse x, y. Usually use for (lat, lon)" = False,
     seq:        "List of nodeIDs" = None,
     linewidth:  "Width of arcs" = 1,
     arrowFlag:  "Boolean, whether or not add arrows to route" = True,
@@ -374,6 +398,7 @@ def plotSeq(
         fig = fig,
         ax = ax,
         nodes = nodes,
+        xyReverseFlag = xyReverseFlag,
         arcs = arcs,
         linewidth = linewidth,
         arrowFlag = arrowFlag,

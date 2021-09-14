@@ -36,8 +36,17 @@ def sortTimeWindows(
     return sortedTW
 
 def mergeTimeWindows(
-    tws:        "List of time windows, might be overlapping" = None,
+    tws:        "List of time windows, might be overlapping" = None
     ) -> "Given a list of time windows, which might be overlapping, merge the time windows that are overlapping":
+
+    # Example =================================================================
+    # tws1 = [[0, 10], [12, 14], [18, 20]]
+    # tws2 = [[9, 13], [19, 23]]
+    # twsBeforeMerging = []
+    # twsBeforeMerging.extend(tws1)
+    # twsBeforeMerging.extend(tws2)
+    # twsAfterMerging = mergeTimeWindows(twsBeforeMerging)
+    # Output ->: [[0, 14], [18, 23]]
 
     # Initialize ==============================================================
     mergedTWs = []

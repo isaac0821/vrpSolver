@@ -1,4 +1,4 @@
-__version__ = "0.0.10"
+__version__ = "0.0.13"
 __author__ = "Lan Peng"
 
 # History =====================================================================
@@ -17,6 +17,10 @@ __author__ = "Lan Peng"
 #                    - Add time window functions
 # v0.0.9  - 07212021 - Fix some functions in `timeWindows.py` and `plotGantt()`
 # v0.0.10 - 08252021 - Sweep algorithm for TSP
+# v0.0.11 - 09082021 - Jarvis algorithm for convex hull
+# v0.0.12 - 09082021 - Fix convex hull algorithm
+# v0.0.13 - 09122021 - More options for `rndPlainNodes()`
+# v0.0.14 - 09132021 - Reconstruct
 # =============================================================================
 
 # Constants and messages
@@ -29,15 +33,13 @@ from .plot import *
 from .instance import *
 from .timeWindows import *
 from .color import *
-# from .cluster import *
+from .matrices import *
 
 # Geometry
 from .geometry import *
 
 # Graph/network algorithms
-from .mst import *
-from .matching import *
-from .shortestPath import *
+from .graph import *
 
 # Parallel machine scheduling problem
 from .PMS import *
@@ -46,6 +48,5 @@ from .PMS import *
 from .TSP import *
 
 # VRP and its variants
-from .consVRP import *
-from .ipCVRP import *
-from .cgCVRPTW import *
+# from .consVRP import *
+# from .ipVRP import *
