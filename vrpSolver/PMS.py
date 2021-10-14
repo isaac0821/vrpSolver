@@ -4,12 +4,15 @@ import gurobipy as grb
 
 def ipPMS(
     numMachines: "Number of parallel machines" = None,
-    jobLen:     "List, length of each job" = None
+    jobLen:     "List, length of each job" = None,
+    outputFlag: "Boolean, True if export the gurobi logs" = False
     ) -> "Exact solution for PMS":
 
     # Initialize ==============================================================
     PMS = grb.Model('PMS')
-
+    if (outputFlag == False):
+        PMS.setParam('OutputFlag', 0)
+        
     # Decision variables ======================================================
     x = {}
     for i in range(numMachines):

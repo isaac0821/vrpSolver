@@ -13,49 +13,63 @@ def getTauEuclidean(
                         nodeID2: {'loc': (x, y)}, \
                         ... \
                     }" = None,
+    nodeIDs:    "1) String (default) 'All', or \
+                 2) A list of node IDs" = 'All',
     speed:      "Ratio: Dist / Time" = 1
     ) -> "Dictionary, {(nodeID1, nodeID2): dist, ...}":
+
+    # Define nodeIDs ==========================================================
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = []
+            for i in nodes:
+                nodeIDs.append(i)
+
+    # Get tau =================================================================
     tau = {}
-    lstNodeID = list(nodes.keys())
-    for i in lstNodeID:
-        for j in lstNodeID:
+    for i in nodeIDs:
+        for j in nodeIDs:
             if (i != j):
                 t = distEuclidean2D(nodes[i]['loc'], nodes[j]['loc']) / speed
                 tau[i, j] = t
                 tau[j, i] = t
             else:
                 tau[i, j] = CONST_EPSILON
-        tau[None, i] = CONST_EPSILON
-        tau[i, None] = CONST_EPSILON
-
     return tau
 
-def getTauSphereEuclidean(
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
+def getTauLatLon(
+    nodes:      "Dictionary, returns the coordinate of given nodeIDs, \
                     {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
+                        nodeIDs1: {'loc': (x, y)}, \
+                        nodeIDs2: {'loc': (x, y)}, \
                         ... \
                     }" = None,
+    nodeIDs:    "1) String (default) 'All', or \
+                 2) A list of node IDs" = 'All',                    
     distUnit:   "Unit of distance\
                  1) String (default) 'mile'\
                  2) String 'meter'\
                  3) String 'kilometer'" = 'mile',
     speed:      "Ratio: Dist / Time" = 1
     ) -> "Dictionary, {(nodeID1, nodeID2): dist, ...}":
+
+    # Define nodeIDs ==========================================================
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = []
+            for i in nodes:
+                nodeIDs.append(i)
+
+    # Get tau =================================================================
     tau = {}
-    lstNodeID = list(nodes.keys())
-    for i in lstNodeID:
-        for j in lstNodeID:
+    for i in nodeIDs:
+        for j in nodeIDs:
             if (i != j):
-                t = distSphereEuclidean2D(nodes[i]['loc'], nodes[j]['loc'], distUnit) / speed
+                t = distLatLon(nodes[i]['loc'], nodes[j]['loc'], distUnit) / speed
                 tau[i, j] = t
                 tau[j, i] = t
             else:
                 tau[i, j] = CONST_EPSILON
-        tau[None, i] = CONST_EPSILON
-        tau[i, None] = CONST_EPSILON
-
     return tau
 
 def distEuclidean2D(
@@ -67,7 +81,7 @@ def distEuclidean2D(
     else:
         return 0
 
-def distSphereEuclidean2D(
+def distLatLon(
     coord1:     "First coordinate, in (lat, lon)", 
     coord2:     "Second coordinate, in (lat, lon)",
     distUnit:   "Unit of distance\
@@ -112,7 +126,6 @@ def calTriangleAreaByCoords(loc1, loc2, loc3):
     y3 = loc3[1]
     val = (x2 * y3 + x3 * y1 + x1 * y2) - (x2 * y1 + x3 * y2 + x1 * y3)
     area = abs(val)
-
     return area
 
 def getHeadingXY(
@@ -162,6 +175,7 @@ def pointInDistXY(
     y = loc[1] + dist * math.cos(math.radians(direction))
 
     return (x, y)
+
 def pointInDistLatLon(
     loc:        "Starting location" = None, 
     direction:  "Direction towards the destination, North is 0-degree, East is 90-degrees" = None, 
@@ -170,45 +184,95 @@ def pointInDistLatLon(
     newLoc = list(geopy.distance.distance(meters=distMeters).destination(point=loc, bearing=direction))
     return newLoc
 
+def sortNodesByDist(
+    nodes:      "Dictionary, returns the coordinate of given nodeID, \
+                    {\
+                        nodeID1: {'loc': (x, y)}, \
+                        nodeID2: {'loc': (x, y)}, \
+                        ... \
+                    }" = None, 
+    edges:      "1) String (default) 'Euclidean' or \
+                 2) String 'LatLon' or \
+                 3) Dictionary {(nodeID1, nodeID2): dist, ...}" = "Euclidean",
+    nodeIDs:    "1) String (default) 'All', or \
+                 2) A list of node IDs" = 'All',
+    refNodeID:  "List, [x, y], the reference location to calculate distance" = None    
+    ) -> "Given a set of locations, and a referencing node, sort the nodes by distance to this referencing node":
+
+    # Define nodeIDs ==========================================================
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = []
+            for i in nodes:
+                nodeIDs.append(i)
+
+    # Define edges ============================================================
+    if (type(edges) is not dict):
+        if (edges == 'Euclidean'):
+            edges = getTauEuclidean(nodes)
+        elif (edges == 'LatLon'):
+            edges = getTauLatLon(nodes)
+        else:
+            print("Error: Incorrect type `edges`")
+            return None
+
+    # Sort distance ===========================================================
+    sortedNode = []
+    sortedNodeHeap = []
+    for n in nodeIDs:
+        dist = edges[refNodeID, n]
+        heapq.heappush(sortedNodeHeap, (dist, n))
+    while (len(sortedNodeHeap) > 0):
+        sortedNode.append(heapq.heappop(sortedNodeHeap)[1])  
+
+    return sortedNode
+
 def getSweepSeq(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
                         nodeID1: {'loc': (x, y)}, \
                         nodeID2: {'loc': (x, y)}, \
                         ... \
-                    }" = None,
-    excludeIDs: "List of nodeIDs that will be excluded in sweeping, usually includes depot" = [],
+                    }" = None, 
+    nodeIDs:    "1) String (default) 'All', or \
+                 2) A list of node IDs" = 'All',
     centerLoc:  "List, [x, y], the center point" = None,
     isClockwise: "True if the sweeping direction is clock-wise, False otherwise" = True,
     initDeg:    "Starting direction of the sweeping, 0 as North" = 0
     ) -> "Given a set of locations, and a center point, gets the sequence from sweeping":
+
+    # Define nodeIDs ==========================================================
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = []
+            for i in nodes:
+                nodeIDs.append(i)
 
     # Initialize heap =========================================================
     degHeap = []
     centerLocNodes = []
     
     # Build heap ==============================================================
-    for nodeID in nodes:
-        if (nodeID not in excludeIDs):
-            dist = distEuclidean2D(nodes[nodeID]['loc'], centerLoc)
-            # If the nodes are too close, separate it/them
-            if (dist <= CONST_EPSILON):
-                centerLocNodes.append(nodeID)
+    for n in nodeIDs:
+        dist = distEuclidean2D(nodes[n]['loc'], centerLoc)
+        # If the nodes are too close, separate it/them
+        if (dist <= CONST_EPSILON):
+            centerLocNodes.append(n)
+        else:
+            dx = nodes[n]['loc'][0] - centerLoc[0]
+            dy = nodes[n]['loc'][1] - centerLoc[1]
+            (_, deg) = vec2ValDeg([dx, dy])
+            # Calculate angles
+            evalDeg = None
+            if (isClockwise):
+                evalDeg = deg - initDeg
             else:
-                dx = nodes[nodeID]['loc'][0] - centerLoc[0]
-                dy = nodes[nodeID]['loc'][1] - centerLoc[1]
-                (_, deg) = vec2ValDeg([dx, dy])
-                # Calculate angles
-                evalDeg = None
-                if (isClockwise):
-                    evalDeg = deg - initDeg
-                else:
-                    evalDeg = initDeg - deg
-                while(evalDeg > 360):
-                    evalDeg -= 360
-                while(evalDeg < 0):
-                    evalDeg += 360
-                heapq.heappush(degHeap, (evalDeg, nodeID))
+                evalDeg = initDeg - deg
+            while(evalDeg > 360):
+                evalDeg -= 360
+            while(evalDeg < 0):
+                evalDeg += 360
+            heapq.heappush(degHeap, (evalDeg, n))
 
     # Sweep ===================================================================
     sweepSeq = []
@@ -217,6 +281,20 @@ def getSweepSeq(
     sweepSeq.extend(centerLocNodes)
 
     return sweepSeq
+
+def getScan(
+    nodes:      "Dictionary, returns the coordinate of given nodeID, \
+                    {\
+                        nodeID1: {'loc': (x, y)}, \
+                        nodeID2: {'loc': (x, y)}, \
+                        ... \
+                    }" = None,
+    direction:  "Direction of scanning" = 0
+    ) -> "Scan nodes from one direction":
+
+    
+
+    return seq
 
 def getNodesConvexHull(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
@@ -243,46 +321,46 @@ def getNodesConvexHull(
             chSeq.append(n)
         return chSeq
 
+    # Subroutines for finding convex hull =====================================
+    def getNodesConvexHullJavis():
+        # References ----------------------------------------------------------
+        # 1. https://blog.csdn.net/Bone_ACE/article/details/46239187
+        # 2. chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/viewer.html?pdfurl=http%3A%2F%2Fwww.ams.sunysb.edu%2F~jsbm%2Fcourses%2F345%2F13%2Fmelkman.pdf&clen=46562&chunk=true
+        # 3. https://en.wikipedia.org/wiki/Convex_hull_algorithms
+
+        # Initialize ----------------------------------------------------------
+        chSeq = []
+
+        # Get the location of the left-most nodeID ----------------------------
+        # Find an initial point which guaranteed to be in convex hull
+        leftMostID = None
+        leftMostX = None
+        for n in nodes:
+            if (leftMostID == None or nodes[n]['loc'][0] < leftMostX):
+                leftMostID = n
+                leftMostX = nodes[n]['loc'][0]
+
+        # Jarvis march --------------------------------------------------------
+        curNodeID = leftMostID
+        curDirection = 0
+        marchFlag = True
+        while (marchFlag):
+            sweepSeq = getSweepSeq(
+                nodes = nodes,
+                nodeIDs = [i for i in nodes if i not in chSeq],
+                centerLoc = nodes[curNodeID]['loc'],
+                initDeg = curDirection)
+            if (sweepSeq[0] == leftMostID):
+                marchFlag = False
+            chSeq.append(sweepSeq[0])
+            curDirection = getHeadingXY(nodes[curNodeID]['loc'], nodes[sweepSeq[0]]['loc'])    
+            curNodeID = sweepSeq[0]
+        return chSeq
+
     # Call subroutines ========================================================
     if (algo == "Jarvis"):
-        chSeq = _getNodesConvexHullJavis(nodes)
+        chSeq = getNodesConvexHullJavis()
     else:
         return None
     
-    return chSeq
-
-def _getNodesConvexHullJavis(nodes):
-    # References ==============================================================
-    # 1. https://blog.csdn.net/Bone_ACE/article/details/46239187
-    # 2. chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/viewer.html?pdfurl=http%3A%2F%2Fwww.ams.sunysb.edu%2F~jsbm%2Fcourses%2F345%2F13%2Fmelkman.pdf&clen=46562&chunk=true
-    # 3. https://en.wikipedia.org/wiki/Convex_hull_algorithms
-
-    # Initialize ==============================================================
-    chSeq = []
-
-    # Get the location of the left-most nodeID ================================
-    # Find an initial point which guaranteed to be in convex hull
-    leftMostID = None
-    leftMostX = None
-    for n in nodes:
-        if (leftMostID == None or nodes[n]['loc'][0] < leftMostX):
-            leftMostID = n
-            leftMostX = nodes[n]['loc'][0]
-
-    # Jarvis march ============================================================
-    curNodeID = leftMostID
-    curDirection = 0
-    marchFlag = True
-    while (marchFlag):
-        sweepSeq = getSweepSeq(
-            nodes = nodes,
-            excludeIDs = chSeq,
-            centerLoc = nodes[curNodeID]['loc'],
-            initDeg = curDirection)
-        if (sweepSeq[0] == leftMostID):
-            marchFlag = False
-        chSeq.append(sweepSeq[0])
-        curDirection = getHeadingXY(nodes[curNodeID]['loc'], nodes[sweepSeq[0]]['loc'])    
-        curNodeID = sweepSeq[0]
-
     return chSeq

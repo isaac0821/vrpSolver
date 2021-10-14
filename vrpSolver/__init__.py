@@ -1,4 +1,4 @@
-__version__ = "0.0.13"
+__version__ = "0.0.17"
 __author__ = "Lan Peng"
 
 # History =====================================================================
@@ -21,6 +21,9 @@ __author__ = "Lan Peng"
 # v0.0.12 - 09082021 - Fix convex hull algorithm
 # v0.0.13 - 09122021 - More options for `rndPlainNodes()`
 # v0.0.14 - 09132021 - Reconstruct
+# v0.0.15 - 09292021 - k-Nearest for TSP
+# v0.0.16 - 10102021 - Minor fixes
+# v0.0.17 - 10102021 - Minor fixes
 # =============================================================================
 
 # Constants and messages
@@ -45,8 +48,5 @@ from .graph import *
 from .PMS import *
 
 # TSP
-from .TSP import *
-
-# VRP and its variants
-# from .consVRP import *
-# from .ipVRP import *
+from .ipTSP import *
+from .heuTSP import *

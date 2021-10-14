@@ -35,11 +35,11 @@ def rndPlainNodes(
     distr:      "Spatial distribution of nodes, the options are \
                  1) String, (default) 'uniformSquare', or \
                  2) String, 'uniformCircle', or \
-                 2) String, 'uniformPoly', or\
-                 3) String, 'uniformOnNetwork', or\
-                 2) String, 'clustered, or \
-                 3) String, 'ring', or \
-                 4) String, 'normal2D'" = 'uniform',
+                 3) String, 'uniformPoly', or\
+                 4) String, (not available) 'uniformOnNetwork', or\
+                 5) String, 'clustered, or \
+                 6) String, 'ring', or \
+                 7) String, (not available) 'normal2D'" = 'uniformSquare',
     distrArgs:  "Dictionary that describes the distribution of the nodes\
                  1) for 'uniformSquare'\
                     {\
@@ -47,19 +47,35 @@ def rndPlainNodes(
                         'yRange': A 2-tuple with minimum/maximum range of y, default as (0, 100), \
                     }\
                  2) for 'uniformCircle'\
-                 2) for 'uniformPoly'\
+                    {\
+                        'centerLoc': centering location \
+                        'radius': radius of the circle \
+                    }\
+                 3) for 'uniformPoly'\
                     {\
                         'poly': polygon of the area, (no holes)\
+                        'polys': list of polygons \
                     }\
-                 3) for 'uniformOnNetwork'\
-                 2) for 'clustered\
-                 3) for 'ring'\
+                 4) for 'uniformOnNetwork'\
+                    {\
+                        'network': list of arcs that can be sampled \
+                    }\
+                 5) for 'clustered\
+                    {\
+                        'numCluster': number of cluster centers\
+                        'xRange': xRange of cluster centroid\
+                        'yRange': yRange of cluster centroid\
+                        'poly': polygon for customers\
+                        'centroidLocs': list of cluster center locations\
+                        'clusterDiameter': the spread of nodes, in diameter\
+                    }\
+                 6) for 'ring'\
                     {\
                         'radius': radius of the ring,\
                         'degOffset': clock-wise rotate the nodes, default as 0, which is pointing north\
                         'centerLoc': centering location of the ring, default as (0, 0)\
                     }\
-                 4) for 'normal2D'\
+                 7) for 'normal2D'\
                 " = {
                     'xRange': (0, 100),
                     'yRange': (0, 100)
@@ -94,8 +110,22 @@ def rndPlainNodes(
             y = random.randrange(distrArgs['yRange'][0], distrArgs['yRange'][1])
             nodes[n] = {'loc': (x, y)}
     elif (distr == "uniformCircle"):
-        print("Stay tune")
-        return
+        # Sanity check --------------------------------------------------------
+        if (distrArgs == None):
+            distrArgs = {
+                'centerLoc': [0, 0],
+                'radius': 100
+            }
+        if ('centerLoc' not in distrArgs or 'radius' not in distrArgs):
+            print(ERROR_MISSING_DISTRARGS_UNICC)
+            return
+        # Create nodes --------------------------------------------------------
+        for n in nodeIDs:
+            theta = random.uniform(0, 2 * math.pi)
+            r = math.sqrt(random.uniform(0, distrArgs['radius'] ** 2))
+            x = distrArgs['centerLoc'][0] + r * math.cos(theta)
+            y = distrArgs['centerLoc'][1] + r * math.sin(theta)
+            nodes[n] = {'loc': (x, y)}
     elif (distr == "uniformPoly"):
         # Sanity check --------------------------------------------------------
         if (distrArgs == None):
@@ -115,7 +145,6 @@ def rndPlainNodes(
             polys = distrArgs['polys']
         # Get all triangulated triangles
         lstTriangle = []
-        
         for p in polys:
             lstTriangle.extend(tripy.earclip(p))
         # Weight them and make draws
@@ -136,8 +165,33 @@ def rndPlainNodes(
         print("Stay tune")
         return
     elif (distr == "clustered"):
-        print("Stay tune")
-        return
+        # Sanity check --------------------------------------------------------
+        if (distrArgs == None):
+            print(ERROR_MISSING_DISTRARGS)
+            return
+        if (('numCluster' not in distrArgs or 'xRange' not in distrArgs or 'yRange' not in distrArgs) and 'centroidLocs' not in distrArgs):
+            print(ERROR_MISSING_DISTRARGS_CLUSTER)
+            return
+        if ('clusterDiameter' not in distrArgs):
+            distrArgs['clusterDiameter'] = 20
+        # Create nodes --------------------------------------------------------
+        centroidLocs = []
+        if ('centroidLocs' in distrArgs):
+            centroidLocs = distrArgs['centroidLocs']
+        else:
+            for cl in range(distrArgs['numCluster']):
+                x = random.randrange(distrArgs['xRange'][0], distrArgs['xRange'][1])
+                y = random.randrange(distrArgs['yRange'][0], distrArgs['yRange'][1])
+                centroidLocs.append([x, y])
+        for n in nodeIDs:
+            # First pick a centroidLoc
+            idx = random.randint(0, len(centroidLocs) - 1)
+            ctrLoc = centroidLocs[idx]
+            theta = random.uniform(0, 2 * math.pi)
+            r = math.sqrt(random.uniform(0, distrArgs['clusterDiameter']))
+            x = ctrLoc[0] + r * math.cos(theta)
+            y = ctrLoc[1] + r * math.sin(theta)
+            nodes[n] = {'loc': (x, y)}
     elif (distr == "ring"):
         # Sanity check --------------------------------------------------------
         if (distrArgs == None):

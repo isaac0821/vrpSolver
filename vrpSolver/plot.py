@@ -198,6 +198,8 @@ def plotNodes(
     xyReverseFlag: "Reverse x, y. Usually use for (lat, lon)" = False,
     color:      "1) String 'Random', or\
                  2) String, color" = 'Random',
+    xSpan:      "figure width" = None,
+    ySpan:      "figure height" = None,
     xMin:       "min of x-axis" = None,
     xMax:       "max of x-axis" = None,
     yMin:       "min of y-axis" = None,
@@ -232,14 +234,13 @@ def plotNodes(
             yMin = min(allY) - edgeWidth
         if (yMax == None):
             yMax = max(allY) + edgeWidth
-        xSpan = None
-        ySpan = None
-        if (xMax - xMin > yMax - yMin):
-            xSpan = 20
-            ySpan = 20 * ((yMax - yMin) / (xMax - xMin))
-        else:
-            xSpan = 20 * ((xMax - xMin) / (yMax - yMin))
-            ySpan = 20
+        if (xSpan == None or ySpan == None):
+            if (xMax - xMin > yMax - yMin):
+                xSpan = 20
+                ySpan = 20 * ((yMax - yMin) / (xMax - xMin))
+            else:
+                xSpan = 20 * ((xMax - xMin) / (yMax - yMin))
+                ySpan = 20
         fig.set_figheight(ySpan)
         fig.set_figwidth(xSpan)
         ax.set_xlim(xMin, xMax)
@@ -282,6 +283,8 @@ def plotArcs(
     arrowHeadlength: "Arrow head length" = 0.2,
     color:      "1) String 'Random', or\
                  2) String, color" = 'Random',
+    xSpan:      "figure width" = None,
+    ySpan:      "figure height" = None,
     xMin:       "min of x-axis" = None,
     xMax:       "max of x-axis" = None,
     yMin:       "min of y-axis" = None,
@@ -315,14 +318,13 @@ def plotArcs(
             yMin = min(allY) - edgeWidth
         if (yMax == None):
             yMax = max(allY) + edgeWidth
-        xSpan = None
-        ySpan = None
-        if (xMax - xMin > yMax - yMin):
-            xSpan = 20
-            ySpan = 20 * ((yMax - yMin) / (xMax - xMin))
-        else:
-            xSpan = 20 * ((xMax - xMin) / (yMax - yMin))
-            ySpan = 20
+        if (xSpan == None or ySpan == None):
+            if (xMax - xMin > yMax - yMin):
+                xSpan = 20
+                ySpan = 20 * ((yMax - yMin) / (xMax - xMin))
+            else:
+                xSpan = 20 * ((xMax - xMin) / (yMax - yMin))
+                ySpan = 20
         fig.set_figheight(ySpan)
         fig.set_figwidth(xSpan)
         ax.set_xlim(xMin, xMax)
@@ -375,6 +377,8 @@ def plotSeq(
     arrowHeadlength: "Arrow head length" = 0.2,
     color:      "1) String 'Random', or\
                  2) String, color" = 'Random',
+    xSpan:      "figure width" = None,
+    ySpan:      "figure height" = None,
     xMin:       "min of x-axis" = None,
     xMax:       "max of x-axis" = None,
     yMin:       "min of y-axis" = None,
@@ -405,6 +409,8 @@ def plotSeq(
         arrowHeadwidth = arrowHeadwidth,
         arrowHeadlength = arrowHeadlength,
         color = color,
+        xSpan = xSpan,
+        ySpan = ySpan,
         xMin = xMin,
         xMax = xMax,
         yMin = yMin,
