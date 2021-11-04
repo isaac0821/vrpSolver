@@ -1,9 +1,11 @@
 import math
 
-def valDeg2Vec(
-    vVal:       "Norm of the vector",
-    vDeg:       "Degree of the vector, 0 as North, in [0, 360)"
+def vecPolar2XY(
+    vecPolar:   "2-tuple (vVal, vDeg), `vVal` is the norm and `vDeg` is the direction, 0 as North, clockwise, in [0, 360)" = None
     ) -> "Given vector's norm and its degree to North, convert it into a 2-tuple vector":
+
+    # Initialize ==============================================================
+    (vVal, vDeg) = vecPolar
 
     vX = None
     vY = None
@@ -19,8 +21,8 @@ def valDeg2Vec(
 
     return (vX, vY)
 
-def vec2ValDeg(
-    vec:        "2-tuple, as the vector"
+def vecXY2Polar(
+    vecXY:      "2-tuple (vX, vY), the coordinate of vector" = None
     ) -> "Given a 2-tuple, convert it into a norm and a direction in degree":
     
     (vX, vY) = vec
@@ -56,40 +58,48 @@ def vec2ValDeg(
         elif (vX < 0 and vY >= 0):
             vDeg = 360 + math.degrees(math.atan(vX / vY))
 
-    return vVal, vDeg
+    return (vVal, vDeg)
 
-def calVecAddition(
-    v1Val:      "Norm of vector 1", 
-    v1Deg:      "Degree of the vector 1, 0 as North, in [0, 360)", 
-    v2Val:      "Norm of vector 2", 
-    v2Deg:      "Degree of the vector 2, 0 as North, in [0, 360)",
+def calPolarVecAddition(
+    vecPolar1:  "First vector in polar system" = None,
+    vecPolar2:  "Second vector in polar system" = None
     ) -> "Given two vectors' norm and their meteorological degrees, get v3 that v3 = v1 + v2":
     # Change to 2-tuple vector ================================================
-    (v1X, v1Y) = valDeg2Vec(v1Val, v1Deg)
-    (v2X, v2Y) = valDeg2Vec(v2Val, v2Deg)
+    (v1X, v1Y) = vecPolar2XY(vecPolar1)
+    (v2X, v2Y) = vecPolar2XY(vecPolar2)
 
     # Get v3 ==================================================================
     (v3X, v3Y) = (v1X + v2X, v1Y + v2Y)
 
     # Get vector norm and direction ===========================================
-    v3Val, v3Deg = vec2ValDeg((v3X, v3Y))
+    (v3Val, v3Deg) = vecXY2Polar((v3X, v3Y))
 
-    return v3Val, v3Deg
+    return (v3Val, v3Deg)
 
-def calVecSubtract(
-    v1Val:      "Norm of vector 1", 
-    v1Deg:      "Degree of the vector 1, 0 as North, in [0, 360)", 
-    v2Val:      "Norm of vector 2", 
-    v2Deg:      "Degree of the vector 2, 0 as North, in [0, 360)", 
+def calPolarVecSubtract(
+    vecPolar1:  "First vector in polar system" = None,
+    vecPolar2:  "Second vector in polar system" = None
     ) -> "Given two vectors' norm and their meteorological degrees, get v3 that v1 = v2 + v3":
     # Change to 2-tuple vector ================================================
-    (v1X, v1Y) = valDeg2Vec(v1Val, v1Deg)
-    (v2X, v2Y) = valDeg2Vec(v2Val, v2Deg)
+    (v1X, v1Y) = vecPolar2XY(vecPolar1)
+    (v2X, v2Y) = vecPolar2XY(vecPolar2)
 
     # Get v3 ==================================================================
     (v3X, v3Y) = (v1X - v2X, v1Y - v2Y)
 
     # Get vector norm and direction ===========================================
-    v3Val, v3Deg = vec2ValDeg((v3X, v3Y))
+    v3Val, v3Deg = vecXY2Polar((v3X, v3Y))
 
-    return v3Val, v3Deg
+    return (v3Val, v3Deg)
+
+def calXYVecAddition(
+    vecXY1:     "First vector in xy system" = None,
+    vecXY2:     "Second vector in xy system" = None
+    ) -> "Given two vectors in XY, return the addition of two vectors":
+    return (vecXY1[0] + vecXY2[0], vecXY1[1] + vecXY2[1])
+
+def calXYVecSubtract(
+    vecXY1:     "First vector in xy system" = None,
+    vecXY2:     "Second vector in xy system" = None
+    ) -> "Given two vectors in XY, return the subtract of two vectors":
+    return (vecXY1[0] - vecXY2[0], vecXY1[1] - vecXY2[1])

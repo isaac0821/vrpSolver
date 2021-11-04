@@ -1,6 +1,6 @@
 import heapq
 import math
-from gurobipy import *
+import gurobipy as grb
 
 from .const import *
 from .common import *
@@ -27,6 +27,8 @@ def ipTSP(
                  6) String 'QAP'" = 'DFJ_Lazy',
     timeLimit:  "1) Double, in seconds or \
                  2) (default) None, no time limit" = None,
+    gapTolerance:   "1) Double, Stopping gap, or \
+                 2) (default) None, no gap limit" = None,
     outputFlag: "Boolean, True if export the gurobi logs" = False
     ) -> "Exact solution for TSP":
 
@@ -53,7 +55,9 @@ def ipTSP(
     if (outputFlag == False):
         TSP.setParam('OutputFlag', 0)
     if (timeLimit != None):
-        TSP.setParam(GRB.Param.TimeLimit, timeLimit)
+        TSP.setParam(grb.GRB.Param.TimeLimit, timeLimit)
+    if (gapTolerance != None):
+        TSP.setParam(grb.GRB.Param.MIPGap, gapTolerance)
 
     # Subroutines for different formulations ==================================
     def ipTSPQAP(edges, nodeIDs, timeLimit):
@@ -63,7 +67,7 @@ def ipTSP(
             for j in range(n):
                 if i != j:
                     x[i, j] = TSP.addVar(
-                        vtype = GRB.BINARY, 
+                        vtype = grb.GRB.BINARY, 
                         name = 'x_%s_%s' % (i, j))
         w = {}
         for i in range(n):
@@ -71,19 +75,19 @@ def ipTSP(
                 if (i != j):
                     for k in range(n):
                         w[i, j, k] = TSP.addVar(
-                            vtype = GRB.CONTINUOUS)
+                            vtype = grb.GRB.CONTINUOUS)
 
         # TSP objective function ----------------------------------------------
         TSP.setObjective(
-            quicksum(
-                quicksum(
-                    quicksum(
+            grb.quicksum(
+                grb.quicksum(
+                    grb.quicksum(
                         edges[nodeIDs[i], nodeIDs[j]] * w[i, j, k] for k in range(n - 1)
                     ) for j in range(n) if j != i
                 ) for i in range(n)
             ) + 
-            quicksum(
-                quicksum(
+            grb.quicksum(
+                grb.quicksum(
                     edges[nodeIDs[i], nodeIDs[j]] * w[i, j, n - 1] for j in range(n) if j != i
                 ) for i in range(n)
             )
@@ -91,9 +95,9 @@ def ipTSP(
 
         # Assignment constraints ----------------------------------------------
         for i in range(n):
-            TSP.addConstr(quicksum(x[i, j] for j in range(n) if j != i) == 1)
+            TSP.addConstr(grb.quicksum(x[i, j] for j in range(n) if j != i) == 1)
         for j in range(n):
-            TSP.addConstr(quicksum(x[i, j] for i in range(n) if j != i) == 1)
+            TSP.addConstr(grb.quicksum(x[i, j] for i in range(n) if j != i) == 1)
 
         # Linearized constraints ----------------------------------------------
         for i in range(n):
@@ -118,7 +122,7 @@ def ipTSP(
         lb = None
         ub = None
         runtime = None
-        if (TSP.status == GRB.status.OPTIMAL):
+        if (TSP.status == grb.GRB.status.OPTIMAL):
             ofv = TSP.getObjective().getValue()
             for j in range(n):
                 for i in range(n):
@@ -130,7 +134,7 @@ def ipTSP(
             lb = ofv
             ub = ofv
             runtime = TSP.Runtime
-        elif (TSP.status == GRB.status.TIME_LIMIT):
+        elif (TSP.status == grb.GRB.status.TIME_LIMIT):
             ofv = None
             seq = []
             gap = TSP.MIPGap
@@ -153,7 +157,7 @@ def ipTSP(
             for j in range(n):
                 if i != j:
                     x[i, j] = TSP.addVar(
-                        vtype = GRB.BINARY, 
+                        vtype = grb.GRB.BINARY, 
                         obj = edges[nodeIDs[i], nodeIDs[j]], 
                         name = 'x_%s_%s' % (i, j))
         y = {}
@@ -162,16 +166,16 @@ def ipTSP(
                 if (i != j):
                     for k in range(1, n):
                         y[i, j, k] = TSP.addVar(
-                            vtype = GRB.CONTINUOUS)
+                            vtype = grb.GRB.CONTINUOUS)
 
         # TSP objective function ----------------------------------------------
-        TSP.modelSense = GRB.MINIMIZE
+        TSP.modelSense = grb.GRB.MINIMIZE
         TSP.update()
 
         # Degree constraints --------------------------------------------------
         for i in range(n):
-            TSP.addConstr(quicksum(x[i, j] for j in range(n) if i != j) == 1, name = 'leave_%s' % i)
-            TSP.addConstr(quicksum(x[j, i] for j in range(n) if i != j) == 1, name = 'enter_%s' % i)
+            TSP.addConstr(grb.quicksum(x[i, j] for j in range(n) if i != j) == 1, name = 'leave_%s' % i)
+            TSP.addConstr(grb.quicksum(x[j, i] for j in range(n) if i != j) == 1, name = 'enter_%s' % i)
 
         # MCF -----------------------------------------------------------------
         for i in range(n):
@@ -181,14 +185,14 @@ def ipTSP(
                         TSP.addConstr(y[i, j, k] <= x[i, j])
 
         for k in range(1, n):
-            TSP.addConstr(quicksum(y[0, i, k] for i in range(1, n)) == 1)
-            TSP.addConstr(quicksum(y[i, 0, k] for i in range(1, n)) == 0)
-            TSP.addConstr(quicksum(y[i, k, k] for i in range(n) if i != k) == 1)
-            TSP.addConstr(quicksum(y[k, j, k] for j in range(n) if j != k) == 0)
+            TSP.addConstr(grb.quicksum(y[0, i, k] for i in range(1, n)) == 1)
+            TSP.addConstr(grb.quicksum(y[i, 0, k] for i in range(1, n)) == 0)
+            TSP.addConstr(grb.quicksum(y[i, k, k] for i in range(n) if i != k) == 1)
+            TSP.addConstr(grb.quicksum(y[k, j, k] for j in range(n) if j != k) == 0)
             for j in range(1, n):
                 if (j != k):
-                    TSP.addConstr(quicksum(y[i, j, k] for i in range(n) if i != j) 
-                        - quicksum(y[j, i, k] for i in range(n) if i != j) == 0)
+                    TSP.addConstr(grb.quicksum(y[i, j, k] for i in range(n) if i != j) 
+                        - grb.quicksum(y[j, i, k] for i in range(n) if i != j) == 0)
 
         # TSP -----------------------------------------------------------------
         TSP.optimize()
@@ -197,7 +201,7 @@ def ipTSP(
         ofv = None
         seq = []
         arcs = []
-        if (TSP.status == GRB.status.OPTIMAL):
+        if (TSP.status == grb.GRB.status.OPTIMAL):
             ofv = TSP.getObjective().getValue()
             for i, j in x:
                 if (x[i, j].x > 0.5):
@@ -216,7 +220,7 @@ def ipTSP(
             lb = ofv
             ub = ofv
             runtime = TSP.Runtime
-        elif (TSP.status == GRB.status.TIME_LIMIT):
+        elif (TSP.status == grb.GRB.status.TIME_LIMIT):
             ofv = None
             seq = []
             gap = TSP.MIPGap
@@ -241,26 +245,26 @@ def ipTSP(
                     for t in range(n):
                         x[i, j, t] = TSP.addVar(
                             obj = edges[nodeIDs[i], nodeIDs[j]],
-                            vtype = GRB.BINARY)
+                            vtype = grb.GRB.BINARY)
 
         # Stage constraints ---------------------------------------------------
         # Start from depot 
-        TSP.addConstr(quicksum(x[0, j, 0] for j in range(1, n)) == 1)
+        TSP.addConstr(grb.quicksum(x[0, j, 0] for j in range(1, n)) == 1)
         # First stage
         for i in range(1, n):
-            TSP.addConstr(quicksum(x[i, j, 1] for j in range(1, n) if i != j) - x[0, i, 0] == 0)
+            TSP.addConstr(grb.quicksum(x[i, j, 1] for j in range(1, n) if i != j) - x[0, i, 0] == 0)
         # In between
         for i in range(1, n):
             for t in range(2, n - 1):
-                TSP.addConstr(quicksum(x[i, j, t] for j in range(1, n) if i != j) - quicksum(x[j, i, t - 1] for j in range(1, n) if i != j) == 0)
+                TSP.addConstr(grb.quicksum(x[i, j, t] for j in range(1, n) if i != j) - grb.quicksum(x[j, i, t - 1] for j in range(1, n) if i != j) == 0)
         # Last stage
         for i in range(1, n):
-            TSP.addConstr(x[i, 0, n - 1] - quicksum(x[j, i, n - 2] for j in range(1, n) if i != j) == 0)
+            TSP.addConstr(x[i, 0, n - 1] - grb.quicksum(x[j, i, n - 2] for j in range(1, n) if i != j) == 0)
         # Return to depot
-        TSP.addConstr(quicksum(x[i, 0, n - 1] for i in range(1, n)) == 1)
+        TSP.addConstr(grb.quicksum(x[i, 0, n - 1] for i in range(1, n)) == 1)
         # Consequent
         for i in range(1, n):
-            TSP.addConstr(quicksum(quicksum(x[i, j, t] for j in range(1, n) if i != j) for t in range(1, n - 1)) + x[i, 0, n - 1] <= 1)
+            TSP.addConstr(grb.quicksum(grb.quicksum(x[i, j, t] for j in range(1, n) if i != j) for t in range(1, n - 1)) + x[i, 0, n - 1] <= 1)
 
         # TSP -----------------------------------------------------------------
         TSP.optimize()
@@ -269,7 +273,7 @@ def ipTSP(
         ofv = None
         seq = []
         arcs = []
-        if (TSP.status == GRB.status.OPTIMAL):
+        if (TSP.status == grb.GRB.status.OPTIMAL):
             ofv = TSP.getObjective().getValue()
             for i, j, t in x:
                 if (x[i, j, t].x > 0.5):
@@ -288,7 +292,7 @@ def ipTSP(
             lb = ofv
             ub = ofv
             runtime = TSP.Runtime
-        elif (TSP.status == GRB.status.TIME_LIMIT):
+        elif (TSP.status == grb.GRB.status.TIME_LIMIT):
             ofv = None
             seq = []
             gap = TSP.MIPGap
@@ -311,23 +315,23 @@ def ipTSP(
             for j in range(n):
                 if i != j:
                     x[i, j] = TSP.addVar(
-                        vtype = GRB.BINARY, 
+                        vtype = grb.GRB.BINARY, 
                         obj = edges[nodeIDs[i], nodeIDs[j]], 
                         name = 'x_%s_%s' % (i, j))
         u = {}
         for i in range(n):
             u[i] = TSP.addVar(
-                vtype = GRB.CONTINUOUS,
+                vtype = grb.GRB.CONTINUOUS,
                 name = 'u_%s' % (i))
 
         # TSP objective function ----------------------------------------------
-        TSP.modelSense = GRB.MINIMIZE
+        TSP.modelSense = grb.GRB.MINIMIZE
         TSP.update()
 
         # Degree constraints --------------------------------------------------
         for i in range(n):
-            TSP.addConstr(quicksum(x[i, j] for j in range(n) if i != j) == 1, name = 'leave_%s' % i)
-            TSP.addConstr(quicksum(x[j, i] for j in range(n) if i != j) == 1, name = 'enter_%s' % i)
+            TSP.addConstr(grb.quicksum(x[i, j] for j in range(n) if i != j) == 1, name = 'leave_%s' % i)
+            TSP.addConstr(grb.quicksum(x[j, i] for j in range(n) if i != j) == 1, name = 'enter_%s' % i)
 
         # Sequence constraints ------------------------------------------------
         for i in range(1, n):
@@ -346,7 +350,7 @@ def ipTSP(
         gap = None
         seq = []
         arcs = []
-        if (TSP.status == GRB.status.OPTIMAL):
+        if (TSP.status == grb.GRB.status.OPTIMAL):
             ofv = TSP.getObjective().getValue()
             gap = TSP.Params.MIPGapAbs
             for i, j in x:
@@ -366,7 +370,7 @@ def ipTSP(
             lb = ofv
             ub = ofv
             runtime = TSP.Runtime
-        elif (TSP.status == GRB.status.TIME_LIMIT):
+        elif (TSP.status == grb.GRB.status.TIME_LIMIT):
             ofv = None
             seq = []
             gap = TSP.MIPGap
@@ -389,28 +393,28 @@ def ipTSP(
             for j in range(n):
                 if (i != j):
                     x[i, j] = TSP.addVar(
-                        vtype = GRB.BINARY, 
+                        vtype = grb.GRB.BINARY, 
                         obj = edges[nodeIDs[i], nodeIDs[j]], 
                         name = 'x_%s_%s' % (i, j))
                     
         # TSP -----------------------------------------------------------------
-        TSP.modelSense = GRB.MINIMIZE
+        TSP.modelSense = grb.GRB.MINIMIZE
         TSP.Params.lazyConstraints = 1
         TSP.update()
 
         # Degree constraints --------------------------------------------------
         for i in range(n):
-            TSP.addConstr(quicksum(x[i, j] for j in range(n) if i != j) == 1, name = 'leave_%s' % i)
-            TSP.addConstr(quicksum(x[j, i] for j in range(n) if i != j) == 1, name = 'enter_%s' % i)
+            TSP.addConstr(grb.quicksum(x[i, j] for j in range(n) if i != j) == 1, name = 'leave_%s' % i)
+            TSP.addConstr(grb.quicksum(x[j, i] for j in range(n) if i != j) == 1, name = 'enter_%s' % i)
 
         # Resolve to optimality and try to find sub-tours ---------------------
         noSubtourFlag = False
         accRuntime = 0
         while (not noSubtourFlag):
             if (timeLimit != None):
-                TSP.setParam(GRB.Param.TimeLimit, timeLimit - accRuntime) # FIXME
+                TSP.setParam(grb.GRB.Param.TimeLimit, timeLimit - accRuntime) # FIXME
             TSP.optimize()
-            if (TSP.status == GRB.status.OPTIMAL):
+            if (TSP.status == grb.GRB.status.OPTIMAL):
                 accRuntime += TSP.Runtime
                 arcs = tuplelist((i, j) for i, j in x.keys() if x[i, j].X > 0.9)
                 components = findComponentsUndirected(arcs)
@@ -419,8 +423,8 @@ def ipTSP(
                     break
                 else:
                     for comp in components:
-                        TSP.addConstr(quicksum(x[i, j] for i in comp for j in comp if i != j) <= len(comp) - 1)
-            elif (TSP.status == GRB.status.TIME_LIMIT):
+                        TSP.addConstr(grb.quicksum(x[i, j] for i in comp for j in comp if i != j) <= len(comp) - 1)
+            elif (TSP.status == grb.GRB.status.TIME_LIMIT):
                 accRuntime += TSP.Runtime
                 break
 
@@ -428,7 +432,7 @@ def ipTSP(
         ofv = None
         seq = []
         arcs = []
-        if (TSP.status == GRB.status.OPTIMAL):
+        if (TSP.status == grb.GRB.status.OPTIMAL):
             ofv = TSP.getObjective().getValue()
             for i, j in x:
                 if (x[i, j].x > 0.5):
@@ -447,7 +451,7 @@ def ipTSP(
             lb = ofv
             ub = ofv
             runtime = accRuntime
-        elif (TSP.status == GRB.status.TIME_LIMIT):
+        elif (TSP.status == grb.GRB.status.TIME_LIMIT):
             ofv = None
             seq = []
             gap = TSP.MIPGap
@@ -470,30 +474,30 @@ def ipTSP(
             for j in range(n):
                 if (i != j):
                     x[i, j] = TSP.addVar(
-                        vtype = GRB.BINARY, 
+                        vtype = grb.GRB.BINARY, 
                         obj = edges[nodeIDs[i], nodeIDs[j]], 
                         name = 'x_%s_%s' % (i, j))
                     
         # TSP objective function ----------------------------------------------
-        TSP.modelSense = GRB.MINIMIZE
+        TSP.modelSense = grb.GRB.MINIMIZE
         TSP.Params.lazyConstraints = 1
         TSP.update()
 
         # Degree constraints --------------------------------------------------
         for i in range(n):
-            TSP.addConstr(quicksum(x[i, j] for j in range(n) if i != j) == 1, name = 'leave_%s' % i)
-            TSP.addConstr(quicksum(x[j, i] for j in range(n) if i != j) == 1, name = 'enter_%s' % i)
+            TSP.addConstr(grb.quicksum(x[i, j] for j in range(n) if i != j) == 1, name = 'leave_%s' % i)
+            TSP.addConstr(grb.quicksum(x[j, i] for j in range(n) if i != j) == 1, name = 'enter_%s' % i)
 
         # Sub-tour elimination ------------------------------------------------
         TSP._x = x
         def subtourelim(model, where):
-            if (where == GRB.Callback.MIPSOL):
+            if (where == grb.GRB.Callback.MIPSOL):
                 x_sol = model.cbGetSolution(model._x)
                 arcs = tuplelist((i, j) for i, j in model._x.keys() if x_sol[i, j] > 0.9)
                 components = findComponentsUndirected(arcs)
                 for component in components:
                     if (len(component) < n):
-                        model.cbLazy(quicksum(x[i,j] for i in component for j in component if i != j) <= len(component) - 1)
+                        model.cbLazy(grb.quicksum(x[i,j] for i in component for j in component if i != j) <= len(component) - 1)
 
         # TSP with callback ---------------------------------------------------
         TSP.optimize(subtourelim)
@@ -502,7 +506,7 @@ def ipTSP(
         ofv = None
         seq = []
         arcs = []
-        if (TSP.status == GRB.status.OPTIMAL):
+        if (TSP.status == grb.GRB.status.OPTIMAL):
             ofv = TSP.getObjective().getValue()
             for i, j in x:
                 if (x[i, j].x > 0.5):
@@ -521,7 +525,7 @@ def ipTSP(
             lb = ofv
             ub = ofv
             runtime = TSP.Runtime
-        elif (TSP.status == GRB.status.TIME_LIMIT):
+        elif (TSP.status == grb.GRB.status.TIME_LIMIT):
             ofv = None
             seq = []
             gap = TSP.MIPGap

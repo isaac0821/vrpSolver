@@ -2,11 +2,11 @@ import random
 import math
 import tripy
 import geopy
+import copy
 
 from .msg import *
 from .geometry import *
 from .common import *
-from .matrices import *
 
 def nodesEuc2Geo(
     nodesInEuc: "Node dictionary in euclidean space" = None,
@@ -221,11 +221,7 @@ def rndPlainNodes(
     return nodes
 
 def rndTimeWindowsNodes(
-    N:          "Number of vertices" = None,
-    nodes:      "If nodes are provided, will overwrite `nodeIDs`, `xRange`, `yRange`, time windows will be applied on those nodes" = None,
-    nodeIDs:    "A list of node IDs, `N` will be overwritten if `nodeIDs` is given" = None,
-    xRange:     "A 2-tuple with minimum/maximum range of x" = (0, 100),
-    yRange:     "A 2-tuple with minimum/maximum range of y" = (0, 100),
+    plainNodes: "Needs to provide plain nodes" = None,
     timeSpan:   "Time span for generating time windows, starting from 0" = None,
     twType:     "Type of time windows\
                  1) String 'Known', all time windows are given priorly, or \
@@ -249,10 +245,12 @@ def rndTimeWindowsNodes(
                         'avgTWDur': average length of time windows, exponential distributed\
                     }" = None
     ) -> "A set of nodes with time windows":
+    # Initialize ==============================================================
+    nodes = copy.deepcopy(plainNodes)
 
     # Check for required fields ===============================================
-    if (N == None and nodes == None):
-        print(ERROR_MISSING_N)
+    if (plainNodes == None):
+        print(ERROR_MISSING_PLAINNODES)
         return
     if (timeSpan == None):
         print(ERROR_MISSING_TIMESPAN)
@@ -294,10 +292,6 @@ def rndTimeWindowsNodes(
         elif ('avgTWDur' not in twArgs):
             print(ERROR_MISSING_TWRANDOMARGS_TW)
             return
-
-    # Initialize nodes ========================================================
-    if (nodes == None):
-        nodes = rndPlainNodes(N, nodeIDs, xRange, yRange)
 
     # Generate time windows for different types ===============================
     for n in nodes:

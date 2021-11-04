@@ -166,10 +166,10 @@ def heuTSP(
                  6) String 'DepthFirst' or \
                  7) String (default) 'Christofides' or \
                  8) String 'Random'" = 'Christofides',
-    consAlgoArgs:"Dictionary, args for constructive heuristic" = None,
+    consAlgoArgs: "Dictionary, args for constructive heuristic" = None,
     impAlgo:    "1) String (not available) 'LKH' or \
                  2) String (default) '2Opt' = '2Opt'" = '2Opt',
-    impAlgoArgs:"Dictionary, args for improvement heuristic" = None,
+    impAlgoArgs: "Dictionary, args for improvement heuristic" = None,
     ) -> "Use given heuristic methods to get TSP solution":
 
     # Define nodeIDs ==========================================================
@@ -190,13 +190,12 @@ def heuTSP(
             return None
 
     # Constructive heuristic ==================================================
-    # Start with a constructive heuristic
     cons = consTSP(nodes, edges, nodeIDs, consAlgo, consAlgoArgs)
 
-    # Improve the constructive heuristic result ===============================
-    res = impTSP(nodes, edges, nodeIDs, cons['seq'], impAlgo, impAlgoArgs)
+    # Local improvement heuristic =============================================
+    tsp = impTSP(nodes, edges, nodeIDs, cons['seq'], impAlgo, impAlgoArgs)
 
-    return res
+    return tsp
 
 def consTSP(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
@@ -340,21 +339,21 @@ def consTSP(
         }
 
     # Heuristics that don't need to transform arc representation ==============
-    res = None
+    tsp = None
     if (algo == 'k-NearestNeighbor'):
         if (algoArgs == None):
             algoArgs = {'k': 1}
-        res = consTSPkNearestNeighbor(nodes, nodeIDs, edges, algoArgs['k'])
+        tsp = consTSPkNearestNeighbor(nodes, nodeIDs, edges, algoArgs['k'])
     elif (algo == 'FarthestNeighbor'):
-        res = consTSPFarthestNeighbor(nodeIDs, edges)
+        tsp = consTSPFarthestNeighbor(nodeIDs, edges)
     elif (algo == 'Sweep'):
-        res = consTSPSweep(nodes, nodeIDs, edges)
+        tsp = consTSPSweep(nodes, nodeIDs, edges)
     elif (algo == 'Random'):
-        res = consTSPRandomSeq(nodeIDs, edges)
+        tsp = consTSPRandomSeq(nodeIDs, edges)
     else:
         pass
-    if (res != None):
-        return res
+    if (tsp != None):
+        return tsp
 
     # Create arcs =============================================================
     # FIXME! indexes of nodes starts from 0 here!
@@ -427,15 +426,15 @@ def consTSP(
         }
 
     # Constructive Heuristics for TSP =========================================
-    res = None
+    tsp = None
     if (algo == 'DepthFirst'):
-        res = consTSPDepthFirst(weightArcs)
+        tsp = consTSPDepthFirst(weightArcs)
     elif (algo == 'Christofides'):
         if (algoArgs == None):
             algoArgs = {'matchingAlgo': 'IP'}
-        res = consTSPChristofides(weightArcs, algoArgs['matchingAlgo'])
+        tsp = consTSPChristofides(weightArcs, algoArgs['matchingAlgo'])
 
-    return res
+    return tsp
 
 def impTSP(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
@@ -510,12 +509,12 @@ def impTSP(
         }
 
     # Heuristics that don't need to transform arc representation ==============
-    res = None
+    tsp = None
     nodeIDs = list(nodes.keys())
     if (algo == '2Opt'):
-        res = impTSP2Opt(nodeIDs, edges, initSeq)
+        tsp = impTSP2Opt(nodeIDs, edges, initSeq)
 
-    return res
+    return tsp
 
 
 

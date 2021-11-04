@@ -5,6 +5,10 @@ import gurobipy as grb
 def ipPMS(
     numMachines: "Number of parallel machines" = None,
     jobLen:     "List, length of each job" = None,
+    timeLimit:  "1) Double, in seconds or \
+                 2) (default) None, no time limit" = None,
+    gapTolerance: "1) Double, Stopping gap, or \
+                 2) (default) None, no gap limit" = None,
     outputFlag: "Boolean, True if export the gurobi logs" = False
     ) -> "Exact solution for PMS":
 
@@ -12,7 +16,11 @@ def ipPMS(
     PMS = grb.Model('PMS')
     if (outputFlag == False):
         PMS.setParam('OutputFlag', 0)
-        
+    if (timeLimit != None):
+        PMS.setParam(grb.GRB.Param.TimeLimit, timeLimit)
+    if (gapTolerance != None):
+        PMS.setParam(grb.GRB.Param.MIPGap, gapTolerance)
+
     # Decision variables ======================================================
     x = {}
     for i in range(numMachines):

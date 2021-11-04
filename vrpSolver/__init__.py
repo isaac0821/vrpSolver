@@ -1,4 +1,4 @@
-__version__ = "0.0.17"
+__version__ = "0.0.19"
 __author__ = "Lan Peng"
 
 # History =====================================================================
@@ -24,6 +24,9 @@ __author__ = "Lan Peng"
 # v0.0.15 - 09292021 - k-Nearest for TSP
 # v0.0.16 - 10102021 - Minor fixes
 # v0.0.17 - 10102021 - Minor fixes
+# v0.0.18 - 10312021 - Minor fixes
+# v0.0.19 - 11032021 - A bunch of `geometry.py` functions for finding the intersection
+#                      between line segments, rays, polygons, etc.
 # =============================================================================
 
 # Constants and messages
@@ -36,7 +39,7 @@ from .plot import *
 from .instance import *
 from .timeWindows import *
 from .color import *
-from .matrices import *
+from .vector import *
 
 # Geometry
 from .geometry import *

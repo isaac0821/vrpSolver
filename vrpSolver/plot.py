@@ -43,7 +43,7 @@ def plotGantt(
                         'timeWindow': [startTime, endTime], \
                         'desc': (optional) description of the window,\
                         'trackID': (optional, default as '0') parallel gantt chart ID, \
-                        'color': (optional, default as 'Random') color, \
+                        'color': (optional, default as 'random') color, \
                         'style': (optional, default as 'solid') 'solid' \
                     }, ... , \
                     {\
@@ -51,7 +51,7 @@ def plotGantt(
                         'timeStamps': [timeStamp1, timeStamp2, ..., timeStampN], \
                         'desc': (optional) [List of descriptions, correspond to `timeStamps`],\
                         'trackID': (optional, default as '0') parallel gantt chart ID, \
-                        'color': (optional, default as 'Random') color, \
+                        'color': (optional, default as 'random') color, \
                         'style': (optional, default as 'solid') 'solid' \
                     }, ... , ]\
                 " = None,

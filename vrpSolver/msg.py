@@ -13,6 +13,7 @@ ERROR_MISSING_NODES                 =("ERROR: Missing required field `nodes`. Th
                                     + "        nodeID2: {'loc': (x, y)}, \n"
                                     + "        ... \n"
                                     + "    }")
+ERROR_MISSING_PLAINNODES            = "ERROR: Missing required field `plainNodes`, which can be generated using `rndPlainNodes()`"
 ERROR_MISSING_DISTRARGS             = "ERROR: Missing required field `distrArgs`"
 ERROR_MISSING_DISTRARGS_UNISQ       = "ERROR: `xRange`, `yRange` are required in `distrArgs`"
 ERROR_MISSING_DISTRARGS_UNICC       = "ERROR: `radius`, `centerLoc` are required in `distrArgs`"
@@ -45,6 +46,7 @@ ERROR_MISSING_GANTT                 =("ERROR: Missing required field `gantt`. Th
                                     + "        'color': color, \n"
                                     + "        'style': 'solid' \n"
                                     + "    }]\n")
+ERROR_ZERO_VECTOR                   = "ERROR: Segment or Ray should be defined using two different points"
 
 # Error message - Incorrect input option
 ERROR_OPTS_TWTYPE                   = "ERROR: Incorrect `twType`, valid options includes %s" % ("")
