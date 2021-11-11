@@ -455,7 +455,7 @@ def getSweepSeq(
         else:
             dx = nodes[n]['loc'][0] - centerLoc[0]
             dy = nodes[n]['loc'][1] - centerLoc[1]
-            (_, deg) = vec2ValDeg([dx, dy])
+            (_, deg) = vecXY2Polar((dx, dy))
             # Calculate angles
             evalDeg = None
             if (isClockwise):
