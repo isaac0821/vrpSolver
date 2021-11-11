@@ -25,7 +25,7 @@ __author__ = "Lan Peng"
 # v0.0.16 - 10102021 - Minor fixes
 # v0.0.17 - 10102021 - Minor fixes
 # v0.0.18 - 10312021 - Minor fixes
-# v0.0.19 - 11032021 - A bunch of `geometry.py` functions for finding the intersection
+# v0.0.19 - 11102021 - A bunch of `geometry.py` functions for finding the intersection
 #                      between line segments, rays, polygons, etc.
 # =============================================================================
 
@@ -43,6 +43,7 @@ from .vector import *
 
 # Geometry
 from .geometry import *
+from .relation import *
 
 # Graph/network algorithms
 from .graph import *

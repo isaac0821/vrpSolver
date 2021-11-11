@@ -3,7 +3,7 @@ from gurobipy import *
 
 from .common import *
 
-def findComponentsUndirected(
+def getGraphComponents(
     arcs:       "A list of 2-tuples", 
     ) -> "A list of components":
     # Create adj list, each vertex start with an empty list
@@ -48,25 +48,25 @@ def traversalTree(
     ) -> "Return a sequence of node ids that traverses the tree":
 
     # Subroutines =============================================================
-    def traversalTreeDepthFirst():
+    def _traversalTreeDepthFirst():
         visited = []
 
         # Visit children recursively ------------------------------------------
-        def visitNode(nodeID):
+        def _visitNode(nodeID):
             visited.append(nodeID)
             children = tree[nodeID]
             if (children != None and children not in visited):
                 if (type(children) == int or type(children) == str):
-                    visitNode(children)
+                    _visitNode(children)
                 else:
                     for child in children:
-                        visitNode(child)
+                        _visitNode(child)
 
         # Start search from root ----------------------------------------------
         # FIXME! Incorrect for dictionary that root is not the first element
         if (oID == None):
             oID = list(tree.keys())[0]
-        visitNode(oID)
+        _visitNode(oID)
 
         return {
             'seq': visited
@@ -75,7 +75,7 @@ def traversalTree(
     # Solve by different algorithms ===========================================
     res = None
     if (algo == 'DepthFirst'):
-        res = traversalTreeDepthFirst()
+        res = _traversalTreeDepthFirst()
 
     return res
 
@@ -92,21 +92,21 @@ def traversalGraph(
     neighbors = arcs2AdjList(arcs)
 
     # Subroutines =============================================================
-    def traversalGraphDepthFirst():
+    def _traversalGraphDepthFirst():
         visited = []
         
-        # Visit neighbors that has not been visited ===============================
-        def visitNode(nodeID):
+        # Visit neighbors that has not been visited ---------------------------
+        def _visitNode(nodeID):
             visited.append(nodeID)
             neis = neighbors[nodeID]
             for nei in neis:
                 if (nei not in visited):
-                    visitNode(nei)
+                    _visitNode(nei)
 
-        # Start search from root ==================================================
+        # Start search from root ----------------------------------------------
         if (oID == None):
             oID = list(neighbors.keys())[0]
-        visitNode(oID)
+        _visitNode(oID)
 
         return {
             'seq': visited,
@@ -116,7 +116,7 @@ def traversalGraph(
     # Solve by different algorithms ===========================================
     res = None
     if (algo == 'DepthFirst'):
-        res = traversalGraphDepthFirst()
+        res = _traversalGraphDepthFirst()
 
     return res
 
@@ -142,7 +142,7 @@ def graphMST(
         numVertices = len(vertices)
 
     # Subroutines =============================================================
-    def mstKrusal(weightArcs, numVertices):
+    def _mstKrusal(weightArcs, numVertices):
         # Initialize ----------------------------------------------------------
         mst = []
         val = 0
@@ -205,7 +205,7 @@ def graphMST(
 
     # Call MST ================================================================
     if (algo == 'Krusal'):
-        res = mstKrusal(weightArcs, numVertices)
+        res = _mstKrusal(weightArcs, numVertices)
     else:
         print("Error: Incorrect or not available MST option!")
     return res
@@ -220,7 +220,7 @@ def graphMatching(
     ) -> "Return a set of vertices that forms a Maximum/Minimum Matching": 
 
     # Subroutine ==============================================================
-    def matchingIP(weightArcs, mType):
+    def _matchingIP(weightArcs, mType):
         matching = []
         M = Model('Matching')
 
@@ -269,10 +269,63 @@ def graphMatching(
     res = None
     if (mType == 'Minimum'):
         if (algo == 'IP'):
-            res = matchingIP(weightArcs, mType)
+            res = _matchingIP(weightArcs, mType)
     elif (mType == 'Maximum'):
         if (algo == 'IP'):
-            res = matchingIP(weightArcs, mType)
+            res = _matchingIP(weightArcs, mType)
 
     return res
 
+def arcs2AdjList(
+    arcs:       "1) A list of 3-tuple (nodeID1, nodeID2, weight) or, \
+                 2) A list of 2-tuple (nodeID1, nodeID2)"
+    ) -> "Dictionary of neighbors of each node":
+
+    neighbors = {}
+    for i in range(len(arcs)):
+        if (arcs[i][0] not in neighbors):
+            neighbors[arcs[i][0]] = [arcs[i][1]]
+        else:
+            neighbors[arcs[i][0]].append(arcs[i][1])
+        if (arcs[i][1] not in neighbors):
+            neighbors[arcs[i][1]] = [arcs[i][0]]
+        else:
+            neighbors[arcs[i][1]].append(arcs[i][0])
+
+    return neighbors
+
+def calSeqCostArcs(
+    weightArcs: "A list of 3-tuple (nodeID1, nodeID2, weight)",
+    seq:        "List, sequence of visiting node ids"
+    ) -> "Return the cost on the graph given a list of arcs weights":
+
+    # Accumulate costs ========================================================
+    cost = 0
+    for i in range(len(seq) - 1):
+        c = None
+        for j in range(len(weightArcs)):
+            if (seq[i] == weightArcs[j][0] and seq[i + 1] == weightArcs[j][1]):
+                c = weightArcs[j][2]
+                break
+            elif (seq[i] == weightArcs[j][1] and seq[i + 1] == weightArcs[j][0]):
+                c = weightArcs[j][2]
+                break
+        if (c == None):
+            print("Error: Missing arc (%s, %s) in `weightArcs`" % (seq[i], seq[i + 1]))
+            return
+        else:
+            cost += c
+
+    return cost
+
+def calSeqCostMatrix(
+    tau:        "Dictionary {(nodeID1, nodeID2): dist, ...}", 
+    seq:        "List, sequence of visiting node ids"
+    ) -> "Return the cost on the graph given cost matrix/dictionary tau":
+
+    # Accumulate costs ========================================================
+    cost = 0
+    for i in range(len(seq) - 1):
+        cost += tau[seq[i], seq[i + 1]]
+
+    return cost

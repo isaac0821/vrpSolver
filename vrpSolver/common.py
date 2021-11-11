@@ -52,60 +52,6 @@ def rndPick(
 
     return idx
 
-def calSeqCostArcs(
-    weightArcs: "A list of 3-tuple (nodeID1, nodeID2, weight)",
-    seq:        "List, sequence of visiting node ids"
-    ) -> "Return the cost on the graph given a list of arcs weights":
-
-    # Accumulate costs ========================================================
-    cost = 0
-    for i in range(len(seq) - 1):
-        c = None
-        for j in range(len(weightArcs)):
-            if (seq[i] == weightArcs[j][0] and seq[i + 1] == weightArcs[j][1]):
-                c = weightArcs[j][2]
-                break
-            elif (seq[i] == weightArcs[j][1] and seq[i + 1] == weightArcs[j][0]):
-                c = weightArcs[j][2]
-                break
-        if (c == None):
-            print("Error: Missing arc (%s, %s) in `weightArcs`" % (seq[i], seq[i + 1]))
-            return
-        else:
-            cost += c
-
-    return cost
-
-def calSeqCostMatrix(
-    tau:        "Dictionary {(nodeID1, nodeID2): dist, ...}", 
-    seq:        "List, sequence of visiting node ids"
-    ) -> "Return the cost on the graph given cost matrix/dictionary tau":
-
-    # Accumulate costs ========================================================
-    cost = 0
-    for i in range(len(seq) - 1):
-        cost += tau[seq[i], seq[i + 1]]
-
-    return cost
-
-def arcs2AdjList(
-    arcs:       "1) A list of 3-tuple (nodeID1, nodeID2, weight) or, \
-                 2) A list of 2-tuple (nodeID1, nodeID2)"
-    ) -> "Dictionary of neighbors of each node":
-
-    neighbors = {}
-    for i in range(len(arcs)):
-        if (arcs[i][0] not in neighbors):
-            neighbors[arcs[i][0]] = [arcs[i][1]]
-        else:
-            neighbors[arcs[i][0]].append(arcs[i][1])
-        if (arcs[i][1] not in neighbors):
-            neighbors[arcs[i][1]] = [arcs[i][0]]
-        else:
-            neighbors[arcs[i][1]].append(arcs[i][0])
-
-    return neighbors
-
 def insideInterval(
     val:            "The value to be compared with the interval" = None,
     interval:   "List, in the format of [start, end], None if no constraint on that side" = [None, None]    

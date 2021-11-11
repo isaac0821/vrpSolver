@@ -54,7 +54,7 @@ def lrTSP(
     oldL = None
 
     # Calculate 1 tree ========================================================
-    def cal1Tree(weightArcs):
+    def _cal1Tree(weightArcs):
         # Separate first node
         arcsWithVertexOne = []
         arcsWithoutVertexOne = []
@@ -109,7 +109,7 @@ def lrTSP(
                     weightArcs.append((i, j, edges[i, j] - u[i] - u[j]))
 
         # Calculate 1-tree
-        oneTree = cal1Tree(weightArcs)
+        oneTree = _cal1Tree(weightArcs)
 
         # Update L and d
         costSum = oneTree['costSum']
@@ -128,7 +128,7 @@ def lrTSP(
             u.append(oldU[i] + eff * d[i])
 
         # Check if continue
-        def allZero(d):
+        def _allZero(d):
             for i in d:
                 if (i != 0):
                     return False
@@ -137,7 +137,7 @@ def lrTSP(
             continueFlag = False
         elif (oldL != None and abs(oldL - L) < stopEpsilon):
             continueFlag = False
-        elif (allZero(d)):
+        elif (_allZero(d)):
             continueFlag = False
         else:
             k += 1
@@ -247,7 +247,7 @@ def consTSP(
             return None
 
     # Subroutines for different constructive heuristics =======================
-    def consTSPkNearestNeighbor(nodes, nodeIDs, edges, k = 1):
+    def _consTSPkNearestNeighbor(nodes, nodeIDs, edges, k = 1):
         seq = [nodeIDs[0]]
         remain = [nodeIDs[i] for i in range(1, len(nodeIDs))]
         ofv = 0
@@ -271,7 +271,7 @@ def consTSP(
             'ofv': ofv,
             'seq': seq
         }
-    def consTSPFarthestNeighbor(nodeIDs, edges):
+    def _consTSPFarthestNeighbor(nodeIDs, edges):
         # Initialize ----------------------------------------------------------
         seq = [nodeIDs[0]]
         remain = [nodeIDs[i] for i in range(1, len(nodeIDs))]
@@ -300,7 +300,7 @@ def consTSP(
             'ofv': ofv,
             'seq': seq
         }
-    def consTSPSweep(nodes, nodeIDs, edges):
+    def _consTSPSweep(nodes, nodeIDs, edges):
         # Find a center loc ---------------------------------------------------
         centerX = 0
         centerY = 0
@@ -324,7 +324,7 @@ def consTSP(
             'ofv': ofv,
             'seq': sweepSeq
         }
-    def consTSPRandomSeq(nodeIDs, edges):
+    def _consTSPRandomSeq(nodeIDs, edges):
         # Get random seq ------------------------------------------------------
         seqIndex = rndSeq(len(nodeIDs), closed=True)
         seq = []
@@ -343,13 +343,13 @@ def consTSP(
     if (algo == 'k-NearestNeighbor'):
         if (algoArgs == None):
             algoArgs = {'k': 1}
-        tsp = consTSPkNearestNeighbor(nodes, nodeIDs, edges, algoArgs['k'])
+        tsp = _consTSPkNearestNeighbor(nodes, nodeIDs, edges, algoArgs['k'])
     elif (algo == 'FarthestNeighbor'):
-        tsp = consTSPFarthestNeighbor(nodeIDs, edges)
+        tsp = _consTSPFarthestNeighbor(nodeIDs, edges)
     elif (algo == 'Sweep'):
-        tsp = consTSPSweep(nodes, nodeIDs, edges)
+        tsp = _consTSPSweep(nodes, nodeIDs, edges)
     elif (algo == 'Random'):
-        tsp = consTSPRandomSeq(nodeIDs, edges)
+        tsp = _consTSPRandomSeq(nodeIDs, edges)
     else:
         pass
     if (tsp != None):
@@ -364,7 +364,7 @@ def consTSP(
             weightArcs.append((i, j, edges[i, j]))
 
     # Subroutines for different constructive heuristics =======================
-    def consTSPDepthFirst(weightArcs):
+    def _consTSPDepthFirst(weightArcs):
         # Create MST ----------------------------------------------------------
         mst = graphMST(weightArcs)['mst']
 
@@ -379,7 +379,7 @@ def consTSP(
             'ofv': ofv,
             'seq': seq
         }
-    def consTSPChristofides(weightArcs, matchingAlgo):
+    def _consTSPChristofides(weightArcs, matchingAlgo):
         # Create MST ----------------------------------------------------------
         mst = graphMST(weightArcs)['mst']
 
@@ -428,11 +428,11 @@ def consTSP(
     # Constructive Heuristics for TSP =========================================
     tsp = None
     if (algo == 'DepthFirst'):
-        tsp = consTSPDepthFirst(weightArcs)
+        tsp = _consTSPDepthFirst(weightArcs)
     elif (algo == 'Christofides'):
         if (algoArgs == None):
             algoArgs = {'matchingAlgo': 'IP'}
-        tsp = consTSPChristofides(weightArcs, algoArgs['matchingAlgo'])
+        tsp = _consTSPChristofides(weightArcs, algoArgs['matchingAlgo'])
 
     return tsp
 
@@ -462,7 +462,7 @@ def impTSP(
             return None
 
     # Subroutines for different local improvement heuristics ==================
-    def impTSP2Opt(nodeIDs, edges, initSeq):
+    def _impTSP2Opt(nodeIDs, edges, initSeq):
         # Initialize ----------------------------------------------------------
         canImproveFlag = True
         impSeq = [i for i in initSeq]
@@ -512,7 +512,7 @@ def impTSP(
     tsp = None
     nodeIDs = list(nodes.keys())
     if (algo == '2Opt'):
-        tsp = impTSP2Opt(nodeIDs, edges, initSeq)
+        tsp = _impTSP2Opt(nodeIDs, edges, initSeq)
 
     return tsp
 

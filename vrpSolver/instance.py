@@ -29,6 +29,13 @@ def nodesEuc2Geo(
 
     return nodesInGeo
 
+def nodesLatLon2XY(
+    nodesInLatLon: "Nodes in (Lat, Lon)" = None,
+    refNodeID:  "Reference nodeID" = None,
+    ) -> "Given nodes in (Lat, Lon), given a relative (0, 0) referencing point, returns the nodes in XY coordinates":
+
+    return
+
 def rndPlainNodes(
     N:          "Number of vertices" = None,
     nodeIDs:    "A list of node IDs, `N` will be overwritten if `nodeIDs` is given" = None,

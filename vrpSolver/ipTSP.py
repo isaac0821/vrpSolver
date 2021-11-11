@@ -60,7 +60,7 @@ def ipTSP(
         TSP.setParam(grb.GRB.Param.MIPGap, gapTolerance)
 
     # Subroutines for different formulations ==================================
-    def ipTSPQAP(edges, nodeIDs, timeLimit):
+    def _ipTSPQAP(edges, nodeIDs, timeLimit):
         # Decision variables --------------------------------------------------
         x = {}
         for i in range(n):
@@ -150,7 +150,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
-    def ipTSPMultiCommodityFlow(edges, nodeIDs, timeLimit):
+    def _ipTSPMultiCommodityFlow(edges, nodeIDs, timeLimit):
         # Decision variables --------------------------------------------------
         x = {}
         for i in range(n):
@@ -236,7 +236,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
-    def ipTSPShortestPath(edges, nodeIDs, timeLimit):
+    def _ipTSPShortestPath(edges, nodeIDs, timeLimit):
         # Decision variables --------------------------------------------------
         x = {}
         for i in range(n):
@@ -308,7 +308,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
-    def ipTSPMTZ(edges, nodeIDs, timeLimit):
+    def _ipTSPMTZ(edges, nodeIDs, timeLimit):
         # Decision variables --------------------------------------------------
         x = {}
         for i in range(n):
@@ -386,7 +386,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
-    def ipTSPPlainLoop(edges, nodeIDs, timeLimit):
+    def _ipTSPPlainLoop(edges, nodeIDs, timeLimit):
         # Decision variables --------------------------------------------------
         x = {}
         for i in range(n):
@@ -417,7 +417,7 @@ def ipTSP(
             if (TSP.status == grb.GRB.status.OPTIMAL):
                 accRuntime += TSP.Runtime
                 arcs = tuplelist((i, j) for i, j in x.keys() if x[i, j].X > 0.9)
-                components = findComponentsUndirected(arcs)
+                components = getGraphComponents(arcs)
                 if (len(components) == 1):
                     noSubtourFlag = True
                     break
@@ -467,7 +467,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
-    def ipTSPLazyCuts(edges, nodeIDs, timeLimit):
+    def _ipTSPLazyCuts(edges, nodeIDs, timeLimit):
         # Decision variables --------------------------------------------------
         x = {}
         for i in range(n):
@@ -494,7 +494,7 @@ def ipTSP(
             if (where == grb.GRB.Callback.MIPSOL):
                 x_sol = model.cbGetSolution(model._x)
                 arcs = tuplelist((i, j) for i, j in model._x.keys() if x_sol[i, j] > 0.9)
-                components = findComponentsUndirected(arcs)
+                components = getGraphComponents(arcs)
                 for component in components:
                     if (len(component) < n):
                         model.cbLazy(grb.quicksum(x[i,j] for i in component for j in component if i != j) <= len(component) - 1)
@@ -545,17 +545,17 @@ def ipTSP(
     # Solve by different formulations =========================================
     res = None
     if (fml == 'DFJ_Lazy'):
-        res = ipTSPLazyCuts(edges, nodeIDs, timeLimit)
+        res = _ipTSPLazyCuts(edges, nodeIDs, timeLimit)
     elif (fml == 'DFJ_PlainLoop'):
-        res = ipTSPPlainLoop(edges, nodeIDs, timeLimit)
+        res = _ipTSPPlainLoop(edges, nodeIDs, timeLimit)
     elif (fml == 'MTZ'):
-        res = ipTSPMTZ(edges, nodeIDs, timeLimit)
+        res = _ipTSPMTZ(edges, nodeIDs, timeLimit)
     elif (fml == 'ShortestPath'):
-        res = ipTSPShortestPath(edges, nodeIDs, timeLimit)
+        res = _ipTSPShortestPath(edges, nodeIDs, timeLimit)
     elif (fml == 'MultiCommodityFlow'):
-        res = ipTSPMultiCommodityFlow(edges, nodeIDs, timeLimit)
+        res = _ipTSPMultiCommodityFlow(edges, nodeIDs, timeLimit)
     elif (fml == 'QAP'):
-        res = ipTSPQAP(edges, nodeIDs, timeLimit)
+        res = _ipTSPQAP(edges, nodeIDs, timeLimit)
     else:
         print("Error: Incorrect or not available TSP formulation option!")
         return None
@@ -563,4 +563,3 @@ def ipTSP(
         res['fml'] = fml
 
     return res
-
