@@ -3,75 +3,82 @@ import numpy as np
 import heapq
 import geopy.distance
 
+from .plot import *
+
 from .const import *
 from .msg import *
 from .common import *
 from .vector import *
 from .relation import *
 
-def ptXY2LatLon(
-    ptXY:       "Point in (x, y) coordinates",
-    ratio:      "Distance ratio between euclidean traveling matrix (`edgeInEuc`) and geological distance (as in meters)" = 1,
-    refLatLon:  "(Lat, Lon) of (0, 0)" = None
+def ptXY2LatLonMercator(
+    ptXY:       "Point in (x, y) coordinates"
     ) -> "Given a point in (x, y), try to map it with a (lat, lon) coordinate with necessary inputs":
-
-    
-
+    # Ref: https://wiki.openstreetmap.org/wiki/Mercator#Python
+    (x, y) = ptXY
+    lon = math.degrees(y / CONST_EARTH_RADIUS_METERS)
+    lat = math.degrees(2 * math.atan(math.exp(x / CONST_EARTH_RADIUS_METERS)) - math.pi / 2.0)
+    ptLatLon = (lat, lon)
     return ptLatLon
 
-def ptLatLon2XY(
-
-    ):
-
+def ptLatLon2XYMercator(
+    ptLatLon:   "Point in (lat, lon) coordinates" = None
+    ) -> "Given a point int (lat, lon), try to map it with a (x, y) coordinates with necessary inputs":
+    # Ref: https://wiki.openstreetmap.org/wiki/Mercator#Python
+    (lat, lon) = ptLatLon
+    y = math.radians(lon) * CONST_EARTH_RADIUS_METERS
+    x = math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * CONST_EARTH_RADIUS_METERS
+    ptXY = (x, y)
     return ptXY
 
 def twMovingPtInsidePolyXY(
-    pt:         "Point that are moving" = None,
-    poly:       "Polygon that are moving" = None,
+    ptXY:       "Point that are moving" = None,
+    polyXY:     "Polygon that are moving" = None,
     vecXYPt:    "Moving speed vector of the point in XY" = None,
     vecXYPoly:  "Moving speed vector of the polygon in XY" = None,
-    ) -> "Given a moving point, a moving polygon, returns \
-                1) the time window of when the point will be inside the polygon, or \
-                2) None if not going to be inside the polygon":
+    ) -> "Given a moving point in (x, y), a moving polygon in Euclidean2D, returns \
+        1) the time window of when the point is inside the polygon, or \
+        2) empty list if the point is not going to be inside the polygon":
 
     # Initialize ==============================================================
     tw = []
+    # Convert the speed of both objects into the speed of pt
     vecXY = calXYVecSubtract(vecXYPt, vecXYPoly)
 
-    # Ray of point ============================================================
-    ray = (pt, calXYVecAddition(pt, vecXY))
+    # Move axis, so that ptXY = (0, 0) ========================================
+    polyOffSet = []
+    for p in polyXY:
+        polyOffSet.append((p[0] - ptXY[0], p[1] - ptXY[1]))
+    rayOffset = [(0, 0), vecXY]
 
     # Check if the point is going to go into the polygon ======================
-    intersectFlag = isRayCrossPoly(ray, poly)
+    intersectFlag = isRayCrossPoly(rayOffset, polyOffSet)
     if (not intersectFlag):
         return []
 
     # Find the intersecting pts of the ray and all edges ======================
     # Polygon might not be convex, there could be multiple time windows
     intPts = []
-    for i in range(len(poly) - 1):
-        ptInt = intSeg2Ray([poly[i], poly[i + 1]], ray)
+    for i in range(-1, len(polyOffSet) - 1):
+        ptInt = intSeg2Ray([polyOffSet[i], polyOffSet[i + 1]], rayOffset)
         if (ptInt != None):
             intPts.append(ptInt)
-    ptInt = intSeg2Ray([poly[0], poly[-1]], ray)
-    if (ptInt != None):
-        intPts.append(ptInt)
 
     # Sort intersection points by dist ========================================
     # Convert intPts to nodes
     nodes = {}
-    nodes[0] = {'loc': (pt[0], pt[1])}
+    nodes[0] = {'loc': (0, 0), 'color': 'blue'}
     for i in range(len(intPts)):
-        nodes[i + 1] = {'loc': (intPts[i][0], intPts[i][1])}
+        nodes[i + 1] = {'loc': (intPts[i][0], intPts[i][1]), 'color': 'red'}
     sortedSeq = getSortedNodesByDist(
         nodes = nodes,
         edges = 'Euclidean',
         refNodeID = 0)
 
-    # Calculate relative distances to pt ======================================
+    # Calculate relative distances to ptXY ====================================
     dist = []
-    for i in sortedSeq:
-        dist.append(distEuclidean2D(pt, nodes[sortedSeq[i]]['loc']))
+    for i in range(len(sortedSeq)):
+        dist.append(distEuclidean2D((0, 0), nodes[sortedSeq[i]]['loc']))
     timeStamp = []
     absVXY = math.sqrt(vecXY[0]**2 + vecXY[1]**2)
     for i in dist:
@@ -79,124 +86,94 @@ def twMovingPtInsidePolyXY(
 
     # Confirm time windows ====================================================
     for i in range(len(dist) - 1):
-        mid = ((nodes[sortedSeq[i]]['loc'][0] + nodes[sortedSeq[i + 1]]['loc'][0]) / 2, 
-            (nodes[sortedSeq[i]]['loc'][1] + nodes[sortedSeq[i + 1]]['loc'][1]) / 2)
-        if (isPtInsidePoly(mid, poly)):
+        mid = ((nodes[sortedSeq[i]]['loc'][0] / 2 + nodes[sortedSeq[i + 1]]['loc'][0] / 2), 
+            (nodes[sortedSeq[i]]['loc'][1] / 2 + nodes[sortedSeq[i + 1]]['loc'][1] / 2))
+        if (isPtInsidePoly(mid, polyOffSet)):
             tw.append([timeStamp[i], timeStamp[i + 1]])
 
     return tw
 
 def twMovingPtInsidePolyLatLon(
-    pt:         "Point that are moving" = None,
-    poly:       "Polygon that are moving" = None,
-    vecPolyPt:    "Moving speed vector of the point in XY" = None,
-    vecPolyPoly:  "Moving speed vector of the polygon in XY" = None,
-    ) -> "Given a moving point, a moving polygon, returns \
-                1) the time window of when the point will be inside the polygon, or \
-                2) None if not going to be inside the polygon":
+    ptLatLon:      "Point that are moving" = None,
+    polyLatLon:    "Polygon that are moving" = None,
+    vecPolarPt:    "Moving speed vector of the point in XY" = None,
+    vecPolarPoly:  "Moving speed vector of the polygon in XY" = None,
+    ) -> "Given a moving point in (lat, lon), a moving polygon, returns \
+        1) the time window of when the point will be inside the polygon, or \
+        2) None if not going to be inside the polygon":
+
+    # Steps ===================================================================
+    # 1. Project the Lat/Lon into XY space, using Mercator Projection
+    # 2. Calculate the `twMovingPtInsidePolyXY()`, find the intersections
+    # 3. Convert the intersections back to (lat, lon)
+    # 4. Calculated the time windows based on speed vector in LatLon
 
     # Initialize ==============================================================
     tw = []
-    vecPoly = calPolyVecSubtract(vecPolyPoly, vecPolyPoly)
+    ptXY = ptLatLon2XYMercator(ptLatLon)
+    polyXYOffset = []
+    for p in polyLatLon:
+        pXY = ptLatLon2XYMercator(p)
+        polyXYOffset.append((pXY[0] - ptXY[0], pXY[1] - ptXY[1]))
+    vecXY = calXYVecSubtract(
+        vecPolar2XY(vecPolarPt), 
+        vecPolar2XY(vecPolarPoly))
+    rayXYOffset = [(0, 0), vecXY]
 
-    # Need to convert the speed vector into a proper coordinate system ========
+    # Find intersection in XY space ===========================================
+    intersectFlag = isRayCrossPoly(rayXYOffset, polyXYOffset)
+    # print(intersectFlag)
+    if (not intersectFlag):
+        return []
+    intPtsXY = []
+    for i in range(-1, len(polyXYOffset) - 1):
+        ptIntXY = intSeg2Ray([polyXYOffset[i], polyXYOffset[i + 1]], rayXYOffset)
+        if (ptIntXY != None):
+            intPtsXY.append(ptIntXY)
+
+    # Convert those points back to (lat, lon) =================================
+    intPtsLatLon = []
+    for p in intPtsXY:
+        pXY = (p[0] + ptXY[0], p[1] + ptXY[1])
+        intPtsLatLon.append(ptXY2LatLonMercator(pXY))
+    # print(intPtsLatLon)
+
+    # Sort intersection points by dist ========================================
+    # Convert intPts to nodes
+    intPtsLatLonDict = {}
+    intPtsLatLonDict[0] = {'loc': (ptLatLon[0], ptLatLon[1])}
+    for i in range(len(intPtsLatLon)):
+        intPtsLatLonDict[i + 1] = {'loc': (intPtsLatLon[i][0], intPtsLatLon[i][1])}
+    sortedSeq = getSortedNodesByDist(
+        nodes = intPtsLatLonDict,
+        edges = 'LatLon',
+        refNodeID = 0)
     
+    # Calculate relative distances to ptLatLon ======================================
+    dist = []
+    for i in range(len(sortedSeq)):
+        dist.append(distLatLon(ptLatLon, intPtsLatLonDict[sortedSeq[i]]['loc'], distUnit='meter'))
+    timeStamp = []
+    vecPolar = vecXY2Polar(vecXY)
+    absVXY = vecPolar[0]
+    for i in dist:
+        timeStamp.append(i / absVXY)
+
+    # Confirm time windows ====================================================
+    for i in range(len(dist) - 1):
+        mid = ((intPtsLatLonDict[sortedSeq[i]]['loc'][0] / 2 + intPtsLatLonDict[sortedSeq[i + 1]]['loc'][0] / 2), 
+            (intPtsLatLonDict[sortedSeq[i]]['loc'][1] / 2 + intPtsLatLonDict[sortedSeq[i + 1]]['loc'][1] / 2))
+        if (isPtInsidePoly(mid, polyLatLon)):
+            tw.append([timeStamp[i], timeStamp[i + 1]])
 
     return tw
-
-def getTauEuclidean(
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None,
-    nodeIDs:    "1) String (default) 'All', or \
-                 2) A list of node IDs" = 'All',
-    speed:      "Ratio: Dist / Time" = 1
-    ) -> "Dictionary, {(nodeID1, nodeID2): dist, ...}":
-
-    # Define nodeIDs ==========================================================
-    if (type(nodeIDs) is not list):
-        if (nodeIDs == 'All'):
-            nodeIDs = []
-            for i in nodes:
-                nodeIDs.append(i)
-
-    # Get tau =================================================================
-    tau = {}
-    for i in nodeIDs:
-        for j in nodeIDs:
-            if (i != j):
-                t = distEuclidean2D(nodes[i]['loc'], nodes[j]['loc']) / speed
-                tau[i, j] = t
-                tau[j, i] = t
-            else:
-                tau[i, j] = CONST_EPSILON
-    return tau
-
-def getTauLatLon(
-    nodes:      "Dictionary, returns the coordinate of given nodeIDs, \
-                    {\
-                        nodeIDs1: {'loc': (x, y)}, \
-                        nodeIDs2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None,
-    nodeIDs:    "1) String (default) 'All', or \
-                 2) A list of node IDs" = 'All',                    
-    distUnit:   "Unit of distance\
-                 1) String (default) 'mile'\
-                 2) String 'meter'\
-                 3) String 'kilometer'" = 'mile',
-    speed:      "Ratio: Dist / Time" = 1
-    ) -> "Dictionary, {(nodeID1, nodeID2): dist, ...}":
-
-    # Define nodeIDs ==========================================================
-    if (type(nodeIDs) is not list):
-        if (nodeIDs == 'All'):
-            nodeIDs = []
-            for i in nodes:
-                nodeIDs.append(i)
-
-    # Get tau =================================================================
-    tau = {}
-    for i in nodeIDs:
-        for j in nodeIDs:
-            if (i != j):
-                t = distLatLon(nodes[i]['loc'], nodes[j]['loc'], distUnit) / speed
-                tau[i, j] = t
-                tau[j, i] = t
-            else:
-                tau[i, j] = CONST_EPSILON
-    return tau
-
-def getPerpendicularLine(
-    pt:         "Point which the line will go through",
-    vec:        "The vector that perpendicular to the line"
-    ) -> "Given a point, a vector, returns a line that is going through this point and perpendicular to the vector":
-
-    # Get the direction =======================================================
-    heading = getHeadingXY(pt, (pt[0] + vec[0], pt[1] + vec[1]))
-    newHeading1 = heading + 90
-    newHeading2 = heading - 90
-    while (newHeading1 > 360):
-        newHeading1 -= 360
-    while (newHeading2 > 360):
-        newHeading2 -= 360
-    while (newHeading1 < 0):
-        newHeading1 += 360
-    while (newHeading2 < 0):
-        newHeading2 += 360
-
-    # Get line ================================================================
-    line = [pointInDistXY(pt, newHeading1, 10), pointInDistXY(pt, newHeading2, 10)]
-
-    return line
 
 def distEuclidean2D(
     coord1:     "First coordinate, in (x, y)", 
     coord2:     "Second coordinate, in (x, y)"
     ) -> "Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number":
+
+    # 2-Norm ==================================================================
     if (coord1 != None and coord2 != None):
         return math.sqrt((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2)
     else:
@@ -210,6 +187,8 @@ def distLatLon(
                  2) String 'meter'\
                  3) String 'kilometer'" = 'mile'
     ) -> "Gives a Euclidean distance based on two lat/lon coords, if two coordinates are the same, return a small number":
+    
+    # Get radius as in distUnit ===============================================
     R = None
     if (distUnit == 'mile'):
         R = CONST_EARTH_RADIUS_MILES
@@ -221,6 +200,7 @@ def distLatLon(
         print("ERROR: Unrecognized distance unit, options are 'mile', 'meter', 'kilometer'")
         return
 
+    # Calculate distance ======================================================
     if (coord1 != None and coord2 != None):
         lat1, lon1 = coord1
         lat2, lon2 = coord2
@@ -302,27 +282,96 @@ def distPt2Seg(
 
     return dist
 
-def calTriangleAreaByEdges(
-    a:          "Length of edge", 
-    b:          "Length of edge", 
-    c:          "Length of edge"
-    ) -> "Given the length of three edges, calculates the area":
-    # Using Heron's Formula
-    s = (a + b + c) / 2
-    area = math.sqrt(s * (s - a) * (s - b) * (s - c))
-    return area
+def getTauEuclidean(
+    nodes:      "Dictionary, returns the coordinate of given nodeID, \
+                    {\
+                        nodeID1: {'loc': (x, y)}, \
+                        nodeID2: {'loc': (x, y)}, \
+                        ... \
+                    }" = None,
+    nodeIDs:    "1) String (default) 'All', or \
+                 2) A list of node IDs" = 'All',
+    speed:      "Ratio: Dist / Time" = 1
+    ) -> "Dictionary, {(nodeID1, nodeID2): dist, ...}":
 
-def calTriangleAreaByCoords(
-    pt1:       "Coordinate of point", 
-    pt2:       "Coordinate of point", 
-    pt3:       "Coordinate of point"
-    ) -> "Given the coordinates of three points, calculates the area":
-    [x1, y1] = pt1
-    [x2, y2] = pt2
-    [x3, y3] = pt3
-    val = (x2 * y3 + x3 * y1 + x1 * y2) - (x2 * y1 + x3 * y2 + x1 * y3)
-    area = abs(val)
-    return area
+    # Define nodeIDs ==========================================================
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = []
+            for i in nodes:
+                nodeIDs.append(i)
+
+    # Get tau =================================================================
+    tau = {}
+    for i in nodeIDs:
+        for j in nodeIDs:
+            if (i != j):
+                t = distEuclidean2D(nodes[i]['loc'], nodes[j]['loc']) / speed
+                tau[i, j] = t
+                tau[j, i] = t
+            else:
+                tau[i, j] = CONST_EPSILON
+                tau[j, i] = CONST_EPSILON
+    return tau
+
+def getTauLatLon(
+    nodes:      "Dictionary, returns the coordinate of given nodeIDs, \
+                    {\
+                        nodeIDs1: {'loc': (x, y)}, \
+                        nodeIDs2: {'loc': (x, y)}, \
+                        ... \
+                    }" = None,
+    nodeIDs:    "1) String (default) 'All', or \
+                 2) A list of node IDs" = 'All',                    
+    distUnit:   "Unit of distance\
+                 1) String (default) 'mile'\
+                 2) String 'meter'\
+                 3) String 'kilometer'" = 'mile',
+    speed:      "Ratio: Dist / Time" = 1
+    ) -> "Dictionary, {(nodeID1, nodeID2): dist, ...}":
+
+    # Define nodeIDs ==========================================================
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = []
+            for i in nodes:
+                nodeIDs.append(i)
+
+    # Get tau =================================================================
+    tau = {}
+    for i in nodeIDs:
+        for j in nodeIDs:
+            if (i != j):
+                t = distLatLon(nodes[i]['loc'], nodes[j]['loc'], distUnit) / speed
+                tau[i, j] = t
+                tau[j, i] = t
+            else:
+                tau[i, j] = CONST_EPSILON
+                tau[j, i] = CONST_EPSILON
+    return tau
+
+def getPerpendicularLine(
+    pt:         "Point which the line will go through",
+    vec:        "The vector that perpendicular to the line"
+    ) -> "Given a point, a vector, returns a line that is going through this point and perpendicular to the vector":
+
+    # Get the direction =======================================================
+    heading = getHeadingXY(pt, (pt[0] + vec[0], pt[1] + vec[1]))
+    newHeading1 = heading + 90
+    newHeading2 = heading - 90
+    while (newHeading1 > 360):
+        newHeading1 -= 360
+    while (newHeading2 > 360):
+        newHeading2 -= 360
+    while (newHeading1 < 0):
+        newHeading1 += 360
+    while (newHeading2 < 0):
+        newHeading2 += 360
+
+    # Get line ================================================================
+    line = [pointInDistXY(pt, newHeading1, 10), pointInDistXY(pt, newHeading2, 10)]
+
+    return line
 
 def getHeadingXY(
     coord1:     "Current location", 
@@ -339,9 +388,8 @@ def getHeadingLatLon(
     coord2:     "Target location as in [lat, lon]"
     ) -> "Given current location and a goal location, calculate the heading. Up is 0-degrees, clock-wise":
     # Ref: https://github.com/manuelbieh/Geolib/issues/28
-    
-    [lat1, lon1] = coord1
-    [lat2, lon2] = coord2
+    (lat1, lon1) = coord1
+    (lat2, lon2) = coord2
     lat1 = math.radians(lat1)
     lon1 = math.radians(lon1)
     lat2 = math.radians(lat2)
@@ -375,7 +423,7 @@ def pointInDistLatLon(
     direction:  "Direction towards the destination, North is 0-degree, East is 90-degrees" = None, 
     distMeters: "Distance from origin location to destination location" = None
     ) -> "A location in distance with given direction, in [lat, lon] form.":
-    newLoc = list(geopy.distance.distance(meters=distMeters).destination(point=pt, bearing=direction))
+    newLoc = list(geopy.distance.distance(meters=distMeters).destination(point=pt, bearing=direction))[:2]
     return newLoc
 
 def getSortedNodesByDist(
@@ -386,8 +434,7 @@ def getSortedNodesByDist(
                         ... \
                     }" = None, 
     edges:      "1) String (default) 'Euclidean' or \
-                 2) String 'LatLon' or \
-                 3) Dictionary {(nodeID1, nodeID2): dist, ...}" = "Euclidean",
+                 2) String 'LatLon'" = "Euclidean",
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All',
     refNodeID:  "List, [x, y], the reference location to calculate distance" = None    
@@ -401,14 +448,13 @@ def getSortedNodesByDist(
                 nodeIDs.append(i)
 
     # Define edges ============================================================
-    if (type(edges) is not dict):
-        if (edges == 'Euclidean'):
-            edges = getTauEuclidean(nodes)
-        elif (edges == 'LatLon'):
-            edges = getTauLatLon(nodes)
-        else:
-            print("Error: Incorrect type `edges`")
-            return None
+    if (edges == 'Euclidean'):
+        edges = getTauEuclidean(nodes)
+    elif (edges == 'LatLon'):
+        edges = getTauLatLon(nodes)
+    else:
+        print("Error: Incorrect type `edges`")
+        return None
 
     # Sort distance ===========================================================
     sortedSeq = []
@@ -476,7 +522,6 @@ def getSweepSeq(
 
     return sweepSeq
 
-# [Testing]
 def getScan(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
@@ -484,7 +529,7 @@ def getScan(
                         nodeID2: {'loc': (x, y)}, \
                         ... \
                     }" = None,
-    direction:  "Direction of scanning" = 0
+    direction:  "Direction of scanning, 0 as North" = 0
     ) -> "Scan nodes from one direction":
 
     # Initialize ==============================================================

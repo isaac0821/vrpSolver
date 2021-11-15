@@ -1,4 +1,4 @@
-__version__ = "0.0.19"
+__version__ = "0.0.20"
 __author__ = "Lan Peng"
 
 # History =====================================================================
@@ -27,6 +27,9 @@ __author__ = "Lan Peng"
 # v0.0.18 - 10312021 - Minor fixes
 # v0.0.19 - 11102021 - A bunch of `geometry.py` functions for finding the intersection
 #                      between line segments, rays, polygons, etc.
+# v0.0.20 - 11152021 - Add `ptXY2LatLonMercator`, `ptLatLon2XYMercator` for projection
+#                    - Add `twMovingPtInsidePolyXY`, `twMovingPtInsidePolyLatLon` for 
+#                      time windows of a moving object that is shadowed by another moving object
 # =============================================================================
 
 # Constants and messages

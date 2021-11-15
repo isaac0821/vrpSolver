@@ -46,11 +46,9 @@ def traversalTree(
     algo:   "1) String, (default) 'DepthFirst' or, \
              2) String, 'BreadthFirst'" = 'DepthFirst'
     ) -> "Return a sequence of node ids that traverses the tree":
-
     # Subroutines =============================================================
     def _traversalTreeDepthFirst():
         visited = []
-
         # Visit children recursively ------------------------------------------
         def _visitNode(nodeID):
             visited.append(nodeID)
@@ -61,7 +59,6 @@ def traversalTree(
                 else:
                     for child in children:
                         _visitNode(child)
-
         # Start search from root ----------------------------------------------
         # FIXME! Incorrect for dictionary that root is not the first element
         if (oID == None):
@@ -71,12 +68,11 @@ def traversalTree(
         return {
             'seq': visited
         }
-
+        
     # Solve by different algorithms ===========================================
     res = None
     if (algo == 'DepthFirst'):
         res = _traversalTreeDepthFirst()
-
     return res
 
 def traversalGraph(
@@ -87,14 +83,12 @@ def traversalGraph(
     algo:   "1) String, (default) 'DepthFirst' or, \
              2) String, 'BreadthFirst'" = 'DepthFirst'
     ) -> "Return a sequence of node ids that traverses the tree":
-
     # Convert arcs into adjList ===============================================
     neighbors = arcs2AdjList(arcs)
 
     # Subroutines =============================================================
     def _traversalGraphDepthFirst():
-        visited = []
-        
+        visited = []        
         # Visit neighbors that has not been visited ---------------------------
         def _visitNode(nodeID):
             visited.append(nodeID)
@@ -102,22 +96,18 @@ def traversalGraph(
             for nei in neis:
                 if (nei not in visited):
                     _visitNode(nei)
-
         # Start search from root ----------------------------------------------
         if (oID == None):
             oID = list(neighbors.keys())[0]
         _visitNode(oID)
-
         return {
             'seq': visited,
             'oID': oID
         }
-
     # Solve by different algorithms ===========================================
     res = None
     if (algo == 'DepthFirst'):
         res = _traversalGraphDepthFirst()
-
     return res
 
 def graphMST(
@@ -130,7 +120,6 @@ def graphMST(
                  4) String, (not available) 'Boruvka' or, \
                  5) String, (not available) 'ReverseDelete'" = 'Krusal'
     ) -> "A list of weightArcs which forms a minimal spanning tree":
-
     # Number of vertices ======================================================
     if (numVertices == None):
         vertices = []
@@ -322,10 +311,8 @@ def calSeqCostMatrix(
     tau:        "Dictionary {(nodeID1, nodeID2): dist, ...}", 
     seq:        "List, sequence of visiting node ids"
     ) -> "Return the cost on the graph given cost matrix/dictionary tau":
-
     # Accumulate costs ========================================================
     cost = 0
     for i in range(len(seq) - 1):
         cost += tau[seq[i], seq[i + 1]]
-
     return cost

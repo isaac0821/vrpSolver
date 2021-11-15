@@ -62,8 +62,7 @@ def plotGantt(
     startTime:  "Start time of Gantt, default to be 0, if None, use the earliest time in `gantt`" = 0,
     endTime:    "End time of Gantt, default to be None, if None, use the latest time in `gantt`" = None,
     showTail:   "Show the latest time of all gantt blocks" = True,
-    width:      "Width of the figure" = 12,
-    height:     "Height of the figure" = 5,
+    figSize:    "Size of the figure, in (width, height)" = (12, 5),
     saveFigPath:"1) None, if not exporting image, or \
                  2) String, the path for exporting image" = None
     ) -> "Given a Gantt dictionary, plot Gantt":
@@ -112,8 +111,8 @@ def plotGantt(
     # If no based matplotlib figure, define fig size ==========================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
-        fig.set_figheight(height)
-        fig.set_figwidth(width)
+        fig.set_figheight(figSize[1])
+        fig.set_figwidth(figSize[0])
         ax.set_xlim(startTime, endTime + (endTime - startTime) * 0.05)
         ax.set_ylim(0, len(entities) + 0.2)
 
@@ -196,10 +195,10 @@ def plotNodes(
                         ... \
                     }" = None, 
     xyReverseFlag: "Reverse x, y. Usually use for (lat, lon)" = False,
-    color:      "1) String 'Random', or\
+    color:      "Decide the color of nodes if the 'color' tag is not in `nodes` \
+                 1) String 'Random', or\
                  2) String, color" = 'Random',
-    xSpan:      "figure width" = None,
-    ySpan:      "figure height" = None,
+    figSize:    "Size of the figure, in (width, height)" = (5, 5), 
     xMin:       "min of x-axis" = None,
     xMax:       "max of x-axis" = None,
     yMin:       "min of y-axis" = None,
@@ -234,31 +233,38 @@ def plotNodes(
             yMin = min(allY) - edgeWidth
         if (yMax == None):
             yMax = max(allY) + edgeWidth
-        if (xSpan == None or ySpan == None):
+        if (figSize == None):
             if (xMax - xMin > yMax - yMin):
-                xSpan = 20
-                ySpan = 20 * ((yMax - yMin) / (xMax - xMin))
+                width = 5
+                height = 5 * ((yMax - yMin) / (xMax - xMin))
             else:
-                xSpan = 20 * ((xMax - xMin) / (yMax - yMin))
-                ySpan = 20
-        fig.set_figheight(ySpan)
-        fig.set_figwidth(xSpan)
+                width = 5 * ((xMax - xMin) / (yMax - yMin))
+                height = 5
+        else:
+            (width, height) = figSize
+        fig.set_figwidth(width)
+        fig.set_figheight(height)
         ax.set_xlim(xMin, xMax)
         ax.set_ylim(yMin, yMax)
 
     # Draw nodes ==============================================================
-    x = []
-    y = []
-    for node in nodes:
-        if (not xyReverseFlag):
-            x.append(nodes[node]['loc'][0])
-            y.append(nodes[node]['loc'][1])
-            ax.annotate(node, (nodes[node]['loc'][0], nodes[node]['loc'][1]))
+    for n in nodes:
+        # Define color --------------------------------------------------------
+        nodeColor = None
+        if ('color' in nodes[n]):
+            nodeColor = nodes[n]['color']
+        elif (color == 'Random'):
+            nodeColor = colorRandom()
         else:
-            x.append(nodes[node]['loc'][1])
-            y.append(nodes[node]['loc'][0])
-            ax.annotate(node, (nodes[node]['loc'][1], nodes[node]['loc'][0]))
-    ax.plot(x, y, 'ro')
+            nodeColor = color
+
+        # plot nodes ----------------------------------------------------------
+        if (not xyReverseFlag):
+            ax.plot(nodes[n]['loc'][0], nodes[n]['loc'][1], marker = 'o', color = nodeColor)
+            ax.annotate(n, (nodes[n]['loc'][0], nodes[n]['loc'][1]))
+        else:
+            ax.plot(nodes[n]['loc'][1], nodes[n]['loc'][0], marker = 'o', color = nodeColor)
+            ax.annotate(n, (nodes[n]['loc'][1], nodes[n]['loc'][0]))
 
     # Save figure =============================================================
     if (saveFigPath != None):

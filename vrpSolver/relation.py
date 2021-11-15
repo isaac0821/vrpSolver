@@ -5,7 +5,7 @@ from .msg import *
 
 # Description =================================================================
 # This script is comparing the relative relation between basic geometry objects,
-#     including: pt (point), line, seg (line segment), ray, vec (vector), and poly (polygon).
+#     including: pt (point), line, seg (line segment), ray, and poly (polygon).
 # Notice:
 # 1. All the geometry objects are in Euclidean space
 # 2. The data structure of the geometry objects are all lists (or tuples) and list of lists
@@ -18,7 +18,6 @@ def is2PtsSame(
     pt1:        "2-tuple of coordinate (x, y)",
     pt2:        "2-tuple of coordinate (x, y)"
     ) -> "Check if two points are the same":
-
     # Check if two points are very close to each other ========================
     if (abs(pt1[0] - pt2[0]) >= CONST_EPSILON):
         return False
@@ -30,7 +29,6 @@ def isPtOnLine(
     pt:         "2-tuple of coordinate (x, y)",
     line:       "List of 2 pts which defines a line"
     ) -> "Return True if the point is on the line, with error less than CONST_EPSILON":
-
     # Validation ==============================================================
     if (is2PtsSame(line[0], line[1])):
         print(ERROR_ZERO_VECTOR)
@@ -46,7 +44,6 @@ def isPtOnSeg(
     pt:         "2-tuple of coordinate (x, y)", 
     seg:        "List of 2 pts as two ends"
     ) -> "Return true if the point is on the line segment, including initial pts, with error less than CONST_EPSILON":
-
     # Check if is on the line seg =============================================
     onLine = isPtOnLine(pt, seg)
     if (onLine != True):
@@ -67,7 +64,6 @@ def isPtInsideSeg(
     pt:         "2-tuple of coordinate (x, y)", 
     seg:        "List of 2 pts as two ends"
     ) -> "Return true if the point is inside the line segment, not including initial pts, with error less than CONST_EPSILON":
-
     # Check if is on the line seg =============================================
     onSeg = isPtOnSeg(pt, seg)
     if (onSeg != True):
@@ -85,7 +81,6 @@ def isPtOnRay(
     pt:         "2-tuple of coordinate (x, y)",
     ray:        "List of 2 pts, the first pt defines the initial point, the second pt is on the ray"
     ) -> "Return true if the point is on the ray, with error less than CONST_EPSILON":
-
     # Check if is on the line seg =============================================
     onLine = isPtOnLine(pt, ray)
     if (onLine != True):
@@ -113,7 +108,6 @@ def isPtOnPolyEdge(
     pt:         "2-tuple of coordinate (x, y)",
     poly:       "List of pts, form a close area"
     ) -> "Return true if the point is on the edge of polygon, with error less than CONST_EPSILON":
-
     # Check if the pt is on any of the edge segment ===========================
     for i in range(-1, len(poly) - 1):
         if (isPtOnSeg(pt, [poly[i], poly[i + 1]])):
@@ -148,7 +142,6 @@ def isPtInsidePoly(
     pt:         "2-tuple of coordinate (x, y)",
     poly:       "List of pts, form a close area"
     ) -> "Return true if the pt is in the interior of polygon":
-
     # Check if the pt is on the edge of the polygon ===========================
     if (isPtOnPoly(pt, poly) and not isPtOnPolyEdge(pt, poly)):
         return True
@@ -159,7 +152,6 @@ def is3PtsClockWise(
     pt2:        "2-tuple of coordinate (x, y)",
     pt3:        "2-tuple of coordinate (x, y)"
     ) -> "True if three given points are clockWise, False otherwise (could be collinear)":
-
     # Use Determinant to determine ============================================
     [x1, y1] = [pt1[0], pt1[1]]
     [x2, y2] = [pt2[0], pt2[1]]
@@ -176,8 +168,7 @@ def is3PtsClockWise(
 def isSegCrossSeg(
     seg1:       "List of 2 pts as two bounds ",
     seg2:       "List of 2 pts as two bounds "
-    ) -> "Return true if segs are crossing in the interior of both segs, false otherwise":
-    
+    ) -> "Return true if segs are crossing in the interior of both segs, false otherwise":    
     # Check isSegIntSeg =======================================================
     segIntSeg = isSegIntSeg(seg1, seg2)
     if (segIntSeg != True):
@@ -193,7 +184,6 @@ def isSegIntSeg(
     seg1:       "List of 2 pts as two bounds ",
     seg2:       "List of 2 pts as two bounds "
     ) -> "Return true if segs are intersecting, including the case where the intersection is at one end of line segment, false otherwise":
-
     # Validation ==============================================================
     if (is2PtsSame(seg1[0], seg1[1])):
         print(ERROR_ZERO_VECTOR)
@@ -228,18 +218,14 @@ def isSegCrossRay(
     seg:        "List of 2 pts as two bounds ",
     ray:        "List of 2 pts, the first pt defines the initial point, the second pt is on the ray"
     ) -> "Return true if ray is crossing interior of seg, false otherwise":
-
     crossFlag = (intSeg2Ray(seg, ray) != None)
-
     return crossFlag
 
 def isRayCrossRay(
     ray1:       "List of 2 pts, the first pt defines the initial point, the second pt is on the ray",
     ray2:       "List of 2 pts, the first pt defines the initial point, the second pt is on the ray"
     ) -> "Return true if ray is crossing interior of ray, false otherwise":
-
     crossFlag = (intRay2Ray(ray1, ray2) != None)
-
     return crossFlag
 
 def isSegIntRay(
@@ -272,49 +258,31 @@ def isSegCrossPoly(
     poly:       "List of pts, form a close area"
     ) -> "Return true if the line segment is crossing the interior of the poly, false otherwise":
 
-    crossFlag = False
     if (isPtInsidePoly(seg[0], poly) or isPtInsidePoly(seg[1], poly)):
-        crossFlag = True
-    if (not crossFlag):
-        for i in range(len(poly) - 1):
-            edge = [poly[i], poly[i + 1]]
-            if (isSegCrossSeg(edge, seg)):
-                crossFlag = True
-                break
-    if (not crossFlag):
-        edge = [poly[0], poly[-1]]
+        return True
+    for i in range(-1, len(poly) - 1):
+        edge = [poly[i], poly[i + 1]]
         if (isSegCrossSeg(edge, seg)):
-            crossFlag = True
-
-    return crossFlag
+            return True
+    return False
 
 def isRayCrossPoly(
     ray:        "List of 2 pts, the first pt defines the initial point, the second pt is on the ray",
     poly:       "List of pts, form a close area"
     ) -> "Return true if the ray is crossing the interior of the poly, false otherwise":
-
-    crossFlag = False
-    if (isPtInsidePoly(ray[0], poly) or isPtInsidePoly(ray[1], poly)):
-        crossFlag = True
-    if (not crossFlag):
-        for i in range(len(poly) - 1):
-            edge = [poly[i], poly[i + 1]]
-            if (isSegCrossRay(edge, ray)):
-                crossFlag = True
-                break
-    if (not crossFlag):
-        edge = [poly[0], poly[-1]]
+    if (isPtInsidePoly(ray[0], poly)):
+        return True
+    for i in range(-1, len(poly) - 1):
+        edge = [poly[i], poly[i + 1]]
         if (isSegCrossRay(edge, ray)):
-            crossFlag = True
-
-    return crossFlag
+            return True
+    return False
 
 def intLine2Line(
     line1:      "List of 2 pts that defines a line",
     line2:      "List of 2 pts that defines a line"
     ) -> "Return 1) None if parallel or overlapped, or \
                  2) The intersect point if two lines intersect":
-
     # Get Ax + By + C = 0 =====================================================
     def abc(pt1, pt2):
         x1, y1 = pt1
@@ -345,7 +313,6 @@ def intSeg2Seg(
     seg2:       "List of 2 pts as two bounds "
     ) -> "Return 1) None if no intersection, or \
                  2) The intersect point if two segments intersect":
-
     # Calculate intersection for two lines ====================================
     ptInt = intLine2Line(seg1, seg2)
 
@@ -360,9 +327,9 @@ def intSeg2Ray(
     ray:        "List of 2 pts, the first pt defines the initial point, the second pt is on the ray"
     ) -> "Return 1) None if no intersection, or \
                  2) The intersect point if two segments intersect":
-
     # Calculate intersection for two lines ====================================
     ptInt = intLine2Line(seg, ray)
+    # print("Intersect: ", ptInt, isPtOnSeg(ptInt, seg), isPtOnRay(ptInt, ray))
 
     # Check if it is on segs
     if (ptInt != None and isPtOnSeg(ptInt, seg) and isPtOnRay(ptInt, ray)):
@@ -375,7 +342,6 @@ def intRay2Ray(
     ray2:       "List of 2 pts, the first pt defines the initial point, the second pt is on the ray"
     ) -> "Return 1) None if no intersection, or \
                  2) The intersect point if two segments intersect":
-
     # Validation ==============================================================
     if (is2PtsSame(ray1[0], ray1[1])):
         print(ERROR_ZERO_VECTOR)
@@ -397,7 +363,6 @@ def cosRay2Ray(
     ray1:       "Ending pt, the origin pt is (0, 0)",
     ray2:       "Ending pt, the origin pt is (0, 0)"
     ) -> "Calculate cosine between two vectors":
-
     # Validation ==============================================================
     if (is2PtsSame(ray1[0], ray1[1])):
         print(ERROR_ZERO_VECTOR)
@@ -409,3 +374,26 @@ def cosRay2Ray(
     # Calculate cosine ========================================================
     cosAngle = (ray1[0] * ray2[0] + ray1[1] * ray2[1]) / (math.sqrt(ray1[0] * ray1[0] + ray1[1] * ray1[1]) * math.sqrt(ray2[0] * ray2[0] + ray2[1] * ray2[1]))
     return cosAngle
+
+def calTriangleAreaByEdges(
+    a:          "Length of edge", 
+    b:          "Length of edge", 
+    c:          "Length of edge"
+    ) -> "Given the length of three edges, calculates the area":
+    # Using Heron's Formula ===================================================
+    s = (a / 2 + b / 2 + c / 2)
+    area = math.sqrt(s * (s - a) * (s - b) * (s - c))
+    return area
+
+def calTriangleAreaByCoords(
+    pt1:       "Coordinate of point", 
+    pt2:       "Coordinate of point", 
+    pt3:       "Coordinate of point"
+    ) -> "Given the coordinates of three points, calculates the area":
+	# Using determinant =======================================================
+    [x1, y1] = pt1
+    [x2, y2] = pt2
+    [x3, y3] = pt3
+    val = (x2 * y3 + x3 * y1 + x1 * y2) - (x2 * y1 + x3 * y2 + x1 * y3)
+    area = abs(val)
+    return area

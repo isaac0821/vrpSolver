@@ -25,8 +25,7 @@ def vecXY2Polar(
     vecXY:      "2-tuple (vX, vY), the coordinate of vector" = None
     ) -> "Given a 2-tuple, convert it into a norm and a direction in degree":
     
-    (vX, vY) = vecXY
-    
+    (vX, vY) = vecXY    
     vDeg = None
     vVal = None
     if (abs(vX) <= 0.0001):
