@@ -3,8 +3,6 @@ import numpy as np
 import heapq
 import geopy.distance
 
-from .plot import *
-
 from .const import *
 from .msg import *
 from .common import *
@@ -148,7 +146,7 @@ def twMovingPtInsidePolyLatLon(
         nodes = intPtsLatLonDict,
         edges = 'LatLon',
         refNodeID = 0)
-    
+
     # Calculate relative distances to ptLatLon ======================================
     dist = []
     for i in range(len(sortedSeq)):
@@ -169,19 +167,19 @@ def twMovingPtInsidePolyLatLon(
     return tw
 
 def distEuclidean2D(
-    coord1:     "First coordinate, in (x, y)", 
-    coord2:     "Second coordinate, in (x, y)"
+    pt1:        "First coordinate, in (x, y)", 
+    pt2:        "Second coordinate, in (x, y)"
     ) -> "Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number":
 
     # 2-Norm ==================================================================
-    if (coord1 != None and coord2 != None):
-        return math.sqrt((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2)
+    if (pt1 != None and pt2 != None):
+        return math.sqrt((pt1[0] - pt2[0]) ** 2 + (pt1[1] - pt2[1]) ** 2)
     else:
         return 0
 
 def distLatLon(
-    coord1:     "First coordinate, in (lat, lon)", 
-    coord2:     "Second coordinate, in (lat, lon)",
+    pt1:        "First coordinate, in (lat, lon)", 
+    pt2:        "Second coordinate, in (lat, lon)",
     distUnit:   "Unit of distance\
                  1) String (default) 'mile'\
                  2) String 'meter'\
@@ -201,9 +199,9 @@ def distLatLon(
         return
 
     # Calculate distance ======================================================
-    if (coord1 != None and coord2 != None):
-        lat1, lon1 = coord1
-        lat2, lon2 = coord2
+    if (pt1 != None and pt2 != None):
+        (lat1, lon1) = pt1
+        (lat2, lon2) = pt2
         phi1, phi2 = math.radians(lat1), math.radians(lat2) 
         dphi = math.radians(lat2 - lat1)
         dlambda = math.radians(lon2 - lon1)
@@ -374,22 +372,22 @@ def getPerpendicularLine(
     return line
 
 def getHeadingXY(
-    coord1:     "Current location", 
-    coord2:     "Targeted location"
+    pt1:        "Current location", 
+    pt2:        "Targeted location"
     ) -> "Given current location and a goal location, calculate the heading. Up is 0-degrees, clock-wise":
     
-    vec = (coord2[0] - coord1[0], coord2[1] - coord1[1])
+    vec = (pt2[0] - pt1[0], pt2[1] - pt1[1])
     (_, vDeg) = vecXY2Polar(vec)
 
     return vDeg
 
 def getHeadingLatLon(
-    coord1:     "Current location as in [lat, lon]", 
-    coord2:     "Target location as in [lat, lon]"
+    pt1:        "Current location as in [lat, lon]", 
+    pt2:        "Target location as in [lat, lon]"
     ) -> "Given current location and a goal location, calculate the heading. Up is 0-degrees, clock-wise":
     # Ref: https://github.com/manuelbieh/Geolib/issues/28
-    (lat1, lon1) = coord1
-    (lat2, lon2) = coord2
+    (lat1, lon1) = pt1
+    (lat2, lon2) = pt2
     lat1 = math.radians(lat1)
     lon1 = math.radians(lon1)
     lat2 = math.radians(lat2)
@@ -408,6 +406,30 @@ def getHeadingLatLon(
     deg = (math.degrees(math.atan2(dLon, phi)) + 360.0) % 360.0
     
     return deg
+
+def getRndPtXY(
+
+    ) -> "Given a distribution and the arguments, return a random point in (x, y)":
+
+    return rndPtXY
+
+def getRndPtLatLon(
+
+    ) -> "Given a distribution and the arguments, return a random point in (lat, lon)":
+
+    return rndPtLatLon
+
+def getRndPolyXY(
+
+    ) -> "Give a centroid of poly and some arguments, return a randomized polygon in (x, y)":
+
+    return rndPolyXY
+
+def getRndPolyLatLon(
+
+    ) -> "Give a centroid of poly and some arguments, return a randomized polygon in (lat, lon)":
+
+    return rndPolyLatLon
 
 def pointInDistXY(
     pt:         "Starting location" = None, 

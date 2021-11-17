@@ -18,25 +18,6 @@ def loadDictionary(
     with open(name + '.pkl', 'rb') as f:
         return pickle.load(f)
 
-def rndSeq(
-    N:          "Integer, Length of sequence",
-    s0:         "Integer, Staring index of sequence" = 0,
-    closed:     "Boolean, If the sequence is closed, if true, the last element is a duplicate of the first" = False,
-    ) -> "Randomly generate sequence starting from `start'":
-
-    seq = [i for i in range(s0, N + s0)]
-    # Randomly swap
-    for i in range(N):
-        j = random.randint(0, N - 1)
-        t = seq[i]
-        seq[i] = seq[j]
-        seq[j] = t
-
-    # Return to start?
-    if (closed):
-        seq.append(seq[0])
-    return seq
-
 def rndPick(
     coefficients: "A list of float numbers as the weight"
     ) -> "Given a list of coefficients, randomly return an index according to that coefficient.":

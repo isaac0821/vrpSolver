@@ -326,10 +326,14 @@ def consTSP(
         }
     def _consTSPRandomSeq(nodeIDs, edges):
         # Get random seq ------------------------------------------------------
-        seqIndex = rndSeq(len(nodeIDs), closed=True)
-        seq = []
-        for i in range(len(seqIndex)):
-            seq.append(nodeIDs[seqIndex[i]])
+        seq = [i for i in nodeIDs]
+        N = len(nodeIDs)
+        for i in range(N):
+            j = random.randint(0, N - 1)
+            t = seq[i]
+            seq[i] = seq[j]
+            seq[j] = t
+        seq.append(seq[0])
 
         # Calculate Ofv -------------------------------------------------------
         ofv = calSeqCostMatrix(edges, seq)

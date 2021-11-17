@@ -78,6 +78,7 @@ target/
 # Jupyter Notebook
 .ipynb_checkpoints
 *.ipynb
+!TSP_IP.ipynb
 
 # Data
 *.csv
