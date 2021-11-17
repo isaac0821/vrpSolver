@@ -60,7 +60,7 @@ def ipTSP(
         TSP.setParam(grb.GRB.Param.MIPGap, gapTolerance)
 
     # Subroutines for different formulations ==================================
-    def _ipTSPQAP(edges, nodeIDs, timeLimit):
+    def _ipTSPQAP(edges, nodeIDs):
         # Decision variables --------------------------------------------------
         x = {}
         for i in range(n):
@@ -150,7 +150,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
-    def _ipTSPMultiCommodityFlow(edges, nodeIDs, timeLimit):
+    def _ipTSPMultiCommodityFlow(edges, nodeIDs):
         # Decision variables --------------------------------------------------
         x = {}
         for i in range(n):
@@ -236,7 +236,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
-    def _ipTSPShortestPath(edges, nodeIDs, timeLimit):
+    def _ipTSPShortestPath(edges, nodeIDs):
         # Decision variables --------------------------------------------------
         x = {}
         for i in range(n):
@@ -308,7 +308,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
-    def _ipTSPMTZ(edges, nodeIDs, timeLimit):
+    def _ipTSPMTZ(edges, nodeIDs):
         # Decision variables --------------------------------------------------
         x = {}
         for i in range(n):
@@ -386,7 +386,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
-    def _ipTSPPlainLoop(edges, nodeIDs, timeLimit):
+    def _ipTSPPlainLoop(edges, nodeIDs):
         # Decision variables --------------------------------------------------
         x = {}
         for i in range(n):
@@ -467,7 +467,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
-    def _ipTSPLazyCuts(edges, nodeIDs, timeLimit):
+    def _ipTSPLazyCuts(edges, nodeIDs):
         # Decision variables --------------------------------------------------
         x = {}
         for i in range(n):
@@ -545,17 +545,17 @@ def ipTSP(
     # Solve by different formulations =========================================
     res = None
     if (fml == 'DFJ_Lazy'):
-        res = _ipTSPLazyCuts(edges, nodeIDs, timeLimit)
+        res = _ipTSPLazyCuts(edges, nodeIDs)
     elif (fml == 'DFJ_PlainLoop'):
-        res = _ipTSPPlainLoop(edges, nodeIDs, timeLimit)
+        res = _ipTSPPlainLoop(edges, nodeIDs)
     elif (fml == 'MTZ'):
-        res = _ipTSPMTZ(edges, nodeIDs, timeLimit)
+        res = _ipTSPMTZ(edges, nodeIDs)
     elif (fml == 'ShortestPath'):
-        res = _ipTSPShortestPath(edges, nodeIDs, timeLimit)
+        res = _ipTSPShortestPath(edges, nodeIDs)
     elif (fml == 'MultiCommodityFlow'):
-        res = _ipTSPMultiCommodityFlow(edges, nodeIDs, timeLimit)
+        res = _ipTSPMultiCommodityFlow(edges, nodeIDs)
     elif (fml == 'QAP'):
-        res = _ipTSPQAP(edges, nodeIDs, timeLimit)
+        res = _ipTSPQAP(edges, nodeIDs)
     else:
         print("Error: Incorrect or not available TSP formulation option!")
         return None
