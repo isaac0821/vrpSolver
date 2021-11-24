@@ -2,6 +2,7 @@ import math
 import numpy as np
 import heapq
 import geopy.distance
+import tripy # Needs to be rewrited for the triangulation function
 
 from .const import *
 from .msg import *
@@ -407,9 +408,246 @@ def getHeadingLatLon(
     
     return deg
 
-def getRndPtXY(
+def getRndOnNetwork(
+    network:    "Dictionary of networks in the format of \
+                {\
+                    'start': (lat, lon), or (x, y),\
+                    'end': (lat, lon), or (x, y),\
+                }" = None,
+    ):
 
+    # Calculate the length of each edge =======================================
+
+    # Randomly generate a point within the egde selected ======================
+
+    return
+
+def getRndPtUniformSquare(
+    xRange:    "The range of x coordinates" = (0, 100),
+    yRange:    "The range of y coordinates" = (0, 100)
+    ) -> "Given the range of x, y, returns a random point in the square defined by the ranges":
+    x = random.randrange(xRange[0], xRange[1])
+    y = random.randrange(yRange[0], yRange[1])
+    return (x, y)
+
+def getRndPtUniformPolys(
+    polys:       "The polygons for generating random points" = None
+    ) -> "Given a list of polygons, generate a random point in the polygons uniformly":
+    # Get all triangulated triangles
+    lstTriangle = []
+    for p in polys:
+        lstTriangle.extend(tripy.earclip(p))
+    # Weight them and make draws
+    lstWeight = []
+    for i in range(len(lstTriangle)):
+        lstWeight.append(calTriangleAreaByCoords(lstTriangle[i][0], lstTriangle[i][1], lstTriangle[i][2]))
+
+    idx = rndPick(lstWeight)
+    [x1, y1] = lstTriangle[idx][0]
+    [x2, y2] = lstTriangle[idx][1]
+    [x3, y3] = lstTriangle[idx][2]
+    rndR1 = np.random.uniform(0, 1)
+    rndR2 = np.random.uniform(0, 1)
+    x = (1 - math.sqrt(rndR1)) * x1 + math.sqrt(rndR1) * (1 - rndR2) * x2 + math.sqrt(rndR1) * rndR2 * x3
+    y = (1 - math.sqrt(rndR1)) * y1 + math.sqrt(rndR1) * (1 - rndR2) * y2 + math.sqrt(rndR1) * rndR2 * y3
+        
+    return (x, y)
+
+def getRndPtCluster():
+
+    return
+
+def getRndPtUniformCircleXY():
+
+    return
+
+def getRndPtUniformCircleLatLon():
+
+    return
+
+def getRndPtNormalCircleXY():
+
+    return
+
+def getRndPtNormalCircleLatLon():
+
+    return
+
+def tmp(
+    distr:      "Spatial distribution of nodes, the options are \
+                 1) String, (default) 'uniformSquare', or \
+                 2) String, 'uniformCircle', or \
+                 3) String, 'uniformPoly', or\
+                 4) String, (not available) 'uniformOnNetwork', or\
+                 5) String, 'clustered, or \
+                 6) String, 'ring', or \
+                 7) String, (not available) 'normal2D'" = 'uniformSquare',
+    distrArgs:  "Dictionary that describes the distribution of the nodes\
+                 1) for 'uniformSquare'\
+                    {\
+                        'xRange': A 2-tuple with minimum/maximum range of x, default as (0, 100), \
+                        'yRange': A 2-tuple with minimum/maximum range of y, default as (0, 100), \
+                    }\
+                 2) for 'uniformCircle'\
+                    {\
+                        'centerLoc': centering location \
+                        'radius': radius of the circle \
+                    }\
+                 3) for 'uniformPoly'\
+                    {\
+                        'poly': polygon of the area, (no holes)\
+                        'polys': list of polygons \
+                    }\
+                 4) for 'uniformOnNetwork'\
+                    {\
+                        'network': list of arcs that can be sampled \
+                    }\
+                 5) for 'clustered\
+                    {\
+                        'numCluster': number of cluster centers\
+                        'xRange': xRange of cluster centroid\
+                        'yRange': yRange of cluster centroid\
+                        'poly': polygon for customers\
+                        'centroidLocs': list of cluster center locations\
+                        'clusterDiameter': the spread of nodes, in diameter\
+                    }\
+                 6) for 'ring'\
+                    {\
+                        'radius': radius of the ring,\
+                        'degOffset': clock-wise rotate the nodes, default as 0, which is pointing north\
+                        'centerLoc': centering location of the ring, default as (0, 0)\
+                    }\
+                 7) for 'normal2D'\
+                " = {
+                    'xRange': (0, 100),
+                    'yRange': (0, 100)
+                 }
     ) -> "Given a distribution and the arguments, return a random point in (x, y)":
+    # Generate instance =======================================================
+    if (distr == "uniformSquare"):
+        # Sanity check --------------------------------------------------------
+        if (distrArgs == None):
+            distrArgs = {
+                'xRange': (0, 100),
+                'yRange': (0, 100)
+            }
+        if ('xRange' not in distrArgs):
+            distrArgs['xRange'] = (0, 100)
+        if ('yRange' not in distrArgs):
+            distrArgs['yRange'] = (0, 100)
+        # Create nodes --------------------------------------------------------
+        for n in nodeIDs: 
+            x = random.randrange(distrArgs['xRange'][0], distrArgs['xRange'][1])
+            y = random.randrange(distrArgs['yRange'][0], distrArgs['yRange'][1])
+            nodes[n] = {'loc': (x, y)}
+    elif (distr == "uniformCircle"):
+        # Sanity check --------------------------------------------------------
+        if (distrArgs == None):
+            distrArgs = {
+                'centerLoc': [0, 0],
+                'radius': 100
+            }
+        if ('centerLoc' not in distrArgs or 'radius' not in distrArgs):
+            print(ERROR_MISSING_DISTRARGS_UNICC)
+            return
+        # Create nodes --------------------------------------------------------
+        for n in nodeIDs:
+            theta = random.uniform(0, 2 * math.pi)
+            r = math.sqrt(random.uniform(0, distrArgs['radius'] ** 2))
+            x = distrArgs['centerLoc'][0] + r * math.cos(theta)
+            y = distrArgs['centerLoc'][1] + r * math.sin(theta)
+            nodes[n] = {'loc': (x, y)}
+    elif (distr == "uniformPoly"):
+        # Sanity check --------------------------------------------------------
+        if (distrArgs == None):
+            print(ERROR_MISSING_DISTRARGS)
+            return
+        if ('poly' not in distrArgs and 'polys' not in distrArgs):
+            print(ERROR_MISSING_DISTRARGS_UNIPOLY)
+            return
+        # Create nodes --------------------------------------------------------
+        polys = []
+        if ('poly' in distrArgs and 'polys' not in distrArgs):
+            polys = [distrArgs['poly']]
+        elif ('poly' in distrArgs and 'polys' in distrArgs):
+            polys = [distrArgs['poly']]
+            polys.extend(distrArgs['polys'])
+        elif ('polys' in distrArgs):
+            polys = distrArgs['polys']
+        # Get all triangulated triangles
+        lstTriangle = []
+        for p in polys:
+            lstTriangle.extend(tripy.earclip(p))
+        # Weight them and make draws
+        lstWeight = []
+        for i in range(len(lstTriangle)):
+            lstWeight.append(calTriangleAreaByCoords(lstTriangle[i][0], lstTriangle[i][1], lstTriangle[i][2]))
+        for n in nodeIDs:
+            idx = rndPick(lstWeight)
+            [x1, y1] = lstTriangle[idx][0]
+            [x2, y2] = lstTriangle[idx][1]
+            [x3, y3] = lstTriangle[idx][2]
+            rndR1 = np.random.uniform(0, 1)
+            rndR2 = np.random.uniform(0, 1)
+            rndX = (1 - math.sqrt(rndR1)) * x1 + math.sqrt(rndR1) * (1 - rndR2) * x2 + math.sqrt(rndR1) * rndR2 * x3
+            rndY = (1 - math.sqrt(rndR1)) * y1 + math.sqrt(rndR1) * (1 - rndR2) * y2 + math.sqrt(rndR1) * rndR2 * y3
+            nodes[n] = {'loc': (rndX, rndY)}
+    elif (distr == "uniformOnNetwork"):
+        print("Stay tune")
+        return
+    elif (distr == "clustered"):
+        # Sanity check --------------------------------------------------------
+        if (distrArgs == None):
+            print(ERROR_MISSING_DISTRARGS)
+            return
+        if (('numCluster' not in distrArgs or 'xRange' not in distrArgs or 'yRange' not in distrArgs) and 'centroidLocs' not in distrArgs):
+            print(ERROR_MISSING_DISTRARGS_CLUSTER)
+            return
+        if ('clusterDiameter' not in distrArgs):
+            distrArgs['clusterDiameter'] = 20
+        # Create nodes --------------------------------------------------------
+        centroidLocs = []
+        if ('centroidLocs' in distrArgs):
+            centroidLocs = distrArgs['centroidLocs']
+        else:
+            for cl in range(distrArgs['numCluster']):
+                x = random.randrange(distrArgs['xRange'][0], distrArgs['xRange'][1])
+                y = random.randrange(distrArgs['yRange'][0], distrArgs['yRange'][1])
+                centroidLocs.append([x, y])
+        for n in nodeIDs:
+            # First pick a centroidLoc
+            idx = random.randint(0, len(centroidLocs) - 1)
+            ctrLoc = centroidLocs[idx]
+            theta = random.uniform(0, 2 * math.pi)
+            r = math.sqrt(random.uniform(0, distrArgs['clusterDiameter']))
+            x = ctrLoc[0] + r * math.cos(theta)
+            y = ctrLoc[1] + r * math.sin(theta)
+            nodes[n] = {'loc': (x, y)}
+    elif (distr == "ring"):
+        # Sanity check --------------------------------------------------------
+        if (distrArgs == None):
+            print(ERROR_MISSING_DISTRARGS)
+            return        
+        if ('radius' not in distrArgs):
+            print(ERROR_MISSING_DISTRARGS_RING)
+            return
+        if ('degOffset' not in distrArgs):
+            distrArgs['degOffset'] = 0
+        if ('centerLoc' not in distrArgs):
+            distrArgs['centerLoc'] = (0, 0)
+        # Create nodes --------------------------------------------------------
+        initDeg = distrArgs['degOffset']
+        deltaDeg = 360 / N
+        for i in range(N):
+            deg = initDeg + i * deltaDeg
+            (x, y) = pointInDistXY(distrArgs['centerLoc'], deg, distrArgs['radius'])
+            nodes[nodeIDs[i]] = {'loc': (x, y)}
+    elif (distr == "normal2D"):
+        print("Stay tune")
+        return
+    else:
+        print(ERROR_INCOR_DISTARG)
+        return
 
     return rndPtXY
 

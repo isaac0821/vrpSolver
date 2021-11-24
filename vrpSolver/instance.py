@@ -8,34 +8,6 @@ from .msg import *
 from .geometry import *
 from .common import *
 
-def nodesEuc2Geo(
-    nodesInEuc: "Node dictionary in euclidean space" = None,
-    ratio:      "Distance ratio between euclidean traveling matrix (`edgeInEuc`) and geological distance (as in meters)" = 1,
-    refNodeID:  "Reference nodeID" = None,
-    refNodeLoc:  "Lat/lon of reference node" = None
-    ) -> "Given nodes in euclidean space, transform it into lat/lon coordinates":
-
-    # Initialize ==============================================================
-    # NOTICE: For lat/lon, the x, y coordinate is in different order
-    nodesInGeo = {}
-
-    # Get the relative distance to each node ==================================
-    for n in nodesInEuc:
-        deg2RefNode = getHeadingXY(nodesInEuc[refNodeID]['loc'], nodesInEuc[n]['loc'])
-        dist2RefNode = distEuclidean2D(nodesInEuc[refNodeID]['loc'], nodesInEuc[n]['loc'])
-        geoLoc = pointInDistLatLon(refNodeLoc, deg2RefNode, dist2RefNode)
-        (lat, lon) = (geoLoc[0], geoLoc[1])
-        nodesInGeo[n] = {'loc': (lat, lon)}
-
-    return nodesInGeo
-
-def nodesLatLon2XY(
-    nodesInLatLon: "Nodes in (Lat, Lon)" = None,
-    refNodeID:  "Reference nodeID" = None,
-    ) -> "Given nodes in (Lat, Lon), given a relative (0, 0) referencing point, returns the nodes in XY coordinates":
-
-    return
-
 def rndPlainNodes(
     N:          "Number of vertices" = None,
     nodeIDs:    "A list of node IDs, `N` will be overwritten if `nodeIDs` is given" = None,
