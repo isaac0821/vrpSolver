@@ -408,19 +408,29 @@ def getHeadingLatLon(
     
     return deg
 
-def getRndOnNetwork(
-    network:    "Dictionary of networks in the format of \
+def getRndPtOnNetworkLatLon(
+    network:    "List of dictionary of networks in the format of \
                 {\
-                    'start': (lat, lon), or (x, y),\
-                    'end': (lat, lon), or (x, y),\
+                    'start': (lat, lon),\
+                    'end': (lat, lon),\
                 }" = None,
     ):
 
     # Calculate the length of each edge =======================================
+    lengths = []
+    for edge in network:
+        lengths.append(distLatLon(edge['start'], edge['end']))
+    idx = rndPick(lengths)
 
     # Randomly generate a point within the egde selected ======================
+    edgeLength = lengths[idx]
+    edgeDist = random.uniform(0, 1) * edgeLength
 
-    return
+    # Get location ============================================================
+    getHeadingLatLon(network[idx][0], network[idx][1])
+    (lat, lon) = pointInDistLatLon(network[idx][0], edgeDist)
+
+    return (lat, lon)
 
 def getRndPtUniformSquare(
     xRange:    "The range of x coordinates" = (0, 100),
@@ -430,27 +440,59 @@ def getRndPtUniformSquare(
     y = random.randrange(yRange[0], yRange[1])
     return (x, y)
 
-def getRndPtUniformPolys(
-    polys:       "The polygons for generating random points" = None
-    ) -> "Given a list of polygons, generate a random point in the polygons uniformly":
-    # Get all triangulated triangles
-    lstTriangle = []
-    for p in polys:
-        lstTriangle.extend(tripy.earclip(p))
-    # Weight them and make draws
+def getRndPtUniformTriangle(
+    triangle:   "The triangle for generating random points" = None
+    ) -> "Given a triangle, generate a random point in the triangle uniformly":
+    
+    # Get three extreme points ================================================
+    [x1, y1] = triangle[0]
+    [x2, y2] = triangle[1]
+    [x3, y3] = triangle[2]
+
+    # Generate random points ==================================================
+    rndR1 = random.uniform(0, 1)
+    rndR2 = random.uniform(0, 1)
+    x = (1 - math.sqrt(rndR1)) * x1 + math.sqrt(rndR1) * (1 - rndR2) * x2 + math.sqrt(rndR1) * rndR2 * x3
+    y = (1 - math.sqrt(rndR1)) * y1 + math.sqrt(rndR1) * (1 - rndR2) * y2 + math.sqrt(rndR1) * rndR2 * y3
+
+    return (x, y)
+
+def getRndPtUniformPoly(
+    poly:       "The polygon for generating random points" = None
+    ) -> "Given a polygon, generate a random point in the polygons uniformly":
+
+    # Get list of triangles ===================================================
+    lstTriangle.extend(tripy.earclip(poly))
+
+    # Weight them and make draws ==============================================
     lstWeight = []
     for i in range(len(lstTriangle)):
         lstWeight.append(calTriangleAreaByCoords(lstTriangle[i][0], lstTriangle[i][1], lstTriangle[i][2]))
 
+    # Select a triangle and randomize a point in the triangle =================
     idx = rndPick(lstWeight)
-    [x1, y1] = lstTriangle[idx][0]
-    [x2, y2] = lstTriangle[idx][1]
-    [x3, y3] = lstTriangle[idx][2]
-    rndR1 = np.random.uniform(0, 1)
-    rndR2 = np.random.uniform(0, 1)
-    x = (1 - math.sqrt(rndR1)) * x1 + math.sqrt(rndR1) * (1 - rndR2) * x2 + math.sqrt(rndR1) * rndR2 * x3
-    y = (1 - math.sqrt(rndR1)) * y1 + math.sqrt(rndR1) * (1 - rndR2) * y2 + math.sqrt(rndR1) * rndR2 * y3
-        
+    (x, y) = getRndPtUniformTriangle(lstTriangle[idx])
+
+    return (x, y)
+
+def getRndPtUniformPolys(
+    polys:       "A list of polygons for generating random points" = None
+    ) -> "Given a list of polygons, generate a random point in the polygons uniformly":
+
+    # Get all triangulated triangles ==========================================
+    lstTriangle = []
+    for p in polys:
+        lstTriangle.extend(tripy.earclip(p))
+
+    # Weight them and make draws ==============================================
+    lstWeight = []
+    for i in range(len(lstTriangle)):
+        lstWeight.append(calTriangleAreaByCoords(lstTriangle[i][0], lstTriangle[i][1], lstTriangle[i][2]))
+
+    # Select a triangle and randomize a point in the triangle =================
+    idx = rndPick(lstWeight)
+    (x, y) = getRndPtUniformTriangle(lstTriangle[idx])
+
     return (x, y)
 
 def getRndPtCluster():
@@ -473,15 +515,15 @@ def getRndPtNormalCircleLatLon():
 
     return
 
-def tmp(
+# [Temp]
+def tempAndPleaseDoNotCallMe(
     distr:      "Spatial distribution of nodes, the options are \
                  1) String, (default) 'uniformSquare', or \
                  2) String, 'uniformCircle', or \
                  3) String, 'uniformPoly', or\
                  4) String, (not available) 'uniformOnNetwork', or\
                  5) String, 'clustered, or \
-                 6) String, 'ring', or \
-                 7) String, (not available) 'normal2D'" = 'uniformSquare',
+                 6) String, (not available) 'normal2D'" = 'uniformSquare',
     distrArgs:  "Dictionary that describes the distribution of the nodes\
                  1) for 'uniformSquare'\
                     {\
@@ -511,13 +553,7 @@ def tmp(
                         'centroidLocs': list of cluster center locations\
                         'clusterDiameter': the spread of nodes, in diameter\
                     }\
-                 6) for 'ring'\
-                    {\
-                        'radius': radius of the ring,\
-                        'degOffset': clock-wise rotate the nodes, default as 0, which is pointing north\
-                        'centerLoc': centering location of the ring, default as (0, 0)\
-                    }\
-                 7) for 'normal2D'\
+                 6) for 'normal2D'\
                 " = {
                     'xRange': (0, 100),
                     'yRange': (0, 100)
@@ -623,25 +659,6 @@ def tmp(
             x = ctrLoc[0] + r * math.cos(theta)
             y = ctrLoc[1] + r * math.sin(theta)
             nodes[n] = {'loc': (x, y)}
-    elif (distr == "ring"):
-        # Sanity check --------------------------------------------------------
-        if (distrArgs == None):
-            print(ERROR_MISSING_DISTRARGS)
-            return        
-        if ('radius' not in distrArgs):
-            print(ERROR_MISSING_DISTRARGS_RING)
-            return
-        if ('degOffset' not in distrArgs):
-            distrArgs['degOffset'] = 0
-        if ('centerLoc' not in distrArgs):
-            distrArgs['centerLoc'] = (0, 0)
-        # Create nodes --------------------------------------------------------
-        initDeg = distrArgs['degOffset']
-        deltaDeg = 360 / N
-        for i in range(N):
-            deg = initDeg + i * deltaDeg
-            (x, y) = pointInDistXY(distrArgs['centerLoc'], deg, distrArgs['radius'])
-            nodes[nodeIDs[i]] = {'loc': (x, y)}
     elif (distr == "normal2D"):
         print("Stay tune")
         return
@@ -651,11 +668,45 @@ def tmp(
 
     return rndPtXY
 
-def getRndPtLatLon(
+def rectInWidthLengthOrientationXY(
+    centroidXY: "Centroid of rectangular in (x, y)" = None,
+    width:      "Width of the rectangular" = None,
+    length:     "Length of the rectangular" = None,
+    oriDeg:     "Orientation of the rectangular" = None
+    ) -> "Given args for the width, length, and orientation of rectangular, returns the coordinates in (x, y)":
 
-    ) -> "Given a distribution and the arguments, return a random point in (lat, lon)":
+    # Create four corner points ===============================================
+    ptTemp1 = pointInDistXY(centroidXY, oriDeg, length / 2)
+    pt1 = pointInDistXY(ptTemp1, oriDeg + 90, width / 2)
+    pt2 = pointInDistXY(ptTemp1, oriDeg - 90, width / 2)
+    ptTemp2 = pointInDistXY(centroidXY, oriDeg + 180, length / 2)
+    pt3 = pointInDistXY(ptTemp2, oriDeg + 90, width / 2)
+    pt4 = pointInDistXY(ptTemp2, oriDeg - 90, width / 2)
 
-    return rndPtLatLon
+    # Get the rectangular =====================================================
+    rect = [pt1, pt2, pt4, pt3]
+
+    return rect
+
+def rectInWidthLengthOrientationLatLon(
+    centroidLatLon: "Centroid of rectangular in (lat, lon)" = None,
+    widthInMeter: "Width of the rectangular in meters" = None,
+    lengthInMeter: "Length of the rectangular in meters" = None,
+    oriDeg:     "Orientation of the rectangular" = None
+    ) -> "Given args for the width, length, and orientation of rectangular, returns the coordinates in (lat, lon)":
+
+    # Create four corner points ===============================================
+    ptTemp1 = pointInDistLatLon(centroidLatLon, oriDeg, lengthInMeter / 2)
+    pt1 = pointInDistLatLon(ptTemp1, oriDeg + 90, widthInMeter / 2)
+    pt2 = pointInDistLatLon(ptTemp1, oriDeg - 90, widthInMeter / 2)
+    ptTemp2 = pointInDistLatLon(centroidLatLon, oriDeg + 180, lengthInMeter / 2)
+    pt3 = pointInDistLatLon(ptTemp2, oriDeg + 90, widthInMeter / 2)
+    pt4 = pointInDistLatLon(ptTemp2, oriDeg - 90, widthInMeter / 2)
+
+    # Get the rectangular =====================================================
+    rect = [pt1, pt2, pt4, pt3]
+
+    return rect
 
 def getRndPolyXY(
 
@@ -686,6 +737,91 @@ def pointInDistLatLon(
     newLoc = list(geopy.distance.distance(meters=distMeters).destination(point=pt, bearing=direction))[:2]
     return newLoc
 
+def getNeighborCluster(
+    nodes:      "Dictionary, returns the coordinate of given nodeID, \
+                    {\
+                        nodeID1: {'loc': (x, y)}, \
+                        nodeID2: {'loc': (x, y)}, \
+                        ... \
+                    }" = None, 
+    edges:      "1) String (default) 'Euclidean' or \
+                 2) String 'LatLon'" = "Euclidean",
+    nodeIDs:    "1) String (default) 'All', or \
+                 2) A list of node IDs" = 'All',
+    diameter:   "The diameter of the neighborhood" = None
+    ) -> "Given a dictionary of locations, an a radius, return the sets that any two locations are within the distance":
+
+    # Define nodeIDs ==========================================================
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = []
+            for i in nodes:
+                nodeIDs.append(i)
+
+    # Define edges ============================================================
+    if (edges == 'Euclidean'):
+        edges = getTauEuclidean(nodes)
+    elif (edges == 'LatLon'):
+        edges = getTauLatLon(nodes)
+    else:
+        print("Error: Incorrect type `edges`")
+        return None
+
+    # Initialize ==============================================================
+    seedClique = []
+    # For each node get the neighbors within diameter
+    neighbor = {}
+    for n1 in nodeIDs:
+        for n2 in nodeIDs:
+            if (n1 != n2 and edges[n1, n2] <= diameter):
+                if (n1 not in neighbor):
+                    neighbor[n1] = []
+                neighbor[n1].append(n2)
+
+    # Find seed cliques in the neighbor graph =================================
+    # FIXME: Now using stupid method, will be replaced by clique searching algorithm, or should I?
+    # 3-clique
+    for n1 in neighbor:
+        for n2 in neighbor[n1]:
+            for n3 in neighbor[n2]:
+                if (n1 < n2 < n3 and n1 in neighbor[n3]):
+                    seedClique.append([n1, n2, n3])
+
+    # Try to union existing seed-clique to find larger clique =================
+    canUnionFlag = True
+    while (canUnionFlag):
+        canUnionFlag = False
+        for c1 in range(len(seedClique) - 1):
+            for c2 in range(c1 + 1, len(seedClique)):
+                # Try to merge two cliques
+                clique1 = [i for i in seedClique[c1]]
+                clique2 = [i for i in seedClique[c2]]
+                intersect = listSetIntersect(clique1, clique2)                
+                # Two cliques can be merged iff they have intersection
+                if (len(intersect) > 0):
+                    diff1 = listSetMinus(clique1, intersect)
+                    diff2 = listSetMinus(clique2, intersect)                    
+                    # Try to see if the nodes that are not in the intersection are close
+                    mergeFlag = True
+                    for n1 in diff1:
+                        for n2 in diff2:
+                            if (n1 not in neighbor[n2]):
+                                mergeFlag = False
+                                break
+                        if (not mergeFlag):
+                            break
+                    if (mergeFlag):
+                        newClique = listSetUnion(clique1, clique2)
+                        newClique.sort()
+                        seedClique.remove(clique1)
+                        seedClique.remove(clique2)
+                        seedClique.append(newClique)
+                        canUnionFlag = True
+                        break
+            if (canUnionFlag):
+                break
+    return seedClique
+
 def getSortedNodesByDist(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
@@ -708,13 +844,14 @@ def getSortedNodesByDist(
                 nodeIDs.append(i)
 
     # Define edges ============================================================
-    if (edges == 'Euclidean'):
-        edges = getTauEuclidean(nodes)
-    elif (edges == 'LatLon'):
-        edges = getTauLatLon(nodes)
-    else:
-        print("Error: Incorrect type `edges`")
-        return None
+    if (type(edges) is not dict):
+        if (edges == 'Euclidean'):
+            edges = getTauEuclidean(nodes)
+        elif (edges == 'LatLon'):
+            edges = getTauLatLon(nodes)
+        else:
+            print("Error: Incorrect type `edges`")
+            return None
 
     # Sort distance ===========================================================
     sortedSeq = []
@@ -736,7 +873,8 @@ def getSweepSeq(
                     }" = None, 
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All',
-    centerLoc:  "List, [x, y], the center point" = None,
+    centerLoc:  "1) (Default) String, 'centroid' the centroid of nodes, or\
+                 2) List, [x, y], the center point" = None,
     isClockwise: "True if the sweeping direction is clock-wise, False otherwise" = True,
     initDeg:    "Starting direction of the sweeping, 0 as North" = 0
     ) -> "Given a set of locations, and a center point, gets the sequence from sweeping":
@@ -747,6 +885,10 @@ def getSweepSeq(
             nodeIDs = []
             for i in nodes:
                 nodeIDs.append(i)
+
+    # Initialize centroid =====================================================
+    if (centerLoc == 'centroid'):
+        centerLoc = getCentroid(nodes)
 
     # Initialize heap =========================================================
     degHeap = []
@@ -782,6 +924,76 @@ def getSweepSeq(
 
     return sweepSeq
 
+def getCentroid(
+    nodes:      "Dictionary, returns the coordinate of given nodeID, \
+                    {\
+                        nodeID1: {'loc': (x, y)}, \
+                        nodeID2: {'loc': (x, y)}, \
+                        ... \
+                    }" = None,
+    nodeIDs:    "1) String (default) 'All', or \
+                 2) A list of node IDs" = 'All',
+    algo:       "1) String, 'Weiszfeld'" = 'Weiszfeld'
+    ) -> "Get centroid location for given nodes":
+
+    # Define nodeIDs ==========================================================
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = []
+            for i in nodes:
+                nodeIDs.append(i)
+
+    # Subroutine for finding centroid =========================================
+    def _getCentroidWeiszfeld(nodes, nodeIDs):
+        # Initialize ----------------------------------------------------------
+        q = [1 for i in range(len(nodeIDs))]
+        a = [nodes[nodeIDs[i]]['loc'][0] for i in range(len(nodeIDs))]
+        b = [nodes[nodeIDs[i]]['loc'][1] for i in range(len(nodeIDs))]
+        x = sum(a) / len(a)
+        y = sum(b) / len(b)
+        f = 0
+        for i in range(len(nodeIDs)):
+            f += math.sqrt((x - a[i])**2 + (y - b[i])**2)
+
+        # Iterations ----------------------------------------------------------
+        canGoFlag = True
+        while (canGoFlag):
+            # update q
+            q = []
+            for i in range(len(nodeIDs)):
+                q.append(1 / math.sqrt((x - a[i])**2 + (y - b[i])**2))
+
+            # update x, y
+            x = 0
+            y = 0
+            for i in range(len(nodeIDs)):
+                x += q[i] * a[i]
+                y += q[i] * b[i]
+            x /= sum(q)
+            y /= sum(q)
+
+            # update f
+            newF = 0
+            for i in range(len(nodeIDs)):
+                newF += math.sqrt((x - a[i])**2 + (y - b[i])**2)
+            if (abs(newF - f) < CONST_EPSILON):
+                canGoFlag = False
+            f = newF
+
+        # Output --------------------------------------------------------------
+        centroid = (x, y)
+
+        return centroid
+
+    # Call subroutines ========================================================
+    centroid = None
+    if (algo == "Weiszfeld"):
+        centroid = _getCentroidWeiszfeld(nodes, nodeIDs)
+    else:
+        return None
+
+    return centroid
+
 def getScan(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
@@ -795,12 +1007,12 @@ def getScan(
     # Initialize ==============================================================
     baseline = []
     maxDist = 0
-    firstNodeID = list(nodes.keys())[0]
+    centroid = getCentroid(nodes)
     for n in nodes:
-        d = distEuclidean2D(nodes[n]['loc'], nodes[firstNodeID]['loc'])
+        d = distEuclidean2D(nodes[n]['loc'], centroid)
         if (maxDist == None or d > maxDist):
-            maxDist = d
-    basePt = pointInDistXY(nodes[firstNodeID]['loc'], direction, d)
+            maxDist = 1.2 * d
+    basePt = pointInDistXY(centroid, direction, maxDist)
     baseline = getPerpendicularLine(basePt, vecPolar2XY([10, direction]))
 
     # Distance to the baseline ================================================

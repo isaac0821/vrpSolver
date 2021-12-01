@@ -219,10 +219,10 @@ def getTWInsertFlexibility(
 
     # Check if the tw is overlapping with bgTws ===============================
     canInsertFlag = True
-    insertedTW = [[epoch[0] - EPSILON, epoch[0]]]
+    insertedTW = [[epoch[0] - CONST_EPSILON, epoch[0]]]
     insertedTW.extend([i for i in bgTws])
     insertedTW.append(tw)
-    insertedTW.append([epoch[1], epoch[1] + EPSILON])
+    insertedTW.append([epoch[1], epoch[1] + CONST_EPSILON])
     insertedTW = sortTimeWindows(insertedTW)
     if (insertedTW is None):
         canInsertFlag = False

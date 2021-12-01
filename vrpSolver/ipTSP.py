@@ -27,7 +27,7 @@ def ipTSP(
                  6) String 'QAP'" = 'DFJ_Lazy',
     timeLimit:  "1) Double, in seconds or \
                  2) (default) None, no time limit" = None,
-    gapTolerance:   "1) Double, Stopping gap, or \
+    gapTolerance: "1) Double, Stopping gap, or \
                  2) (default) None, no gap limit" = None,
     outputFlag: "Boolean, True if export the gurobi logs" = False
     ) -> "Exact solution for TSP":

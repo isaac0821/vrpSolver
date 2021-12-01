@@ -3,36 +3,86 @@ import random
 
 from .msg import *
 from .color import *
+from .geometry import *
 
-# [Constructing]
-def plotTimeWindows(
+def plotPoly(
     fig:        "Based matplotlib figure object" = None,
     ax:         "Based matplotlib ax object" = None,
-    tws:        "List of time windows" = None, 
-    color:      "1) String 'Random', or\
+    poly:       "Polygon to be plot" = None,
+    xyReverseFlag: "Reverse x, y. Usually use for (lat, lon)" = False,
+    linewidth:  "Width of arcs" = 1,
+    edgeColor:  "1) String 'Random', or\
                  2) String, color" = 'Random',
-    height:     "Height of the figure" = 2,
-    width:      "Width of the figure" = 10,
+    fillColor:  "1) (default) String 'Random', or\
+                 2) None, no fill, or\
+                 3) String, color" = 'Random',
+    opacity:    "Opacity of filled area" = 0.5,
+    figSize:    "Size of the figure, in (width, height)" = (5, 5), 
+    xMin:       "min of x-axis" = None,
+    xMax:       "max of x-axis" = None,
+    yMin:       "min of y-axis" = None,
+    yMax:       "max of y-axis" = None,
+    edgeWidth:  "Width on the edge" = 0.5,
     saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None    
-    ) -> "Given a list of time windows, plot it":
-    
-    # If there is no based matplotlib figure, define it =======================
+                 2) String, the path for exporting image" = None
+    ) -> "Draw a route, e.g., TSP solution":    
+
+    # If no based matplotlib figure, define boundary ==========================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
-        earliest = None
-        latest = None
-        for tw in tws:
-            if (tw[0] != None):
-                if (earliest == None or earliest > tw[0]):
-                    earliest = tw[0]
-            if (tw[0] != None):
-                if (latest == None or latest < tw[1]):
-                    latest = tw[1]
-        if (earliest == None):
-            pass
+        allX = []
+        allY = []
+        for pt in poly:
+            if (not xyReverseFlag):
+                allX.append(pt[0])
+                allY.append(pt[1])
+            else:
+                allX.append(pt[1])
+                allY.append(pt[0])
+        if (xMin == None):
+            xMin = min(allX) - edgeWidth
+        if (xMax == None):
+            xMax = max(allX) + edgeWidth
+        if (yMin == None):
+            yMin = min(allY) - edgeWidth
+        if (yMax == None):
+            yMax = max(allY) + edgeWidth
+        if (figSize == None):
+            if (xMax - xMin > yMax - yMin):
+                width = 5
+                height = 5 * ((yMax - yMin) / (xMax - xMin))
+            else:
+                width = 5 * ((xMax - xMin) / (yMax - yMin))
+                height = 5
+        else:
+            (width, height) = figSize
+        fig.set_figwidth(width)
+        fig.set_figheight(height)
+        ax.set_xlim(xMin, xMax)
+        ax.set_ylim(yMin, yMax)
 
-    return fig, ax    
+    # Get the x, y list =======================================================
+    x = []
+    y = []
+    for pt in poly:
+        if (not xyReverseFlag):
+            x.append(pt[0])
+            y.append(pt[1])
+        else:
+            x.append(pt[1])
+            y.append(pt[0])
+
+    # Plot ====================================================================
+    if (edgeColor == 'Random'):
+        edgeColor = vrpSolver.colorRandom()
+    if (fillColor == None):
+        ax.plot(x, y, color = edgecolor, linewidth = linewidth)
+    else:
+        if (fillColor == 'Random'):
+            fillColor = vrpSolver.colorRandom()
+        ax.fill(x, y, facecolor=fillColor, edgecolor=edgeColor, linewidth=linewidth, alpha=opacity)
+
+    return fig, ax
 
 def plotGantt(
     fig:        "Based matplotlib figure object" = None,
@@ -259,12 +309,112 @@ def plotNodes(
             nodeColor = color
 
         # plot nodes ----------------------------------------------------------
+        x = None
+        y = None
         if (not xyReverseFlag):
-            ax.plot(nodes[n]['loc'][0], nodes[n]['loc'][1], marker = 'o', color = nodeColor)
-            ax.annotate(n, (nodes[n]['loc'][0], nodes[n]['loc'][1]))
+            x = nodes[n]['loc'][0]
+            y = nodes[n]['loc'][1]
         else:
-            ax.plot(nodes[n]['loc'][1], nodes[n]['loc'][0], marker = 'o', color = nodeColor)
-            ax.annotate(n, (nodes[n]['loc'][1], nodes[n]['loc'][0]))
+            x = nodes[n]['loc'][1]
+            y = nodes[n]['loc'][0]
+
+        ax.plot(x, y, marker = 'o', color = nodeColor)
+        if ('label' not in nodes[n]):
+            ax.annotate(n, (x, y))
+        else:
+            ax.annotate(nodes[n]['label'], (x, y))
+
+    # Save figure =============================================================
+    if (saveFigPath != None):
+        fig.savefig(saveFigPath)
+
+    return fig, ax
+
+def plotNodesLatLon(
+    fig:        "Based matplotlib figure object" = None,
+    ax:         "Based matplotlib ax object" = None,
+    nodes:      "Dictionary, returns the coordinate of given nodeID, \
+                    {\
+                        nodeID1: {'loc': (lat, lon)}, \
+                        nodeID2: {'loc': (lat, lon)}, \
+                        ... \
+                    }" = None, 
+    mercatorFlag: "Display in Mercator projection" = True,
+    color:      "Decide the color of nodes if the 'color' tag is not in `nodes` \
+                 1) String 'Random', or\
+                 2) String, color" = 'Random',
+    figSize:    "Size of the figure, in (width, height)" = (5, 5), 
+    xMin:       "min of x-axis" = None,
+    xMax:       "max of x-axis" = None,
+    yMin:       "min of y-axis" = None,
+    yMax:       "max of y-axis" = None,
+    edgeWidth:  "Width on the edge" = 0.5,
+    saveFigPath:"1) None, if not exporting image, or \
+                 2) String, the path for exporting image" = None
+    ) -> "Draw nodes":
+
+    # Check for required fields ===============================================
+    if (nodes == None):
+        print(ERROR_MISSING_NODES)
+        return
+
+    # Projected nodes =========================================================
+    nodesMer = {}
+    for n in nodes:
+        nodesMer[n] = {
+            'loc': ptLatLon2XYMercator(nodes[n]['loc'])
+        }
+
+    # If no based matplotlib figure provided, define boundary =================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        allX = []
+        allY = []
+        for i in nodesMer:
+            allX.append(nodesMer[i]['loc'][1])
+            allY.append(nodesMer[i]['loc'][0])
+        if (xMin == None):
+            xMin = min(allX) - edgeWidth
+        if (xMax == None):
+            xMax = max(allX) + edgeWidth
+        if (yMin == None):
+            yMin = min(allY) - edgeWidth
+        if (yMax == None):
+            yMax = max(allY) + edgeWidth
+        if (figSize == None):
+            if (xMax - xMin > yMax - yMin):
+                width = 5
+                height = 5 * ((yMax - yMin) / (xMax - xMin))
+            else:
+                width = 5 * ((xMax - xMin) / (yMax - yMin))
+                height = 5
+        else:
+            (width, height) = figSize
+        fig.set_figwidth(width)
+        fig.set_figheight(height)
+        ax.set_xlim(xMin, xMax)
+        ax.set_ylim(yMin, yMax)
+
+    # Draw nodes ==============================================================
+    for n in nodesMer:
+        # Define color --------------------------------------------------------
+        nodeColor = None
+        if ('color' in nodesMer[n]):
+            nodeColor = nodesMer[n]['color']
+        elif (color == 'Random'):
+            nodeColor = colorRandom()
+        else:
+            nodeColor = color
+
+        # plot nodes ----------------------------------------------------------
+        x = nodesMer[n]['loc'][1]
+        y = nodesMer[n]['loc'][0]
+
+        ax.plot(x, y, marker = 'o', color = nodeColor)
+        if ('label' not in nodes[n]):
+            ax.annotate(n, (x, y))
+        else:
+            ax.annotate(nodes[n]['label'], (x, y))
 
     # Save figure =============================================================
     if (saveFigPath != None):
@@ -289,8 +439,7 @@ def plotArcs(
     arrowHeadlength: "Arrow head length" = 0.2,
     color:      "1) String 'Random', or\
                  2) String, color" = 'Random',
-    xSpan:      "figure width" = None,
-    ySpan:      "figure height" = None,
+    figSize:    "Size of the figure, in (width, height)" = (5, 5), 
     xMin:       "min of x-axis" = None,
     xMax:       "max of x-axis" = None,
     yMin:       "min of y-axis" = None,
@@ -299,6 +448,11 @@ def plotArcs(
     saveFigPath:"1) None, if not exporting image, or \
                  2) String, the path for exporting image" = None
     ) -> "Draw arcs":
+
+    # Check for required fields ===============================================
+    if (nodes == None):
+        print(ERROR_MISSING_NODES)
+        return
 
     # If no based matplotlib figure, define boundary ==========================
     if (fig == None or ax == None):
@@ -324,15 +478,17 @@ def plotArcs(
             yMin = min(allY) - edgeWidth
         if (yMax == None):
             yMax = max(allY) + edgeWidth
-        if (xSpan == None or ySpan == None):
+        if (figSize == None):
             if (xMax - xMin > yMax - yMin):
-                xSpan = 20
-                ySpan = 20 * ((yMax - yMin) / (xMax - xMin))
+                width = 5
+                height = 5 * ((yMax - yMin) / (xMax - xMin))
             else:
-                xSpan = 20 * ((xMax - xMin) / (yMax - yMin))
-                ySpan = 20
-        fig.set_figheight(ySpan)
-        fig.set_figwidth(xSpan)
+                width = 5 * ((xMax - xMin) / (yMax - yMin))
+                height = 5
+        else:
+            (width, height) = figSize
+        fig.set_figwidth(width)
+        fig.set_figheight(height)
         ax.set_xlim(xMin, xMax)
         ax.set_ylim(yMin, yMax)
 
@@ -383,8 +539,7 @@ def plotSeq(
     arrowHeadlength: "Arrow head length" = 0.2,
     color:      "1) String 'Random', or\
                  2) String, color" = 'Random',
-    xSpan:      "figure width" = None,
-    ySpan:      "figure height" = None,
+    figSize:    "Size of the figure, in (width, height)" = (5, 5), 
     xMin:       "min of x-axis" = None,
     xMax:       "max of x-axis" = None,
     yMin:       "min of y-axis" = None,
@@ -415,8 +570,7 @@ def plotSeq(
         arrowHeadwidth = arrowHeadwidth,
         arrowHeadlength = arrowHeadlength,
         color = color,
-        xSpan = xSpan,
-        ySpan = ySpan,
+        figSize = figSize,
         xMin = xMin,
         xMax = xMax,
         yMin = yMin,

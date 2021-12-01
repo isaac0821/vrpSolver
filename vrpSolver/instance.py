@@ -17,8 +17,7 @@ def rndPlainNodes(
                  3) String, 'uniformPoly', or\
                  4) String, (not available) 'uniformOnNetwork', or\
                  5) String, 'clustered, or \
-                 6) String, 'ring', or \
-                 7) String, (not available) 'normal2D'" = 'uniformSquare',
+                 6) String, (not available) 'normal2D'" = 'uniformSquare',
     distrArgs:  "Dictionary that describes the distribution of the nodes\
                  1) for 'uniformSquare'\
                     {\
@@ -33,7 +32,7 @@ def rndPlainNodes(
                  3) for 'uniformPoly'\
                     {\
                         'poly': polygon of the area, (no holes)\
-                        'polys': list of polygons \
+                        (or 'polys': list of polygons) \
                     }\
                  4) for 'uniformOnNetwork'\
                     {\
@@ -48,13 +47,7 @@ def rndPlainNodes(
                         'centroidLocs': list of cluster center locations\
                         'clusterDiameter': the spread of nodes, in diameter\
                     }\
-                 6) for 'ring'\
-                    {\
-                        'radius': radius of the ring,\
-                        'degOffset': clock-wise rotate the nodes, default as 0, which is pointing north\
-                        'centerLoc': centering location of the ring, default as (0, 0)\
-                    }\
-                 7) for 'normal2D'\
+                 6) for 'normal2D'\
                 " = {
                     'xRange': (0, 100),
                     'yRange': (0, 100)
@@ -171,25 +164,6 @@ def rndPlainNodes(
             x = ctrLoc[0] + r * math.cos(theta)
             y = ctrLoc[1] + r * math.sin(theta)
             nodes[n] = {'loc': (x, y)}
-    elif (distr == "ring"):
-        # Sanity check --------------------------------------------------------
-        if (distrArgs == None):
-            print(ERROR_MISSING_DISTRARGS)
-            return        
-        if ('radius' not in distrArgs):
-            print(ERROR_MISSING_DISTRARGS_RING)
-            return
-        if ('degOffset' not in distrArgs):
-            distrArgs['degOffset'] = 0
-        if ('centerLoc' not in distrArgs):
-            distrArgs['centerLoc'] = (0, 0)
-        # Create nodes --------------------------------------------------------
-        initDeg = distrArgs['degOffset']
-        deltaDeg = 360 / N
-        for i in range(N):
-            deg = initDeg + i * deltaDeg
-            (x, y) = pointInDistXY(distrArgs['centerLoc'], deg, distrArgs['radius'])
-            nodes[nodeIDs[i]] = {'loc': (x, y)}
     elif (distr == "normal2D"):
         print("Stay tune")
         return

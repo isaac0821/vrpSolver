@@ -1,5 +1,4 @@
 import math
-import numpy as np
 import random
 import pickle
 
@@ -23,7 +22,7 @@ def rndPick(
     ) -> "Given a list of coefficients, randomly return an index according to that coefficient.":
     totalSum = sum(coefficients)
     tmpSum = 0
-    rnd = np.random.uniform(0, totalSum)
+    rnd = random.uniform(0, totalSum)
     idx = 0
     for i in range(len(coefficients)):
         tmpSum += coefficients[i]
@@ -55,3 +54,25 @@ def insideInterval(
             return insideFlag
 
     return insideFlag
+
+def listSetMinus(a, b):
+    c = b.copy()
+    return [i for i in a if not i in c or c.remove(i)]
+
+def listSetIntersect(a, b):
+    return [value for value in a if value in b]
+
+def listSetUnion(a, b):
+    return list(set(a).union(b))
+
+def list2String(l):
+    listString = "["
+    listString += ', '.join([list2String(elem) if type(elem) == list else str(elem) for elem in l.copy()])
+    listString += "]"
+    return listString
+
+def list2Tuple(l):
+    sortedList = l.copy()
+    sortedList.sort()
+    tp = tuple(sortedList)
+    return tp

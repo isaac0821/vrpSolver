@@ -193,7 +193,7 @@ def heuTSP(
     cons = consTSP(nodes, edges, nodeIDs, consAlgo, consAlgoArgs)
 
     # Local improvement heuristic =============================================
-    tsp = impTSP(nodes, edges, nodeIDs, cons['seq'], impAlgo, impAlgoArgs)
+    tsp = impTSP(nodes, edges, cons['seq'], impAlgo)
 
     return tsp
 
@@ -211,7 +211,7 @@ def consTSP(
                  2) A list of node IDs" = 'All',
     algo:       "1) String 'k-NearestNeighbor' or \
                  2) String 'FarthestNeighbor' or \
-                 3) String (not available) 'Insertion' or \
+                 3) String 'Insertion' or \
                  4) String (not available) 'Patching' or \
                  5) String 'Sweep' or \
                  6) String 'DepthFirst' or \
@@ -226,7 +226,11 @@ def consTSP(
                  3) for 'Christofides' \
                     {\
                         'matchingAlgo': algorithm for finding minimum matching\
-                    } " = None
+                    } \
+                 4) for 'Insertion' \
+                    {\
+                        'initSeq': initial TSP route\
+                    }"= None
     ) -> "Constructive heuristic solution for TSP":
 
     # Define nodeIDs ==========================================================
@@ -255,7 +259,7 @@ def consTSP(
         # Accumulate seq ------------------------------------------------------
         while (len(remain) > 0):
             currentNodeID = seq[-1]
-            sortedNodes = sortNodesByDist(
+            sortedNodes = getSortedNodesByDist(
                 nodes = nodes,
                 edges = edges,
                 nodeIDs = remain,
@@ -301,20 +305,10 @@ def consTSP(
             'seq': seq
         }
     def _consTSPSweep(nodes, nodeIDs, edges):
-        # Find a center loc ---------------------------------------------------
-        centerX = 0
-        centerY = 0
-        for n in nodes:
-            centerX += nodes[n]['loc'][0]
-            centerY += nodes[n]['loc'][1]
-        centerX /= len(nodes)
-        centerY /= len(nodes)
-
         # Sweep seq -----------------------------------------------------------
         sweepSeq = getSweepSeq(
             nodes = nodes, 
-            nodeIDs = nodeIDs,
-            centerLoc = [centerX, centerY])
+            nodeIDs = nodeIDs)
         sweepSeq.append(sweepSeq[0])
 
         # Calculate ofv -------------------------------------------------------
@@ -341,6 +335,48 @@ def consTSP(
             'ofv': ofv,
             'seq': seq
         }
+    def _consTSPInsertion(nodeIDs, initSeq, edges):        
+        # Initialize ----------------------------------------------------------
+        seq = None
+        if (initSeq == None):
+            seq = [nodeIDs[0], nodeIDs[0]]
+        else:
+            seq = [i for i in initSeq]
+        insertDict = {}
+        if (len(nodeIDs) < 1):
+            return {
+                'ofv': 0,
+                'seq': None
+            }
+        unInserted = [i for i in nodeIDs if i not in seq]
+
+        # Try insertion one by one --------------------------------------------
+        while (len(unInserted) > 0):
+            bestCus = None
+            bestCost = None
+            bestInsertionIndex = None
+            for cus in unInserted:
+                for i in range(1, len(seq)):
+                    if (list2Tuple([seq[i - 1], cus, seq[i]]) not in insertDict):
+                        insertDict[list2Tuple([seq[i - 1], cus, seq[i]])] = (
+                            edges[seq[i - 1], cus] 
+                            + edges[cus, seq[i]] 
+                            - (edges[seq[i - 1], seq[i]] if seq[i - 1] != seq[i] else 0))
+                    cost = insertDict[list2Tuple([seq[i - 1], cus, seq[i]])]
+                    if (bestCost == None or bestCost > cost):
+                        bestCost = cost
+                        bestCus = cus
+                        bestInsertionIndex = i
+            if (bestCost != None):
+                seq.insert(bestInsertionIndex, bestCus)
+                unInserted.remove(bestCus)
+
+        # Calculate ofv and outputs -------------------------------------------
+        ofv = calSeqCostMatrix(edges, seq)
+        return {
+            'ofv': ofv,
+            'seq': seq
+        }
 
     # Heuristics that don't need to transform arc representation ==============
     tsp = None
@@ -350,6 +386,10 @@ def consTSP(
         tsp = _consTSPkNearestNeighbor(nodes, nodeIDs, edges, algoArgs['k'])
     elif (algo == 'FarthestNeighbor'):
         tsp = _consTSPFarthestNeighbor(nodeIDs, edges)
+    elif (algo == 'Insertion'):
+        if (algoArgs == None):
+            algoArgs = {'initSeq': None}
+        tsp = _consTSPInsertion(nodeIDs, algoArgs['initSeq'], edges)
     elif (algo == 'Sweep'):
         tsp = _consTSPSweep(nodes, nodeIDs, edges)
     elif (algo == 'Random'):
@@ -519,6 +559,3 @@ def impTSP(
         tsp = _impTSP2Opt(nodeIDs, edges, initSeq)
 
     return tsp
-
-
-
