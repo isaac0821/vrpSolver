@@ -51,7 +51,7 @@ def ipTSP(
 
     # Gurobi initialize =======================================================
     n = len(nodeIDs)
-    TSP = Model('TSP')
+    TSP = grb.Model('TSP')
     if (outputFlag == False):
         TSP.setParam('OutputFlag', 0)
     if (timeLimit != None):
