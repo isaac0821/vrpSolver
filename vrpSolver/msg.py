@@ -52,5 +52,7 @@ ERROR_ZERO_VECTOR                   = "ERROR: Segment or Ray should be defined u
 ERROR_OPTS_TWTYPE                   = "ERROR: Incorrect `twType`, valid options includes %s" % ("")
 ERROR_OPTS_DISTR                    = "ERROR: Incorrect `distr`, valid options includes %s" % ("")
 
+ERROR_OPTS_SHORTESTPATH_ALGO        = "ERROR: There exists negative weight arcs, cannot choose this algorithm"
+
 # Error message - Incorrect input contents
 ERROR_INCOR_GANTT_MISSENT           = "ERROR: Missing entity in `gantt`"

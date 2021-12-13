@@ -5,6 +5,100 @@ from .msg import *
 from .color import *
 from .geometry import *
 
+def plotGrid(
+    fig:        "Based matplotlib figure object" = None,
+    ax:         "Based matplotlib ax object" = None,
+    gridColRow: "Number of columns, and number of rows" = (None, None),
+    barriers:   "List of blocking grids" = [],
+    gridSize:   "Size of the grid" = 1,
+    gridBackColor: "Background color of grids" = None,
+    gridEdgeColor: "Edge color of grids" = 'black',
+    gridOpacity: "Opacity of grids background colors" = 1,
+    barrierBackColor: "Background color of barriers" = 'gray',
+    barrierEdgeColor: "Edge color of barriers" = 'black',
+    barrierOpacity: "Opacity of barriers" = 0.5,
+    barrierBackStyle: "Background style of barriers" = '///',
+    ) -> "Plot a grid with barriers":
+
+    # If no based matplotlib figure, define boundary ==========================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        xMin = (0 - 0.5) * gridSize
+        yMin = (0 - 0.5) * gridSize
+        xMax = (gridColRow[0] + 0.5) * gridSize
+        yMax = (gridColRow[1] + 0.5) * gridSize
+        fig.set_figwidth(xMax)
+        fig.set_figheight(yMax)
+        ax.set_xlim(xMin, xMax)
+        ax.set_ylim(yMin, yMax)
+        plt.axis('off')
+
+    for col in range(gridColRow[0]):
+        for row in range(gridColRow[1]):
+            poly = [
+                [col * gridSize, row * gridSize], 
+                [col * gridSize + gridSize, row * gridSize],
+                [col * gridSize + gridSize, row * gridSize + gridSize],
+                [col * gridSize, row * gridSize + gridSize],
+                [col * gridSize, row * gridSize]
+            ]
+            if ((col, row) not in barriers):
+                plotPoly(
+                    fig = fig,
+                    ax = ax,
+                    poly = poly,
+                    edgeColor = gridEdgeColor,
+                    fillColor = gridBackColor,
+                    opacity = gridOpacity)
+            else:
+                plotPoly(
+                    fig = fig,
+                    ax = ax,
+                    poly = poly,
+                    edgeColor = barrierEdgeColor,
+                    fillColor = barrierBackColor,
+                    opacity = barrierOpacity,
+                    fillStyle = barrierBackStyle)
+
+    return fig, ax
+
+def plotGridPath(
+    fig:        "Based matplotlib figure object" = None,
+    ax:         "Based matplotlib ax object" = None,
+    gridColRow: "Number of columns, and number of rows" = (None, None),
+    gridSize:   "Size of the grid" = 1,
+    path:       "The sequences of visiting grids, a list of coordinates" = None,
+    pathColor:  "The color of path" = 'Random',
+    pathWidth:  "The width of path" = 3,
+    markerSize: "Size of starting/ending points" = 15
+    ) -> "Plot the path on the grid":
+
+    # If no based matplotlib figure, define boundary ==========================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        xMin = (0 - 0.5) * gridSize
+        yMin = (0 - 0.5) * gridSize
+        xMax = (gridColRow[0] + 0.5) * gridSize
+        yMax = (gridColRow[1] + 0.5) * gridSize
+        fig.set_figwidth(xMax)
+        fig.set_figheight(yMax)
+        ax.set_xlim(xMin, xMax)
+        ax.set_ylim(yMin, yMax)
+        plt.axis('off')
+
+    # Path color ==============================================================
+    if (pathColor == 'Random'):
+        pathColor = colorRandom()
+
+    # Plot the origin/destination =============================================
+    ax.plot(path[0][0] * gridSize + gridSize / 2, path[0][1] * gridSize + gridSize / 2, marker = 'o', markersize= markerSize, color = pathColor)
+    ax.plot(path[-1][0] * gridSize + gridSize / 2, path[-1][1] * gridSize + gridSize / 2, marker = 's', markersize= markerSize, color = pathColor)
+    for i in range(len(path) - 1):
+        x = [path[i][0] * gridSize + gridSize / 2, path[i + 1][0] * gridSize + gridSize / 2]
+        y = [path[i][1] * gridSize + gridSize / 2, path[i + 1][1] * gridSize + gridSize / 2]
+        ax.plot(x, y, color = pathColor, linewidth = pathWidth)
+    return fig, ax
+
 def plotPoly(
     fig:        "Based matplotlib figure object" = None,
     ax:         "Based matplotlib ax object" = None,
@@ -15,7 +109,8 @@ def plotPoly(
                  2) String, color" = 'Random',
     fillColor:  "1) (default) String 'Random', or\
                  2) None, no fill, or\
-                 3) String, color" = 'Random',
+                 3) String, color" = None,
+    fillStyle:  "Background style, None if no style, '///' for shadow" = None,
     opacity:    "Opacity of filled area" = 0.5,
     figSize:    "Size of the figure, in (width, height)" = (5, 5), 
     xMin:       "min of x-axis" = None,
@@ -71,16 +166,26 @@ def plotPoly(
         else:
             x.append(pt[1])
             y.append(pt[0])
+    if (not xyReverseFlag):
+        x.append(poly[0][0])
+        y.append(poly[0][1])
+    else:
+        x.append(poly[0][1])
+        y.append(poly[0][0])        
 
     # Plot ====================================================================
     if (edgeColor == 'Random'):
-        edgeColor = vrpSolver.colorRandom()
+        edgeColor = colorRandom()
     if (fillColor == None):
-        ax.plot(x, y, color = edgecolor, linewidth = linewidth)
+        ax.plot(x, y, color = edgeColor, linewidth = linewidth)
     else:
         if (fillColor == 'Random'):
-            fillColor = vrpSolver.colorRandom()
-        ax.fill(x, y, facecolor=fillColor, edgecolor=edgeColor, linewidth=linewidth, alpha=opacity)
+            fillColor = colorRandom()
+        ax.fill(x, y, facecolor=fillColor, edgecolor=edgeColor, hatch=fillStyle, linewidth=linewidth, alpha=opacity)
+
+    # Save figure =============================================================
+    if (saveFigPath != None):
+        fig.savefig(saveFigPath)
 
     return fig, ax
 
@@ -317,98 +422,6 @@ def plotNodes(
         else:
             x = nodes[n]['loc'][1]
             y = nodes[n]['loc'][0]
-
-        ax.plot(x, y, marker = 'o', color = nodeColor)
-        if ('label' not in nodes[n]):
-            ax.annotate(n, (x, y))
-        else:
-            ax.annotate(nodes[n]['label'], (x, y))
-
-    # Save figure =============================================================
-    if (saveFigPath != None):
-        fig.savefig(saveFigPath)
-
-    return fig, ax
-
-def plotNodesLatLon(
-    fig:        "Based matplotlib figure object" = None,
-    ax:         "Based matplotlib ax object" = None,
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (lat, lon)}, \
-                        nodeID2: {'loc': (lat, lon)}, \
-                        ... \
-                    }" = None, 
-    mercatorFlag: "Display in Mercator projection" = True,
-    color:      "Decide the color of nodes if the 'color' tag is not in `nodes` \
-                 1) String 'Random', or\
-                 2) String, color" = 'Random',
-    figSize:    "Size of the figure, in (width, height)" = (5, 5), 
-    xMin:       "min of x-axis" = None,
-    xMax:       "max of x-axis" = None,
-    yMin:       "min of y-axis" = None,
-    yMax:       "max of y-axis" = None,
-    edgeWidth:  "Width on the edge" = 0.5,
-    saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None
-    ) -> "Draw nodes":
-
-    # Check for required fields ===============================================
-    if (nodes == None):
-        print(ERROR_MISSING_NODES)
-        return
-
-    # Projected nodes =========================================================
-    nodesMer = {}
-    for n in nodes:
-        nodesMer[n] = {
-            'loc': ptLatLon2XYMercator(nodes[n]['loc'])
-        }
-
-    # If no based matplotlib figure provided, define boundary =================
-    if (fig == None or ax == None):
-        fig, ax = plt.subplots()
-        allX = []
-        allY = []
-        for i in nodesMer:
-            allX.append(nodesMer[i]['loc'][1])
-            allY.append(nodesMer[i]['loc'][0])
-        if (xMin == None):
-            xMin = min(allX) - edgeWidth
-        if (xMax == None):
-            xMax = max(allX) + edgeWidth
-        if (yMin == None):
-            yMin = min(allY) - edgeWidth
-        if (yMax == None):
-            yMax = max(allY) + edgeWidth
-        if (figSize == None):
-            if (xMax - xMin > yMax - yMin):
-                width = 5
-                height = 5 * ((yMax - yMin) / (xMax - xMin))
-            else:
-                width = 5 * ((xMax - xMin) / (yMax - yMin))
-                height = 5
-        else:
-            (width, height) = figSize
-        fig.set_figwidth(width)
-        fig.set_figheight(height)
-        ax.set_xlim(xMin, xMax)
-        ax.set_ylim(yMin, yMax)
-
-    # Draw nodes ==============================================================
-    for n in nodesMer:
-        # Define color --------------------------------------------------------
-        nodeColor = None
-        if ('color' in nodesMer[n]):
-            nodeColor = nodesMer[n]['color']
-        elif (color == 'Random'):
-            nodeColor = colorRandom()
-        else:
-            nodeColor = color
-
-        # plot nodes ----------------------------------------------------------
-        x = nodesMer[n]['loc'][1]
-        y = nodesMer[n]['loc'][0]
 
         ax.plot(x, y, marker = 'o', color = nodeColor)
         if ('label' not in nodes[n]):

@@ -748,7 +748,8 @@ def getNeighborCluster(
                  2) String 'LatLon'" = "Euclidean",
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All',
-    diameter:   "The diameter of the neighborhood" = None
+    diameter:   "The diameter of the neighborhood" = None,
+    maxSize:    "Maximum number of nodes in each cluster" = 5
     ) -> "Given a dictionary of locations, an a radius, return the sets that any two locations are within the distance":
 
     # Define nodeIDs ==========================================================
@@ -812,12 +813,13 @@ def getNeighborCluster(
                             break
                     if (mergeFlag):
                         newClique = listSetUnion(clique1, clique2)
-                        newClique.sort()
-                        seedClique.remove(clique1)
-                        seedClique.remove(clique2)
-                        seedClique.append(newClique)
-                        canUnionFlag = True
-                        break
+                        if (maxSize == None or len(newClique) <= maxSize):
+                            newClique.sort()
+                            seedClique.remove(clique1)
+                            seedClique.remove(clique2)
+                            seedClique.append(newClique)
+                            canUnionFlag = True
+                            break
             if (canUnionFlag):
                 break
     return seedClique

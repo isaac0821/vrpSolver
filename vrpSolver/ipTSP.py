@@ -1,11 +1,11 @@
 import heapq
-import math
 import gurobipy as grb
+import math
 
-from .const import *
 from .common import *
-from .graph import *
+from .const import *
 from .geometry import *
+from .graph import *
 
 def ipTSP(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \

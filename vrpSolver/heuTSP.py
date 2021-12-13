@@ -65,7 +65,9 @@ def lrTSP(
                 arcsWithoutVertexOne.append(weightArcs[i])
 
         # MST for the rest of vertices
-        mst = graphMST(arcsWithoutVertexOne)['mst']
+        mst = graphMST(
+            weightArcs = arcsWithoutVertexOne
+            )['mst']
 
         # Find two cheapest arcs to vertex one
         sortedArcswithVertexOne = []
@@ -335,7 +337,7 @@ def consTSP(
             'ofv': ofv,
             'seq': seq
         }
-    def _consTSPInsertion(nodeIDs, initSeq, edges):        
+    def _consTSPInsertion(nodeIDs, initSeq, edges):
         # Initialize ----------------------------------------------------------
         seq = None
         if (initSeq == None):
@@ -388,7 +390,7 @@ def consTSP(
         tsp = _consTSPFarthestNeighbor(nodeIDs, edges)
     elif (algo == 'Insertion'):
         if (algoArgs == None):
-            algoArgs = {'initSeq': None}
+            algoArgs = {'initSeq': [nodeIDs[0], nodeIDs[0]]}
         tsp = _consTSPInsertion(nodeIDs, algoArgs['initSeq'], edges)
     elif (algo == 'Sweep'):
         tsp = _consTSPSweep(nodes, nodeIDs, edges)

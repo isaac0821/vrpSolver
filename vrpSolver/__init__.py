@@ -1,4 +1,4 @@
-__version__ = "0.0.26"
+__version__ = "0.0.30"
 __author__ = "Lan Peng"
 
 # History =====================================================================
@@ -36,6 +36,10 @@ __author__ = "Lan Peng"
 # v0.0.24 - 11242021 - Add `rectInWidthLengthOrientationXY()` and `rectInWidthLengthOrientationLatLon()`
 # v0.0.25 - 11252021 - Add `plotPoly()`
 # v0.0.26 - 12012021 - Add cheapest insertion for TSP
+# v0.0.27 - 12062021 - Minor fixes
+# v0.0.28 - 12062021 - Minor fixes
+# v0.0.29 - 12062021 - Minor fixes
+# v0.0.30 - 12122021 - Add `gridPathFinding()` with A* algorithm, `plotGrid()`, `plotGridPath()`
 # =============================================================================
 
 # Constants and messages
@@ -60,6 +64,12 @@ from .graph import *
 # Parallel machine scheduling problem
 from .PMS import *
 
+# Warehouse
+from .warehouse import *
+
 # TSP
 from .ipTSP import *
 from .heuTSP import *
+
+# VRP
+# from .ipVRP import *	# Debugging
