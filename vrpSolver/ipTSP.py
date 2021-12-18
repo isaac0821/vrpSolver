@@ -7,6 +7,8 @@ from .const import *
 from .geometry import *
 from .graph import *
 
+
+
 def ipTSP(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
@@ -16,7 +18,13 @@ def ipTSP(
                     }" = None, 
     edges:      "1) String (default) 'Euclidean' or \
                  2) String 'LatLon' or \
-                 3) Dictionary {(nodeID1, nodeID2): dist, ...}" = "Euclidean",
+                 3) String 'Grid' or \
+                 4) Dictionary {(nodeID1, nodeID2): dist, ...}" = "Euclidean",
+    edgeArgs:   "If choose 'Grid' as edges option, we need to provide the following dictionary \
+                {\
+                    'colRow': (numCol, numRow),\
+                    'barriers': [(coordX, coordY), ...], \
+                }" = None,
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All',
     fml:        "1) String (default) 'DFJ_Lazy' or \
@@ -42,9 +50,11 @@ def ipTSP(
     # Define edges ============================================================
     if (type(edges) is not dict):
         if (edges == 'Euclidean'):
-            edges = getTauEuclidean(nodes)
+            edges = getTauEuclidean(nodes, nodeIDs)
         elif (edges == 'LatLon'):
-            edges = getTauLatLon(nodes)
+            edges = getTauLatLon(nodes, nodeIDs)
+        elif (edges == 'Grid'):
+            edges = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
         else:
             print("Error: Incorrect type `edges`")
             return None
@@ -416,7 +426,7 @@ def ipTSP(
             TSP.optimize()
             if (TSP.status == grb.GRB.status.OPTIMAL):
                 accRuntime += TSP.Runtime
-                arcs = tuplelist((i, j) for i, j in x.keys() if x[i, j].X > 0.9)
+                arcs = grb.tuplelist((i, j) for i, j in x.keys() if x[i, j].X > 0.9)
                 components = getGraphComponents(arcs)
                 if (len(components) == 1):
                     noSubtourFlag = True
@@ -493,7 +503,7 @@ def ipTSP(
         def subtourelim(model, where):
             if (where == grb.GRB.Callback.MIPSOL):
                 x_sol = model.cbGetSolution(model._x)
-                arcs = tuplelist((i, j) for i, j in model._x.keys() if x_sol[i, j] > 0.9)
+                arcs = grb.tuplelist((i, j) for i, j in model._x.keys() if x_sol[i, j] > 0.9)
                 components = getGraphComponents(arcs)
                 for component in components:
                     if (len(component) < n):

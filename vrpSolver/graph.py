@@ -168,6 +168,7 @@ def gridPathFinding(
 
         # For each grid in open set, update g(n) ------------------------------
         while (len(openList) > 0):
+            tmpOpenList = []
             coord = findSmallestFnGrid()
             # Up
             upCoord = (coord[0], coord[1] + 1)
@@ -180,33 +181,31 @@ def gridPathFinding(
                     if (upCoord == endGridCoord):
                         break
                     else:
-                        openList.append(upCoord)
+                        tmpOpenList.append(upCoord)
             # Down
             downCoord = (coord[0], coord[1] - 1)
-            if (coord[1] - 1 > 0 and gridStatus[downCoord] != None and gridStatus[downCoord] != 'block' and downCoord not in closeList):
+            if (coord[1] - 1 >= 0 and gridStatus[downCoord] != None and gridStatus[downCoord] != 'block' and downCoord not in closeList):
                 if (gridStatus[downCoord][0] == None or gridStatus[downCoord][0] > gridStatus[coord][0] + 1):
                     if (distMeasure == 'Manhatten'):
                         gridStatus[downCoord] = (gridStatus[coord][0] + 1, calManhattenDist(downCoord, endGridCoord), coord)
                     if (distMeasure == 'Euclidean'):
                         gridStatus[downCoord] = (gridStatus[coord][0] + 1, calEuclideanDist(downCoord, endGridCoord), coord)
-                    openList.append(downCoord)
                     if (downCoord == endGridCoord):
                         break
                     else:
-                        openList.append(downCoord)
+                        tmpOpenList.append(downCoord)
             # Left
             leftCoord = (coord[0] - 1, coord[1])
-            if (coord[0] - 1 > 0 and gridStatus[leftCoord] != None and gridStatus[leftCoord] != 'block' and leftCoord not in closeList):
+            if (coord[0] - 1 >= 0 and gridStatus[leftCoord] != None and gridStatus[leftCoord] != 'block' and leftCoord not in closeList):
                 if (gridStatus[leftCoord][0] == None or gridStatus[leftCoord][0] > gridStatus[coord][0] + 1):
                     if (distMeasure == 'Manhatten'):
                         gridStatus[leftCoord] = (gridStatus[coord][0] + 1, calManhattenDist(leftCoord, endGridCoord), coord)
                     if (distMeasure == 'Euclidean'):
                         gridStatus[leftCoord] = (gridStatus[coord][0] + 1, calEuclideanDist(leftCoord, endGridCoord), coord)
-                    openList.append(leftCoord)
                     if (leftCoord == endGridCoord):
                         break
                     else:
-                        openList.append(leftCoord)
+                        tmpOpenList.append(leftCoord)
             # Right
             rightCoord = (coord[0] + 1, coord[1])
             if (coord[0] + 1 < gridColRow[0] and gridStatus[rightCoord] != None and gridStatus[rightCoord] != 'block' and rightCoord not in closeList):
@@ -215,12 +214,12 @@ def gridPathFinding(
                         gridStatus[rightCoord] = (gridStatus[coord][0] + 1, calManhattenDist(rightCoord, endGridCoord), coord)
                     if (distMeasure == 'Euclidean'):
                         gridStatus[rightCoord] = (gridStatus[coord][0] + 1, calEuclideanDist(rightCoord, endGridCoord), coord)
-                    openList.append(rightCoord)
                     if (rightCoord == endGridCoord):
                         break
                     else:
-                        openList.append(rightCoord)
+                        tmpOpenList.append(rightCoord)
             openList.remove(coord)
+            openList.extend(tmpOpenList)
             closeList.append(coord)
 
         # Recover path --------------------------------------------------------
@@ -233,7 +232,10 @@ def gridPathFinding(
             curCoord = gridStatus[curCoord][2]
             if (curCoord != None):
                 finishReconstructFlag = True
-        return path
+        return {
+            'dist': len(path) - 1,
+            'path': path
+        }
 
     # Call path finding =======================================================
     if (algo == 'A*'):

@@ -1,10 +1,10 @@
 
 def createWarehouseLayout(
-    shelfCol: "Number of columns in the warehouse layout" = 5,
-    shelfRow: "Number of rows in warehouse layout" = 10,
-    shelfWidth: "Width of shelf" = 1,
-    shelfDeep:  "Number of deeps of the shelf" = 1,
-    aisleWidth: "Width of the aisles" = 1,
+    shelfCol: "Integer, Number of columns in the warehouse layout" = 5,
+    shelfRow: "Integer, Number of rows in warehouse layout" = 10,
+    shelfWidth: "Integer, Width of shelf" = 1,
+    shelfDeep:  "Integer, Number of deeps of the shelf" = 1,
+    aisleWidth: "Integer, Width of the aisles" = 1,
     layoutType: "1) String, 'Traditional' or\
                  2) String, 'CrossAisle'" = 'CrossAisle',
     RSPointType: "1) String, 'BottomMiddle' or\
@@ -26,18 +26,42 @@ def createWarehouseLayout(
         'RSPointType': RSPointType
     }
 
+    # Create grids ============================================================
+    dicLayout['grid'] = {}
+    numCol = aisleWidth + (shelfWidth * shelfDeep + aisleWidth) * shelfCol
+    numRow = aisleWidth * 2 + shelfWidth * shelfRow + aisleWidth * (1 if layoutType == 'CrossAisle' else 0)
+    dicLayout['grid']['colRow'] = (numCol, numRow)
+    dicLayout['grid']['barriers'] = []
+    if (layoutType == 'Traditional'):
+        for i in range(1, shelfRow + 1):
+            for j in range(shelfCol):
+                for d in range(shelfDeep):
+                    dicLayout['grid']['barriers'].append((aisleWidth + (shelfDeep * shelfWidth + aisleWidth) * j + shelfWidth * d, i))
+    elif (layoutType == 'CrossAisle'):
+        for i in range(1, int((shelfRow + 1) / 2) + 1):
+            for j in range(shelfCol):
+                for d in range(shelfDeep):
+                    dicLayout['grid']['barriers'].append((aisleWidth + (shelfDeep * shelfWidth + aisleWidth) * j + shelfWidth * d, i))
+        for i in range(int((shelfRow + 1) / 2) + 2, shelfRow + 2):
+            for j in range(shelfCol):
+                for d in range(shelfDeep):
+                    dicLayout['grid']['barriers'].append((aisleWidth + (shelfDeep * shelfWidth + aisleWidth) * j + shelfWidth * d, i))
+
     # Create RS location ======================================================
     RSX = None
     RSY = None
     if (RSPointType == 'BottomMiddle'):
         RSX = (aisleWidth + (aisleWidth + shelfDeep * shelfWidth) * shelfCol) / 2
-        RSY = 0
+        RSY = aisleWidth / 2
+        dicLayout['RSGridID'] = (int((aisleWidth + (aisleWidth + shelfDeep * shelfWidth) * shelfCol) / 2), 0)
     elif (RSPointType == 'LeftMiddle'):
-        RSX = 0
+        RSX = aisleWidth / 2
         RSY = (aisleWidth * 2 + shelfWidth * shelfRow + (aisleWidth if layoutType == 'CrossAisle' else 0)) / 2
+        dicLayout['RSGridID'] = (0, int((aisleWidth * 2 + shelfWidth * shelfRow + (aisleWidth if layoutType == 'CrossAisle' else 0)) / 2))
     elif (RSPointType == 'Corner'):
-        RSX = 0
-        RSY = 0
+        RSX = aisleWidth / 2
+        RSY = aisleWidth / 2
+        dicLayout['RSGridID'] = (0, 0)
     dicLayout['RS'] = [RSX, RSY]
 
     # Create shelves ==========================================================
@@ -74,6 +98,6 @@ def createWarehouseLayout(
         [aisleWidth + (aisleWidth + shelfDeep * shelfWidth) * shelfCol, 0],
         [aisleWidth + (aisleWidth + shelfDeep * shelfWidth) * shelfCol, aisleWidth * 2 + shelfWidth * shelfRow + (aisleWidth if layoutType == 'CrossAisle' else 0)],
         [0, aisleWidth * 2 + shelfWidth * shelfRow + (aisleWidth if layoutType == 'CrossAisle' else 0)]        
-    ]
-    
+    ]   
+
     return dicLayout

@@ -9,6 +9,7 @@ from .msg import *
 from .common import *
 from .vector import *
 from .relation import *
+from .graph import *
 
 def ptXY2LatLonMercator(
     ptXY:       "Point in (x, y) coordinates"
@@ -29,6 +30,11 @@ def ptLatLon2XYMercator(
     x = math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * CONST_EARTH_RADIUS_METERS
     ptXY = (x, y)
     return ptXY
+
+def twMovingSegCrossPolyXY(
+    ):
+
+    return tw
 
 def twMovingPtInsidePolyXY(
     ptXY:       "Point that are moving" = None,
@@ -182,9 +188,9 @@ def distLatLon(
     pt1:        "First coordinate, in (lat, lon)", 
     pt2:        "Second coordinate, in (lat, lon)",
     distUnit:   "Unit of distance\
-                 1) String (default) 'mile'\
-                 2) String 'meter'\
-                 3) String 'kilometer'" = 'mile'
+                 1) String 'mile'\
+                 2) String (default) 'meter'\
+                 3) String 'kilometer'" = 'meter'
     ) -> "Gives a Euclidean distance based on two lat/lon coords, if two coordinates are the same, return a small number":
     
     # Get radius as in distUnit ===============================================
@@ -347,6 +353,43 @@ def getTauLatLon(
             else:
                 tau[i, j] = CONST_EPSILON
                 tau[j, i] = CONST_EPSILON
+    return tau
+
+def getTauGrid(
+    nodes:      "Dictionary, returns the coordinate of given nodeIDs, \
+                    {\
+                        nodeIDs1: {'loc': (x, y)}, \
+                        nodeIDs2: {'loc': (x, y)}, \
+                        ... \
+                    }" = None,
+    nodeIDs:    "1) String (default) 'All', or \
+                 2) A list of node IDs" = 'All', 
+    colRow: "Number of columns, and number of rows" = (None, None),
+    barriers:   "List of blocking grids" = []
+    ) -> "Given a grid that has barrier, returns tau matrix":
+
+    # Define nodeIDs ==========================================================
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = []
+            for i in nodes:
+                nodeIDs.append(i)
+
+    # Get tau =================================================================
+    tau = {}
+    for i in nodeIDs:
+        for j in nodeIDs:
+            if (i != j):
+                t = gridPathFinding(
+                    gridColRow = colRow,
+                    barriers = barriers,
+                    startGridCoord = nodes[i]['loc'],
+                    endGridCoord = nodes[j]['loc'])['dist']
+                tau[i, j] = t
+                tau[j, i] = t
+            else:
+                tau[i, j] = 0
+                tau[j, i] = 0
     return tau
 
 def getPerpendicularLine(

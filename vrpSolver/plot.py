@@ -10,6 +10,13 @@ def plotGrid(
     ax:         "Based matplotlib ax object" = None,
     gridColRow: "Number of columns, and number of rows" = (None, None),
     barriers:   "List of blocking grids" = [],
+    labeling:  "Additional labeling of grids to support different color or annotation, in format of \
+                {\
+                    (coordX, coordY): { \
+                        'color': color, \
+                        'annotation': annotation \
+                    }\
+                }" = None,
     gridSize:   "Size of the grid" = 1,
     gridBackColor: "Background color of grids" = None,
     gridEdgeColor: "Edge color of grids" = 'black',
@@ -18,6 +25,8 @@ def plotGrid(
     barrierEdgeColor: "Edge color of barriers" = 'black',
     barrierOpacity: "Opacity of barriers" = 0.5,
     barrierBackStyle: "Background style of barriers" = '///',
+    saveFigPath:"1) None, if not exporting image, or \
+                 2) String, the path for exporting image" = None
     ) -> "Plot a grid with barriers":
 
     # If no based matplotlib figure, define boundary ==========================
@@ -60,17 +69,37 @@ def plotGrid(
                     opacity = barrierOpacity,
                     fillStyle = barrierBackStyle)
 
+    # Add labels ==============================================================
+    if (labeling != None):
+        for (col, row) in labeling:
+            if ('color' in labeling[(col, row)]):
+                plotPoly(
+                    fig = fig,
+                    ax = ax,
+                    poly = poly,
+                    edgeColor = gridEdgeColor,
+                    fillColor = labeling[(col, row)]['color'],
+                    opacity = gridOpacity)
+
+    # Save figure =============================================================
+    if (saveFigPath != None):
+        fig.savefig(saveFigPath)
+
     return fig, ax
 
 def plotGridPath(
     fig:        "Based matplotlib figure object" = None,
     ax:         "Based matplotlib ax object" = None,
     gridColRow: "Number of columns, and number of rows" = (None, None),
+    barriers:   "List of blocking grids, needed if plotGridFlag is True" = [],
     gridSize:   "Size of the grid" = 1,
+    plotGridFlag: "True if plot the grid as background, false otherwise" = True,
     path:       "The sequences of visiting grids, a list of coordinates" = None,
     pathColor:  "The color of path" = 'Random',
     pathWidth:  "The width of path" = 3,
-    markerSize: "Size of starting/ending points" = 15
+    markerSize: "Size of starting/ending points" = 15,
+    saveFigPath:"1) None, if not exporting image, or \
+                 2) String, the path for exporting image" = None
     ) -> "Plot the path on the grid":
 
     # If no based matplotlib figure, define boundary ==========================
@@ -86,6 +115,15 @@ def plotGridPath(
         ax.set_ylim(yMin, yMax)
         plt.axis('off')
 
+    # Plot grid background ====================================================
+    if (plotGridFlag):
+        fig, ax = plotGrid(
+            fig = fig,
+            ax = ax,
+            gridColRow = gridColRow,
+            barriers = barriers,
+            gridSize = gridSize)
+
     # Path color ==============================================================
     if (pathColor == 'Random'):
         pathColor = colorRandom()
@@ -97,6 +135,11 @@ def plotGridPath(
         x = [path[i][0] * gridSize + gridSize / 2, path[i + 1][0] * gridSize + gridSize / 2]
         y = [path[i][1] * gridSize + gridSize / 2, path[i + 1][1] * gridSize + gridSize / 2]
         ax.plot(x, y, color = pathColor, linewidth = pathWidth)
+
+    # Save figure =============================================================
+    if (saveFigPath != None):
+        fig.savefig(saveFigPath)
+
     return fig, ax
 
 def plotPoly(

@@ -164,11 +164,25 @@ def ipPMS(
 
     # Reconstruct solution ====================================================
     ofv = None
-    if (PMS.status == grb.GRB.status.OPTIMAL):
+    if (PMS.status == grb.GRB.status.OPTIMAL): 
         ofv = PMS.getObjective().getValue()
+        gap = 0
+        lb = ofv
+        ub = ofv
+        runtime = PMS.Runtime
+    elif (PMS.status == grb.GRB.status.TIME_LIMIT):
+        ofv = None
+        gap = PMS.MIPGap
+        lb = PMS.ObjBoundC
+        ub = PMS.ObjVal
+        runtime = PMS.Runtime
 
     return {
-        'timespan': ofv
+        'ofv': ofv,
+        'gap': gap,
+        'lowerBound': lb,
+        'upperBound': ub,
+        'runtime': runtime
     }
 
 def heuPMS(
