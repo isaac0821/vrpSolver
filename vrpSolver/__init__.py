@@ -1,4 +1,4 @@
-__version__ = "0.0.32"
+__version__ = "0.0.34"
 __author__ = "Lan Peng"
 
 # History =====================================================================
@@ -42,6 +42,8 @@ __author__ = "Lan Peng"
 # v0.0.30 - 12122021 - Add `gridPathFinding()` with A* algorithm, `plotGrid()`, `plotGridPath()`
 # v0.0.31 - 12122021 - Minor fixes
 # v0.0.32 - 12122021 - Minor fixes
+# v0.0.33 - 12182021 - Add `createWarehouseLayout()` and now TSP can support routing on grids with barriers
+# v0.0.34 - 01032022 - Add `rndRainCloud()`, `getCloudCurrentPosition()`, `getLocCoverByCloudsTW()`
 # =============================================================================
 
 # Constants and messages

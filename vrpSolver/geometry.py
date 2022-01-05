@@ -2,7 +2,7 @@ import math
 import numpy as np
 import heapq
 import geopy.distance
-import tripy # Needs to be rewrited for the triangulation function
+import tripy # Needs to be rewritten for the triangulation function
 
 from .const import *
 from .msg import *
@@ -31,13 +31,95 @@ def ptLatLon2XYMercator(
     ptXY = (x, y)
     return ptXY
 
-def twMovingSegCrossPolyXY(
-    ):
+def htMovingPtTowardsLineSegXY(
+    ptXY:       "Point that is moving" = None,
+    segXY:      "Line segment that is moving - no rotation" = None,
+    vecXYPt:    "Moving speed vector of the point in XY" = None,
+    vecXYSeg:   "Moving speed vector of the line segment in XY" = None
+    ) -> "Given a moving point and a moving line segment, returns\
+        1) when the point is going to hit the line segment, or\
+        2) None if the point is not going to hit the line segment":
 
-    return tw
+    # Initialize ==============================================================
+    # Convert the speed of both objects into the speed of pt
+    vecXY = calXYVecSubtract(vecXYPt, vecXYSeg)
+
+    # Move axis, so that ptXY = (0, 0) ========================================
+    segOffSet = [[segXY[0][0] - ptXY[0], segXY[0][1] - ptXY[1]], [segXY[1][0] - ptXY[0], segXY[1][1] - ptXY[1]]]
+    rayOffset = [(0, 0), vecXY]
+
+    # Find intersecting point of the ray and the line seg =====================
+    ptInt = intSeg2Ray(segOffSet, rayOffset)
+    if (ptInt == None):
+        return None
+
+    # Calculate the distance from ptXY to ptInt and calculate the time needed =
+    dist = distEuclidean2D((0, 0), ptInt)
+    absVXY = math.sqrt(vecXY[0]**2 + vecXY[1]**2)
+    hitTime = dist / absVXY
+
+    return hitTime
+
+def htMovingPtTowardsLineSegLatLon(
+    ptLatLon:   "Point that is moving" = None,
+    segLatLon:  "Line segment that is moving - no rotation" = None,
+    vecPolarPt: "Moving speed vector of the point in XY" = None,
+    vecPolarSeg: "Moving speed vector of the line segment in XY" = None
+    ) -> "Lat/lon version of `hitTimeMovingPtTowardsLineSegXY()`":
+
+    # Initialize ==============================================================
+    ptXY = ptLatLon2XYMercator(ptLatLon)
+    segXY = [ptLatLon2XYMercator(segLatLon[0]), ptLatLon2XYMercator(segLatLon[1])]
+    segOffset = [[segXY[0][0] - ptXY[0], segXY[0][1] - ptXY[1]], [segXY[1][0] - ptXY[0], segXY[1][1] - ptXY[1]]]
+    vecXY = calXYVecSubtract(
+        vecPolar2XY([vecPolarPt[0], vecPolarPt[1] - 90]), 
+        vecPolar2XY([vecPolarSeg[0], vecPolarSeg[1] - 90]))
+    rayOffset = [(0, 0), vecXY]
+
+    # Find intersection in XY space ===========================================
+    ptIntXY = intSeg2Ray(segOffset, rayOffset)
+    if (ptIntXY == None):
+        return None
+    ptIntLatLon = ptXY2LatLonMercator([ptIntXY[0] + ptXY[0], ptIntXY[1] + ptXY[1]])
+
+    # Calculate dist and time =================================================
+    dist = distLatLon(ptLatLon, ptIntLatLon)
+    absVXY = vecXY2Polar(vecXY)[0]
+    hitTime = dist / absVXY
+
+    return hitTime
+
+def htMovingPtTowardsLineLatLon(
+    ptLatLon:   "Point that is moving" = None,
+    lineLatLon:  "Line segment that is moving - no rotation" = None,
+    vecPolarPt: "Moving speed vector of the point in XY" = None,
+    vecPolarSeg: "Moving speed vector of the line segment in XY" = None
+    ) -> "Lat/lon version of `hitTimeMovingPtTowardsLineSegXY()`":
+
+    # Initialize ==============================================================
+    ptXY = ptLatLon2XYMercator(ptLatLon)
+    segXY = [ptLatLon2XYMercator(lineLatLon[0]), ptLatLon2XYMercator(lineLatLon[1])]
+    segOffset = [[segXY[0][0] - ptXY[0], segXY[0][1] - ptXY[1]], [segXY[1][0] - ptXY[0], segXY[1][1] - ptXY[1]]]
+    vecXY = calXYVecSubtract(
+        vecPolar2XY([vecPolarPt[0], vecPolarPt[1] - 90]), 
+        vecPolar2XY([vecPolarSeg[0], vecPolarSeg[1] - 90]))
+    rayOffset = [(0, 0), vecXY]
+
+    # Find intersection in XY space ===========================================
+    ptIntXY = intRay2Line(segOffset, rayOffset)
+    if (ptIntXY == None):
+        return None
+    ptIntLatLon = ptXY2LatLonMercator([ptIntXY[0] + ptXY[0], ptIntXY[1] + ptXY[1]])
+
+    # Calculate dist and time =================================================
+    dist = distLatLon(ptLatLon, ptIntLatLon)
+    absVXY = vecXY2Polar(vecXY)[0]
+    hitTime = dist / absVXY
+
+    return hitTime
 
 def twMovingPtInsidePolyXY(
-    ptXY:       "Point that are moving" = None,
+    ptXY:       "Point that is moving" = None,
     polyXY:     "Polygon that are moving" = None,
     vecXYPt:    "Moving speed vector of the point in XY" = None,
     vecXYPoly:  "Moving speed vector of the polygon in XY" = None,
@@ -101,8 +183,8 @@ def twMovingPtInsidePolyXY(
 def twMovingPtInsidePolyLatLon(
     ptLatLon:      "Point that are moving" = None,
     polyLatLon:    "Polygon that are moving" = None,
-    vecPolarPt:    "Moving speed vector of the point in XY" = None,
-    vecPolarPoly:  "Moving speed vector of the polygon in XY" = None,
+    vecPolarPt:    "Moving speed vector of the point in XY, in the format of (val, deg), 0 deg as north" = None,
+    vecPolarPoly:  "Moving speed vector of the polygon in XY, in the format of (val, deg), 0 deg as north" = None,
     ) -> "Given a moving point in (lat, lon), a moving polygon, returns \
         1) the time window of when the point will be inside the polygon, or \
         2) None if not going to be inside the polygon":
@@ -121,8 +203,8 @@ def twMovingPtInsidePolyLatLon(
         pXY = ptLatLon2XYMercator(p)
         polyXYOffset.append((pXY[0] - ptXY[0], pXY[1] - ptXY[1]))
     vecXY = calXYVecSubtract(
-        vecPolar2XY(vecPolarPt), 
-        vecPolar2XY(vecPolarPoly))
+        vecPolar2XY([vecPolarPt[0], vecPolarPt[1] - 90]), 
+        vecPolar2XY([vecPolarPoly[0], vecPolarPoly[1] - 90]))
     rayXYOffset = [(0, 0), vecXY]
 
     # Find intersection in XY space ===========================================
@@ -141,7 +223,6 @@ def twMovingPtInsidePolyLatLon(
     for p in intPtsXY:
         pXY = (p[0] + ptXY[0], p[1] + ptXY[1])
         intPtsLatLon.append(ptXY2LatLonMercator(pXY))
-    # print(intPtsLatLon)
 
     # Sort intersection points by dist ========================================
     # Convert intPts to nodes
@@ -172,6 +253,107 @@ def twMovingPtInsidePolyLatLon(
             tw.append([timeStamp[i], timeStamp[i + 1]])
 
     return tw
+
+def twMovingSegIntersectPolyLatLon(
+    segLatLon:  "Line segment that is moving - no rotation" = None,
+    polyLatLon: "Polygon that is moving - no rotation" = None,
+    vecPolarSeg: "Moving speed vector of the line segment" = None,
+    vecPolarPoly: "Moving speed vector of the line segment" = None
+    ) -> "":
+
+    # Calculate the time each ep of poly hits the line segment ================
+    tw = None
+    ts = []
+    te = []
+    hts = []
+    # The ep of poly hitting the segment
+    for pt in polyLatLon:
+        ht = htMovingPtTowardsLineSegLatLon(
+            ptLatLon = pt,
+            segLatLon = segLatLon,
+            vecPolarPt = vecPolarPoly,
+            vecPolarSeg = vecPolarSeg)
+        if (ht != None):
+            hts.append(ht)
+    if (len(hts) >= 2):
+        ts.append(min(hts))
+        te.append(max(hts))
+
+    # If no
+    
+
+
+    return tw
+
+def projSeg2LineXY(
+    seg:        "Line segment to be projected to line" = None,
+    line:       "Line to project to" = None,
+    vec:        "Vector of projecting" = None
+    ) -> "Given a line segment, project it to a line using a given vector":
+
+    line4SegEnd1 = [seg[0], [seg[0][0] + vec[0], seg[0][1] + vec[1]]]
+    line4SegEnd2 = [seg[1], [seg[1][0] + vec[0], seg[1][1] + vec[1]]]
+
+    projPt1 = intLine2Line(line4SegEnd1, line)
+    projPt2 = intLine2Line(line4SegEnd2, line)
+
+    return {
+        'shadowSegOnLine': [projPt1, projPt2]
+    }
+
+# [Constructing]
+def projSeg2SegXY(
+    seg1:       "Line segment to be projected to seg2" = None,
+    seg2:       "Line segment that is being projected to" = None,
+    vec:        "Vector of projecting" = None
+    ) -> "Given a line segment, project it to another line segment, which might give us \
+        1) shadowOnSeg2, the part on the line segment being projected \
+        2) projFromSeg1, the part of seg1 that has been projected":
+
+    line4Seg1End1 = [seg1[0], [seg1[0][0] + vec[0], seg1[0][1] + vec[1]]]
+    line4Seg1End2 = [seg1[1], [seg1[1][0] + vec[0], seg1[1][1] + vec[1]]]
+    line4Seg2End1 = [seg2[0], [seg2[0][0] + vec[0], seg2[0][1] + vec[1]]]
+    line4Seg2End2 = [seg2[1], [seg2[1][0] + vec[0], seg2[1][1] + vec[1]]]
+
+    projSeg1End1OnLine2 = intLine2Line(line4Seg1End1, seg2)
+    projSeg1End2OnLine2 = intLine2Line(line4Seg1End2, seg2)
+    projSeg2End1OnSeg1 = intLine2Line(line4Seg2End1, seg1)
+    projSeg2End2OnSeg1 = intLine2Line(line4Seg2End2, seg1)
+
+    seg1End1ProjOnSeg2 = isPtOnSeg(projSeg1End1OnLine2, seg2)
+    seg1End2ProjOnSeg2 = isPtOnSeg(projSeg1End2OnLine2, seg2)
+
+    # Case 1: both projPt on seg2
+    if (seg1End1ProjOnSeg2 and seg1End2ProjOnSeg2):
+        return {
+            'shadowOnSeg2': [projSeg1End1OnLine2, projSeg1End2OnLine2],
+            'projFromSeg1': seg1
+        }
+
+    # Case 2: projPt of end1 of seg1 is on seg2, projPt of end2 of seg1 is not on seg2
+    elif (seg1End1ProjOnSeg2 and not seg1End2ProjOnSeg2):
+        # Case 2.1: projPt of end1 of seg2 is on seg1
+        if (projSeg2End1OnSeg1 != None): 
+            return {
+                'shadowOnSeg2': [seg2[0], projSeg1End1OnLine2],
+                'projFromSeg1': [seg1[0], projSeg2End1OnSeg1]
+            }
+        else:
+            return {
+                'shadowOnSeg2': [projSeg1End1OnLine2, seg2[1]],
+                'projFromSeg1': [projSeg2End1OnSeg1, seg1[1]]
+            }
+
+    # Case 3: projPt of end1 of seg1 is not on seg2, projPt of end1 of seg1 is on seg2
+
+    # Case 4: both projPt not on seg2, seg2 not projecting on seg1
+    elif (not seg1End1ProjOnSeg2 and not seg1End2ProjOnSeg2):
+
+
+    # Case 5: both projPt not on seg2, seg2 entirely projecting on seg1
+        pass
+
+    return
 
 def distEuclidean2D(
     pt1:        "First coordinate, in (x, y)", 
@@ -364,7 +546,7 @@ def getTauGrid(
                     }" = None,
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All', 
-    colRow: "Number of columns, and number of rows" = (None, None),
+    colRow:     "Number of columns, and number of rows" = (None, None),
     barriers:   "List of blocking grids" = []
     ) -> "Given a grid that has barrier, returns tau matrix":
 
@@ -458,7 +640,6 @@ def getRndPtOnNetworkLatLon(
                     'end': (lat, lon),\
                 }" = None,
     ):
-
     # Calculate the length of each edge =======================================
     lengths = []
     for edge in network:
@@ -765,7 +946,7 @@ def getSweepSeq(
                     }" = None, 
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All',
-    centerLoc:  "1) (Default) String, 'centroid' the centroid of nodes, or\
+    centerLoc:  "1) (Default) String, 'Centroid' the centroid of nodes, or\
                  2) List, [x, y], the center point" = None,
     isClockwise: "True if the sweeping direction is clock-wise, False otherwise" = True,
     initDeg:    "Starting direction of the sweeping, 0 as North" = 0
@@ -779,8 +960,8 @@ def getSweepSeq(
                 nodeIDs.append(i)
 
     # Initialize centroid =====================================================
-    if (centerLoc == 'centroid'):
-        centerLoc = getCentroid(nodes)
+    if (centerLoc == 'Centroid'):
+        centerLoc = getCentroid(nodes = nodes, nodeIDs = nodeIDs)
 
     # Initialize heap =========================================================
     degHeap = []

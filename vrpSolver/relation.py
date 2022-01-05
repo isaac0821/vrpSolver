@@ -283,6 +283,14 @@ def intLine2Line(
     line2:      "List of 2 pts that defines a line"
     ) -> "Return 1) None if parallel or overlapped, or \
                  2) The intersect point if two lines intersect":
+    # Validation ==============================================================
+    if (is2PtsSame(line1[0], line1[1])):
+        print(ERROR_ZERO_VECTOR)
+        return None
+    if (is2PtsSame(line2[0], line2[1])):
+        print(ERROR_ZERO_VECTOR)
+        return None
+
     # Get Ax + By + C = 0 =====================================================
     def abc(pt1, pt2):
         x1, y1 = pt1
@@ -337,11 +345,33 @@ def intSeg2Ray(
     else:
         return None
 
+def intRay2Line(
+    ray:        "List of 2 pts, the first pt defines the initial point, the second pt is on the ray",
+    line:       "List of 2 pts that defines a line"
+    ) -> "Return 1) None if no intersection, or \
+                 2) The intersect point if ray and line intersect":
+    # Validation ==============================================================
+    if (is2PtsSame(ray[0], ray[1])):
+        print(ERROR_ZERO_VECTOR)
+        return None
+    if (is2PtsSame(line[0], line[1])):
+        print(ERROR_ZERO_VECTOR)
+        return None
+
+    # Calculate intersection ==================================================
+    ptInt = intLine2Line(ray, line)
+
+    # Check if it is on segs ==================================================
+    if (ptInt != None and isPtOnRay(ptInt, ray)):
+        return ptInt
+    else:
+        return None
+
 def intRay2Ray(
     ray1:       "List of 2 pts, the first pt defines the initial point, the second pt is on the ray",
     ray2:       "List of 2 pts, the first pt defines the initial point, the second pt is on the ray"
     ) -> "Return 1) None if no intersection, or \
-                 2) The intersect point if two segments intersect":
+                 2) The intersect point if two rays intersect":
     # Validation ==============================================================
     if (is2PtsSame(ray1[0], ray1[1])):
         print(ERROR_ZERO_VECTOR)

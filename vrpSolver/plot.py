@@ -4,6 +4,7 @@ import random
 from .msg import *
 from .color import *
 from .geometry import *
+from .weather import *
 
 def plotGrid(
     fig:        "Based matplotlib figure object" = None,
@@ -135,6 +136,84 @@ def plotGridPath(
         x = [path[i][0] * gridSize + gridSize / 2, path[i + 1][0] * gridSize + gridSize / 2]
         y = [path[i][1] * gridSize + gridSize / 2, path[i + 1][1] * gridSize + gridSize / 2]
         ax.plot(x, y, color = pathColor, linewidth = pathWidth)
+
+    # Save figure =============================================================
+    if (saveFigPath != None):
+        fig.savefig(saveFigPath)
+
+    return fig, ax
+
+def plotCloudsInTime(
+    fig:        "fig" = None,
+    ax:         "ax" = None,
+    figSize:    "Size of the figure, in (width, height)" = (5, 5), 
+    xMin:       "min of x-axis" = None,
+    xMax:       "max of x-axis" = None,
+    yMin:       "min of y-axis" = None,
+    yMax:       "max of y-axis" = None,
+    edgeWidth:  "Width on the edge" = 0.05,
+    clouds:     "A list of clouds" = None,
+    nodes:      "nodes with locations coordinates" = None,
+    timeStamp:  "Time stamps of the frame" = None,
+    saveFigPath:"1) None, if not exporting image, or \
+                 2) String, the path for exporting image" = None
+    ) -> "Given a time stamp, plot the locations of clouds and customers":
+
+    # If no based matplotlib figure, define boundary ==========================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        allX = []
+        allY = []
+
+        # locs of nodes -------------------------------------------------------
+        for n in nodes:
+            allX.append(nodes[n]['loc'][1])
+            allY.append(nodes[n]['loc'][0])
+
+        if (xMin == None):
+            xMin = min(allX) - edgeWidth
+        if (xMax == None):
+            xMax = max(allX) + edgeWidth
+        if (yMin == None):
+            yMin = min(allY) - edgeWidth
+        if (yMax == None):
+            yMax = max(allY) + edgeWidth
+        if (figSize == None):
+            if (xMax - xMin > yMax - yMin):
+                width = 5
+                height = 5 * ((yMax - yMin) / (xMax - xMin))
+            else:
+                width = 5 * ((xMax - xMin) / (yMax - yMin))
+                height = 5
+        else:
+            (width, height) = figSize
+        fig.set_figwidth(width)
+        fig.set_figheight(height)
+        ax.set_xlim(xMin, xMax)
+        ax.set_ylim(yMin, yMax)
+
+    # Plot nodes ==============================================================
+    fig, ax = plotNodes(
+        fig = fig,
+        ax = ax,
+        nodes = nodes,
+        color = 'green',
+        xyReverseFlag = True)
+
+    # Plot clouds =============================================================
+    for c in clouds:
+        currentCloudPosition = getCloudCurrentPosition(c, timeStamp)
+        if (currentCloudPosition != None):
+            fig, ax = plotPoly(
+                fig = fig,
+                ax = ax,
+                edgeColor = 'black',
+                fillColor = 'gray',
+                fillStyle = '///',
+                opacity = 0.3,
+                poly = currentCloudPosition,
+                xyReverseFlag = True)
+    plt.close(fig)
 
     # Save figure =============================================================
     if (saveFigPath != None):

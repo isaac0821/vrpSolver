@@ -40,12 +40,12 @@ def mergeTimeWindows(
     ) -> "Given a list of time windows, which might be overlapping, merge the time windows that are overlapping":
 
     # Example =================================================================
-    # tws1 = [[0, 10], [12, 14], [18, 20]]
-    # tws2 = [[9, 13], [19, 23]]
-    # twsBeforeMerging = []
-    # twsBeforeMerging.extend(tws1)
-    # twsBeforeMerging.extend(tws2)
-    # twsAfterMerging = mergeTimeWindows(twsBeforeMerging)
+    # Input ->: tws1 = [[0, 10], [12, 14], [18, 20]]
+    #           tws2 = [[9, 13], [19, 23]]
+    #           twsBeforeMerging = []
+    #           twsBeforeMerging.extend(tws1)
+    #           twsBeforeMerging.extend(tws2)
+    #           twsAfterMerging = mergeTimeWindows(twsBeforeMerging)
     # Output ->: [[0, 14], [18, 23]]
 
     # Initialize ==============================================================
@@ -134,7 +134,7 @@ def reverseTimeWindows(
 def blockTimeWindows(
     tws:        "List of existing available time windows" = None,
     block:      "A piece of time make part of tws unavailable" = None,
-    ) -> "Given a list of non-overlapping time windows, use a time window to block the existing `tws`":
+    ) -> "Given a list of non-overlapping time windows, use a time window to block (make the period unavailable) the existing `tws`":
     newTWs = []
     for tw in tws:
         # Use '<' in this section
@@ -162,7 +162,7 @@ def blockTimeWindows(
     return newTWs
 
 def getIndexInTimeWindow(
-    bgTws:      "List of non-overlapping time windows as background (CANNOT be covered by inserting time window)" = None,
+    bgTws:      "List of non-overlapping time windows as background" = None,
     t:          "Time stamp" = None
     ) -> "Given a time stamp and a list of time windows, check if the time stamp is in time windows":
     for i in range(len(bgTws)):
@@ -171,7 +171,7 @@ def getIndexInTimeWindow(
     return None
 
 def getEarliestNextAvailTime(
-    bgTws:      "List of non-overlapping time windows as background (CANNOT be covered by inserting time window)" = None,
+    bgTws:      "List of non-overlapping time windows as background" = None,
     t:          "Time stamp" = None
     ) -> "Given a time stamp, get next launchable time":
     earliestNext = None
