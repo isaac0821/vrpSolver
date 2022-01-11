@@ -1,6 +1,6 @@
 import math
 import random
-import pickle
+import pickle5 as pickle
 
 from .const import *
 

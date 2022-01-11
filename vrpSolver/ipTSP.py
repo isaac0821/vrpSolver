@@ -7,8 +7,6 @@ from .const import *
 from .geometry import *
 from .graph import *
 
-
-
 def ipTSP(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
@@ -25,8 +23,10 @@ def ipTSP(
                     'colRow': (numCol, numRow),\
                     'barriers': [(coordX, coordY), ...], \
                 }" = None,
+    depotID:    "Depot ID" = 0,
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All',
+    serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0,
     fml:        "1) String (default) 'DFJ_Lazy' or \
                  2) String 'DFJ_PlainLoop' or \
                  3) String 'MTZ' or \
@@ -58,6 +58,12 @@ def ipTSP(
         else:
             print("Error: Incorrect type `edges`")
             return None
+
+    # Service time ============================================================
+    if (serviceTime != None and serviceTime > 0):
+        for e in edges:
+            if (e[0] != depotID and e[1] != depotID):
+                edges[e] += serviceTime / 2
 
     # Gurobi initialize =======================================================
     n = len(nodeIDs)
@@ -553,23 +559,38 @@ def ipTSP(
         }
 
     # Solve by different formulations =========================================
-    res = None
+    tsp = None
     if (fml == 'DFJ_Lazy'):
-        res = _ipTSPLazyCuts(edges, nodeIDs)
+        tsp = _ipTSPLazyCuts(edges, nodeIDs)
     elif (fml == 'DFJ_PlainLoop'):
-        res = _ipTSPPlainLoop(edges, nodeIDs)
+        tsp = _ipTSPPlainLoop(edges, nodeIDs)
     elif (fml == 'MTZ'):
-        res = _ipTSPMTZ(edges, nodeIDs)
+        tsp = _ipTSPMTZ(edges, nodeIDs)
     elif (fml == 'ShortestPath'):
-        res = _ipTSPShortestPath(edges, nodeIDs)
+        tsp = _ipTSPShortestPath(edges, nodeIDs)
     elif (fml == 'MultiCommodityFlow'):
-        res = _ipTSPMultiCommodityFlow(edges, nodeIDs)
+        tsp = _ipTSPMultiCommodityFlow(edges, nodeIDs)
     elif (fml == 'QAP'):
-        res = _ipTSPQAP(edges, nodeIDs)
+        tsp = _ipTSPQAP(edges, nodeIDs)
     else:
         print("Error: Incorrect or not available TSP formulation option!")
         return None
-    if (res != None):
-        res['fml'] = fml
+    if (tsp != None):
+        tsp['fml'] = fml
 
-    return res
+    # Fix the sequence to make it start from the depot ========================
+    startIndex = None
+    truckSeq = []
+    for k in range(len(tsp['seq'])):
+        if (tsp['seq'][k] == depotID):
+            startIndex = k
+    if (startIndex < len(tsp['seq']) - 1):
+        for k in range(startIndex, len(tsp['seq'])):
+            truckSeq.append(tsp['seq'][k])
+    if (startIndex > 0):
+        for k in range(0, startIndex):
+            truckSeq.append(tsp['seq'][k])
+    truckSeq.append(depotID)
+    tsp['seq'] = truckSeq
+
+    return tsp

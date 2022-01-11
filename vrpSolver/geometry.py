@@ -72,8 +72,8 @@ def htMovingPtTowardsLineSegLatLon(
     segXY = [ptLatLon2XYMercator(segLatLon[0]), ptLatLon2XYMercator(segLatLon[1])]
     segOffset = [[segXY[0][0] - ptXY[0], segXY[0][1] - ptXY[1]], [segXY[1][0] - ptXY[0], segXY[1][1] - ptXY[1]]]
     vecXY = calXYVecSubtract(
-        vecPolar2XY([vecPolarPt[0], vecPolarPt[1] - 90]), 
-        vecPolar2XY([vecPolarSeg[0], vecPolarSeg[1] - 90]))
+        vecPolar2XY([vecPolarPt[0], 90 - vecPolarPt[1]]), 
+        vecPolar2XY([vecPolarSeg[0], 90 - vecPolarSeg[1]]))
     rayOffset = [(0, 0), vecXY]
 
     # Find intersection in XY space ===========================================
@@ -101,8 +101,8 @@ def htMovingPtTowardsLineLatLon(
     segXY = [ptLatLon2XYMercator(lineLatLon[0]), ptLatLon2XYMercator(lineLatLon[1])]
     segOffset = [[segXY[0][0] - ptXY[0], segXY[0][1] - ptXY[1]], [segXY[1][0] - ptXY[0], segXY[1][1] - ptXY[1]]]
     vecXY = calXYVecSubtract(
-        vecPolar2XY([vecPolarPt[0], vecPolarPt[1] - 90]), 
-        vecPolar2XY([vecPolarSeg[0], vecPolarSeg[1] - 90]))
+        vecPolar2XY([vecPolarPt[0], 90 - vecPolarPt[1]]), 
+        vecPolar2XY([vecPolarSeg[0], 90 - vecPolarSeg[1]]))
     rayOffset = [(0, 0), vecXY]
 
     # Find intersection in XY space ===========================================
@@ -203,8 +203,8 @@ def twMovingPtInsidePolyLatLon(
         pXY = ptLatLon2XYMercator(p)
         polyXYOffset.append((pXY[0] - ptXY[0], pXY[1] - ptXY[1]))
     vecXY = calXYVecSubtract(
-        vecPolar2XY([vecPolarPt[0], vecPolarPt[1] - 90]), 
-        vecPolar2XY([vecPolarPoly[0], vecPolarPoly[1] - 90]))
+        vecPolar2XY([vecPolarPt[0], 90 - vecPolarPt[1]]), 
+        vecPolar2XY([vecPolarPoly[0], 90 - vecPolarPoly[1]]))
     rayXYOffset = [(0, 0), vecXY]
 
     # Find intersection in XY space ===========================================

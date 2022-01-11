@@ -6,7 +6,7 @@ from .common import *
 from .graph import *
 from .geometry import *
 
-def lrTSP(
+def lbTSP(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
                         nodeID1: {'loc': (x, y)}, \
@@ -158,17 +158,20 @@ def heuTSP(
     edges:      "1) String (default) 'Euclidean' or \
                  2) String 'LatLon' or \
                  3) Dictionary {(nodeID1, nodeID2): dist, ...}" = "Euclidean",
+    depotID:    "DepotID, default to be 0" = 0,
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All',
-    consAlgo:   "1) String 'NearestNeighbor' or \
+    serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0,
+    consAlgo:   "1) String 'k-NearestNeighbor' or \
                  2) String 'FarthestNeighbor' or \
-                 3) String 'Insertion' or \
+                 3) String (default) 'Insertion' or \
                  4) String (not available) 'Patching' or \
                  5) String 'Sweep' or \
                  6) String 'DepthFirst' or \
-                 7) String (default) 'Christofides' or \
-                 8) String 'Random'" = 'Christofides',
+                 7) String 'Christofides' or \
+                 8) String 'Random'" = 'Insertion',
     consAlgoArgs: "Dictionary, args for constructive heuristic" = None,
+    enableLocalImproveFlag: "True if call local improvement to improve solution quality" = True,
     impAlgo:    "1) String (not available) 'LKH' or \
                  2) String (default) '2Opt' = '2Opt'" = '2Opt',
     impAlgoArgs: "Dictionary, args for improvement heuristic" = None,
@@ -191,34 +194,66 @@ def heuTSP(
             print("Error: Incorrect type `edges`")
             return None
 
+    # Service time ============================================================
+    if (serviceTime != None and serviceTime > 0):
+        for e in edges:
+            if (e[0] != depotID and e[1] != depotID):
+                edges[e] += serviceTime / 2
+
     # Constructive heuristic ==================================================
-    cons = consTSP(nodes, edges, nodeIDs, consAlgo, consAlgoArgs)
+    seq = _consTSP(
+        nodes = nodes,
+        edges = edges,
+        nodeIDs = nodeIDs,
+        algo = consAlgo,
+        algoArgs = consAlgoArgs)
 
     # Local improvement heuristic =============================================
-    tsp = impTSP(nodes, edges, cons['seq'], impAlgo)
+    if (enableLocalImproveFlag):
+        seq = _impTSP(
+            nodes = nodes, 
+            edges = edges, 
+            initSeq = seq, 
+            algo = impAlgo)
 
-    return tsp
+    # Fix the sequence to make it start from the depot ========================
+    startIndex = None
+    truckSeq = []
+    for k in range(len(seq)):
+        if (seq[k] == depotID):
+            startIndex = k
+    if (startIndex < len(seq) - 1):
+        for k in range(startIndex, len(seq)):
+            truckSeq.append(seq[k])
+    if (startIndex > 0):
+        for k in range(0, startIndex):
+            truckSeq.append(seq[k])
+    truckSeq.append(depotID)
 
-def consTSP(
+    ofv = calSeqCostMatrix(edges, seq)
+
+    return {
+        'ofv': ofv,
+        'seq': truckSeq
+    }
+
+def _consTSP(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
                         nodeID1: {'loc': (x, y)}, \
                         nodeID2: {'loc': (x, y)}, \
                         ... \
                     }" = None, 
-    edges:      "1) String (default) 'Euclidean' or \
-                 2) String 'LatLon' or \
-                 3) Dictionary {(nodeID1, nodeID2): dist, ...}" = "Euclidean",
-    nodeIDs:    "1) String (default) 'All', or \
-                 2) A list of node IDs" = 'All',
+    edges:      "Dictionary {(nodeID1, nodeID2): dist, ...}" = None,
+    nodeIDs:    "A list of node IDs" = None,
     algo:       "1) String 'k-NearestNeighbor' or \
                  2) String 'FarthestNeighbor' or \
-                 3) String 'Insertion' or \
+                 3) String (default) 'Insertion' or \
                  4) String (not available) 'Patching' or \
                  5) String 'Sweep' or \
                  6) String 'DepthFirst' or \
-                 7) String (default) 'Christofides' or \
-                 8) String 'Random'" = 'Christofides',
+                 7) String 'Christofides' or \
+                 8) String 'Random'" = 'Insertion',
     algoArgs:   "Dictionary, needed for some algorithm options, \
                  1) None for unspecified `algo` options, or \
                  2) for 'k-NearestNeighbor' \
@@ -233,30 +268,12 @@ def consTSP(
                     {\
                         'initSeq': initial TSP route\
                     }"= None
-    ) -> "Constructive heuristic solution for TSP":
-
-    # Define nodeIDs ==========================================================
-    if (type(nodeIDs) is not list):
-        if (nodeIDs == 'All'):
-            nodeIDs = []
-            for i in nodes:
-                nodeIDs.append(i)
-
-    # Define edges ============================================================
-    if (type(edges) is not dict):
-        if (edges == 'Euclidean'):
-            edges = getTauEuclidean(nodes)
-        elif (edges == 'LatLon'):
-            edges = getTauLatLon(nodes)
-        else:
-            print("Error: Incorrect type `edges`")
-            return None
+    ) -> "Constructive heuristic solution for TSP, the output sequence does not necessarily start from depot":
 
     # Subroutines for different constructive heuristics =======================
     def _consTSPkNearestNeighbor(nodes, nodeIDs, edges, k = 1):
         seq = [nodeIDs[0]]
         remain = [nodeIDs[i] for i in range(1, len(nodeIDs))]
-        ofv = 0
 
         # Accumulate seq ------------------------------------------------------
         while (len(remain) > 0):
@@ -272,16 +289,11 @@ def consTSP(
                 seq.append(sortedNodes[k - 1])
             remain = [i for i in nodeIDs if i not in seq]
         seq.append(seq[0])
-        ofv = calSeqCostMatrix(edges, seq)
-        return {
-            'ofv': ofv,
-            'seq': seq
-        }
+        return seq
     def _consTSPFarthestNeighbor(nodeIDs, edges):
         # Initialize ----------------------------------------------------------
         seq = [nodeIDs[0]]
         remain = [nodeIDs[i] for i in range(1, len(nodeIDs))]
-        ofv = 0
 
         # Accumulate seq ------------------------------------------------------
         while (len(remain) > 0):
@@ -298,28 +310,15 @@ def consTSP(
                         nextLeng = edges[seq[-1], node]
             seq.append(nextID)
             remain.remove(nextID)
-            ofv += nextLeng    
-        ofv += edges[seq[0], seq[-1]]
         seq.append(seq[0])
-
-        return {
-            'ofv': ofv,
-            'seq': seq
-        }
+        return seq
     def _consTSPSweep(nodes, nodeIDs, edges):
         # Sweep seq -----------------------------------------------------------
         sweepSeq = getSweepSeq(
             nodes = nodes, 
             nodeIDs = nodeIDs)
         sweepSeq.append(sweepSeq[0])
-
-        # Calculate ofv -------------------------------------------------------
-        ofv = calSeqCostMatrix(edges, sweepSeq)
-
-        return {
-            'ofv': ofv,
-            'seq': sweepSeq
-        }
+        return sweepSeq
     def _consTSPRandomSeq(nodeIDs, edges):
         # Get random seq ------------------------------------------------------
         seq = [i for i in nodeIDs]
@@ -330,13 +329,7 @@ def consTSP(
             seq[i] = seq[j]
             seq[j] = t
         seq.append(seq[0])
-
-        # Calculate Ofv -------------------------------------------------------
-        ofv = calSeqCostMatrix(edges, seq)
-        return {
-            'ofv': ofv,
-            'seq': seq
-        }
+        return seq
     def _consTSPInsertion(nodeIDs, initSeq, edges):
         # Initialize ----------------------------------------------------------
         seq = None
@@ -373,33 +366,28 @@ def consTSP(
                 seq.insert(bestInsertionIndex, bestCus)
                 unInserted.remove(bestCus)
 
-        # Calculate ofv and outputs -------------------------------------------
-        ofv = calSeqCostMatrix(edges, seq)
-        return {
-            'ofv': ofv,
-            'seq': seq
-        }
+        return seq
 
     # Heuristics that don't need to transform arc representation ==============
-    tsp = None
+    seq = None
     if (algo == 'k-NearestNeighbor'):
         if (algoArgs == None):
             algoArgs = {'k': 1}
-        tsp = _consTSPkNearestNeighbor(nodes, nodeIDs, edges, algoArgs['k'])
+        seq = _consTSPkNearestNeighbor(nodes, nodeIDs, edges, algoArgs['k'])
     elif (algo == 'FarthestNeighbor'):
-        tsp = _consTSPFarthestNeighbor(nodeIDs, edges)
+        seq = _consTSPFarthestNeighbor(nodeIDs, edges)
     elif (algo == 'Insertion'):
         if (algoArgs == None):
             algoArgs = {'initSeq': [nodeIDs[0], nodeIDs[0]]}
-        tsp = _consTSPInsertion(nodeIDs, algoArgs['initSeq'], edges)
+        seq = _consTSPInsertion(nodeIDs, algoArgs['initSeq'], edges)
     elif (algo == 'Sweep'):
-        tsp = _consTSPSweep(nodes, nodeIDs, edges)
+        seq = _consTSPSweep(nodes, nodeIDs, edges)
     elif (algo == 'Random'):
-        tsp = _consTSPRandomSeq(nodeIDs, edges)
+        seq = _consTSPRandomSeq(nodeIDs, edges)
     else:
         pass
-    if (tsp != None):
-        return tsp
+    if (seq != None):
+        return seq
 
     # Create arcs =============================================================
     # FIXME! indexes of nodes starts from 0 here!
@@ -418,13 +406,7 @@ def consTSP(
         seq = traversalGraph(mst)['seq']
         seq.append(seq[0])
 
-        # Calculate ofv -------------------------------------------------------
-        ofv = calSeqCostArcs(weightArcs, seq)
-
-        return {
-            'ofv': ofv,
-            'seq': seq
-        }
+        return seq
     def _consTSPChristofides(weightArcs, matchingAlgo):
         # Create MST ----------------------------------------------------------
         mst = graphMST(weightArcs)['mst']
@@ -463,49 +445,31 @@ def consTSP(
         seq = traversalGraph(newGraph, oID=oID)['seq']
         seq.append(seq[0])
 
-        # Calculate ofv -------------------------------------------------------
-        ofv = calSeqCostArcs(weightArcs, seq)
-
-        return {
-            'ofv': ofv,
-            'seq': seq
-        }
+        return seq
 
     # Constructive Heuristics for TSP =========================================
-    tsp = None
+    seq = None
     if (algo == 'DepthFirst'):
-        tsp = _consTSPDepthFirst(weightArcs)
+        seq = _consTSPDepthFirst(weightArcs)
     elif (algo == 'Christofides'):
         if (algoArgs == None):
             algoArgs = {'matchingAlgo': 'IP'}
-        tsp = _consTSPChristofides(weightArcs, algoArgs['matchingAlgo'])
+        seq = _consTSPChristofides(weightArcs, algoArgs['matchingAlgo'])
 
-    return tsp
+    return seq
 
-def impTSP(
+def _impTSP(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
                         nodeID1: {'loc': (x, y)}, \
                         nodeID2: {'loc': (x, y)}, \
                         ... \
                     }" = None, 
-    edges:      "1) String (default) 'Euclidean' or \
-                 2) String 'LatLon' or \
-                 3) Dictionary {(nodeID1, nodeID2): dist, ...}" = "Euclidean",
+    edges:      "Dictionary {(nodeID1, nodeID2): dist, ...}" = None,
     initSeq:    "Sequence of visiting nodes, as the initial route, generated by constructive heuristic" = [],
     algo:       "1) String (not available) 'LK' or \
                  2) String (default) '2Opt' = '2Opt'" = '2Opt'
     ) -> "Local improvement heuristic solution for TSP":
-
-    # Define edges ============================================================
-    if (type(edges) is not dict):
-        if (edges == 'Euclidean'):
-            edges = getTauEuclidean(nodes)
-        elif (edges == 'LatLon'):
-            edges = getTauLatLon(nodes)
-        else:
-            print("Error: Incorrect type `edges`")
-            return None
 
     # Subroutines for different local improvement heuristics ==================
     def _impTSP2Opt(nodeIDs, edges, initSeq):
@@ -516,47 +480,41 @@ def impTSP(
         # Revert part of the sequences ----------------------------------------
         def revert(i, j, seq):
             rSeq = []
-            rSeq.extend([seq[k] for k in range(i)])
-            rSeq.extend([seq[j - k] for k in range(j - i + 1)])
-            rSeq.extend([seq[k] for k in range(j + 1, len(seq))])
+            if (j == i + 1 or j == i + 2):
+                rSeq = [i for i in seq]
+                rSeq[i], rSeq[j] = rSeq[j], rSeq[i]
+            elif (j > i + 2):
+                rSeq.extend([seq[k] for k in range(i)])
+                rSeq.extend([seq[j - k] for k in range(j - i + 1)])
+                rSeq.extend([seq[k] for k in range(j + 1, len(seq))])
             return rSeq
 
         # Main iteration ------------------------------------------------------
-        while (canImproveFlag):
-            canImproveFlag = False
+        if (len(impSeq) >= 4):
+            while (canImproveFlag):
+                canImproveFlag = False
 
-            # Try 2-opt -------------------------------------------------------
-            # First arc: (i, i + 1)
-            # Second arc: (j, j + 1)
-            # New arcs: (i, j + 1), (j, i + 1)
-            for i in range(len(impSeq) - 3):
-                for j in range(i + 2, len(impSeq) - 1):
-                    # Saving
-                    saving = 0
-                    if ((impSeq[i], impSeq[j]) in edges and (impSeq[i + 1], impSeq[j + 1]) in edges):
-                        saving = (edges[impSeq[i], impSeq[i + 1]] + edges[impSeq[j], impSeq[j + 1]]) - (edges[impSeq[i], impSeq[j]] + edges[impSeq[i + 1], impSeq[j + 1]])
-                    if (saving > 0):
-                        impSeq = revert(i + 1, j, impSeq)
-                        canImproveFlag = True
+                # Try 2-opt
+                # First arc: (i, i + 1)
+                # Second arc: (j, j + 1)
+                # New arcs: (i, j + 1), (j, i + 1)
+                for i in range(len(impSeq) - 3):
+                    for j in range(i + 2, len(impSeq) - 1):
+                        # Saving
+                        saving = 0
+                        if ((impSeq[i], impSeq[j]) in edges and (impSeq[i + 1], impSeq[j + 1]) in edges):
+                            saving = (edges[impSeq[i], impSeq[i + 1]] + edges[impSeq[j], impSeq[j + 1]]) - (edges[impSeq[i], impSeq[j]] + edges[impSeq[i + 1], impSeq[j + 1]])
+                        if (saving > CONST_EPSILON):
+                            impSeq = revert(i + 1, j, impSeq)
+                            canImproveFlag = True
 
-        # Calculate ofv -------------------------------------------------------
-        ofv = calSeqCostMatrix(edges, impSeq)
 
-        return {
-            'ofv': ofv,
-            'seq': impSeq
-        }
-
-    def _impTSPLinKernighan(nodeIDs, edges, initSeq):        
-        return {
-            'ofv': ofv,
-            'seq': impSeq
-        }
+        return impSeq
 
     # Heuristics that don't need to transform arc representation ==============
-    tsp = None
+    seq = None
     nodeIDs = list(nodes.keys())
     if (algo == '2Opt'):
-        tsp = _impTSP2Opt(nodeIDs, edges, initSeq)
+        seq = _impTSP2Opt(nodeIDs, edges, initSeq)
 
-    return tsp
+    return seq

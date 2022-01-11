@@ -85,7 +85,7 @@ def rndRainCloud(
 
 def getCloudCurrentPosition(
     cloud:      "A cloud dictionary" = None,
-    timestamp:  "Time stamp" = None
+    timestamp:  "Absolute time stamp" = None
     ) -> "Given a cloud dictionary and needed time stamps, returns the current position of cloud polygon":
 
     # Time elapsed ============================================================
@@ -116,7 +116,7 @@ def getLocCoverBySingleCloudTW(
         vecPolarPoly = cloud['movingVecPolar'])
     if (len(tws) > 0):
         for tw in tws:
-            if (tw[0] < cloud['existDur']):
+            if (tw[0] != None and tw[1] != None and tw[0] < cloud['existDur']):
                 coverTW.append([cloud['appearTime'] + tw[0], cloud['appearTime'] + min(cloud['existDur'], tw[1])])
     return coverTW
 
@@ -134,8 +134,7 @@ def getSegCoverByCloudsTW(
     for cloud in clouds:
         ts = cloud['appearTime']
         te = cloud['appearTime'] + cloud['existDur']
-        shortAxis = min(distLatLon(cloud['initPolyLatLon'][0], cloud['initPolyLatLon'][1]),
-            distLatLon(cloud['initPolyLatLon'][1], cloud['initPolyLatLon'][2]))
+        distInterval = 100 # Try every 100 m along loc1 to loc2 to see if it will be covered, only for now
         heading = getHeadingLatLon(loc1, loc2)
         accDist = 0
         remainDist = distLatLon(loc1, loc2)
@@ -143,27 +142,35 @@ def getSegCoverByCloudsTW(
         # Try to see if any of the location between loc1 and loc2 will be covered by cloud
         curLoc = loc1
         intersectFlag = False
-        tmLeft = None
-        tmRight = None
         while (remainDist > 0 and not intersectFlag):
             tmpTW = None
-            tryCoverTW = getLocCoverBySingleCloudTW(cloud, curLoc)
-            if (len(tryCoverTW) > 0):
-                tmpTW = tryCoverTW[0] # There should be only one time window
+            tmLeft = None
+            tmRight = None
+            # First, if this loc is already inside, search right directions
+            if (isPtInsidePoly(curLoc, cloud['initPolyLatLon'])):
+                twpTW = [ts, ts]
                 intersectFlag = True
             else:
-                if (remainDist > shortAxis):
-                    remainDist -= shortAxis
-                    accDist += shortAxis
-                    curLoc = pointInDistLatLon(curLoc, heading, shortAxis)
+                # Then, if this loc is not inside, try to see if it can be covered            
+                tryCoverTW = getLocCoverBySingleCloudTW(cloud, curLoc)
+                
+                if (len(tryCoverTW) > 0):
+                    tmpTW = tryCoverTW[0] # There should be only one time window
+                    intersectFlag = True
                 else:
-                    remainDist = 0
-                    curLoc = loc2
+                    if (remainDist > distInterval):
+                        remainDist -= distInterval
+                        accDist += distInterval
+                        curLoc = pointInDistLatLon(curLoc, heading, distInterval)
+                    else:
+                        remainDist = 0
+                        curLoc = loc2
 
             # If we find a loc will be covered, search in both direction to see when will be covered
             if (tmpTW != None):
                 # Search left
-                tsLeft = ts         # Suppose to be not covered
+                # print("Left")
+                tsLeft = cloud['appearTime']         # Suppose to be not covered
                 teLeft = tmpTW[0]   # Suppose to be covered
                 while (teLeft - tsLeft > 2): # Search until the 1 sec of precision
                     tmLeft = (teLeft - tsLeft) / 2 + tsLeft
@@ -173,20 +180,27 @@ def getSegCoverByCloudsTW(
                         teLeft = tmLeft
                     else:
                         tsLeft = tmLeft
+                    # print(segIntCloud, tsLeft, tmLeft, teLeft, curCloud)
+                tmLeft = (teLeft - tsLeft) / 2 + tsLeft
                 # Search right
+                # print("Right")
                 tsRight = tmpTW[1]
-                teRight = te
+                teRight = cloud['appearTime'] + cloud['existDur']
                 while (teRight - tsRight > 2):
                     tmRight = (teRight - tsRight) / 2 + tsRight
                     curCloud = getCloudCurrentPosition(cloud, tmRight)
                     segIntCloud = isSegCrossPoly([loc1, loc2], curCloud)
+                    # print([loc1, loc2], curCloud)
                     if (segIntCloud):
                         tsRight = tmRight
                     else:
                         teRight = tmRight
+                    # print(segIntCloud, tsRight, tmRight, teRight)
+                tmRight = (teRight - tsRight) / 2 + tsRight
 
             if (intersectFlag):
-                coverTWs.append([tmLeft, tmRight])
+                if (tmLeft != None and tmRight != None):
+                    coverTWs.append([tmLeft, tmRight])
 
     # Merge time windows of clouds ============================================
     coverTWs = mergeTimeWindows(coverTWs)

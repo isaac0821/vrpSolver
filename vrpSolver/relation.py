@@ -180,7 +180,8 @@ def isSegCrossSeg(
 
     return True
 
-def isSegIntSeg(
+# [Don't know why but this won't work]
+def isSegIntSegBak(
     seg1:       "List of 2 pts as two bounds ",
     seg2:       "List of 2 pts as two bounds "
     ) -> "Return true if segs are intersecting, including the case where the intersection is at one end of line segment, false otherwise":
@@ -213,6 +214,18 @@ def isSegIntSeg(
         or (loopPQU == loopPQW and loopUWP == loopUWQ)):
         return True
     return False
+
+def isSegIntSeg(
+    seg1:       "List of 2 pts as two bounds ",
+    seg2:       "List of 2 pts as two bounds "
+    ) -> "Return true if segs are intersecting, including the case where the intersection is at one end of line segment, false otherwise":
+    
+    intPt = intLine2Line(seg1, seg2)
+
+    if (isPtOnSeg(intPt, seg1) and isPtOnSeg(intPt, seg2)):
+        return True
+    else:
+        return False
 
 def isSegCrossRay(
     seg:        "List of 2 pts as two bounds ",
@@ -262,7 +275,7 @@ def isSegCrossPoly(
         return True
     for i in range(-1, len(poly) - 1):
         edge = [poly[i], poly[i + 1]]
-        if (isSegCrossSeg(edge, seg)):
+        if (isSegIntSeg(edge, seg)):
             return True
     return False
 

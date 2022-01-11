@@ -1,4 +1,4 @@
-__version__ = "0.0.34"
+__version__ = "0.0.39"
 __author__ = "Lan Peng"
 
 # History =====================================================================
@@ -43,7 +43,12 @@ __author__ = "Lan Peng"
 # v0.0.31 - 12122021 - Minor fixes
 # v0.0.32 - 12122021 - Minor fixes
 # v0.0.33 - 12182021 - Add `createWarehouseLayout()` and now TSP can support routing on grids with barriers
-# v0.0.34 - 01032022 - Add `rndRainCloud()`, `getCloudCurrentPosition()`, `getLocCoverByCloudsTW()`
+# v0.0.34 - 01032022 - Add naive method for `rndRainCloud()`, `getCloudCurrentPosition()`, `getLocCoverByCloudsTW()`
+# v0.0.35 - 01052022 - Minor fixes
+# v0.0.36 - 01052022 - Minor fixes
+# v0.0.37 - 01052022 - Minor fixes
+# v0.0.38 - 01062022 - Fixed `isSegIntSeg()`
+# v0.0.39 - 01102022 - Add service time for TSP, and now TSP can designate depotID (fix the seq so it start/end in depotID)
 # =============================================================================
 
 # Constants and messages
