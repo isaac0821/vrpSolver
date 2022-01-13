@@ -88,6 +88,13 @@ target/
 
 # Backups
 backup
+tmp
+bak
+
+# Images that are not in demo
+img
+image
+images
 
 # IPython
 profile_default/
