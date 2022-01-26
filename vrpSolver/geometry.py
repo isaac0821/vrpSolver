@@ -624,26 +624,55 @@ def getRndPtRoadNetwork(
                         'line': [[lat, lon], [lat, lon], ...]\
                     }\
                 }" = None,
-    ):
+    poly:       "Nodes should also within this polygon" = None
+    ) -> "Given a road network, generate customers that locates on the road network":
+    
     # Calculate the length of each edge =======================================
     lengths = []
     roadIDs = []
     for road in roadNetwork:
         roadLength = 0
-        for i in range(len(roadNetwork[road]['line']) - 1):
-            roadLength += distLatLon(roadNetwork[road]['line'][i], roadNetwork[road]['line'][i + 1])
-        lengths.append(roadLength)
+        includedFlag = False
+        if (poly == None):
+            includedFlag = True
+        else:
+            for i in range(len(roadNetwork[road]['line'])):
+                if (isPtOnPoly(roadNetwork[road]['line'][i], poly)):
+                    includedFlag = True
+                    break
+
+        # Check if this road is inside polygon
+        if (includedFlag):
+            for i in range(len(roadNetwork[road]['line']) - 1):
+                roadLength += distLatLon(roadNetwork[road]['line'][i], roadNetwork[road]['line'][i + 1])
+            lengths.append(roadLength)            
+        else:
+            lengths.append(0)
+
         roadIDs.append(road)
 
-    # Select one road =========================================================
-    idx = rndPick(lengths)
+    # Check if there are roads included =======================================
+    if (sum(lengths) == 0):
+        return None
 
-    # Randomly generate a point within the egde selected ======================
-    edgeLength = lengths[idx]
-    edgeDist = random.uniform(0, 1) * edgeLength
-
-    # Get location ============================================================
-    (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['line'], edgeDist)
+    # Use accept-denial to test if the node is within poly ====================
+    # FIXME: Inefficient approach, will need to be rewritten
+    lat = None
+    lon = None
+    if (poly == None):
+        idx = rndPick(lengths)
+        edgeLength = lengths[idx]
+        edgeDist = random.uniform(0, 1) * edgeLength
+        (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['line'], edgeDist)
+    else:
+        insideFlag = False
+        while (not insideFlag):
+            idx = rndPick(lengths)
+            edgeLength = lengths[idx]
+            edgeDist = random.uniform(0, 1) * edgeLength
+            (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['line'], edgeDist)
+            if (isPtOnPoly([lat, lon], poly)):
+                insideFlag = True
 
     return (lat, lon)
 

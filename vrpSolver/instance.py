@@ -7,6 +7,7 @@ from .common import *
 from .const import *
 from .geometry import *
 from .msg import *
+from .relation import *
 
 def rndPlainNodes(
     N:          "Number of vertices" = None,
@@ -37,6 +38,7 @@ def rndPlainNodes(
                  4) for 'uniformRoadNetwork'\
                     {\
                         'network': list of arcs that can be sampled \
+                        'poly': nodes should generated within the polygon, if not provided, will consider the entire network \
                     }\
                  5) for 'clustered\
                     {\
@@ -144,10 +146,13 @@ def rndPlainNodes(
         if ('roadNetwork' not in distrArgs):
             print(ERROR_MISSING_DISTRARGS_UNIROADNETWORK)
             return
+
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
             nodes[n] = {
-                'loc': getRndPtRoadNetwork(distrArgs['roadNetwork'])
+                'loc': getRndPtRoadNetwork(
+                    distrArgs['roadNetwork'], 
+                    distrArgs['poly'] if 'poly' in distrArgs else None)
             }
 
     elif (distr == 'clusterXY'):
