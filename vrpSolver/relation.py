@@ -3,6 +3,7 @@ import math
 from .const import *
 from .msg import *
 
+'''
 # Description =================================================================
 # This script is comparing the relative relation between basic geometry objects,
 #     including: pt (point), line, seg (line segment), ray, and poly (polygon).
@@ -13,6 +14,7 @@ from .msg import *
 #    "Inside" means the object (point) is in the interior of another object
 #    "Cross" means the intersection of two objects needs to be in the interior of both objects
 #    "Int" (Intersect) means the intersection, which could be in the interior of either objects.
+'''
 
 def is2PtsSame(
     pt1:        "2-tuple of coordinate (x, y)",
@@ -179,41 +181,6 @@ def isSegCrossSeg(
         return False
 
     return True
-
-# [Don't know why but this won't work]
-def isSegIntSegBak(
-    seg1:       "List of 2 pts as two bounds ",
-    seg2:       "List of 2 pts as two bounds "
-    ) -> "Return true if segs are intersecting, including the case where the intersection is at one end of line segment, false otherwise":
-    # Validation ==============================================================
-    if (is2PtsSame(seg1[0], seg1[1])):
-        print(ERROR_ZERO_VECTOR)
-        return None
-    if (is2PtsSame(seg2[0], seg2[1])):
-        print(ERROR_ZERO_VECTOR)
-        return None
-
-    # Initialize ==============================================================
-    [p, q] = seg1
-    [u, w] = seg2
-
-    # Clockwise checking ======================================================
-    loopPQU = is3PtsClockWise(p, q, u)
-    loopPQW = is3PtsClockWise(p, q, w)
-    loopUWP = is3PtsClockWise(u, w, p)
-    loopUWQ = is3PtsClockWise(u, w, q)
-
-    # Check for collinear =====================================================
-    if (loopPQU == None or loopPQW == None or loopUWP == None or loopUWQ == None):
-        return True
-
-    # Else check intersection =================================================
-    if ((loopPQU != loopPQW and loopUWP != loopUWQ)
-        or (loopPQU != loopPQW and loopUWP == loopUWQ)
-        or (loopPQU == loopPQW and loopUWP != loopUWQ)
-        or (loopPQU == loopPQW and loopUWP == loopUWQ)):
-        return True
-    return False
 
 def isSegIntSeg(
     seg1:       "List of 2 pts as two bounds ",

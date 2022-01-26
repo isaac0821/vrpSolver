@@ -1,9 +1,9 @@
 import matplotlib.pyplot as plt
 import random
 
-from .msg import *
 from .color import *
 from .geometry import *
+from .msg import *
 from .weather import *
 
 def plotGrid(
@@ -53,7 +53,7 @@ def plotGrid(
                 [col * gridSize, row * gridSize]
             ]
             if ((col, row) not in barriers):
-                plotPoly(
+                plotPolygon(
                     fig = fig,
                     ax = ax,
                     poly = poly,
@@ -61,7 +61,7 @@ def plotGrid(
                     fillColor = gridBackColor,
                     opacity = gridOpacity)
             else:
-                plotPoly(
+                plotPolygon(
                     fig = fig,
                     ax = ax,
                     poly = poly,
@@ -74,7 +74,7 @@ def plotGrid(
     if (labeling != None):
         for (col, row) in labeling:
             if ('color' in labeling[(col, row)]):
-                plotPoly(
+                plotPolygon(
                     fig = fig,
                     ax = ax,
                     poly = poly,
@@ -143,6 +143,70 @@ def plotGridPath(
 
     return fig, ax
 
+def plotWind(
+    fig:        "fig" = None,
+    ax:         "ax" = None,
+    width:      "Width of the figure" = None,
+    height:     "Height of the figure" = 3,
+    wind:       "List of dictionary, wind speed/wind direct in time sequence, time starts from 0\
+                [{\
+                    'startTime': startTime,\
+                    'endTime': endTime,\
+                    'windSpd': windSpd, # In [m/s]\
+                    'windDeg': winDeg, # In [Degree]\
+                }, ...]" = None,
+    saveFigPath:"1) None, if not exporting image, or \
+                 2) String, the path for exporting image" = None
+    ) -> "Given a list of wind, plot the wind direction and wind speed":
+
+    # Draw frame ==============================================================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        if (height != None):
+            fig.set_figheight(height)
+        if (width != None):
+            fig.set_figwidth(width)
+        else:
+            fig.set_figwidth(len(wind) * 0.5 + 0.25)
+    ax.set_xlabel("Time of the day [h]")
+    ax.set_ylabel("Wind speed [m/s]")
+    
+    # Draw wind speeds ========================================================
+    ticks = [wind[0]['startTime'] / 3600 + TIME_START_OF_DAY]
+    for w in range(len(wind)):
+        ticks.append(wind[w]['endTime'] / 3600 + TIME_START_OF_DAY)
+        ax.plot(
+            [wind[w]['startTime'] / 3600 + TIME_START_OF_DAY, wind[w]['endTime'] / 3600 + TIME_START_OF_DAY], 
+            [wind[w]['windSpd'], wind[w]['windSpd']],
+            color = 'black')
+    for w in range(1, len(wind)):
+        ax.plot(
+            [wind[w - 1]['endTime'] / 3600 + TIME_START_OF_DAY, wind[w]['startTime'] / 3600 + TIME_START_OF_DAY], 
+            [wind[w - 1]['windSpd'], wind[w]['windSpd']],
+            color = 'black')
+
+    # Draw wind direction =====================================================
+    for w in range(len(wind)):
+        arrowMidX = (wind[w]['startTime'] + wind[w]['endTime']) / 7200 + TIME_START_OF_DAY
+        arrowMidY = wind[w]['windSpd'] + 0.7
+        dx = math.sin(math.radians(wind[w]['windDeg'])) * 0.25
+        dy = math.cos(math.radians(wind[w]['windDeg'])) * 0.25
+        ax.arrow(
+            x = arrowMidX - dx / 2, 
+            y = arrowMidY - dy / 2, 
+            dx = dx, 
+            dy = dy, 
+            linewidth=2, head_width=0.15, head_length=0.32)
+
+    # Set ticks ===============================================================
+    ax.set_xticks(ticks)
+
+    # Save figure =============================================================
+    if (saveFigPath != None):
+        fig.savefig(saveFigPath)
+
+    return fig, ax
+
 def plotCloudsInTime(
     fig:        "fig" = None,
     ax:         "ax" = None,
@@ -204,7 +268,7 @@ def plotCloudsInTime(
     for c in clouds:
         currentCloudPosition = getCloudCurrentPosition(c, timeStamp)
         if (currentCloudPosition != None):
-            fig, ax = plotPoly(
+            fig, ax = plotPolygon(
                 fig = fig,
                 ax = ax,
                 edgeColor = 'black',
@@ -221,7 +285,74 @@ def plotCloudsInTime(
 
     return fig, ax
 
-def plotPoly(
+def plotRoadNetwork(
+    fig:        "Based matplotlib figure object" = None,
+    ax:         "Based matplotlib ax object" = None,
+    roadNetowrk: "A road network dictionary" = None,
+    linewidth:  "Width of arcs" = 1,
+    color:      "1) String 'Random', or\
+                 2) String, color" = 'black',
+    figSize:    "Size of the figure, in (width, height)" = (5, 5), 
+    xMin:       "min of x-axis" = None,
+    xMax:       "max of x-axis" = None,
+    yMin:       "min of y-axis" = None,
+    yMax:       "max of y-axis" = None,
+    edgeWidth:  "Width on the edge" = 0.005,
+    saveFigPath:"1) None, if not exporting image, or \
+                 2) String, the path for exporting image" = None
+    ) -> "Draw a set of polylines, usually for plotting road network": 
+
+    # FIXME: In future, we might want to distinguish roads by max speed or show the names of roads
+    # If no based matplotlib figure, define boundary ==========================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        allX = []
+        allY = []
+        for road in roadNetowrk:
+            for pt in roadNetowrk[road]['line']:
+                allX.append(pt[1])
+                allY.append(pt[0])
+        if (xMin == None):
+            xMin = min(allX) - edgeWidth
+        if (xMax == None):
+            xMax = max(allX) + edgeWidth
+        if (yMin == None):
+            yMin = min(allY) - edgeWidth
+        if (yMax == None):
+            yMax = max(allY) + edgeWidth
+        if (figSize == None):
+            if (xMax - xMin > yMax - yMin):
+                width = 5
+                height = 5 * ((yMax - yMin) / (xMax - xMin))
+            else:
+                width = 5 * ((xMax - xMin) / (yMax - yMin))
+                height = 5
+        else:
+            (width, height) = figSize
+        fig.set_figwidth(width)
+        fig.set_figheight(height)
+        ax.set_xlim(xMin, xMax)
+        ax.set_ylim(yMin, yMax)
+
+    # Get the x, y list =======================================================
+    for road in roadNetowrk:
+        x = []
+        y = []
+        for pt in roadNetowrk[road]['line']:
+            x.append(pt[1])
+            y.append(pt[0])
+        edgeColor = color
+        if (color == 'Random'):
+                edgeColor = colorRandom()
+        ax.plot(x, y, color = edgeColor, linewidth = linewidth)
+
+    # Save figure =============================================================
+    if (saveFigPath != None):
+        fig.savefig(saveFigPath)
+
+    return fig, ax
+
+def plotPolygon(
     fig:        "Based matplotlib figure object" = None,
     ax:         "Based matplotlib ax object" = None,
     poly:       "Polygon to be plot" = None,
@@ -242,7 +373,7 @@ def plotPoly(
     edgeWidth:  "Width on the edge" = 0.5,
     saveFigPath:"1) None, if not exporting image, or \
                  2) String, the path for exporting image" = None
-    ) -> "Draw a route, e.g., TSP solution":    
+    ) -> "Draw a polygon, e.g., cloud":
 
     # If no based matplotlib figure, define boundary ==========================
     if (fig == None or ax == None):

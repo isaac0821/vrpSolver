@@ -23,7 +23,7 @@ def ipTSP(
                     'colRow': (numCol, numRow),\
                     'barriers': [(coordX, coordY), ...], \
                 }" = None,
-    depotID:    "Depot ID" = 0,
+    depotID:    "Depot ID, truck visiting sequence will start from and end with this nodeID" = 0,
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All',
     serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0,
@@ -46,6 +46,9 @@ def ipTSP(
             nodeIDs = []
             for i in nodes:
                 nodeIDs.append(i)
+        else:
+            print(ERROR_INCOR_NODEIDS)
+            return
 
     # Define edges ============================================================
     if (type(edges) is not dict):
@@ -56,7 +59,7 @@ def ipTSP(
         elif (edges == 'Grid'):
             edges = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
         else:
-            print("Error: Incorrect type `edges`")
+            print(ERROR_INCOR_TAU)
             return None
 
     # Service time ============================================================
@@ -64,6 +67,8 @@ def ipTSP(
         for e in edges:
             if (e[0] != depotID and e[1] != depotID):
                 edges[e] += serviceTime / 2
+    else:
+        serviceTime = 0
 
     # Gurobi initialize =======================================================
     n = len(nodeIDs)
@@ -592,5 +597,8 @@ def ipTSP(
             truckSeq.append(tsp['seq'][k])
     truckSeq.append(depotID)
     tsp['seq'] = truckSeq
+
+    # Add service time info ===================================================
+    tsp['serviceTime'] = serviceTime
 
     return tsp

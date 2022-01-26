@@ -18,6 +18,7 @@ ERROR_MISSING_DISTRARGS             = "ERROR: Missing required field `distrArgs`
 ERROR_MISSING_DISTRARGS_UNISQ       = "ERROR: `xRange`, `yRange` are required in `distrArgs`"
 ERROR_MISSING_DISTRARGS_UNICC       = "ERROR: `radius`, `centerLoc` are required in `distrArgs`"
 ERROR_MISSING_DISTRARGS_UNIPOLY     = "ERROR: `poly` or `polys` is required in `distrArgs`"
+ERROR_MISSING_DISTRARGS_UNIROADNETWORK = "ERROR: `roadNetwork` is required in `distrArgs`"
 ERROR_MISSING_DISTRARGS_RING        = "ERROR: `numNodes`, `radius`, `degOffset` are required in `distrArgs`"
 ERROR_MISSING_DISTRARGS_CLUSTER     = "ERROR: (`numCluster`, `xRange`, `yRange`) or `centroidLocs` are required in `distrArgs`"
 ERROR_MISSING_TIMESPAN              = "ERROR: Missing required field `timeSpan`"
@@ -55,4 +56,15 @@ ERROR_OPTS_DISTR                    = "ERROR: Incorrect `distr`, valid options i
 ERROR_OPTS_SHORTESTPATH_ALGO        = "ERROR: There exists negative weight arcs, cannot choose this algorithm"
 
 # Error message - Incorrect input contents
+ERROR_INCOR_NODEIDS                 = "ERROR: Incorrect `nodeIDs`, options are 1) 'All', 2) A list of node IDs"
+ERROR_INCOR_TAU                     = "ERROR: Incorrect `edges`, options are 'Euclidean', 'LatLon', 'Grid' (additional info needed to create grid), and travel matrix."
 ERROR_INCOR_GANTT_MISSENT           = "ERROR: Missing entity in `gantt`"
+ERROR_INCOR_DISTARG                 =("ERROR: Incorrect `distr` for customer locations, options are \n"
+                                    + "1) 'uniformSquare', \n"
+                                    + "2) 'uniformCircleXY', \n"
+                                    + "3) 'uniformCircleLatLon', \n"
+                                    + "4) 'uniformPoly', \n"
+                                    + "5) 'uniformPolys', \n"
+                                    + "6) 'uniformRoadNetwork', \n"
+                                    + "7) 'clusterXY', \n"
+                                    + "8) 'clusterLatLon'")

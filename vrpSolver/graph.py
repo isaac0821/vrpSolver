@@ -1,6 +1,6 @@
 import heapq
-import math
 import gurobipy as grb
+import math
 
 from .common import *
 

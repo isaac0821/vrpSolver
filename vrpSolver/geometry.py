@@ -1,15 +1,15 @@
+import geopy.distance
+import heapq
 import math
 import numpy as np
-import heapq
-import geopy.distance
-import tripy # Needs to be rewritten for the triangulation function
+import tripy
 
-from .const import *
-from .msg import *
 from .common import *
-from .vector import *
-from .relation import *
+from .const import *
 from .graph import *
+from .msg import *
+from .relation import *
+from .vector import *
 
 def ptXY2LatLonMercator(
     ptXY:       "Point in (x, y) coordinates"
@@ -30,6 +30,25 @@ def ptLatLon2XYMercator(
     x = math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * CONST_EARTH_RADIUS_METERS
     ptXY = (x, y)
     return ptXY
+
+def mapLatLon2LatLon(
+    locsAreaA:    "A list of (lat, lon) in area A" = None,
+    locAnchorA:   "The anchor point of area A" = None,
+    locAnchorB:   "The anchor point of area B" = None
+    ) -> "Given a set of lat/lon coords in area A, a relative location A of area A, and a relative \
+          location B of area B. Map the lat/lon coords to area B":
+
+    # Initialize ==============================================================
+    locsAreaB = []
+
+    # Mapping, using directions and distance ==================================
+    for locA in locsAreaA:
+        deg = getHeadingLatLon(locAnchorA, locA)
+        dist = distLatLon(locAnchorA, locA)
+        locB = pointInDistLatLon(locAnchorB, deg, dist)
+        locsAreaB.append(locB)
+
+    return locsAreaB
 
 def htMovingPtTowardsLineSegXY(
     ptXY:       "Point that is moving" = None,
@@ -254,37 +273,6 @@ def twMovingPtInsidePolyLatLon(
 
     return tw
 
-def twMovingSegIntersectPolyLatLon(
-    segLatLon:  "Line segment that is moving - no rotation" = None,
-    polyLatLon: "Polygon that is moving - no rotation" = None,
-    vecPolarSeg: "Moving speed vector of the line segment" = None,
-    vecPolarPoly: "Moving speed vector of the line segment" = None
-    ) -> "":
-
-    # Calculate the time each ep of poly hits the line segment ================
-    tw = None
-    ts = []
-    te = []
-    hts = []
-    # The ep of poly hitting the segment
-    for pt in polyLatLon:
-        ht = htMovingPtTowardsLineSegLatLon(
-            ptLatLon = pt,
-            segLatLon = segLatLon,
-            vecPolarPt = vecPolarPoly,
-            vecPolarSeg = vecPolarSeg)
-        if (ht != None):
-            hts.append(ht)
-    if (len(hts) >= 2):
-        ts.append(min(hts))
-        te.append(max(hts))
-
-    # If no
-    
-
-
-    return tw
-
 def projSeg2LineXY(
     seg:        "Line segment to be projected to line" = None,
     line:       "Line to project to" = None,
@@ -300,60 +288,6 @@ def projSeg2LineXY(
     return {
         'shadowSegOnLine': [projPt1, projPt2]
     }
-
-# [Constructing]
-def projSeg2SegXY(
-    seg1:       "Line segment to be projected to seg2" = None,
-    seg2:       "Line segment that is being projected to" = None,
-    vec:        "Vector of projecting" = None
-    ) -> "Given a line segment, project it to another line segment, which might give us \
-        1) shadowOnSeg2, the part on the line segment being projected \
-        2) projFromSeg1, the part of seg1 that has been projected":
-
-    line4Seg1End1 = [seg1[0], [seg1[0][0] + vec[0], seg1[0][1] + vec[1]]]
-    line4Seg1End2 = [seg1[1], [seg1[1][0] + vec[0], seg1[1][1] + vec[1]]]
-    line4Seg2End1 = [seg2[0], [seg2[0][0] + vec[0], seg2[0][1] + vec[1]]]
-    line4Seg2End2 = [seg2[1], [seg2[1][0] + vec[0], seg2[1][1] + vec[1]]]
-
-    projSeg1End1OnLine2 = intLine2Line(line4Seg1End1, seg2)
-    projSeg1End2OnLine2 = intLine2Line(line4Seg1End2, seg2)
-    projSeg2End1OnSeg1 = intLine2Line(line4Seg2End1, seg1)
-    projSeg2End2OnSeg1 = intLine2Line(line4Seg2End2, seg1)
-
-    seg1End1ProjOnSeg2 = isPtOnSeg(projSeg1End1OnLine2, seg2)
-    seg1End2ProjOnSeg2 = isPtOnSeg(projSeg1End2OnLine2, seg2)
-
-    # Case 1: both projPt on seg2
-    if (seg1End1ProjOnSeg2 and seg1End2ProjOnSeg2):
-        return {
-            'shadowOnSeg2': [projSeg1End1OnLine2, projSeg1End2OnLine2],
-            'projFromSeg1': seg1
-        }
-
-    # Case 2: projPt of end1 of seg1 is on seg2, projPt of end2 of seg1 is not on seg2
-    elif (seg1End1ProjOnSeg2 and not seg1End2ProjOnSeg2):
-        # Case 2.1: projPt of end1 of seg2 is on seg1
-        if (projSeg2End1OnSeg1 != None): 
-            return {
-                'shadowOnSeg2': [seg2[0], projSeg1End1OnLine2],
-                'projFromSeg1': [seg1[0], projSeg2End1OnSeg1]
-            }
-        else:
-            return {
-                'shadowOnSeg2': [projSeg1End1OnLine2, seg2[1]],
-                'projFromSeg1': [projSeg2End1OnSeg1, seg1[1]]
-            }
-
-    # Case 3: projPt of end1 of seg1 is not on seg2, projPt of end1 of seg1 is on seg2
-
-    # Case 4: both projPt not on seg2, seg2 not projecting on seg1
-    elif (not seg1End1ProjOnSeg2 and not seg1End2ProjOnSeg2):
-
-
-    # Case 5: both projPt not on seg2, seg2 entirely projecting on seg1
-        pass
-
-    return
 
 def distEuclidean2D(
     pt1:        "First coordinate, in (x, y)", 
@@ -377,11 +311,11 @@ def distLatLon(
     
     # Get radius as in distUnit ===============================================
     R = None
-    if (distUnit == 'mile'):
+    if (distUnit in ['mile', 'mi']):
         R = CONST_EARTH_RADIUS_MILES
-    elif (distUnit == 'meter'):
+    elif (distUnit in ['meter', 'm']):
         R = CONST_EARTH_RADIUS_METERS
-    elif (distUnit == 'kilometer'):
+    elif (distUnit in ['kilometer', 'km']):
         R = CONST_EARTH_RADIUS_METERS / 1000
     else:
         print("ERROR: Unrecognized distance unit, options are 'mile', 'meter', 'kilometer'")
@@ -574,6 +508,24 @@ def getTauGrid(
                 tau[j, i] = 0
     return tau
 
+def getTauNetwork(
+    nodes:      "Dictionary, returns the coordinate of given nodeIDs, \
+                    {\
+                        nodeIDs1: {'loc': (x, y)}, \
+                        nodeIDs2: {'loc': (x, y)}, \
+                        ... \
+                    }" = None,
+    nodeIDs:    "1) String (default) 'All', or \
+                 2) A list of node IDs" = 'All', 
+    network:    "List of dictionary of networks in the format of \
+                    {\
+                        'start': (lat, lon),\
+                        'end': (lat, lon),\
+                    }" = None,
+    ) -> "Given a network, e.g., road network, and a set of locations on network (could be on arc), returns distance matrix":
+
+    return tau
+
 def getPerpendicularLine(
     pt:         "Point which the line will go through",
     vec:        "The vector that perpendicular to the line"
@@ -633,17 +585,57 @@ def getHeadingLatLon(
     
     return deg
 
-def getRndPtOnNetworkLatLon(
-    network:    "List of dictionary of networks in the format of \
+def getMileageInPathLatLon(
+    path:       "A list of coordinates in [lat, lon]" = None,
+    distMeters: "Distance from starting point of the path, in [m]" = None
+    ) -> "Given a list of lat/lon coordinates, and a traveling mileage, returns the coordinate":
+
+    # Initialize ==============================================================
+    inPathFlag = False
+    accDist = 0
+    preLoc = []
+    nextLoc = []
+
+    # Find segment ============================================================
+    for i in range(0, len(path) - 1):
+        accDist += distLatLon(path[i], path[i + 1])
+        if (accDist > distMeters):
+            preLoc = path[i]
+            nextLoc = path[i + 1]
+            inPathFlag = True
+            break
+
+    if (inPathFlag == False):
+        return None
+
+    # Find location on the segment ============================================
+    remainDist = accDist - distMeters
+    segDist = distLatLon(preLoc, nextLoc)
+    lat = nextLoc[0] + (remainDist / segDist) * (preLoc[0] - nextLoc[0])
+    lon = nextLoc[1] + (remainDist / segDist) * (preLoc[1] - nextLoc[1])
+    locInMileage = [lat, lon]
+
+    return locInMileage
+
+def getRndPtRoadNetwork(
+    roadNetwork: "Dictionary of road network in the format of \
                 {\
-                    'start': (lat, lon),\
-                    'end': (lat, lon),\
+                    roadID: {\
+                        'line': [[lat, lon], [lat, lon], ...]\
+                    }\
                 }" = None,
     ):
     # Calculate the length of each edge =======================================
     lengths = []
-    for edge in network:
-        lengths.append(distLatLon(edge['start'], edge['end']))
+    roadIDs = []
+    for road in roadNetwork:
+        roadLength = 0
+        for i in range(len(roadNetwork[road]['line']) - 1):
+            roadLength += distLatLon(roadNetwork[road]['line'][i], roadNetwork[road]['line'][i + 1])
+        lengths.append(roadLength)
+        roadIDs.append(road)
+
+    # Select one road =========================================================
     idx = rndPick(lengths)
 
     # Randomly generate a point within the egde selected ======================
@@ -651,8 +643,7 @@ def getRndPtOnNetworkLatLon(
     edgeDist = random.uniform(0, 1) * edgeLength
 
     # Get location ============================================================
-    getHeadingLatLon(network[idx][0], network[idx][1])
-    (lat, lon) = pointInDistLatLon(network[idx][0], edgeDist)
+    (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['line'], edgeDist)
 
     return (lat, lon)
 
@@ -719,25 +710,47 @@ def getRndPtUniformPolys(
 
     return (x, y)
 
-def getRndPtCluster():
+def getRndPtClusterXY(
+    centroidLocs: "A list of center locs of clusters" = None,
+    clusterDiameter: "Diameter of cluster" = None
+    ):
+    idx = random.randint(0, len(centroidLocs) - 1)
+    ctrLoc = centroidLocs[idx]
+    theta = random.uniform(0, 2 * math.pi)
+    r = math.sqrt(random.uniform(0, clusterDiameter))
+    x = ctrLoc[0] + r * math.cos(theta)
+    y = ctrLoc[1] + r * math.sin(theta)
+    return (x, y)
 
-    return
+def getRndPtClusterLatLon(
+    centroidLocs: "A list of center locs of clusters" = None,
+    clusterDiameterInMeters: "Diameter of cluster" = None
+    ):
+    idx = random.randint(0, len(centroidLocs) - 1)
+    ctrLoc = centroidLocs[idx]
+    theta = random.uniform(0, 2 * math.pi)
+    r = math.sqrt(random.uniform(0, clusterDiameterInMeters))
+    (lat, lon) = pointInDistLatLon(ctrLoc, theta, r)
+    return (lat, lon)
 
-def getRndPtUniformCircleXY():
+def getRndPtUniformCircleXY(
+    radius:     "Radius of the circle" = None,
+    centerLoc:  "Center location of the circle" = None
+    ):
+    theta = random.uniform(0, 2 * math.pi)
+    r = math.sqrt(random.uniform(0, radius ** 2))
+    x = centerLoc[0] + r * math.cos(theta)
+    y = centerLoc[1] + r * math.sin(theta)
+    return (x, y)
 
-    return
-
-def getRndPtUniformCircleLatLon():
-
-    return
-
-def getRndPtNormalCircleXY():
-
-    return
-
-def getRndPtNormalCircleLatLon():
-
-    return
+def getRndPtUniformCircleLatLon(
+    radius:     "Radius of the circle" = None,
+    centerLoc:  "Center location of the circle" = None
+    ):
+    theta = random.uniform(0, 2 * math.pi)
+    r = math.sqrt(random.uniform(0, radius ** 2))
+    (lat, lon) = pointInDistLatLon(centerLoc, theta, r)
+    return (lat, lon)
 
 def rectInWidthLengthOrientationXY(
     centroidXY: "Centroid of rectangular in (x, y)" = None,

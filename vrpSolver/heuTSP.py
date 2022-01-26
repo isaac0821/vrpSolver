@@ -165,11 +165,10 @@ def heuTSP(
     consAlgo:   "1) String 'k-NearestNeighbor' or \
                  2) String 'FarthestNeighbor' or \
                  3) String (default) 'Insertion' or \
-                 4) String (not available) 'Patching' or \
-                 5) String 'Sweep' or \
-                 6) String 'DepthFirst' or \
-                 7) String 'Christofides' or \
-                 8) String 'Random'" = 'Insertion',
+                 4) String 'Sweep' or \
+                 5) String 'DepthFirst' or \
+                 6) String 'Christofides' or \
+                 7) String 'Random'" = 'Insertion',
     consAlgoArgs: "Dictionary, args for constructive heuristic" = None,
     enableLocalImproveFlag: "True if call local improvement to improve solution quality" = True,
     impAlgo:    "1) String (not available) 'LKH' or \
@@ -183,7 +182,10 @@ def heuTSP(
             nodeIDs = []
             for i in nodes:
                 nodeIDs.append(i)
-
+        else:
+            print(ERROR_INCOR_NODEIDS)
+            return
+            
     # Define edges ============================================================
     if (type(edges) is not dict):
         if (edges == 'Euclidean'):
@@ -191,7 +193,7 @@ def heuTSP(
         elif (edges == 'LatLon'):
             edges = getTauLatLon(nodes)
         else:
-            print("Error: Incorrect type `edges`")
+            print(ERROR_INCOR_TAU)
             return None
 
     # Service time ============================================================
@@ -199,8 +201,10 @@ def heuTSP(
         for e in edges:
             if (e[0] != depotID and e[1] != depotID):
                 edges[e] += serviceTime / 2
+    else:
+        serviceTime = 0
 
-    # Constructive heuristic ==================================================
+    # Constructive heuristic (with out specifying depot) ======================
     seq = _consTSP(
         nodes = nodes,
         edges = edges,
@@ -208,7 +212,7 @@ def heuTSP(
         algo = consAlgo,
         algoArgs = consAlgoArgs)
 
-    # Local improvement heuristic =============================================
+    # Local improvement heuristic (with out specifying depot) =================
     if (enableLocalImproveFlag):
         seq = _impTSP(
             nodes = nodes, 
@@ -234,7 +238,8 @@ def heuTSP(
 
     return {
         'ofv': ofv,
-        'seq': truckSeq
+        'seq': truckSeq,
+        'serviceTime': serviceTime
     }
 
 def _consTSP(

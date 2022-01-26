@@ -1,6 +1,7 @@
-__version__ = "0.0.39"
+__version__ = "0.0.40"
 __author__ = "Lan Peng"
 
+'''
 # History =====================================================================
 # v0.0.1  - 04202021 - Initial upload
 # v0.0.2  - 04282021 - Add `plotGantt()` function to plot Gantt chart
@@ -47,9 +48,11 @@ __author__ = "Lan Peng"
 # v0.0.35 - 01052022 - Minor fixes
 # v0.0.36 - 01052022 - Minor fixes
 # v0.0.37 - 01052022 - Minor fixes
-# v0.0.38 - 01062022 - Fixed `isSegIntSeg()`
+# v0.0.38 - 01062022 - Fix `isSegIntSeg()`
 # v0.0.39 - 01102022 - Add service time for TSP, and now TSP can designate depotID (fix the seq so it start/end in depotID)
+# v0.0.40 - 01242022 - Simulate movement of rain clouds
 # =============================================================================
+'''
 
 # Constants and messages
 from .const import *
@@ -66,6 +69,7 @@ from .vector import *
 # Geometry
 from .geometry import *
 from .relation import *
+from .geojson import *
 
 # Graph/network algorithms
 from .graph import *

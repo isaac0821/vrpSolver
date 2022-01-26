@@ -1,6 +1,7 @@
+import gurobipy as grb
+
 from .common import *
 from .const import *
-import gurobipy as grb
 
 def ipPMSTW(
     numMachines: "Number of parallel machines" = None,
