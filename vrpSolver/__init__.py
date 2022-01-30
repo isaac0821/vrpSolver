@@ -1,4 +1,4 @@
-__version__ = "0.0.40"
+__version__ = "0.0.42"
 __author__ = "Lan Peng"
 
 '''
@@ -44,13 +44,18 @@ __author__ = "Lan Peng"
 # v0.0.31 - 12122021 - Minor fixes
 # v0.0.32 - 12122021 - Minor fixes
 # v0.0.33 - 12182021 - Add `createWarehouseLayout()` and now TSP can support routing on grids with barriers
-# v0.0.34 - 01032022 - Add naive method for `rndRainCloud()`, `getCloudCurrentPosition()`, `getLocCoverByCloudsTW()`
+# v0.0.34 - 01032022 - Add naive method for `rndRainCloud()`, `getCloudCurrentPosition()`, 
+#                      and `getLocCoverByCloudsTW()`
 # v0.0.35 - 01052022 - Minor fixes
 # v0.0.36 - 01052022 - Minor fixes
 # v0.0.37 - 01052022 - Minor fixes
 # v0.0.38 - 01062022 - Fix `isSegIntSeg()`
-# v0.0.39 - 01102022 - Add service time for TSP, and now TSP can designate depotID (fix the seq so it start/end in depotID)
+# v0.0.39 - 01102022 - Add service time for TSP, and now TSP can designate depotID (fix the seq 
+#                      so it start/end in depotID)
 # v0.0.40 - 01242022 - Simulate movement of rain clouds
+# v0.0.41 - 01262022 - Create customers on road network using `rndPlainNodes()`
+# v0.0.42 - 01302022 - Fix the issue with service time in `ipTSP()` and `heuTSP()`
+#                      Remove `lbTSP()` (for now, will be added back)
 # =============================================================================
 '''
 

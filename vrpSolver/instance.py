@@ -334,7 +334,7 @@ def rndTimeWindowsNodes(
 
     return nodes
 
-def rndWind(
+def rndWinds(
     degAvg:     "Prevailing direction of wind" = None,
     degSpread:  "Wind direction difference in 10th to 90th percentile bonds" = None,
     degPattern: "1) String, 'Consistent' or, \
@@ -343,19 +343,18 @@ def rndWind(
     spdAvg:     "Average wind speed" = None,
     spdSpread:  "Wind speed difference in 10th to 90th percentile bonds" = None,
     spdPattern: "1) String, 'Consistent' or, \
-                 2) String, 'Wave' or, \
-                 3) String, 'Increasing'  or, \
-                 4) String, 'Decreasing' or, \
-                 5) String, 'Normal' or" = None,
+                 2) String, 'Increasing'  or, \
+                 3) String, 'Decreasing' or, \
+                 4) String, 'Normal' or" = None,
     duration:   "Time window of creating wind dictionaries" = [0, None],
     sampleInt:  "Interval between sampling in [sec]" = 3600
     ) -> "Generate a list of wind dictionaries":
 
     # Initialize ==============================================================
-    wind = []
+    winds = []
     now = duration[0]
     while (now <= duration[1]):
-        wind.append({
+        winds.append({
             'startTime': now,
             'endTime': now + sampleInt,
             'windSpd': None,
@@ -364,45 +363,42 @@ def rndWind(
         now += sampleInt
 
     # Direction ===============================================================
-    for w in range(len(wind)):
+    for w in range(len(winds)):
         deg = None
         if (degPattern == 'Consistent'):
             deg = degAvg
         elif (degPattern == 'Normal'):
             deg = random.normalvariate(degAvg, degSpread / 1.28) # 10th to 90th percentile bonds
         elif (degPattern == 'Swap'):
-            deg = degAvg - degSpread + w * (2 * degSpread / len(wind))
-        wind[w]['windDeg'] = deg
+            deg = degAvg - degSpread + w * (2 * degSpread / len(winds))
+        winds[w]['windDeg'] = deg
     
     # Speed ===================================================================
-    for w in range(len(wind)):
+    for w in range(len(winds)):
         spd = None
         if (spdPattern == 'Consistent'):
             spd = spdAvg
-        elif (spdPattern == 'Wave'):            
-            if (w < len(wind) / 2):
-                spd = spdAvg - spdSpread + w * (2 * spdSpread / len(wind))
-            else:
-                spd = spdAvg + spdSpread - (w + 1) * (2 * spdSpread / len(wind))
         elif (spdPattern == 'Increasing'):
-            spd = spdAvg - spdSpread + w * (2 * spdSpread / len(wind))
+            spd = spdAvg - spdSpread + w * (2 * spdSpread / len(winds))
 
         elif (spdPattern == 'Decreasing'):
-            spd = spdAvg + spdSpread - (w + 1) * (2 * spdSpread / len(wind))
+            spd = spdAvg + spdSpread - (w + 1) * (2 * spdSpread / len(winds))
 
         elif (spdPattern == 'Normal'):
             spd = random.normalvariate(spdAvg, spdSpread / 1.28)
-        wind[w]['windSpd'] = spd
+            while (spd <= 0):
+                spd = random.normalvariate(spdAvg, spdSpread / 1.28)
+        winds[w]['windSpd'] = spd
 
-    return wind
+    return winds
 
-def rndCloud(
+def rndClouds(
     polyLatLon: "The polygon that clouds will be covering" = None,
     cloudMode:  "1) String, 'Cumulus', or\
                  2) String, 'Cumulonimbus'" = 'Cumulus',
-    cloudDeg: "The direction of where the clouds are entering" = [CLOUD_SPD_DEG_RANGE[0], CLOUD_SPD_DEG_RANGE[1]],
+    cloudDeg:   "The direction of where the clouds are entering" = [CLOUD_SPD_DEG_RANGE[0], CLOUD_SPD_DEG_RANGE[1]],
     numOfClouds: "Total number of clouds" = None,
-    duration: "Duration of the instance, in [sec]" = [0, 36000],
+    duration:   "Duration of the instance, in [sec]" = [0, 36000],
     ) -> "Given a polygon, returns a list of clouds that move through the polygon":
 
     # Time stamps =============================================================

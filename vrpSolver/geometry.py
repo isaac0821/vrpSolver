@@ -2,6 +2,8 @@ import geopy.distance
 import heapq
 import math
 import numpy as np
+from pyproj import Geod
+from shapely.geometry import Polygon
 import tripy
 
 from .common import *
@@ -403,6 +405,47 @@ def distPt2Seg(
 
     return dist
 
+def calTriangleAreaByEdges(
+    a:          "Length of edge", 
+    b:          "Length of edge", 
+    c:          "Length of edge"
+    ) -> "Given the length of three edges, calculates the area":
+    # Using Heron's Formula ===================================================
+    s = (a / 2 + b / 2 + c / 2)
+    area = math.sqrt(s * (s - a) * (s - b) * (s - c))
+    return area
+
+def calTriangleAreaByCoords(
+    pt1:       "Coordinate of point", 
+    pt2:       "Coordinate of point", 
+    pt3:       "Coordinate of point"
+    ) -> "Given the coordinates of three points, calculates the area":
+    # Using determinant =======================================================
+    [x1, y1] = pt1
+    [x2, y2] = pt2
+    [x3, y3] = pt3
+    val = (x2 * y3 + x3 * y1 + x1 * y2) - (x2 * y1 + x3 * y2 + x1 * y3)
+    area = abs(val)
+    return area
+
+def calPolygonAreaLatLon(
+    polyLatLon: "List of [lat, lon] coordinates"
+    ) -> "Returns the area surrounded by polyLatLon on the Earth":
+
+    # Create polygon ==========================================================
+    # NOTE: shapely is in [lon, lat] format
+    rev = []
+    for p in polyLatLon:
+        rev.append((p[1], p[0]))
+    polygon = Polygon(rev)
+
+    # Using pyproj to calculate ===============================================
+    # Ref: https://hypc.github.io/2020/03/16/python-geo-area/
+    geod = Geod(ellps = "WGS84")
+    area = abs(geod.geometry_area_perimeter(polygon)[0])
+
+    return area
+
 def getTauEuclidean(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
@@ -706,7 +749,7 @@ def getRndPtUniformPoly(
     ) -> "Given a polygon, generate a random point in the polygons uniformly":
 
     # Get list of triangles ===================================================
-    lstTriangle.extend(tripy.earclip(poly))
+    lstTriangle = tripy.earclip(poly)
 
     # Weight them and make draws ==============================================
     lstWeight = []

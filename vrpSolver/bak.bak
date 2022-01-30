@@ -84,3 +84,147 @@ def projSeg2SegXY(
         pass
 
     return
+
+
+def lbTSP(
+    nodes:      "Dictionary, returns the coordinate of given nodeID, \
+                    {\
+                        nodeID1: {'loc': (x, y)}, \
+                        nodeID2: {'loc': (x, y)}, \
+                        ... \
+                    }" = None, 
+    edges:      "1) String (default) 'Euclidean' or \
+                 2) String 'LatLon' or \
+                 3) Dictionary {(nodeID1, nodeID2): dist, ...}" = "Euclidean",
+    nodeIDs:    "1) String (default) 'All', or \
+                 2) A list of node IDs" = 'All',
+    subgradM:   "Double" = 1,
+    subgradRho: "Double, (0, 1)" = 0.95,
+    stopType:   "1) String, (default) 'Epsilon' (`stopEpsilon` will be used) or \
+                 2) String, 'IterationNum' (`stopK` will be used) or \
+                 3) String, 'Runtime' (`stopTime` will be used)" = 'Epsilon',
+    stopEpsilon:"Double, small number" = 0.01,
+    stopK:      "Integer, large number" = 200,
+    stopTime:   "Double, in seconds" = 600
+    ) -> "Returns a Held & Karp lower bound of the TSP using Lagrangian Relaxation":
+
+    # Define nodeIDs ==========================================================
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = []
+            for i in nodes:
+                nodeIDs.append(i)
+
+    # Define tau ============================================================
+    tau = {}
+    if (type(edges) is not dict):
+        if (tau == 'Euclidean'):
+            tau = getTauEuclidean(nodes)
+        elif (tau == 'LatLon'):
+            tau = getTauLatLon(nodes)
+        else:
+            print("Error: Incorrect type `tau`")
+            return None
+
+    # Initialize ==============================================================
+    k = 0
+    u = [0 for i in range(len(nodeIDs))]
+    d = None
+    costSum = None
+    L = None
+    oldL = None
+
+    # Calculate 1 tree ========================================================
+    def _cal1Tree(weightArcs):
+        # Separate first node
+        arcsWithVertexOne = []
+        arcsWithoutVertexOne = []
+        for i in range(len(weightArcs)):
+            if (weightArcs[i][0] == 0 or weightArcs[i][1] == 0):
+                arcsWithVertexOne.append(weightArcs[i])
+            else:
+                arcsWithoutVertexOne.append(weightArcs[i])
+
+        # MST for the rest of vertices
+        mst = graphMST(
+            weightArcs = arcsWithoutVertexOne
+            )['mst']
+
+        # Find two cheapest arcs to vertex one
+        sortedArcswithVertexOne = []
+        for i in range(len(arcsWithVertexOne)):
+            heapq.heappush(sortedArcswithVertexOne, (arcsWithVertexOne[i][2], arcsWithVertexOne[i]))
+
+        # Build 1-tree
+        leastTwo = []
+        leastTwo.append(heapq.heappop(sortedArcswithVertexOne))
+        leastTwo.append(heapq.heappop(sortedArcswithVertexOne))
+
+        m1t = [i for i in mst]
+        m1t.append(leastTwo[0][1])
+        m1t.append(leastTwo[1][1])
+
+        # Calculate total cost
+        costSum = 0
+        for i in range(len(m1t)):
+            costSum += m1t[i][2]
+
+        # Arcs to neighbors
+        neighbors = arcs2AdjList(m1t)
+        d = []
+        for i in range(len(nodeIDs)):
+            d.append(2 - len(neighbors[i]))
+
+        return {
+            'costSum': costSum,
+            'm1t': m1t,
+            'd': d
+        }
+
+    # Main iteration ==========================================================
+    continueFlag = True
+    while (continueFlag):
+        # Update cost of each edge
+        weightArcs = []
+        for i in range(len(nodeIDs)):
+            for j in range(len(nodeIDs)):
+                if (i != None and j != None and i < j):
+                    weightArcs.append((i, j, tau[i, j] - u[i] - u[j]))
+
+        # Calculate 1-tree
+        oneTree = _cal1Tree(weightArcs)
+
+        # Update L and d
+        costSum = oneTree['costSum']
+        m1t = oneTree['m1t']
+        uSum = sum(u)
+        if (L != None):
+            oldL = L
+        L = costSum + 2 * uSum
+        d = oneTree['d']
+
+        # update u
+        oldU = [i for i in u]
+        u = []
+        eff = subgradM * math.pow(subgradRho, k)
+        for i in range(len(nodeIDs)):
+            u.append(oldU[i] + eff * d[i])
+
+        # Check if continue
+        def _allZero(d):
+            for i in d:
+                if (i != 0):
+                    return False
+            return True
+        if (k >= stopK):
+            continueFlag = False
+        elif (oldL != None and abs(oldL - L) < stopEpsilon):
+            continueFlag = False
+        elif (_allZero(d)):
+            continueFlag = False
+        else:
+            k += 1
+
+    return {
+        'lrLowerBound': costSum
+    }

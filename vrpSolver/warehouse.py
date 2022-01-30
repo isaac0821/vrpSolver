@@ -1,7 +1,7 @@
 
 def createWarehouseLayout(
-    shelfCol: "Integer, Number of columns in the warehouse layout" = 5,
-    shelfRow: "Integer, Number of rows in warehouse layout" = 10,
+    shelfCol:   "Integer, Number of columns in the warehouse layout" = 5,
+    shelfRow:   "Integer, Number of rows in warehouse layout" = 10,
     shelfWidth: "Integer, Width of shelf" = 1,
     shelfDeep:  "Integer, Number of deeps of the shelf" = 1,
     aisleWidth: "Integer, Width of the aisles" = 1,

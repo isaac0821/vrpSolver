@@ -384,26 +384,3 @@ def cosRay2Ray(
     # Calculate cosine ========================================================
     cosAngle = (ray1[0] * ray2[0] + ray1[1] * ray2[1]) / (math.sqrt(ray1[0] * ray1[0] + ray1[1] * ray1[1]) * math.sqrt(ray2[0] * ray2[0] + ray2[1] * ray2[1]))
     return cosAngle
-
-def calTriangleAreaByEdges(
-    a:          "Length of edge", 
-    b:          "Length of edge", 
-    c:          "Length of edge"
-    ) -> "Given the length of three edges, calculates the area":
-    # Using Heron's Formula ===================================================
-    s = (a / 2 + b / 2 + c / 2)
-    area = math.sqrt(s * (s - a) * (s - b) * (s - c))
-    return area
-
-def calTriangleAreaByCoords(
-    pt1:       "Coordinate of point", 
-    pt2:       "Coordinate of point", 
-    pt3:       "Coordinate of point"
-    ) -> "Given the coordinates of three points, calculates the area":
-	# Using determinant =======================================================
-    [x1, y1] = pt1
-    [x2, y2] = pt2
-    [x3, y3] = pt3
-    val = (x2 * y3 + x3 * y1 + x1 * y2) - (x2 * y1 + x3 * y2 + x1 * y3)
-    area = abs(val)
-    return area

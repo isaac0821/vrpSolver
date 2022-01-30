@@ -18,7 +18,7 @@ def ipTSP(
                  2) String 'LatLon' or \
                  3) String 'Grid' or \
                  4) Dictionary {(nodeID1, nodeID2): dist, ...}" = "Euclidean",
-    edgeArgs:   "If choose 'Grid' as edges option, we need to provide the following dictionary \
+    edgeArgs:   "If choose 'Grid' as tau option, we need to provide the following dictionary \
                 {\
                     'colRow': (numCol, numRow),\
                     'barriers': [(coordX, coordY), ...], \
@@ -50,23 +50,28 @@ def ipTSP(
             print(ERROR_INCOR_NODEIDS)
             return
 
-    # Define edges ============================================================
+    # Define tau ==============================================================
+    tau = {}
     if (type(edges) is not dict):
-        if (edges == 'Euclidean'):
-            edges = getTauEuclidean(nodes, nodeIDs)
-        elif (edges == 'LatLon'):
-            edges = getTauLatLon(nodes, nodeIDs)
-        elif (edges == 'Grid'):
-            edges = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
+        if (tau == 'Euclidean'):
+            tau = getTauEuclidean(nodes, nodeIDs)
+        elif (tau == 'LatLon'):
+            tau = getTauLatLon(nodes, nodeIDs)
+        elif (tau == 'Grid'):
+            tau = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
         else:
             print(ERROR_INCOR_TAU)
             return None
+    else:
+        tau = dict(edges)
 
     # Service time ============================================================
     if (serviceTime != None and serviceTime > 0):
-        for e in edges:
-            if (e[0] != depotID and e[1] != depotID):
-                edges[e] += serviceTime / 2
+        for (i, j) in tau:
+            if (i != depotID and j != depotID and i != j):
+                tau[i, j] += serviceTime
+            elif (i == depotID or j == depotID and i != j):
+                tau[i, j] += serviceTime / 2 
     else:
         serviceTime = 0
 
@@ -81,7 +86,7 @@ def ipTSP(
         TSP.setParam(grb.GRB.Param.MIPGap, gapTolerance)
 
     # Subroutines for different formulations ==================================
-    def _ipTSPQAP(edges, nodeIDs):
+    def _ipTSPQAP():
         # Decision variables --------------------------------------------------
         x = {}
         for i in range(n):
@@ -103,13 +108,13 @@ def ipTSP(
             grb.quicksum(
                 grb.quicksum(
                     grb.quicksum(
-                        edges[nodeIDs[i], nodeIDs[j]] * w[i, j, k] for k in range(n - 1)
+                        tau[nodeIDs[i], nodeIDs[j]] * w[i, j, k] for k in range(n - 1)
                     ) for j in range(n) if j != i
                 ) for i in range(n)
             ) + 
             grb.quicksum(
                 grb.quicksum(
-                    edges[nodeIDs[i], nodeIDs[j]] * w[i, j, n - 1] for j in range(n) if j != i
+                    tau[nodeIDs[i], nodeIDs[j]] * w[i, j, n - 1] for j in range(n) if j != i
                 ) for i in range(n)
             )
         )
@@ -171,7 +176,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
-    def _ipTSPMultiCommodityFlow(edges, nodeIDs):
+    def _ipTSPMultiCommodityFlow():
         # Decision variables --------------------------------------------------
         x = {}
         for i in range(n):
@@ -179,7 +184,7 @@ def ipTSP(
                 if i != j:
                     x[i, j] = TSP.addVar(
                         vtype = grb.GRB.BINARY, 
-                        obj = edges[nodeIDs[i], nodeIDs[j]], 
+                        obj = tau[nodeIDs[i], nodeIDs[j]], 
                         name = 'x_%s_%s' % (i, j))
         y = {}
         for i in range(n):
@@ -257,7 +262,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
-    def _ipTSPShortestPath(edges, nodeIDs):
+    def _ipTSPShortestPath():
         # Decision variables --------------------------------------------------
         x = {}
         for i in range(n):
@@ -265,7 +270,7 @@ def ipTSP(
                 if (j != i):
                     for t in range(n):
                         x[i, j, t] = TSP.addVar(
-                            obj = edges[nodeIDs[i], nodeIDs[j]],
+                            obj = tau[nodeIDs[i], nodeIDs[j]],
                             vtype = grb.GRB.BINARY)
 
         # Stage constraints ---------------------------------------------------
@@ -329,7 +334,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
-    def _ipTSPMTZ(edges, nodeIDs):
+    def _ipTSPMTZ():
         # Decision variables --------------------------------------------------
         x = {}
         for i in range(n):
@@ -337,7 +342,7 @@ def ipTSP(
                 if i != j:
                     x[i, j] = TSP.addVar(
                         vtype = grb.GRB.BINARY, 
-                        obj = edges[nodeIDs[i], nodeIDs[j]], 
+                        obj = tau[nodeIDs[i], nodeIDs[j]], 
                         name = 'x_%s_%s' % (i, j))
         u = {}
         for i in range(n):
@@ -407,7 +412,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
-    def _ipTSPPlainLoop(edges, nodeIDs):
+    def _ipTSPPlainLoop():
         # Decision variables --------------------------------------------------
         x = {}
         for i in range(n):
@@ -415,7 +420,7 @@ def ipTSP(
                 if (i != j):
                     x[i, j] = TSP.addVar(
                         vtype = grb.GRB.BINARY, 
-                        obj = edges[nodeIDs[i], nodeIDs[j]], 
+                        obj = tau[nodeIDs[i], nodeIDs[j]], 
                         name = 'x_%s_%s' % (i, j))
                     
         # TSP -----------------------------------------------------------------
@@ -488,7 +493,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
-    def _ipTSPLazyCuts(edges, nodeIDs):
+    def _ipTSPLazyCuts():
         # Decision variables --------------------------------------------------
         x = {}
         for i in range(n):
@@ -496,7 +501,7 @@ def ipTSP(
                 if (i != j):
                     x[i, j] = TSP.addVar(
                         vtype = grb.GRB.BINARY, 
-                        obj = edges[nodeIDs[i], nodeIDs[j]], 
+                        obj = tau[nodeIDs[i], nodeIDs[j]], 
                         name = 'x_%s_%s' % (i, j))
                     
         # TSP objective function ----------------------------------------------
@@ -566,17 +571,17 @@ def ipTSP(
     # Solve by different formulations =========================================
     tsp = None
     if (fml == 'DFJ_Lazy'):
-        tsp = _ipTSPLazyCuts(edges, nodeIDs)
+        tsp = _ipTSPLazyCuts()
     elif (fml == 'DFJ_PlainLoop'):
-        tsp = _ipTSPPlainLoop(edges, nodeIDs)
+        tsp = _ipTSPPlainLoop()
     elif (fml == 'MTZ'):
-        tsp = _ipTSPMTZ(edges, nodeIDs)
+        tsp = _ipTSPMTZ()
     elif (fml == 'ShortestPath'):
-        tsp = _ipTSPShortestPath(edges, nodeIDs)
+        tsp = _ipTSPShortestPath()
     elif (fml == 'MultiCommodityFlow'):
-        tsp = _ipTSPMultiCommodityFlow(edges, nodeIDs)
+        tsp = _ipTSPMultiCommodityFlow()
     elif (fml == 'QAP'):
-        tsp = _ipTSPQAP(edges, nodeIDs)
+        tsp = _ipTSPQAP()
     else:
         print("Error: Incorrect or not available TSP formulation option!")
         return None
@@ -585,16 +590,17 @@ def ipTSP(
 
     # Fix the sequence to make it start from the depot ========================
     startIndex = None
+    seq = [i for i in tsp['seq']]
     truckSeq = []
-    for k in range(len(tsp['seq'])):
-        if (tsp['seq'][k] == depotID):
+    for k in range(len(seq)):
+        if (seq[k] == depotID):
             startIndex = k
-    if (startIndex < len(tsp['seq']) - 1):
-        for k in range(startIndex, len(tsp['seq'])):
-            truckSeq.append(tsp['seq'][k])
-    if (startIndex > 0):
+    if (startIndex <= len(seq) - 1):
+        for k in range(startIndex, len(seq) - 1):
+            truckSeq.append(seq[k])
+    if (startIndex >= 0):
         for k in range(0, startIndex):
-            truckSeq.append(tsp['seq'][k])
+            truckSeq.append(seq[k])
     truckSeq.append(depotID)
     tsp['seq'] = truckSeq
 

@@ -6,6 +6,73 @@ from .geometry import *
 from .msg import *
 from .weather import *
 
+def truckSeq2Gantt(
+    nodes:      "Dictionary, returns the coordinate of given nodeID, \
+                    {\
+                        nodeID1: {'loc': (x, y)}, \
+                        nodeID2: {'loc': (x, y)}, \
+                        ... \
+                    }" = None, 
+    depotID:    "Depot ID (serviceTime will not apply)" = 0,
+    entityID:   "Truck" = 'Truck',
+    edges:      "1) String (default) 'Euclidean' or \
+                 2) String 'LatLon' or \
+                 3) Dictionary {(nodeID1, nodeID2): dist, ...}" = "Euclidean",
+    edgeArgs:   "If choose 'Grid' as tau option, we need to provide the following dictionary \
+                {\
+                    'colRow': (numCol, numRow),\
+                    'barriers': [(coordX, coordY), ...], \
+                }" = None,
+    truckSeq:     "Travel sequence" = None,
+    serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0,
+    ) -> "Given a TSP result, returns the gantt dictionary for plotGantt()":
+
+    # Define tau ==============================================================
+    tau = {}
+    if (type(edges) is not dict):
+        if (tau == 'Euclidean'):
+            tau = getTauEuclidean(nodes, nodeIDs)
+        elif (tau == 'LatLon'):
+            tau = getTauLatLon(nodes, nodeIDs)
+        elif (tau == 'Grid'):
+            tau = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
+        else:
+            print(ERROR_INCOR_TAU)
+            return None
+    else:
+        tau = dict(edges)
+
+    # Process TSP sequence ====================================================
+    ganttTSP = []
+    acc = 0
+    for i in range(len(truckSeq) - 2):
+        dt = tau[truckSeq[i], truckSeq[i + 1]]
+        ganttTSP.append({
+                'entityID': entityID,
+                'timeWindow': [acc, acc + dt],
+                'desc': 'cus_' + str(truckSeq[i + 1]),
+                'color': 'lightgreen',
+                'style': '///'
+            })
+        ganttTSP.append({
+                'entityID': entityID,
+                'timeWindow': [acc + dt, acc + dt + serviceTime],
+                'desc': '',
+                'color': 'lightgray',
+                'style': '////'
+            })
+        acc += dt + serviceTime
+    dt = tau[truckSeq[-2], truckSeq[-1]]
+    ganttTSP.append({
+            'entityID': entityID,
+            'timeWindow': [acc, acc + dt],
+            'desc': 'Return',
+            'color': 'lightgreen',
+            'style': '///'
+        })
+
+    return ganttTSP
+
 def plotGrid(
     fig:        "Based matplotlib figure object" = None,
     ax:         "Based matplotlib ax object" = None,
@@ -143,18 +210,19 @@ def plotGridPath(
 
     return fig, ax
 
-def plotWind(
+def plotWinds(
     fig:        "fig" = None,
     ax:         "ax" = None,
     width:      "Width of the figure" = None,
     height:     "Height of the figure" = 3,
-    wind:       "List of dictionary, wind speed/wind direct in time sequence, time starts from 0\
+    winds:      "List of dictionary, wind speed/wind direct in time sequence, time starts from 0\
                 [{\
                     'startTime': startTime,\
                     'endTime': endTime,\
                     'windSpd': windSpd, # In [m/s]\
                     'windDeg': winDeg, # In [Degree]\
                 }, ...]" = None,
+    startOfDay: "Start time of the day in [h]" = 0,
     saveFigPath:"1) None, if not exporting image, or \
                  2) String, the path for exporting image" = None
     ) -> "Given a list of wind, plot the wind direction and wind speed":
@@ -167,30 +235,30 @@ def plotWind(
         if (width != None):
             fig.set_figwidth(width)
         else:
-            fig.set_figwidth(len(wind) * 0.5 + 0.25)
+            fig.set_figwidth(len(winds) * 0.5 + 0.25)
     ax.set_xlabel("Time of the day [h]")
     ax.set_ylabel("Wind speed [m/s]")
     
     # Draw wind speeds ========================================================
-    ticks = [wind[0]['startTime'] / 3600 + TIME_START_OF_DAY]
-    for w in range(len(wind)):
-        ticks.append(wind[w]['endTime'] / 3600 + TIME_START_OF_DAY)
+    ticks = [winds[0]['startTime'] / 3600 + startOfDay]
+    for w in range(len(winds)):
+        ticks.append(winds[w]['endTime'] / 3600 + startOfDay)
         ax.plot(
-            [wind[w]['startTime'] / 3600 + TIME_START_OF_DAY, wind[w]['endTime'] / 3600 + TIME_START_OF_DAY], 
-            [wind[w]['windSpd'], wind[w]['windSpd']],
+            [winds[w]['startTime'] / 3600 + startOfDay, winds[w]['endTime'] / 3600 + startOfDay], 
+            [winds[w]['windSpd'], winds[w]['windSpd']],
             color = 'black')
-    for w in range(1, len(wind)):
+    for w in range(1, len(winds)):
         ax.plot(
-            [wind[w - 1]['endTime'] / 3600 + TIME_START_OF_DAY, wind[w]['startTime'] / 3600 + TIME_START_OF_DAY], 
-            [wind[w - 1]['windSpd'], wind[w]['windSpd']],
+            [winds[w - 1]['endTime'] / 3600 + startOfDay, winds[w]['startTime'] / 3600 + startOfDay], 
+            [winds[w - 1]['windSpd'], winds[w]['windSpd']],
             color = 'black')
 
     # Draw wind direction =====================================================
-    for w in range(len(wind)):
-        arrowMidX = (wind[w]['startTime'] + wind[w]['endTime']) / 7200 + TIME_START_OF_DAY
-        arrowMidY = wind[w]['windSpd'] + 0.7
-        dx = math.sin(math.radians(wind[w]['windDeg'])) * 0.25
-        dy = math.cos(math.radians(wind[w]['windDeg'])) * 0.25
+    for w in range(len(winds)):
+        arrowMidX = (winds[w]['startTime'] + winds[w]['endTime']) / 7200 + startOfDay
+        arrowMidY = winds[w]['windSpd'] + 0.7
+        dx = math.sin(math.radians(winds[w]['windDeg'])) * 0.25
+        dy = math.cos(math.radians(winds[w]['windDeg'])) * 0.25
         ax.arrow(
             x = arrowMidX - dx / 2, 
             y = arrowMidY - dy / 2, 
@@ -345,6 +413,8 @@ def plotRoadNetwork(
         if (color == 'Random'):
                 edgeColor = colorRandom()
         ax.plot(x, y, color = edgeColor, linewidth = linewidth)
+
+    plt.close(fig)
 
     # Save figure =============================================================
     if (saveFigPath != None):
