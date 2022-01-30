@@ -80,6 +80,10 @@ target/
 *.ipynb
 !demo/*.ipynb
 
+# Markdown documents
+**/*.md
+!README.md
+
 # Data
 *.csv
 *.xlsx
