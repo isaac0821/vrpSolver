@@ -56,6 +56,7 @@ __author__ = "Lan Peng"
 # v0.0.41 - 01262022 - Create customers on road network using `rndPlainNodes()`
 # v0.0.42 - 01302022 - Fix the issue with service time in `ipTSP()` and `heuTSP()`
 #                      Remove `lbTSP()` (for now, will be added back)
+# v0.0.43 - 01312022 - Fix the `heuTSP()` with ATSP
 # =============================================================================
 '''
 

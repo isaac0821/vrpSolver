@@ -478,10 +478,15 @@ def calSeqCostArcs(
 
 def calSeqCostMatrix(
     tau:        "Dictionary {(nodeID1, nodeID2): dist, ...}", 
-    seq:        "List, sequence of visiting node ids"
+    seq:        "List, sequence of visiting node ids",
+    closeFlag:  "True if the seq is closed" = False
     ) -> "Return the cost on the graph given cost matrix/dictionary tau":
     # Accumulate costs ========================================================
     cost = 0
     for i in range(len(seq) - 1):
         cost += tau[seq[i], seq[i + 1]]
+
+    if (closeFlag):
+        cost += tau[seq[-1], seq[0]]
+        
     return cost

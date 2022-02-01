@@ -505,6 +505,7 @@ def plotPolygon(
         if (fillColor == 'Random'):
             fillColor = colorRandom()
         ax.fill(x, y, facecolor=fillColor, edgecolor=edgeColor, hatch=fillStyle, linewidth=linewidth, alpha=opacity)
+    plt.close(fig)
 
     # Save figure =============================================================
     if (saveFigPath != None):
@@ -653,6 +654,8 @@ def plotGantt(
         xTicks.append(realEnd)
         ax.set_xticks(xTicks)
 
+    plt.close(fig)
+
     # Fix height if fig, ax are not provided ==================================
     if (fig == None or ax == None):
         fig.set_figheight(5 * len(entities))
@@ -751,6 +754,8 @@ def plotNodes(
             ax.annotate(n, (x, y))
         else:
             ax.annotate(nodes[n]['label'], (x, y))
+
+    plt.close(fig)
 
     # Save figure =============================================================
     if (saveFigPath != None):
@@ -851,6 +856,7 @@ def plotArcs(
             ax.plot([x1, x2], [y1, y2], color = color)
             if (arrowFlag):
                 ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=linewidth, head_width=arrowHeadwidth, head_length=arrowHeadlength, color=color)
+    plt.close(fig)
 
     # Save figure =============================================================
     if (saveFigPath != None):
