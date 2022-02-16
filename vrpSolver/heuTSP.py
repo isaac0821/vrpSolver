@@ -25,13 +25,15 @@ def heuTSP(
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All',
     serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0,
-    consAlgo:   "1) String 'k-NearestNeighbor' or \
+    consAlgo:       "1) String 'k-NearestNeighbor' or \
                  2) String 'FarthestNeighbor' or \
                  3) String (default) 'Insertion' or \
-                 4) String 'Sweep' or \
-                 5) String 'DepthFirst' or \
-                 6) String 'Christofides' or \
-                 7) String 'Random'" = 'Insertion',
+                 4) String (not available) 'Patching' or \
+                 5) String 'Sweep' or \
+                 6) String 'DepthFirst' or \
+                 7) String 'Christofides' or \
+                 8) String (not available) 'CycleCover', particular for ATSP, also work for TSP or \
+                 9) String 'Random'" = 'Insertion',
     consAlgoArgs: "Dictionary, args for constructive heuristic \
                  1) None for unspecified `algo` options, or \
                  2) for 'k-NearestNeighbor' \

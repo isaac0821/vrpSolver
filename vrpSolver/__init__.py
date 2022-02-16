@@ -92,3 +92,4 @@ from .heuTSP import *
 
 # VRP
 # from .ipVRP import *	# Debugging
+from .heuVRP import * # Working

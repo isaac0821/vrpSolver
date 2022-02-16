@@ -6,7 +6,7 @@ from .geometry import *
 from .msg import *
 from .weather import *
 
-def truckSeq2Gantt(
+def TSPSeq2Gantt(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
                         nodeID1: {'loc': (x, y)}, \
@@ -78,13 +78,13 @@ def plotGrid(
     ax:         "Based matplotlib ax object" = None,
     gridColRow: "Number of columns, and number of rows" = (None, None),
     barriers:   "List of blocking grids" = [],
-    labeling:  "Additional labeling of grids to support different color or annotation, in format of \
-                {\
-                    (coordX, coordY): { \
-                        'color': color, \
-                        'annotation': annotation \
-                    }\
-                }" = None,
+    labeling:   "Additional labeling of grids to support different color or annotation, in format of \
+                    {\
+                        (coordX, coordY): { \
+                            'color': color, \
+                            'annotation': annotation \
+                        }\
+                    }" = None,
     gridSize:   "Size of the grid" = 1,
     gridBackColor: "Background color of grids" = None,
     gridEdgeColor: "Edge color of grids" = 'black',
@@ -94,7 +94,9 @@ def plotGrid(
     barrierOpacity: "Opacity of barriers" = 0.5,
     barrierBackStyle: "Background style of barriers" = '///',
     saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None
+                 2) String, the path for exporting image" = None,
+    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
+                 recommended to turn off if generate a batch of images" = True
     ) -> "Plot a grid with barriers":
 
     # If no based matplotlib figure, define boundary ==========================
@@ -152,6 +154,8 @@ def plotGrid(
     # Save figure =============================================================
     if (saveFigPath != None):
         fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
 
     return fig, ax
 
@@ -167,7 +171,9 @@ def plotGridPath(
     pathWidth:  "The width of path" = 3,
     markerSize: "Size of starting/ending points" = 15,
     saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None
+                 2) String, the path for exporting image" = None,
+    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
+                 recommended to turn off if generate a batch of images" = True
     ) -> "Plot the path on the grid":
 
     # If no based matplotlib figure, define boundary ==========================
@@ -207,6 +213,8 @@ def plotGridPath(
     # Save figure =============================================================
     if (saveFigPath != None):
         fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
 
     return fig, ax
 
@@ -224,7 +232,9 @@ def plotWinds(
                 }, ...]" = None,
     startOfDay: "Start time of the day in [h]" = 0,
     saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None
+                 2) String, the path for exporting image" = None,
+    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
+                 recommended to turn off if generate a batch of images" = True
     ) -> "Given a list of wind, plot the wind direction and wind speed":
 
     # Draw frame ==============================================================
@@ -257,8 +267,8 @@ def plotWinds(
     for w in range(len(winds)):
         arrowMidX = (winds[w]['startTime'] + winds[w]['endTime']) / 7200 + startOfDay
         arrowMidY = winds[w]['windSpd'] + 0.7
-        dx = math.sin(math.radians(winds[w]['windDeg'])) * 0.25
-        dy = math.cos(math.radians(winds[w]['windDeg'])) * 0.25
+        dx = math.sin(math.radians(winds[w]['windDeg'] + 180)) * 0.25
+        dy = math.cos(math.radians(winds[w]['windDeg'] + 180)) * 0.25
         ax.arrow(
             x = arrowMidX - dx / 2, 
             y = arrowMidY - dy / 2, 
@@ -272,6 +282,8 @@ def plotWinds(
     # Save figure =============================================================
     if (saveFigPath != None):
         fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
 
     return fig, ax
 
@@ -288,7 +300,9 @@ def plotCloudsInTime(
     nodes:      "nodes with locations coordinates" = None,
     timeStamp:  "Time stamps of the frame" = None,
     saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None
+                 2) String, the path for exporting image" = None,
+    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
+                 recommended to turn off if generate a batch of images" = True
     ) -> "Given a time stamp, plot the locations of clouds and customers":
 
     # If no based matplotlib figure, define boundary ==========================
@@ -350,6 +364,8 @@ def plotCloudsInTime(
     # Save figure =============================================================
     if (saveFigPath != None):
         fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
 
     return fig, ax
 
@@ -367,7 +383,9 @@ def plotRoadNetwork(
     yMax:       "max of y-axis" = None,
     edgeWidth:  "Width on the edge" = 0.005,
     saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None
+                 2) String, the path for exporting image" = None,
+    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
+                 recommended to turn off if generate a batch of images" = True
     ) -> "Draw a set of polylines, usually for plotting road network": 
 
     # FIXME: In future, we might want to distinguish roads by max speed or show the names of roads
@@ -419,6 +437,8 @@ def plotRoadNetwork(
     # Save figure =============================================================
     if (saveFigPath != None):
         fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
 
     return fig, ax
 
@@ -442,7 +462,9 @@ def plotPolygon(
     yMax:       "max of y-axis" = None,
     edgeWidth:  "Width on the edge" = 0.5,
     saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None
+                 2) String, the path for exporting image" = None,
+    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
+                 recommended to turn off if generate a batch of images" = True
     ) -> "Draw a polygon, e.g., cloud":
 
     # If no based matplotlib figure, define boundary ==========================
@@ -510,6 +532,8 @@ def plotPolygon(
     # Save figure =============================================================
     if (saveFigPath != None):
         fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
 
     return fig, ax
 
@@ -543,7 +567,9 @@ def plotGantt(
     showTail:   "Show the latest time of all gantt blocks" = True,
     figSize:    "Size of the figure, in (width, height)" = (12, 5),
     saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None
+                 2) String, the path for exporting image" = None,
+    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
+                 recommended to turn off if generate a batch of images" = True
     ) -> "Given a Gantt dictionary, plot Gantt":
 
     # Check for required fields ===============================================
@@ -654,7 +680,7 @@ def plotGantt(
         xTicks.append(realEnd)
         ax.set_xticks(xTicks)
 
-    plt.close(fig)
+    
 
     # Fix height if fig, ax are not provided ==================================
     if (fig == None or ax == None):
@@ -663,7 +689,10 @@ def plotGantt(
     # Save figure =============================================================
     if (saveFigPath != None):
         fig.savefig(saveFigPath)
-
+    if (not showFig):
+        plt.close(fig)
+    if (not showFig):
+        plt.close(fig)
     return fig, ax
 
 def plotNodes(
@@ -671,8 +700,8 @@ def plotNodes(
     ax:         "Based matplotlib ax object" = None,
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
+                        nodeID1: {'loc': (x, y), 'marker': 'r', 'color': 'red', 'size': 3}, \
+                        nodeID2: {'loc': (x, y), 'marker': 'r', 'color': 'red', 'size': 3}, \
                         ... \
                     }" = None, 
     xyReverseFlag: "Reverse x, y. Usually use for (lat, lon)" = False,
@@ -686,7 +715,9 @@ def plotNodes(
     yMax:       "max of y-axis" = None,
     edgeWidth:  "Width on the edge" = 0.5,
     saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None
+                 2) String, the path for exporting image" = None,
+    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
+                 recommended to turn off if generate a batch of images" = True
     ) -> "Draw nodes":
 
     # Check for required fields ===============================================
@@ -739,6 +770,14 @@ def plotNodes(
         else:
             nodeColor = color
 
+        # Define marker and marker size ---------------------------------------
+        nodeMarker = 'o'
+        if ('marker' in nodes[n]):
+            nodeMarker = nodes[n]['marker']
+        nodeMarkersize = None
+        if ('markersize' in nodes[n]):
+            nodeMarkersize = nodes[n]['markersize']
+
         # plot nodes ----------------------------------------------------------
         x = None
         y = None
@@ -748,8 +787,10 @@ def plotNodes(
         else:
             x = nodes[n]['loc'][1]
             y = nodes[n]['loc'][0]
-
-        ax.plot(x, y, marker = 'o', color = nodeColor)
+        if (nodeMarker == None):
+            ax.plot(x, y, color = nodeColor, marker = nodeMarker)
+        else:
+            ax.plot(x, y, color = nodeColor, marker = nodeMarker, markersize = nodeMarkersize)
         if ('label' not in nodes[n]):
             ax.annotate(n, (x, y))
         else:
@@ -760,6 +801,8 @@ def plotNodes(
     # Save figure =============================================================
     if (saveFigPath != None):
         fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
 
     return fig, ax
 
@@ -787,7 +830,9 @@ def plotArcs(
     yMax:       "max of y-axis" = None,
     edgeWidth:  "Width on the edge" = 0.5,
     saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None
+                 2) String, the path for exporting image" = None,
+    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
+                 recommended to turn off if generate a batch of images" = True
     ) -> "Draw arcs":
 
     # Check for required fields ===============================================
@@ -861,6 +906,8 @@ def plotArcs(
     # Save figure =============================================================
     if (saveFigPath != None):
         fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
 
     return fig, ax
 
@@ -888,8 +935,9 @@ def plotSeq(
     yMax:       "max of y-axis" = None,
     edgeWidth:  "Width on the edge" = 0.5,
     saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None
-
+                 2) String, the path for exporting image" = None,
+    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
+                 recommended to turn off if generate a batch of images" = True
     ) -> "Draw a route, e.g., TSP solution":    
     # Create arcs =============================================================
     arcs = []

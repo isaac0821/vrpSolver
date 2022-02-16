@@ -335,7 +335,7 @@ def rndTimeWindowsNodes(
     return nodes
 
 def rndWinds(
-    degAvg:     "Prevailing direction of wind" = None,
+    degAvg:     "Prevailing direction of wind - in the direction of wind vector, not meteorology term" = None,
     degSpread:  "Wind direction difference in 10th to 90th percentile bonds" = None,
     degPattern: "1) String, 'Consistent' or, \
                  2) String, 'Normal' or, \
@@ -416,20 +416,6 @@ def rndClouds(
     
     clouds = []
     for t in range(len(appearTime)):
-        # Entering locations --------------------------------------------------
-        enteringDist = None
-        if (cloudMode == 'Cumulus'):
-            enteringDist = random.randrange(CLOUD_CUMULUS_SIZE[0], CLOUD_CUMULUS_SIZE[1])
-        elif (cloudMode == 'Cumulonimbus'):
-            enteringDist = random.randrange(CLOUD_CUMULONIMBUS_SIZE[0], CLOUD_CUMULONIMBUS_SIZE[1])
-
-        # Initial location of the cloud ---------------------------------------
-        direction = random.randrange(cloudDeg[0], cloudDeg[1])
-        enterLoc = pointInDistLatLon(
-            pt = cloudCentroid[t]['loc'],
-            direction = direction - 180,
-            distMeters = enteringDist + CONST_EPSILON)
-        
         # Size of cloud -------------------------------------------------------
         widthInMeter = None
         lengthInMeter = None
@@ -442,6 +428,16 @@ def rndClouds(
             lengthInMeter = random.randrange(CLOUD_CUMULONIMBUS_SIZE[0], CLOUD_CUMULONIMBUS_SIZE[1])
             existDur = random.randrange(CLOUD_CUMULONIMBUS_DURATION[0], CLOUD_CUMULONIMBUS_DURATION[1])
 
+        # Entering locations --------------------------------------------------
+        enteringDist = math.sqrt(widthInMeter**2 + lengthInMeter**2)
+
+        # Initial location of the cloud ---------------------------------------
+        direction = random.randrange(cloudDeg[0], cloudDeg[1])
+        enterLoc = pointInDistLatLon(
+            pt = cloudCentroid[t]['loc'],
+            direction = direction - 180,
+            distMeters = enteringDist + CONST_EPSILON)
+        
         # Cloud generation ----------------------------------------------------
         initPolyLatLon = rectInWidthLengthOrientationLatLon(
             centroidLatLon = enterLoc,
@@ -451,7 +447,9 @@ def rndClouds(
         clouds.append({
             'appearTime': appearTime[t],
             'initPolyLatLon': initPolyLatLon,
-            'movingVecPolar': (random.randrange(CLOUD_SPD_ABS_RANGE[0], CLOUD_SPD_ABS_RANGE[1]), direction),
+            'widthInMeter': widthInMeter,
+            'lengthInMeter': lengthInMeter,
+            'movingVecPolar': (random.uniform(CLOUD_SPD_ABS_RANGE[0], CLOUD_SPD_ABS_RANGE[1]), direction),
             'existDur': existDur
         })
 

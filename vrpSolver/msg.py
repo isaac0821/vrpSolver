@@ -1,5 +1,7 @@
 
-# Information message - 
+# NOTICE ======================================================================
+# The file name `msg.py` does NOT stands for Monosodium glutamate. And PLEASE,
+# PLEASE, PLEASE do NOT put any MSG into your dishes.
 
 # Warning message - Overwrite inputted field
 WARNING_OVERWRITE_STARTTIME         = "WARNING: Field `startTime` has been overwritten"

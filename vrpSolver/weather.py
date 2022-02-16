@@ -11,7 +11,7 @@ from .const import *
 # This script is to simulate the movement of clouds
 # Assumption:
 # 1. The rain and snow happens only when there are clouds above
-# 2. Wind speed is not related to the speed of clouds
+# 2. Wind speed is not related to the movement of clouds, in both speed and direction
 # 3. Spinning of clouds are not modeled
 
 # Reference ===================================================================
