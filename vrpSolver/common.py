@@ -38,26 +38,20 @@ def insideInterval(
     ) -> "Given a value `val`, returns true if `val` is inside the interval (or on the edge), false else wise.":
 
     # Initialize ==============================================================
-    insideFlag = True
     [s, e] = interval
 
     # Check left side =========================================================
-    if (s != None):
-        if (val < s):
-            insideFlag = False
-            return insideFlag
+    if (s != None and val < s):
+        return False
 
     # Check right side ========================================================
-    if (e != None):
-        if (val > e):
-            insideFlag = False
-            return insideFlag
+    if (e != None) and val > e:
+        return False
 
-    return insideFlag
+    return True
 
 def listSetMinus(a, b):
-    c = b.copy()
-    return [i for i in a if not i in c or c.remove(i)]
+    return list(set(a) - set(b))
 
 def listSetIntersect(a, b):
     return [value for value in a if value in b]
@@ -72,7 +66,7 @@ def list2String(l):
     return listString
 
 def list2Tuple(l):
-    sortedList = l.copy()
+    sortedList = [i for i in l]
     sortedList.sort()
     tp = tuple(sortedList)
     return tp

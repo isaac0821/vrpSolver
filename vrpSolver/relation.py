@@ -56,11 +56,10 @@ def isPtOnSeg(
     [x2, y2] = [pt[0], pt[1]]
     [x3, y3] = [seg[1][0], seg[1][1]]
 
-    # Relative location =======================================================
-    return (x2 >= min(x1, x3) 
-        and x2 <= max(x1, x3) 
-        and y2 >= min(y1, y3) 
-        and y2 <= max(y1, y3))
+    return (
+        abs(math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2) 
+        + math.sqrt((x2 - x3) ** 2 + (y2 - y3) ** 2) 
+        - math.sqrt((x1 - x3) ** 2 + (y1 - y3) ** 2)) <= CONST_EPSILON)
 
 def isPtInsideSeg(
     pt:         "2-tuple of coordinate (x, y)", 
@@ -94,17 +93,7 @@ def isPtOnRay(
     [x3, y3] = [ray[1][0], ray[1][1]]
 
     # Relative location =======================================================
-    return (
-        x2 >= min(x1, x3) 
-        and x2 <= max(x1, x3) 
-        and y2 >= min(y1, y3) 
-        and y2 <= max(y1, y3)
-    ) or (
-        x3 >= min(x1, x2) 
-        and x3 <= max(x1, x2) 
-        and y3 >= min(y1, y2) 
-        and y3 <= max(y1, y2)
-    )
+    return (math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2) >= math.sqrt((x2 - x3) ** 2 + (y2 - y3) ** 2))
 
 def isPtOnPolyEdge(
     pt:         "2-tuple of coordinate (x, y)",

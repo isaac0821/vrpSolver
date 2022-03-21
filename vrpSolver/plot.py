@@ -6,73 +6,6 @@ from .geometry import *
 from .msg import *
 from .weather import *
 
-def TSPSeq2Gantt(
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None, 
-    depotID:    "Depot ID (serviceTime will not apply)" = 0,
-    entityID:   "Truck" = 'Truck',
-    edges:      "1) String (default) 'Euclidean' or \
-                 2) String 'LatLon' or \
-                 3) Dictionary {(nodeID1, nodeID2): dist, ...}" = "Euclidean",
-    edgeArgs:   "If choose 'Grid' as tau option, we need to provide the following dictionary \
-                {\
-                    'colRow': (numCol, numRow),\
-                    'barriers': [(coordX, coordY), ...], \
-                }" = None,
-    truckSeq:     "Travel sequence" = None,
-    serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0,
-    ) -> "Given a TSP result, returns the gantt dictionary for plotGantt()":
-
-    # Define tau ==============================================================
-    tau = {}
-    if (type(edges) is not dict):
-        if (tau == 'Euclidean'):
-            tau = getTauEuclidean(nodes, nodeIDs)
-        elif (tau == 'LatLon'):
-            tau = getTauLatLon(nodes, nodeIDs)
-        elif (tau == 'Grid'):
-            tau = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
-        else:
-            print(ERROR_INCOR_TAU)
-            return None
-    else:
-        tau = dict(edges)
-
-    # Process TSP sequence ====================================================
-    ganttTSP = []
-    acc = 0
-    for i in range(len(truckSeq) - 2):
-        dt = tau[truckSeq[i], truckSeq[i + 1]]
-        ganttTSP.append({
-                'entityID': entityID,
-                'timeWindow': [acc, acc + dt],
-                'desc': 'cus_' + str(truckSeq[i + 1]),
-                'color': 'lightgreen',
-                'style': '///'
-            })
-        ganttTSP.append({
-                'entityID': entityID,
-                'timeWindow': [acc + dt, acc + dt + serviceTime],
-                'desc': '',
-                'color': 'lightgray',
-                'style': '////'
-            })
-        acc += dt + serviceTime
-    dt = tau[truckSeq[-2], truckSeq[-1]]
-    ganttTSP.append({
-            'entityID': entityID,
-            'timeWindow': [acc, acc + dt],
-            'desc': 'Return',
-            'color': 'lightgreen',
-            'style': '///'
-        })
-
-    return ganttTSP
-
 def plotGrid(
     fig:        "Based matplotlib figure object" = None,
     ax:         "Based matplotlib ax object" = None,
@@ -267,8 +200,8 @@ def plotWinds(
     for w in range(len(winds)):
         arrowMidX = (winds[w]['startTime'] + winds[w]['endTime']) / 7200 + startOfDay
         arrowMidY = winds[w]['windSpd'] + 0.7
-        dx = math.sin(math.radians(winds[w]['windDeg'] + 180)) * 0.25
-        dy = math.cos(math.radians(winds[w]['windDeg'] + 180)) * 0.25
+        dx = math.sin(math.radians(winds[w]['windDeg'])) * 0.25
+        dy = math.cos(math.radians(winds[w]['windDeg'])) * 0.25
         ax.arrow(
             x = arrowMidX - dx / 2, 
             y = arrowMidY - dy / 2, 
@@ -356,7 +289,7 @@ def plotCloudsInTime(
                 edgeColor = 'black',
                 fillColor = 'gray',
                 fillStyle = '///',
-                opacity = 0.3,
+                opacity = 0.8,
                 poly = currentCloudPosition,
                 xyReverseFlag = True)
     plt.close(fig)
@@ -372,7 +305,7 @@ def plotCloudsInTime(
 def plotRoadNetwork(
     fig:        "Based matplotlib figure object" = None,
     ax:         "Based matplotlib ax object" = None,
-    roadNetowrk: "A road network dictionary" = None,
+    roadNetwork: "A road network dictionary" = None,
     linewidth:  "Width of arcs" = 1,
     color:      "1) String 'Random', or\
                  2) String, color" = 'black',
@@ -394,8 +327,8 @@ def plotRoadNetwork(
         fig, ax = plt.subplots()
         allX = []
         allY = []
-        for road in roadNetowrk:
-            for pt in roadNetowrk[road]['line']:
+        for road in roadNetwork:
+            for pt in roadNetwork[road]['line']:
                 allX.append(pt[1])
                 allY.append(pt[0])
         if (xMin == None):
@@ -421,10 +354,10 @@ def plotRoadNetwork(
         ax.set_ylim(yMin, yMax)
 
     # Get the x, y list =======================================================
-    for road in roadNetowrk:
+    for road in roadNetwork:
         x = []
         y = []
-        for pt in roadNetowrk[road]['line']:
+        for pt in roadNetwork[road]['line']:
             x.append(pt[1])
             y.append(pt[0])
         edgeColor = color
@@ -603,13 +536,13 @@ def plotGantt(
         entities = [i for i in entList]
 
     # Check overwritten fields ================================================
-    if (startTime != None and startTime > realStart):
-        startTime = realStart
+    if (startTime != None):
+        startTime = startTime
     else:
         startTime = realStart
 
-    if (endTime != None and endTime < realEnd):
-        endTime = realEnd
+    if (endTime != None):
+        endTime = endTime
     else:
         endTime = realEnd
 
@@ -678,9 +611,7 @@ def plotGantt(
     if (showTail):
         xTicks = list(ax.get_xticks())
         xTicks.append(realEnd)
-        ax.set_xticks(xTicks)
-
-    
+        ax.set_xticks(xTicks)  
 
     # Fix height if fig, ax are not provided ==================================
     if (fig == None or ax == None):
@@ -689,8 +620,6 @@ def plotGantt(
     # Save figure =============================================================
     if (saveFigPath != None):
         fig.savefig(saveFigPath)
-    if (not showFig):
-        plt.close(fig)
     if (not showFig):
         plt.close(fig)
     return fig, ax

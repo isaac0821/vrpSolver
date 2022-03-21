@@ -1,4 +1,4 @@
-__version__ = "0.0.42"
+__version__ = "0.0.45"
 __author__ = "Lan Peng"
 
 '''
@@ -57,6 +57,8 @@ __author__ = "Lan Peng"
 # v0.0.42 - 01302022 - Fix the issue with service time in `ipTSP()` and `heuTSP()`
 #                      Remove `lbTSP()` (for now, will be added back)
 # v0.0.43 - 01312022 - Fix the `heuTSP()` with ATSP
+# v0.0.44 - 02252022 - Runtime optimization
+# v0.0.45 - 03062022 - Post process of TSP
 # =============================================================================
 '''
 
@@ -89,7 +91,7 @@ from .warehouse import *
 # TSP
 from .ipTSP import *
 from .heuTSP import *
+from .analysisTSP import *
 
 # VRP
 # from .ipVRP import *	# Debugging
-from .heuVRP import * # Working

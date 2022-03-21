@@ -24,16 +24,6 @@ from .const import *
 #     cloud-sky-cloud-sky-cloud) can be directly connected locally with a variation in 
 #     irradiance measurement over time (e.g., a periodic measure of dark-bright-dark-bright-dark).
 # Ref: https://www.e-education.psu.edu/eme810/node/583
-
-# Key parameters --------------------------------------------------------------
-# Average speed of meteorological phenomena: 17 m/s
-# Four types of meteorological phenomena and their scale:
-# - Cumulus: 2-5 km, 10-100 minutes
-# - Cumulonimbus: 10-200 km, 1-5 hours
-# - Cumulonimbus cluster: 50-1000 km, 3-36 hours
-# - Synoptic: 1000-400000 km, 2-15+ days
-# We only consider: 1) Cumulus, 2) Cumulonimbus, and 3) Cumulus + Cumulonimbus (?) situations, 
-#     the other two are too large
 '''
 
 def getCloudCurrentPosition(
@@ -116,10 +106,10 @@ def getSegCoverByCloudsTW(
             else:
                 # Then, if this loc is not inside, try to see if it can be covered            
                 tryCoverTW = getLocCoverByCloudsTW([cloud], curLoc)
-                
                 if (len(tryCoverTW) > 0):
                     tmpTW = tryCoverTW[0] # There should be only one time window
                     intersectFlag = True
+                    # print(curLoc)
                 else:
                     if (remainDist > distInterval):
                         remainDist -= distInterval
@@ -135,7 +125,7 @@ def getSegCoverByCloudsTW(
                 # print("Left")
                 tsLeft = cloud['appearTime']         # Suppose to be not covered
                 teLeft = tmpTW[0]   # Suppose to be covered
-                while (teLeft - tsLeft > 2): # Search until the 1 sec of precision
+                while (teLeft - tsLeft > 1): # Search until the 1 sec of precision
                     tmLeft = (teLeft - tsLeft) / 2 + tsLeft
                     curCloud = getCloudCurrentPosition(cloud, tmLeft)
                     segIntCloud = isSegCrossPoly([loc1, loc2], curCloud)
@@ -149,7 +139,7 @@ def getSegCoverByCloudsTW(
                 # print("Right")
                 tsRight = tmpTW[1]
                 teRight = cloud['appearTime'] + cloud['existDur']
-                while (teRight - tsRight > 2):
+                while (teRight - tsRight > 1):
                     tmRight = (teRight - tsRight) / 2 + tsRight
                     curCloud = getCloudCurrentPosition(cloud, tmRight)
                     segIntCloud = isSegCrossPoly([loc1, loc2], curCloud)

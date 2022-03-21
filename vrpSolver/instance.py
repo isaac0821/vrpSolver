@@ -120,6 +120,7 @@ def rndPlainNodes(
             return
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
+            print(distrArgs['poly'])
             nodes[n] = {
                 'loc': getRndPtUniformPoly(distrArgs['poly'])
             }
@@ -339,13 +340,15 @@ def rndWinds(
     degSpread:  "Wind direction difference in 10th to 90th percentile bonds" = None,
     degPattern: "1) String, 'Consistent' or, \
                  2) String, 'Normal' or, \
-                 3) String, 'Swap'" = None,
+                 3) String, 'Swap' or, \
+                 4) String, 'Uniform'" = None,
     spdAvg:     "Average wind speed" = None,
     spdSpread:  "Wind speed difference in 10th to 90th percentile bonds" = None,
     spdPattern: "1) String, 'Consistent' or, \
                  2) String, 'Increasing'  or, \
                  3) String, 'Decreasing' or, \
-                 4) String, 'Normal' or" = None,
+                 4) String, 'Normal' or, \
+                 5) String, 'Uniform'" = None,
     duration:   "Time window of creating wind dictionaries" = [0, None],
     sampleInt:  "Interval between sampling in [sec]" = 3600
     ) -> "Generate a list of wind dictionaries":
@@ -371,6 +374,8 @@ def rndWinds(
             deg = random.normalvariate(degAvg, degSpread / 1.28) # 10th to 90th percentile bonds
         elif (degPattern == 'Swap'):
             deg = degAvg - degSpread + w * (2 * degSpread / len(winds))
+        elif (degPattern == 'Uniform'):
+            deg = random.uniform(degAvg - degSpread, degAvg + degSpread)
         winds[w]['windDeg'] = deg
     
     # Speed ===================================================================
@@ -388,18 +393,31 @@ def rndWinds(
             spd = random.normalvariate(spdAvg, spdSpread / 1.28)
             while (spd <= 0):
                 spd = random.normalvariate(spdAvg, spdSpread / 1.28)
+
+        elif (spdPattern == 'Uniform'):
+            spd = random.uniform(spdAvg - spdSpread, spdAvg + spdSpread)
         winds[w]['windSpd'] = spd
 
     return winds
 
 def rndClouds(
     polyLatLon: "The polygon that clouds will be covering" = None,
-    cloudMode:  "1) String, 'Cumulus', or\
-                 2) String, 'Cumulonimbus'" = 'Cumulus',
+    cloudSize:  "Size of the clouds, e.g., [3000, 12000], in [m, m]" = None,
+    cloudShape: "Overwrite cloudSize, if provided, it will be the shape of the clouds" = None,
+    cloudDur:   "Exist duration of clouds, e.g., [1200, 1800], in [sec, sec]" = None,
     cloudDeg:   "The direction of where the clouds are entering" = [CLOUD_SPD_DEG_RANGE[0], CLOUD_SPD_DEG_RANGE[1]],
+    cloudOri:   "Orientation of the cloud, if provided as None, the orientation will be randomized" = None,
     numOfClouds: "Total number of clouds" = None,
     duration:   "Duration of the instance, in [sec]" = [0, 36000],
     ) -> "Given a polygon, returns a list of clouds that move through the polygon":
+
+    # Key parameters ==========================================================
+    # Average speed of meteorological phenomena: 17 m/s
+    # Four types of meteorological phenomena and their scale:
+    # - Cumulus: 2-5 km, 10-100 minutes
+    # - Cumulonimbus: 10-200 km, 1-5 hours
+    # - Cumulonimbus cluster: 50-1000 km, 3-36 hours
+    # - Synoptic: 1000-400000 km, 2-15+ days
 
     # Time stamps =============================================================
     appearTime = []
@@ -419,37 +437,45 @@ def rndClouds(
         # Size of cloud -------------------------------------------------------
         widthInMeter = None
         lengthInMeter = None
-        if (cloudMode == 'Cumulus'):
-            widthInMeter = random.randrange(CLOUD_CUMULUS_SIZE[0], CLOUD_CUMULUS_SIZE[1])
-            lengthInMeter = random.randrange(CLOUD_CUMULUS_SIZE[0], CLOUD_CUMULUS_SIZE[1])
-            existDur = random.randrange(CLOUD_CUMULUS_DURATION[0], CLOUD_CUMULUS_DURATION[1])
-        elif (cloudMode == 'Cumulonimbus'):
-            widthInMeter = random.randrange(CLOUD_CUMULONIMBUS_SIZE[0], CLOUD_CUMULONIMBUS_SIZE[1])
-            lengthInMeter = random.randrange(CLOUD_CUMULONIMBUS_SIZE[0], CLOUD_CUMULONIMBUS_SIZE[1])
-            existDur = random.randrange(CLOUD_CUMULONIMBUS_DURATION[0], CLOUD_CUMULONIMBUS_DURATION[1])
+        if (cloudShape != None and type(cloudShape) == list):
+            widthInMeter = cloudShape[0]
+            lengthInMeter = cloudShape[1]
+        elif (cloudSize != None and type(cloudSize) == list):
+            widthInMeter = random.randrange(cloudSize[0], cloudSize[1])
+            lengthInMeter = random.randrange(cloudSize[0], cloudSize[1])
 
-        # Entering locations --------------------------------------------------
-        enteringDist = math.sqrt(widthInMeter**2 + lengthInMeter**2)
+        # Moving direction ----------------------------------------------------
+        direction = None
+        if (cloudDeg != None and type(cloudDeg) == list):
+            direction = random.randrange(cloudDeg[0], cloudDeg[1])
+        elif (type(cloudDeg) == int or type(cloudDeg) == float):
+            direction = cloudDeg
 
-        # Initial location of the cloud ---------------------------------------
-        direction = random.randrange(cloudDeg[0], cloudDeg[1])
+        # Existing duration ---------------------------------------------------
+        existDur = None
+        if (cloudDur != None and type(cloudDur) == list):
+            existDur = random.randrange(cloudDur[0], cloudDur[1])
+        elif (type(cloudDur) == int or type(cloudDur) == float):
+            existDur = cloudDur
+
+        # Initial location of the cloud ---------------------------------------        
         enterLoc = pointInDistLatLon(
             pt = cloudCentroid[t]['loc'],
             direction = direction - 180,
-            distMeters = enteringDist + CONST_EPSILON)
+            distMeters = math.sqrt(widthInMeter**2 + lengthInMeter**2) + CONST_EPSILON)
         
         # Cloud generation ----------------------------------------------------
         initPolyLatLon = rectInWidthLengthOrientationLatLon(
             centroidLatLon = enterLoc,
             widthInMeter = widthInMeter,
             lengthInMeter = lengthInMeter,
-            oriDeg = random.randrange(-45, 45))        
+            oriDeg = random.randrange(-45, 45) if cloudOri == None else cloudOri)        
         clouds.append({
             'appearTime': appearTime[t],
             'initPolyLatLon': initPolyLatLon,
             'widthInMeter': widthInMeter,
             'lengthInMeter': lengthInMeter,
-            'movingVecPolar': (random.uniform(CLOUD_SPD_ABS_RANGE[0], CLOUD_SPD_ABS_RANGE[1]), direction),
+            'movingVecPolar': (17, direction), # cloud moving speed: 17 m/s
             'existDur': existDur
         })
 
