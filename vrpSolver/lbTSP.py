@@ -80,7 +80,7 @@ def lbTSP(
             'subgradM': 1,
             'subgradRho': 0.95,
             'stopType': 'Epsilon',
-            'stopEpsilon': 0.001,
+            'stopEpsilon': 0.01,
             'stopK': 200,
             'stopRuntime': 600
         }
@@ -194,6 +194,7 @@ def lbTSP(
 
         return {
             'lowerBound': costSum,
+            'm1t': m1t,
             'runtime': (datetime.datetime.now() - startTime).total_seconds()
         }
 
