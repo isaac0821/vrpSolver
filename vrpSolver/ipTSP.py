@@ -53,11 +53,11 @@ def ipTSP(
     # Define tau ==============================================================
     tau = {}
     if (type(edges) is not dict):
-        if (tau == 'Euclidean'):
+        if (edges == 'Euclidean'):
             tau = getTauEuclidean(nodes, nodeIDs)
-        elif (tau == 'LatLon'):
+        elif (edges == 'LatLon'):
             tau = getTauLatLon(nodes, nodeIDs)
-        elif (tau == 'Grid'):
+        elif (edges == 'Grid'):
             tau = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
         else:
             print(ERROR_INCOR_TAU)

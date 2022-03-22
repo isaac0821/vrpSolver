@@ -5,6 +5,7 @@ from .const import *
 from .common import *
 from .graph import *
 from .geometry import *
+from .msg import *
 
 def heuTSP(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
@@ -67,11 +68,11 @@ def heuTSP(
     # Define tau ==============================================================
     tau = {}
     if (type(edges) is not dict):
-        if (tau == 'Euclidean'):
+        if (edges == 'Euclidean'):
             tau = getTauEuclidean(nodes, nodeIDs)
-        elif (tau == 'LatLon'):
+        elif (edges == 'LatLon'):
             tau = getTauLatLon(nodes, nodeIDs)
-        elif (tau == 'Grid'):
+        elif (edges == 'Grid'):
             tau = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
         else:
             print(ERROR_INCOR_TAU)
@@ -108,6 +109,7 @@ def heuTSP(
             algo = impAlgo)
 
     # Fix the sequence to make it start from and end with the depot ===========
+    # NOTE: nodeID gets duplicated, if nodeID == 0, the sequence starts and ends with a 0
     startIndex = None
     truckSeq = []
     for k in range(len(seq)):
