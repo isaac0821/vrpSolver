@@ -85,8 +85,9 @@ def ipVRP(
 
         # Choose objective function -------------------------------------------
         if (obj == 'Makespan'):
+            CVRP.setObjective(grb.quicksum())
+        elif (obj == 'TotalCost'):
 
-        elif (obj == )
 
         # CVRP objective function ---------------------------------------------
         CVRP.modelSense = grb.GRB.MINIMIZE

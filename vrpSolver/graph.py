@@ -85,7 +85,7 @@ def traversalGraph(
     neighbors = arcs2AdjList(arcs)
 
     # Subroutines =============================================================
-    def _traversalGraphDepthFirst():
+    def _traversalGraphDepthFirst(oID):
         visited = []        
         # Visit neighbors that has not been visited ---------------------------
         def _visitNode(nodeID):
@@ -105,7 +105,7 @@ def traversalGraph(
     # Solve by different algorithms ===========================================
     res = None
     if (algo == 'DepthFirst'):
-        res = _traversalGraphDepthFirst()
+        res = _traversalGraphDepthFirst(oID)
     return res
 
 def gridPathFinding(

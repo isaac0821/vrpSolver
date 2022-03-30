@@ -20,7 +20,6 @@ setuptools.setup(
 	download_url = "https://github.com/isaac0821/vrpSolver",
 	project_urls={
 		"Bug Tracker": "https://github.com/isaac0821/vrpSolver/issues",
-		"Documentation": "https://veroviz.org",
 		"Source Code": "https://github.com/isaac0821/vrpSolver",
 	},
 	python_requires='>=3',
