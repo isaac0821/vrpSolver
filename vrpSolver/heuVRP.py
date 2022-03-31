@@ -10,8 +10,8 @@ from .msg import *
 def heuVRP(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
+                        nodeID1: {'loc': (x, y), 'demand': 1, ...}, \
+                        nodeID2: {'loc': (x, y), 'demand': 1, ...}, \
                         ... \
                     }" = None, 
     edges:      "1) String (default) 'Euclidean' or \

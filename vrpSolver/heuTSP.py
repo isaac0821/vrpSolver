@@ -17,7 +17,7 @@ def heuTSP(
     edges:      "1) String (default) 'Euclidean' or \
                  2) String 'LatLon' or \
                  3) Dictionary {(nodeID1, nodeID2): dist, ...} or \
-                 4) String 'Grid', will need to add arguments using `edgeArgs`"= "Euclidean",
+                 4) String 'Grid', will need to add arguments using `edgeArgs`" = "Euclidean",
     edgeArgs:   "If choose 'Grid' as tau option, we need to provide the following dictionary \
                     {\
                         'colRow': (numCol, numRow),\
@@ -52,7 +52,7 @@ def heuTSP(
     locImpFlag: "True if call local improvement to improve solution quality" = True,
     impAlgo:    "1) String (not available) 'LKH' or \
                  2) String (default) '2Opt'" = '2Opt',
-    impAlgoArgs: "Dictionary, args for improvement heuristic" = None,
+    impAlgoArgs: "Dictionary, args for improvement heuristic" = None
     ) -> "Use given heuristic methods to get TSP solution":
 
     # Define nodeIDs ==========================================================
