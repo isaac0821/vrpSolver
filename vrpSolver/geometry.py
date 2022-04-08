@@ -728,8 +728,9 @@ def getRndPtRoadNetworkCircle(
                     roadID: {\
                         'line': [[lat, lon], [lat, lon], ...]\
                     }\
-                }" = None,
-    circle:     "Dictionary, {'centerLoc': centerLoc; 'radius': radius in [m]}" = None,
+                }" = None,\
+    centerLoc:  "Center location" = None,
+    radius:     "Radius in [m]" = None
     ) -> "Given a road network, generate customers that locates on the road network":
     
     # Calculate the length of each edge =======================================
@@ -738,13 +739,10 @@ def getRndPtRoadNetworkCircle(
     for road in roadNetwork:
         roadLength = 0
         includedFlag = False
-        if (circle == None):
-            includedFlag = True
-        else:
-            for i in range(len(roadNetwork[road]['line'])):
-                if (distLatLon(roadNetwork[road]['line'][i], circle['centerLoc']) <= circle['radius']):
-                    includedFlag = True
-                    break
+        for i in range(len(roadNetwork[road]['line'])):
+            if (distLatLon(roadNetwork[road]['line'][i], centerLoc) <= radius):
+                includedFlag = True
+                break
 
         # Check if this road is inside polygon
         if (includedFlag):
@@ -772,7 +770,7 @@ def getRndPtRoadNetworkCircle(
             edgeLength = lengths[idx]
             edgeDist = random.uniform(0, 1) * edgeLength
             (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['line'], edgeDist)
-            if (distLatLon([lat, lon], circle['centerLoc']) <= circle['radius']):
+            if (distLatLon([lat, lon], centerLoc) <= radius):
                 insideFlag = True
         nodeLocs.append((lat, lon))
     return nodeLocs

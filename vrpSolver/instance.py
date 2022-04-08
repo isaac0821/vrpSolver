@@ -157,7 +157,7 @@ def rndPlainNodes(
 
         # Create nodes --------------------------------------------------------
         nodeLocs = getRndPtRoadNetworkPoly(
-            N,
+            N if N != None else len(nodeIDs),
             distrArgs['roadNetwork'], 
             distrArgs['poly'] if 'poly' in distrArgs else None)
         for n in range(len(nodeIDs)):
@@ -173,15 +173,16 @@ def rndPlainNodes(
         if ('roadNetwork' not in distrArgs):
             print(ERROR_MISSING_DISTRARGS_UNIROADNETWORK)
             return
-        if ('circle' not in distrArgs):
+        if ('centerLoc' not in distrArgs or 'radius' not in distrArgs):
             print("Missing circle definition")
             return
 
         # Create nodes --------------------------------------------------------
         nodeLocs = getRndPtRoadNetworkCircle(
-            N,
+            N if N != None else len(nodeIDs),
             distrArgs['roadNetwork'], 
-            distrArgs['circle'])
+            distrArgs['centerLoc'],
+            distrArgs['radius'])
         for n in range(len(nodeIDs)):
             nodes[nodeIDs[n]] = {
                 'loc': nodeLocs[n]
