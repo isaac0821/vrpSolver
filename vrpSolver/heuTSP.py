@@ -49,9 +49,8 @@ def heuTSP(
                     {\
                         'initSeq': initial TSP route\
                     }"= None,
-    locImpFlag: "True if call local improvement to improve solution quality" = True,
     impAlgo:    "1) String (not available) 'LKH' or \
-                 2) String (default) '2Opt'" = '2Opt',
+                 2) String (default) '2Opt'" = None,
     impAlgoArgs: "Dictionary, args for improvement heuristic" = None
     ) -> "Use given heuristic methods to get TSP solution":
 
@@ -327,9 +326,8 @@ def heuTSP(
             return impSeq
 
     # Heuristics that don't need to transform arc representation ==============
-    if (locImpFlag):
-        if (impAlgo == '2Opt'):
-            seq = _impTSP2Opt(nodeIDs, tau, seq)
+    if (impAlgo == '2Opt'):
+        seq = _impTSP2Opt(nodeIDs, tau, seq)
 
     # Fix the sequence to make it start from and end with the depot ===========
     # NOTE: nodeID gets duplicated, if nodeID == 0, the sequence starts and ends with a 0

@@ -595,7 +595,7 @@ def getPerpendicularLine(
 def getHeadingXY(
     pt1:        "Current location", 
     pt2:        "Targeted location"
-    ) -> "Given current location and a goal location, calculate the heading. Up is 0-degrees, clock-wise":
+    ) -> "Given current location and a goal location, calculate the heading. North is 0-degrees, clock-wise":
     
     vec = (pt2[0] - pt1[0], pt2[1] - pt1[1])
     (_, vDeg) = vecXY2Polar(vec)
@@ -605,7 +605,7 @@ def getHeadingXY(
 def getHeadingLatLon(
     pt1:        "Current location as in [lat, lon]", 
     pt2:        "Target location as in [lat, lon]"
-    ) -> "Given current location and a goal location, calculate the heading. Up is 0-degrees, clock-wise":
+    ) -> "Given current location and a goal location, calculate the heading. North is 0-degrees, clock-wise":
     # Ref: https://github.com/manuelbieh/Geolib/issues/28
     (lat1, lon1) = pt1
     (lat2, lon2) = pt2
@@ -620,7 +620,6 @@ def getHeadingLatLon(
             dLon = -(2.0 * math.pi - dLon)
         else:
             dLon = (2.0 * math.pi + dLon)
-
     tan1 = math.tan(lat1 / 2.0 + math.pi / 4.0)
     tan2 = math.tan(lat2 / 2.0 + math.pi / 4.0)
     phi = math.log(tan2 / tan1)
@@ -660,14 +659,15 @@ def getMileageInPathLatLon(
 
     return locInMileage
 
-def getRndPtRoadNetwork(
+def getRndPtRoadNetworkPoly(
+    N:          "Number of nodes" = 1,
     roadNetwork: "Dictionary of road network in the format of \
                 {\
                     roadID: {\
                         'line': [[lat, lon], [lat, lon], ...]\
                     }\
                 }" = None,
-    poly:       "Nodes should also within this polygon" = None
+    poly:       "Nodes should also within this polygon" = None,
     ) -> "Given a road network, generate customers that locates on the road network":
     
     # Calculate the length of each edge =======================================
@@ -700,24 +700,82 @@ def getRndPtRoadNetwork(
 
     # Use accept-denial to test if the node is within poly ====================
     # FIXME: Inefficient approach, will need to be rewritten
-    lat = None
-    lon = None
-    if (poly == None):
-        idx = rndPick(lengths)
-        edgeLength = lengths[idx]
-        edgeDist = random.uniform(0, 1) * edgeLength
-        (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['line'], edgeDist)
-    else:
+    nodeLocs = []
+    for i in range(N):
+        lat = None
+        lon = None
+        if (poly == None):
+            idx = rndPick(lengths)
+            edgeLength = lengths[idx]
+            edgeDist = random.uniform(0, 1) * edgeLength
+            (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['line'], edgeDist)
+        else:
+            insideFlag = False
+            while (not insideFlag):
+                idx = rndPick(lengths)
+                edgeLength = lengths[idx]
+                edgeDist = random.uniform(0, 1) * edgeLength
+                (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['line'], edgeDist)
+                if (isPtOnPoly([lat, lon], poly)):
+                    insideFlag = True
+        nodeLocs.append((lat, lon))
+    return nodeLocs
+
+def getRndPtRoadNetworkCircle(
+    N:          "Number of nodes" = 1,
+    roadNetwork: "Dictionary of road network in the format of \
+                {\
+                    roadID: {\
+                        'line': [[lat, lon], [lat, lon], ...]\
+                    }\
+                }" = None,
+    circle:     "Dictionary, {'centerLoc': centerLoc; 'radius': radius in [m]}" = None,
+    ) -> "Given a road network, generate customers that locates on the road network":
+    
+    # Calculate the length of each edge =======================================
+    lengths = []
+    roadIDs = []
+    for road in roadNetwork:
+        roadLength = 0
+        includedFlag = False
+        if (circle == None):
+            includedFlag = True
+        else:
+            for i in range(len(roadNetwork[road]['line'])):
+                if (distLatLon(roadNetwork[road]['line'][i], circle['centerLoc']) <= circle['radius']):
+                    includedFlag = True
+                    break
+
+        # Check if this road is inside polygon
+        if (includedFlag):
+            for i in range(len(roadNetwork[road]['line']) - 1):
+                roadLength += distLatLon(roadNetwork[road]['line'][i], roadNetwork[road]['line'][i + 1])
+            lengths.append(roadLength)            
+        else:
+            lengths.append(0)
+
+        roadIDs.append(road)
+
+    # Check if there are roads included =======================================
+    if (sum(lengths) == 0):
+        return None
+
+    # Use accept-denial to test if the node is within poly ====================
+    # FIXME: Inefficient approach, will need to be rewritten
+    nodeLocs = []
+    for i in range(N):
+        lat = None
+        lon = None
         insideFlag = False
         while (not insideFlag):
             idx = rndPick(lengths)
             edgeLength = lengths[idx]
             edgeDist = random.uniform(0, 1) * edgeLength
             (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['line'], edgeDist)
-            if (isPtOnPoly([lat, lon], poly)):
+            if (distLatLon([lat, lon], circle['centerLoc']) <= circle['radius']):
                 insideFlag = True
-
-    return (lat, lon)
+        nodeLocs.append((lat, lon))
+    return nodeLocs
 
 def getRndPtUniformSquare(
     xRange:    "The range of x coordinates" = (0, 100),

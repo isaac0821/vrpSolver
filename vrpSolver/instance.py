@@ -35,12 +35,20 @@ def rndPlainNodes(
                         'poly': polygon of the area, (no holes)\
                         (or 'polys': list of polygons) \
                     }\
-                 4) for 'uniformRoadNetwork'\
+                 4) for 'uniformRoadNetworkPoly'\
                     {\
                         'network': list of arcs that can be sampled \
                         'poly': nodes should generated within the polygon, if not provided, will consider the entire network \
                     }\
-                 5) for 'clustered\
+                 5) for 'uniformRoadNetworkCircle'\
+                    {\
+                        'network': list of arcs that can be sampled \
+                        'circle': {\
+                            'centerLoc': [lat, lon], \
+                            'radius': radius in [m] \
+                        }\
+                    }\
+                 6) for 'clustered\
                     {\
                         'numCluster': number of cluster centers\
                         'xRange': xRange of cluster centroid\
@@ -120,7 +128,6 @@ def rndPlainNodes(
             return
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
-            print(distrArgs['poly'])
             nodes[n] = {
                 'loc': getRndPtUniformPoly(distrArgs['poly'])
             }
@@ -139,7 +146,7 @@ def rndPlainNodes(
                 'loc': getRndPtUniformPolys(distrArgs['polys'])
             }
 
-    elif (distr == 'uniformRoadNetwork'):
+    elif (distr == 'uniformRoadNetworkPoly'):
         # Sanity check --------------------------------------------------------
         if (distrArgs == None):
             print(ERROR_MISSING_DISTRARGS)
@@ -149,11 +156,35 @@ def rndPlainNodes(
             return
 
         # Create nodes --------------------------------------------------------
-        for n in nodeIDs:
-            nodes[n] = {
-                'loc': getRndPtRoadNetwork(
-                    distrArgs['roadNetwork'], 
-                    distrArgs['poly'] if 'poly' in distrArgs else None)
+        nodeLocs = getRndPtRoadNetworkPoly(
+            N,
+            distrArgs['roadNetwork'], 
+            distrArgs['poly'] if 'poly' in distrArgs else None)
+        for n in range(len(nodeIDs)):
+            nodes[nodeIDs[n]] = {
+                'loc': nodeLocs[n]
+            }
+
+    elif (distr == 'uniformRoadNetworkCircle'):
+        # Sanity check --------------------------------------------------------
+        if (distrArgs == None):
+            print(ERROR_MISSING_DISTRARGS)
+            return
+        if ('roadNetwork' not in distrArgs):
+            print(ERROR_MISSING_DISTRARGS_UNIROADNETWORK)
+            return
+        if ('circle' not in distrArgs):
+            print("Missing circle definition")
+            return
+
+        # Create nodes --------------------------------------------------------
+        nodeLocs = getRndPtRoadNetworkCircle(
+            N,
+            distrArgs['roadNetwork'], 
+            distrArgs['circle'])
+        for n in range(len(nodeIDs)):
+            nodes[nodeIDs[n]] = {
+                'loc': nodeLocs[n]
             }
 
     elif (distr == 'clusterXY'):
