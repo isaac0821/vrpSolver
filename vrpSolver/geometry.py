@@ -342,7 +342,7 @@ def distPt2Line(
 
     # Validation ==============================================================
     if (is2PtsSame(line[0], line[1])):
-        print(ERROR_ZERO_VECTOR)
+        msgError(ERROR_ZERO_VECTOR)
         return None
     
     # Initialize ==============================================================
@@ -369,7 +369,7 @@ def distPt2Seg(
     
     # Validation ==============================================================
     if (is2PtsSame(line[0], line[1])):
-        print(ERROR_ZERO_VECTOR)
+        msgError(ERROR_ZERO_VECTOR)
         return None
 
     # Initialize ==============================================================
@@ -659,227 +659,6 @@ def getMileageInPathLatLon(
 
     return locInMileage
 
-def getRndPtRoadNetworkPoly(
-    N:          "Number of nodes" = 1,
-    roadNetwork: "Dictionary of road network in the format of \
-                {\
-                    roadID: {\
-                        'line': [[lat, lon], [lat, lon], ...]\
-                    }\
-                }" = None,
-    poly:       "Nodes should also within this polygon" = None,
-    ) -> "Given a road network, generate customers that locates on the road network":
-    
-    # Calculate the length of each edge =======================================
-    lengths = []
-    roadIDs = []
-    for road in roadNetwork:
-        roadLength = 0
-        includedFlag = False
-        if (poly == None):
-            includedFlag = True
-        else:
-            for i in range(len(roadNetwork[road]['line'])):
-                if (isPtOnPoly(roadNetwork[road]['line'][i], poly)):
-                    includedFlag = True
-                    break
-
-        # Check if this road is inside polygon
-        if (includedFlag):
-            for i in range(len(roadNetwork[road]['line']) - 1):
-                roadLength += distLatLon(roadNetwork[road]['line'][i], roadNetwork[road]['line'][i + 1])
-            lengths.append(roadLength)            
-        else:
-            lengths.append(0)
-
-        roadIDs.append(road)
-
-    # Check if there are roads included =======================================
-    if (sum(lengths) == 0):
-        return None
-
-    # Use accept-denial to test if the node is within poly ====================
-    # FIXME: Inefficient approach, will need to be rewritten
-    nodeLocs = []
-    for i in range(N):
-        lat = None
-        lon = None
-        if (poly == None):
-            idx = rndPick(lengths)
-            edgeLength = lengths[idx]
-            edgeDist = random.uniform(0, 1) * edgeLength
-            (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['line'], edgeDist)
-        else:
-            insideFlag = False
-            while (not insideFlag):
-                idx = rndPick(lengths)
-                edgeLength = lengths[idx]
-                edgeDist = random.uniform(0, 1) * edgeLength
-                (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['line'], edgeDist)
-                if (isPtOnPoly([lat, lon], poly)):
-                    insideFlag = True
-        nodeLocs.append((lat, lon))
-    return nodeLocs
-
-def getRndPtRoadNetworkCircle(
-    N:          "Number of nodes" = 1,
-    roadNetwork: "Dictionary of road network in the format of \
-                {\
-                    roadID: {\
-                        'line': [[lat, lon], [lat, lon], ...]\
-                    }\
-                }" = None,\
-    centerLoc:  "Center location" = None,
-    radius:     "Radius in [m]" = None
-    ) -> "Given a road network, generate customers that locates on the road network":
-    
-    # Calculate the length of each edge =======================================
-    lengths = []
-    roadIDs = []
-    for road in roadNetwork:
-        roadLength = 0
-        includedFlag = False
-        for i in range(len(roadNetwork[road]['line'])):
-            if (distLatLon(roadNetwork[road]['line'][i], centerLoc) <= radius):
-                includedFlag = True
-                break
-
-        # Check if this road is inside polygon
-        if (includedFlag):
-            for i in range(len(roadNetwork[road]['line']) - 1):
-                roadLength += distLatLon(roadNetwork[road]['line'][i], roadNetwork[road]['line'][i + 1])
-            lengths.append(roadLength)            
-        else:
-            lengths.append(0)
-
-        roadIDs.append(road)
-
-    # Check if there are roads included =======================================
-    if (sum(lengths) == 0):
-        return None
-
-    # Use accept-denial to test if the node is within poly ====================
-    # FIXME: Inefficient approach, will need to be rewritten
-    nodeLocs = []
-    for i in range(N):
-        lat = None
-        lon = None
-        insideFlag = False
-        while (not insideFlag):
-            idx = rndPick(lengths)
-            edgeLength = lengths[idx]
-            edgeDist = random.uniform(0, 1) * edgeLength
-            (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['line'], edgeDist)
-            if (distLatLon([lat, lon], centerLoc) <= radius):
-                insideFlag = True
-        nodeLocs.append((lat, lon))
-    return nodeLocs
-
-def getRndPtUniformSquare(
-    xRange:    "The range of x coordinates" = (0, 100),
-    yRange:    "The range of y coordinates" = (0, 100)
-    ) -> "Given the range of x, y, returns a random point in the square defined by the ranges":
-    x = random.randrange(xRange[0], xRange[1])
-    y = random.randrange(yRange[0], yRange[1])
-    return (x, y)
-
-def getRndPtUniformTriangle(
-    triangle:   "The triangle for generating random points" = None
-    ) -> "Given a triangle, generate a random point in the triangle uniformly":
-    
-    # Get three extreme points ================================================
-    [x1, y1] = triangle[0]
-    [x2, y2] = triangle[1]
-    [x3, y3] = triangle[2]
-
-    # Generate random points ==================================================
-    rndR1 = random.uniform(0, 1)
-    rndR2 = random.uniform(0, 1)
-    x = (1 - math.sqrt(rndR1)) * x1 + math.sqrt(rndR1) * (1 - rndR2) * x2 + math.sqrt(rndR1) * rndR2 * x3
-    y = (1 - math.sqrt(rndR1)) * y1 + math.sqrt(rndR1) * (1 - rndR2) * y2 + math.sqrt(rndR1) * rndR2 * y3
-
-    return (x, y)
-
-def getRndPtUniformPoly(
-    poly:       "The polygon for generating random points" = None
-    ) -> "Given a polygon, generate a random point in the polygons uniformly":
-
-    # Get list of triangles ===================================================
-    lstTriangle = tripy.earclip(poly)
-
-    # Weight them and make draws ==============================================
-    lstWeight = []
-    for i in range(len(lstTriangle)):
-        lstWeight.append(calTriangleAreaByCoords(lstTriangle[i][0], lstTriangle[i][1], lstTriangle[i][2]))
-
-    # Select a triangle and randomize a point in the triangle =================
-    idx = rndPick(lstWeight)
-    (x, y) = getRndPtUniformTriangle(lstTriangle[idx])
-
-    return (x, y)
-
-def getRndPtUniformPolys(
-    polys:       "A list of polygons for generating random points" = None
-    ) -> "Given a list of polygons, generate a random point in the polygons uniformly":
-
-    # Get all triangulated triangles ==========================================
-    lstTriangle = []
-    for p in polys:
-        lstTriangle.extend(tripy.earclip(p))
-
-    # Weight them and make draws ==============================================
-    lstWeight = []
-    for i in range(len(lstTriangle)):
-        lstWeight.append(calTriangleAreaByCoords(lstTriangle[i][0], lstTriangle[i][1], lstTriangle[i][2]))
-
-    # Select a triangle and randomize a point in the triangle =================
-    idx = rndPick(lstWeight)
-    (x, y) = getRndPtUniformTriangle(lstTriangle[idx])
-
-    return (x, y)
-
-def getRndPtClusterXY(
-    centroidLocs: "A list of center locs of clusters" = None,
-    clusterDiameter: "Diameter of cluster" = None
-    ):
-    idx = random.randint(0, len(centroidLocs) - 1)
-    ctrLoc = centroidLocs[idx]
-    theta = random.uniform(0, 2 * math.pi)
-    r = math.sqrt(random.uniform(0, clusterDiameter))
-    x = ctrLoc[0] + r * math.cos(theta)
-    y = ctrLoc[1] + r * math.sin(theta)
-    return (x, y)
-
-def getRndPtClusterLatLon(
-    centroidLocs: "A list of center locs of clusters" = None,
-    clusterDiameterInMeters: "Diameter of cluster" = None
-    ):
-    idx = random.randint(0, len(centroidLocs) - 1)
-    ctrLoc = centroidLocs[idx]
-    theta = random.uniform(0, 2 * math.pi)
-    r = math.sqrt(random.uniform(0, clusterDiameterInMeters))
-    (lat, lon) = pointInDistLatLon(ctrLoc, theta, r)
-    return (lat, lon)
-
-def getRndPtUniformCircleXY(
-    radius:     "Radius of the circle" = None,
-    centerLoc:  "Center location of the circle" = None
-    ):
-    theta = random.uniform(0, 2 * math.pi)
-    r = math.sqrt(random.uniform(0, radius ** 2))
-    x = centerLoc[0] + r * math.cos(theta)
-    y = centerLoc[1] + r * math.sin(theta)
-    return (x, y)
-
-def getRndPtUniformCircleLatLon(
-    radius:     "Radius of the circle" = None,
-    centerLoc:  "Center location of the circle" = None
-    ):
-    theta = random.uniform(0, 2 * math.pi)
-    r = math.sqrt(random.uniform(0, radius ** 2))
-    (lat, lon) = pointInDistLatLon(centerLoc, theta, r)
-    return (lat, lon)
-
 def rectInWidthLengthOrientationXY(
     centroidXY: "Centroid of rectangular in (x, y)" = None,
     width:      "Width of the rectangular" = None,
@@ -919,18 +698,6 @@ def rectInWidthLengthOrientationLatLon(
     rect = [pt1, pt2, pt4, pt3]
 
     return rect
-
-def getRndPolyXY(
-
-    ) -> "Give a centroid of poly and some arguments, return a randomized polygon in (x, y)":
-
-    return rndPolyXY
-
-def getRndPolyLatLon(
-
-    ) -> "Give a centroid of poly and some arguments, return a randomized polygon in (lat, lon)":
-
-    return rndPolyLatLon
 
 def pointInDistXY(
     pt:         "Starting location" = None, 

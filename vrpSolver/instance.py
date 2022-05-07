@@ -65,7 +65,7 @@ def rndPlainNodes(
 
     # Check for required fields ===============================================
     if (N == None and nodeIDs == None):
-        print(ERROR_MISSING_N)
+        msgError(ERROR_MISSING_N)
         return
 
     # Initialize ==============================================================
@@ -99,7 +99,7 @@ def rndPlainNodes(
                 'radius': 100
             }
         if ('centerLoc' not in distrArgs or 'radius' not in distrArgs):
-            print(ERROR_MISSING_DISTRARGS_UNICC)
+            msgError(ERROR_MISSING_DISTRARGS_UNICC)
             return
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
@@ -110,7 +110,7 @@ def rndPlainNodes(
     elif (distr == 'uniformCircleLatLon'):
         # Sanity check --------------------------------------------------------
         if (distrArgs == None):
-            print(ERROR_MISSING_DISTRARGS)
+            msgError(ERROR_MISSING_DISTRARGS)
             return
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
@@ -121,10 +121,10 @@ def rndPlainNodes(
     elif (distr == 'uniformPoly'):
         # Sanity check --------------------------------------------------------
         if (distrArgs == None):
-            print(ERROR_MISSING_DISTRARGS)
+            msgError(ERROR_MISSING_DISTRARGS)
             return
         if ('poly' not in distrArgs):
-            print(ERROR_MISSING_DISTRARGS_UNIPOLY)
+            msgError(ERROR_MISSING_DISTRARGS_UNIPOLY)
             return
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
@@ -135,10 +135,10 @@ def rndPlainNodes(
     elif (distr == 'uniformPolys'):
         # Sanity check --------------------------------------------------------
         if (distrArgs == None):
-            print(ERROR_MISSING_DISTRARGS)
+            msgError(ERROR_MISSING_DISTRARGS)
             return
         if ('polys' not in distrArgs):
-            print(ERROR_MISSING_DISTRARGS_UNIPOLY)
+            msgError(ERROR_MISSING_DISTRARGS_UNIPOLY)
             return
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
@@ -149,10 +149,10 @@ def rndPlainNodes(
     elif (distr == 'uniformRoadNetworkPoly'):
         # Sanity check --------------------------------------------------------
         if (distrArgs == None):
-            print(ERROR_MISSING_DISTRARGS)
+            msgError(ERROR_MISSING_DISTRARGS)
             return
         if ('roadNetwork' not in distrArgs):
-            print(ERROR_MISSING_DISTRARGS_UNIROADNETWORK)
+            msgError(ERROR_MISSING_DISTRARGS_UNIROADNETWORK)
             return
 
         # Create nodes --------------------------------------------------------
@@ -168,10 +168,10 @@ def rndPlainNodes(
     elif (distr == 'uniformRoadNetworkCircle'):
         # Sanity check --------------------------------------------------------
         if (distrArgs == None):
-            print(ERROR_MISSING_DISTRARGS)
+            msgError(ERROR_MISSING_DISTRARGS)
             return
         if ('roadNetwork' not in distrArgs):
-            print(ERROR_MISSING_DISTRARGS_UNIROADNETWORK)
+            msgError(ERROR_MISSING_DISTRARGS_UNIROADNETWORK)
             return
         if ('centerLoc' not in distrArgs or 'radius' not in distrArgs):
             print("Missing circle definition")
@@ -191,10 +191,10 @@ def rndPlainNodes(
     elif (distr == 'clusterXY'):
         # Sanity check --------------------------------------------------------
         if (distrArgs == None):
-            print(ERROR_MISSING_DISTRARGS)
+            msgError(ERROR_MISSING_DISTRARGS)
             return
         if ('centroidLocs' not in distrArgs or 'clusterDiameter' not in distrArgs):
-            print(ERROR_MISSING_DISTRARGS_CLUSTER)
+            msgError(ERROR_MISSING_DISTRARGS_CLUSTER)
             return
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
@@ -205,10 +205,10 @@ def rndPlainNodes(
     elif (distr == 'clusterLatLon'):
         # Sanity check --------------------------------------------------------
         if (distrArgs == None):
-            print(ERROR_MISSING_DISTRARGS)
+            msgError(ERROR_MISSING_DISTRARGS)
             return
         if ('centroidLocs' not in distrArgs or 'clusterDiameterInMeters' not in distrArgs):
-            print(ERROR_MISSING_DISTRARGS_CLUSTER)
+            msgError(ERROR_MISSING_DISTRARGS_CLUSTER)
             return
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
@@ -216,7 +216,7 @@ def rndPlainNodes(
                 'loc': getRndPtClusterLatLon(distrArgs['centroidLocs'], distrArgs['clusterDiameterInMeters'])
             }
     else:
-        print(ERROR_INCOR_DISTARG)
+        msgError(ERROR_INCOR_DISTARG)
         return
 
     return nodes
@@ -251,47 +251,47 @@ def rndTimeWindowsNodes(
 
     # Check for required fields ===============================================
     if (plainNodes == None):
-        print(ERROR_MISSING_PLAINNODES)
+        msgError(ERROR_MISSING_PLAINNODES)
         return
     if (timeSpan == None):
-        print(ERROR_MISSING_TIMESPAN)
+        msgError(ERROR_MISSING_TIMESPAN)
         return
     validTWOpts = ['Known', 'Periodic', 'Random']
     if (twType not in validTWOpts):
-        print(ERROR_OPTS_TWTYPE % validTWOpts)
+        msgError(ERROR_OPTS_TWTYPE % validTWOpts)
         return
     elif (twType == 'Known'):
         if (twArgs == None):
-            print(ERROR_MISSING_TWKNOWNARGS)
+            msgError(ERROR_MISSING_TWKNOWNARGS)
             return
         elif ('timeWindows' not in twArgs):
             print (ERROR_MISSING_TWKNOWNARGS_TW)
             return
     elif (twType == 'Periodic'):
         if (twArgs == None):
-            print(ERROR_MISSING_TWPERIODICARGS)
+            msgError(ERROR_MISSING_TWPERIODICARGS)
             return
         elif ('cycleTime' not in twArgs):
-            print(ERROR_MISSING_TWPERIODICARGS_CT)
+            msgError(ERROR_MISSING_TWPERIODICARGS_CT)
             return
         elif ('startTimeInCycle' not in twArgs):
-            print(ERROR_MISSING_TWPERIODICARGS_ST)
+            msgError(ERROR_MISSING_TWPERIODICARGS_ST)
             return
         elif ('endTimeInCycle' not in twArgs):
-            print(ERROR_MISSING_TWPERIODICARGS_ET)
+            msgError(ERROR_MISSING_TWPERIODICARGS_ET)
             return
     elif (twType == 'Random'):
         if (twArgs == None):
-            print(ERROR_MISSING_TWRANDOMARGS)
+            msgError(ERROR_MISSING_TWRANDOMARGS)
             return
         elif ('indFlag' not in twArgs):
-            print(ERROR_MISSING_TWRANDOMARGS_FG)
+            msgError(ERROR_MISSING_TWRANDOMARGS_FG)
             return
         elif ('avgBtwDur' not in twArgs):
-            print(ERROR_MISSING_TWRANDOMARGS_BTW)
+            msgError(ERROR_MISSING_TWRANDOMARGS_BTW)
             return
         elif ('avgTWDur' not in twArgs):
-            print(ERROR_MISSING_TWRANDOMARGS_TW)
+            msgError(ERROR_MISSING_TWRANDOMARGS_TW)
             return
 
     # Generate time windows for different types ===============================
@@ -367,148 +367,224 @@ def rndTimeWindowsNodes(
 
     return nodes
 
-def rndWinds(
-    degAvg:     "Prevailing direction of wind - in the direction of wind vector, not meteorology term" = None,
-    degSpread:  "Wind direction difference in 10th to 90th percentile bonds" = None,
-    degPattern: "1) String, 'Consistent' or, \
-                 2) String, 'Normal' or, \
-                 3) String, 'Swap' or, \
-                 4) String, 'Uniform'" = None,
-    spdAvg:     "Average wind speed" = None,
-    spdSpread:  "Wind speed difference in 10th to 90th percentile bonds" = None,
-    spdPattern: "1) String, 'Consistent' or, \
-                 2) String, 'Increasing'  or, \
-                 3) String, 'Decreasing' or, \
-                 4) String, 'Normal' or, \
-                 5) String, 'Uniform'" = None,
-    duration:   "Time window of creating wind dictionaries" = [0, None],
-    sampleInt:  "Interval between sampling in [sec]" = 3600
-    ) -> "Generate a list of wind dictionaries":
-
-    # Initialize ==============================================================
-    winds = []
-    now = duration[0]
-    while (now <= duration[1]):
-        winds.append({
-            'startTime': now,
-            'endTime': now + sampleInt,
-            'windSpd': None,
-            'windDeg': None
-        })
-        now += sampleInt
-
-    # Direction ===============================================================
-    for w in range(len(winds)):
-        deg = None
-        if (degPattern == 'Consistent'):
-            deg = degAvg
-        elif (degPattern == 'Normal'):
-            deg = random.normalvariate(degAvg, degSpread / 1.28) # 10th to 90th percentile bonds
-        elif (degPattern == 'Swap'):
-            deg = degAvg - degSpread + w * (2 * degSpread / len(winds))
-        elif (degPattern == 'Uniform'):
-            deg = random.uniform(degAvg - degSpread, degAvg + degSpread)
-        winds[w]['windDeg'] = deg
+def getRndPtRoadNetworkPoly(
+    N:          "Number of nodes" = 1,
+    roadNetwork: "Dictionary of road network in the format of \
+                {\
+                    roadID: {\
+                        'line': [[lat, lon], [lat, lon], ...]\
+                    }\
+                }" = None,
+    poly:       "Nodes should also within this polygon" = None,
+    ) -> "Given a road network, generate customers that locates on the road network":
     
-    # Speed ===================================================================
-    for w in range(len(winds)):
-        spd = None
-        if (spdPattern == 'Consistent'):
-            spd = spdAvg
-        elif (spdPattern == 'Increasing'):
-            spd = spdAvg - spdSpread + w * (2 * spdSpread / len(winds))
+    # Calculate the length of each edge =======================================
+    lengths = []
+    roadIDs = []
+    for road in roadNetwork:
+        roadLength = 0
+        includedFlag = False
+        if (poly == None):
+            includedFlag = True
+        else:
+            for i in range(len(roadNetwork[road]['line'])):
+                if (isPtOnPoly(roadNetwork[road]['line'][i], poly)):
+                    includedFlag = True
+                    break
 
-        elif (spdPattern == 'Decreasing'):
-            spd = spdAvg + spdSpread - (w + 1) * (2 * spdSpread / len(winds))
+        # Check if this road is inside polygon
+        if (includedFlag):
+            for i in range(len(roadNetwork[road]['line']) - 1):
+                roadLength += distLatLon(roadNetwork[road]['line'][i], roadNetwork[road]['line'][i + 1])
+            lengths.append(roadLength)            
+        else:
+            lengths.append(0)
 
-        elif (spdPattern == 'Normal'):
-            spd = random.normalvariate(spdAvg, spdSpread / 1.28)
-            while (spd <= 0):
-                spd = random.normalvariate(spdAvg, spdSpread / 1.28)
+        roadIDs.append(road)
 
-        elif (spdPattern == 'Uniform'):
-            spd = random.uniform(spdAvg - spdSpread, spdAvg + spdSpread)
-        winds[w]['windSpd'] = spd
+    # Check if there are roads included =======================================
+    if (sum(lengths) == 0):
+        return None
 
-    return winds
+    # Use accept-denial to test if the node is within poly ====================
+    # FIXME: Inefficient approach, will need to be rewritten
+    nodeLocs = []
+    for i in range(N):
+        lat = None
+        lon = None
+        if (poly == None):
+            idx = rndPick(lengths)
+            edgeLength = lengths[idx]
+            edgeDist = random.uniform(0, 1) * edgeLength
+            (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['line'], edgeDist)
+        else:
+            insideFlag = False
+            while (not insideFlag):
+                idx = rndPick(lengths)
+                edgeLength = lengths[idx]
+                edgeDist = random.uniform(0, 1) * edgeLength
+                (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['line'], edgeDist)
+                if (isPtOnPoly([lat, lon], poly)):
+                    insideFlag = True
+        nodeLocs.append((lat, lon))
+    return nodeLocs
 
-def rndClouds(
-    polyLatLon: "The polygon that clouds will be covering" = None,
-    cloudSize:  "Size of the clouds, e.g., [3000, 12000], in [m, m]" = None,
-    cloudShape: "Overwrite cloudSize, if provided, it will be the shape of the clouds" = None,
-    cloudDur:   "Exist duration of clouds, e.g., [1200, 1800], in [sec, sec]" = None,
-    cloudDeg:   "The direction of where the clouds are entering" = [CLOUD_SPD_DEG_RANGE[0], CLOUD_SPD_DEG_RANGE[1]],
-    cloudOri:   "Orientation of the cloud, if provided as None, the orientation will be randomized" = None,
-    numOfClouds: "Total number of clouds" = None,
-    duration:   "Duration of the instance, in [sec]" = [0, 36000],
-    ) -> "Given a polygon, returns a list of clouds that move through the polygon":
-
-    # Key parameters ==========================================================
-    # Average speed of meteorological phenomena: 17 m/s
-    # Four types of meteorological phenomena and their scale:
-    # - Cumulus: 2-5 km, 10-100 minutes
-    # - Cumulonimbus: 10-200 km, 1-5 hours
-    # - Cumulonimbus cluster: 50-1000 km, 3-36 hours
-    # - Synoptic: 1000-400000 km, 2-15+ days
-
-    # Time stamps =============================================================
-    appearTime = []
-    for i in range(numOfClouds):
-        appearTime.append(random.uniform(duration[0], duration[1]))
-    appearTime.sort()
-
-    # Randomize the centroid of the cloud =====================================
-    cloudCentroid = rndPlainNodes(
-        N = len(appearTime),
-        nodeIDs = [i for i in range(len(appearTime))],
-        distr = 'uniformPoly',
-        distrArgs = {'poly': polyLatLon})
+def getRndPtRoadNetworkCircle(
+    N:          "Number of nodes" = 1,
+    roadNetwork: "Dictionary of road network in the format of \
+                {\
+                    roadID: {\
+                        'line': [[lat, lon], [lat, lon], ...]\
+                    }\
+                }" = None,\
+    centerLoc:  "Center location" = None,
+    radius:     "Radius in [m]" = None
+    ) -> "Given a road network, generate customers that locates on the road network":
     
-    clouds = []
-    for t in range(len(appearTime)):
-        # Size of cloud -------------------------------------------------------
-        widthInMeter = None
-        lengthInMeter = None
-        if (cloudShape != None and type(cloudShape) == list):
-            widthInMeter = cloudShape[0]
-            lengthInMeter = cloudShape[1]
-        elif (cloudSize != None and type(cloudSize) == list):
-            widthInMeter = random.randrange(cloudSize[0], cloudSize[1])
-            lengthInMeter = random.randrange(cloudSize[0], cloudSize[1])
+    # Calculate the length of each edge =======================================
+    lengths = []
+    roadIDs = []
+    for road in roadNetwork:
+        roadLength = 0
+        includedFlag = False
+        for i in range(len(roadNetwork[road]['line'])):
+            if (distLatLon(roadNetwork[road]['line'][i], centerLoc) <= radius):
+                includedFlag = True
+                break
 
-        # Moving direction ----------------------------------------------------
-        direction = None
-        if (cloudDeg != None and type(cloudDeg) == list):
-            direction = random.randrange(cloudDeg[0], cloudDeg[1])
-        elif (type(cloudDeg) == int or type(cloudDeg) == float):
-            direction = cloudDeg
+        # Check if this road is inside polygon
+        if (includedFlag):
+            for i in range(len(roadNetwork[road]['line']) - 1):
+                roadLength += distLatLon(roadNetwork[road]['line'][i], roadNetwork[road]['line'][i + 1])
+            lengths.append(roadLength)            
+        else:
+            lengths.append(0)
 
-        # Existing duration ---------------------------------------------------
-        existDur = None
-        if (cloudDur != None and type(cloudDur) == list):
-            existDur = random.randrange(cloudDur[0], cloudDur[1])
-        elif (type(cloudDur) == int or type(cloudDur) == float):
-            existDur = cloudDur
+        roadIDs.append(road)
 
-        # Initial location of the cloud ---------------------------------------        
-        enterLoc = pointInDistLatLon(
-            pt = cloudCentroid[t]['loc'],
-            direction = direction - 180,
-            distMeters = math.sqrt(widthInMeter**2 + lengthInMeter**2) + CONST_EPSILON)
-        
-        # Cloud generation ----------------------------------------------------
-        initPolyLatLon = rectInWidthLengthOrientationLatLon(
-            centroidLatLon = enterLoc,
-            widthInMeter = widthInMeter,
-            lengthInMeter = lengthInMeter,
-            oriDeg = random.randrange(-45, 45) if cloudOri == None else cloudOri)        
-        clouds.append({
-            'appearTime': appearTime[t],
-            'initPolyLatLon': initPolyLatLon,
-            'widthInMeter': widthInMeter,
-            'lengthInMeter': lengthInMeter,
-            'movingVecPolar': (17, direction), # cloud moving speed: 17 m/s
-            'existDur': existDur
-        })
+    # Check if there are roads included =======================================
+    if (sum(lengths) == 0):
+        return None
 
-    return clouds
+    # Use accept-denial to test if the node is within poly ====================
+    # FIXME: Inefficient approach, will need to be rewritten
+    nodeLocs = []
+    for i in range(N):
+        lat = None
+        lon = None
+        insideFlag = False
+        while (not insideFlag):
+            idx = rndPick(lengths)
+            edgeLength = lengths[idx]
+            edgeDist = random.uniform(0, 1) * edgeLength
+            (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['line'], edgeDist)
+            if (distLatLon([lat, lon], centerLoc) <= radius):
+                insideFlag = True
+        nodeLocs.append((lat, lon))
+    return nodeLocs
+
+def getRndPtUniformSquare(
+    xRange:    "The range of x coordinates" = (0, 100),
+    yRange:    "The range of y coordinates" = (0, 100)
+    ) -> "Given the range of x, y, returns a random point in the square defined by the ranges":
+    x = random.randrange(xRange[0], xRange[1])
+    y = random.randrange(yRange[0], yRange[1])
+    return (x, y)
+
+def getRndPtUniformTriangle(
+    triangle:   "The triangle for generating random points" = None
+    ) -> "Given a triangle, generate a random point in the triangle uniformly":
+    
+    # Get three extreme points ================================================
+    [x1, y1] = triangle[0]
+    [x2, y2] = triangle[1]
+    [x3, y3] = triangle[2]
+
+    # Generate random points ==================================================
+    rndR1 = random.uniform(0, 1)
+    rndR2 = random.uniform(0, 1)
+    x = (1 - math.sqrt(rndR1)) * x1 + math.sqrt(rndR1) * (1 - rndR2) * x2 + math.sqrt(rndR1) * rndR2 * x3
+    y = (1 - math.sqrt(rndR1)) * y1 + math.sqrt(rndR1) * (1 - rndR2) * y2 + math.sqrt(rndR1) * rndR2 * y3
+
+    return (x, y)
+
+def getRndPtUniformPoly(
+    poly:       "The polygon for generating random points" = None
+    ) -> "Given a polygon, generate a random point in the polygons uniformly":
+
+    # Get list of triangles ===================================================
+    lstTriangle = tripy.earclip(poly)
+
+    # Weight them and make draws ==============================================
+    lstWeight = []
+    for i in range(len(lstTriangle)):
+        lstWeight.append(calTriangleAreaByCoords(lstTriangle[i][0], lstTriangle[i][1], lstTriangle[i][2]))
+
+    # Select a triangle and randomize a point in the triangle =================
+    idx = rndPick(lstWeight)
+    (x, y) = getRndPtUniformTriangle(lstTriangle[idx])
+
+    return (x, y)
+
+def getRndPtUniformPolys(
+    polys:       "A list of polygons for generating random points" = None
+    ) -> "Given a list of polygons, generate a random point in the polygons uniformly":
+
+    # Get all triangulated triangles ==========================================
+    lstTriangle = []
+    for p in polys:
+        lstTriangle.extend(tripy.earclip(p))
+
+    # Weight them and make draws ==============================================
+    lstWeight = []
+    for i in range(len(lstTriangle)):
+        lstWeight.append(calTriangleAreaByCoords(lstTriangle[i][0], lstTriangle[i][1], lstTriangle[i][2]))
+
+    # Select a triangle and randomize a point in the triangle =================
+    idx = rndPick(lstWeight)
+    (x, y) = getRndPtUniformTriangle(lstTriangle[idx])
+
+    return (x, y)
+
+def getRndPtClusterXY(
+    centroidLocs: "A list of center locs of clusters" = None,
+    clusterDiameter: "Diameter of cluster" = None
+    ):
+    idx = random.randint(0, len(centroidLocs) - 1)
+    ctrLoc = centroidLocs[idx]
+    theta = random.uniform(0, 2 * math.pi)
+    r = math.sqrt(random.uniform(0, clusterDiameter))
+    x = ctrLoc[0] + r * math.cos(theta)
+    y = ctrLoc[1] + r * math.sin(theta)
+    return (x, y)
+
+def getRndPtClusterLatLon(
+    centroidLocs: "A list of center locs of clusters" = None,
+    clusterDiameterInMeters: "Diameter of cluster" = None
+    ):
+    idx = random.randint(0, len(centroidLocs) - 1)
+    ctrLoc = centroidLocs[idx]
+    theta = random.uniform(0, 2 * math.pi)
+    r = math.sqrt(random.uniform(0, clusterDiameterInMeters))
+    (lat, lon) = pointInDistLatLon(ctrLoc, theta, r)
+    return (lat, lon)
+
+def getRndPtUniformCircleXY(
+    radius:     "Radius of the circle" = None,
+    centerLoc:  "Center location of the circle" = None
+    ):
+    theta = random.uniform(0, 2 * math.pi)
+    r = math.sqrt(random.uniform(0, radius ** 2))
+    x = centerLoc[0] + r * math.cos(theta)
+    y = centerLoc[1] + r * math.sin(theta)
+    return (x, y)
+
+def getRndPtUniformCircleLatLon(
+    radius:     "Radius of the circle" = None,
+    centerLoc:  "Center location of the circle" = None
+    ):
+    theta = random.uniform(0, 2 * math.pi)
+    r = math.sqrt(random.uniform(0, radius ** 2))
+    (lat, lon) = pointInDistLatLon(centerLoc, theta, r)
+    return (lat, lon)
+

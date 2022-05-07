@@ -3,7 +3,17 @@ from .geometry import *
 from .ipTSP import *
 from .heuTSP import *
 
-def TSPSeq2Gantt(
+def VRP2Gantt(
+
+    ) -> "Given a VRP result, returns the gantt dictionary for plotGantt()":
+
+    return
+
+def TSP2Gantt(
+
+    )
+
+def visitSeq2Gantt(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
                         nodeID1: {'loc': (x, y)}, \
@@ -20,7 +30,7 @@ def TSPSeq2Gantt(
                     'colRow': (numCol, numRow),\
                     'barriers': [(coordX, coordY), ...], \
                 }" = None,
-    truckSeq:     "Travel sequence" = None,
+    visitSeq:    "Travel sequence" = None,
     serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0,
     ) -> "Given a TSP result, returns the gantt dictionary for plotGantt()":
 
@@ -34,7 +44,7 @@ def TSPSeq2Gantt(
         elif (tau == 'Grid'):
             tau = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
         else:
-            print(ERROR_INCOR_TAU)
+            msgError(ERROR_INCOR_TAU)
             return None
     else:
         tau = dict(edges)
@@ -42,30 +52,30 @@ def TSPSeq2Gantt(
     # Process TSP sequence ====================================================
     ganttTSP = []
     acc = 0
-    for i in range(len(truckSeq) - 2):
-        dt = tau[truckSeq[i], truckSeq[i + 1]]
+    for i in range(len(visitSeq) - 2):
+        dt = tau[visitSeq[i], visitSeq[i + 1]]
         ganttTSP.append({
-                'entityID': entityID,
-                'timeWindow': [acc, acc + dt],
-                'desc': 'cus_' + str(truckSeq[i + 1]),
-                'color': 'lightgreen',
-                'style': '///'
-            })
-        ganttTSP.append({
-                'entityID': entityID,
-                'timeWindow': [acc + dt, acc + dt + serviceTime],
-                'desc': '',
-                'color': 'lightgray',
-                'style': '////'
-            })
-        acc += dt + serviceTime
-    dt = tau[truckSeq[-2], truckSeq[-1]]
-    ganttTSP.append({
             'entityID': entityID,
             'timeWindow': [acc, acc + dt],
-            'desc': 'Return',
+            'desc': 'cus_' + str(visitSeq[i + 1]),
             'color': 'lightgreen',
             'style': '///'
         })
+        ganttTSP.append({
+            'entityID': entityID,
+            'timeWindow': [acc + dt, acc + dt + serviceTime],
+            'desc': '',
+            'color': 'lightgray',
+            'style': '////'
+        })
+        acc += dt + serviceTime
+    dt = tau[visitSeq[-2], visitSeq[-1]]
+    ganttTSP.append({
+        'entityID': entityID,
+        'timeWindow': [acc, acc + dt],
+        'desc': 'Return',
+        'color': 'lightgreen',
+        'style': '///'
+    })
 
     return ganttTSP

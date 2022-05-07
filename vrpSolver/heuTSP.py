@@ -61,7 +61,7 @@ def heuTSP(
             for i in nodes:
                 nodeIDs.append(i)
         else:
-            print(ERROR_INCOR_NODEIDS)
+            msgError(ERROR_INCOR_NODEIDS)
             return
 
     # Define tau ==============================================================
@@ -74,7 +74,7 @@ def heuTSP(
         elif (edges == 'Grid'):
             tau = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
         else:
-            print(ERROR_INCOR_TAU)
+            msgError(ERROR_INCOR_TAU)
             return None
     else:
         tau = dict(edges)

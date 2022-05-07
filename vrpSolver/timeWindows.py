@@ -89,6 +89,38 @@ def mergeTimeWindows(
 
     return mergedTWs
 
+def intersectTimeWindows(
+    tws1:       "List of time windows, must not be overlapping" = None,
+    tws2:       "List of time windows, must not be overlapping" = None
+    ) -> "Given two lists of time windows, return a new list of time windows that are the intersection of those two lists":
+
+    intTWs = []
+    for tw1 in tws1:
+        for tw2 in tws2:
+            intTW = None
+            # Case by case ============================================================
+            if (not insideInterval(tw2[0], tw1) and not insideInterval(tw2[1], tw1)):
+                # Case 1: tw1 is entirely inside tw2
+                if (tw2[0] < tw1[0] and tw1[1] < tw2[1]):
+                    intTW = tw1
+                # Case 2: No overlapping
+                else:
+                    intTW = None
+            elif (insideInterval(tw2[0], tw1) and not insideInterval(tw2[1], tw1)):
+                # Case 3: First half of tw2 is inside tw1
+                intTW = [tw2[0], tw1[1]]
+            elif (not insideInterval(tw2[0], tw1) and insideInterval(tw2[1], tw1)):
+                # Case 4: Last half of tw2 is inside tw1
+                intTW = [tw1[0], tw2[1]]
+            else:
+                # Case 5: tw2 is entirely inside tw1
+                intTW = [tw2[0], tw2[1]]
+            if (intTW != None):
+                intTWs.append(intTW)
+    intTWs = sortTimeWindows(intTWs)
+
+    return intTWs
+
 def lenTWOverlap(
     tw1:        "The first time window" = None,
     tw2:        "The second time window" = None

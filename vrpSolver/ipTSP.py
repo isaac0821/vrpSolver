@@ -47,7 +47,7 @@ def ipTSP(
             for i in nodes:
                 nodeIDs.append(i)
         else:
-            print(ERROR_INCOR_NODEIDS)
+            msgError(ERROR_INCOR_NODEIDS)
             return
 
     # Define tau ==============================================================
@@ -60,7 +60,7 @@ def ipTSP(
         elif (edges == 'Grid'):
             tau = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
         else:
-            print(ERROR_INCOR_TAU)
+            msgError(ERROR_INCOR_TAU)
             return None
     else:
         tau = dict(edges)
@@ -86,6 +86,8 @@ def ipTSP(
         TSP.setParam(grb.GRB.Param.MIPGap, gapTolerance)
 
     # Subroutines for different formulations ==================================
+    # NOTE: The LazyCuts usually outperforms all other formulations
+    #       We keep the different formulations for sake of comparison
     def _ipTSPQAP():
         # Decision variables --------------------------------------------------
         x = {}
@@ -148,7 +150,9 @@ def ipTSP(
         lb = None
         ub = None
         runtime = None
+        solType = None
         if (TSP.status == grb.GRB.status.OPTIMAL):
+            solType = 'IP_Optimal'
             ofv = TSP.getObjective().getValue()
             for j in range(n):
                 for i in range(n):
@@ -161,6 +165,7 @@ def ipTSP(
             ub = ofv
             runtime = TSP.Runtime
         elif (TSP.status == grb.GRB.status.TIME_LIMIT):
+            solType = 'IP_TimeLimit'
             ofv = None
             seq = []
             gap = TSP.MIPGap
@@ -172,6 +177,7 @@ def ipTSP(
             'ofv': ofv,
             'seq': seq,
             'gap': gap,
+            'solType': solType,
             'lowerBound': lb,
             'upperBound': ub,
             'runtime': runtime
@@ -227,7 +233,9 @@ def ipTSP(
         ofv = None
         seq = []
         arcs = []
+        solType = None
         if (TSP.status == grb.GRB.status.OPTIMAL):
+            solType = 'IP_Optimal'
             ofv = TSP.getObjective().getValue()
             for i, j in x:
                 if (x[i, j].x > 0.5):
@@ -247,6 +255,7 @@ def ipTSP(
             ub = ofv
             runtime = TSP.Runtime
         elif (TSP.status == grb.GRB.status.TIME_LIMIT):
+            solType = 'IP_TimeLimit'
             ofv = None
             seq = []
             gap = TSP.MIPGap
@@ -258,6 +267,7 @@ def ipTSP(
             'ofv': ofv,
             'seq': seq,
             'gap': gap,
+            'solType': solType,
             'lowerBound': lb,
             'upperBound': ub,
             'runtime': runtime
@@ -299,7 +309,9 @@ def ipTSP(
         ofv = None
         seq = []
         arcs = []
+        solType = None
         if (TSP.status == grb.GRB.status.OPTIMAL):
+            solType = 'IP_Optimal'
             ofv = TSP.getObjective().getValue()
             for i, j, t in x:
                 if (x[i, j, t].x > 0.5):
@@ -319,6 +331,7 @@ def ipTSP(
             ub = ofv
             runtime = TSP.Runtime
         elif (TSP.status == grb.GRB.status.TIME_LIMIT):
+            solType = 'IP_TimeLimit'
             ofv = None
             seq = []
             gap = TSP.MIPGap
@@ -330,6 +343,7 @@ def ipTSP(
             'ofv': ofv,
             'seq': seq,
             'gap': gap,
+            'solType': solType,
             'lowerBound': lb,
             'upperBound': ub,
             'runtime': runtime
@@ -376,7 +390,9 @@ def ipTSP(
         gap = None
         seq = []
         arcs = []
+        solType = None
         if (TSP.status == grb.GRB.status.OPTIMAL):
+            solType = 'IP_Optimal'
             ofv = TSP.getObjective().getValue()
             gap = TSP.Params.MIPGapAbs
             for i, j in x:
@@ -397,6 +413,7 @@ def ipTSP(
             ub = ofv
             runtime = TSP.Runtime
         elif (TSP.status == grb.GRB.status.TIME_LIMIT):
+            solType = 'IP_TimeLimit'
             ofv = None
             seq = []
             gap = TSP.MIPGap
@@ -408,6 +425,7 @@ def ipTSP(
             'ofv': ofv,
             'seq': seq,
             'gap': gap,
+            'solType': solType,
             'lowerBound': lb,
             'upperBound': ub,
             'runtime': runtime
@@ -458,7 +476,9 @@ def ipTSP(
         ofv = None
         seq = []
         arcs = []
+        solType = None
         if (TSP.status == grb.GRB.status.OPTIMAL):
+            solType = 'IP_Optimal'
             ofv = TSP.getObjective().getValue()
             for i, j in x:
                 if (x[i, j].x > 0.5):
@@ -478,6 +498,7 @@ def ipTSP(
             ub = ofv
             runtime = accRuntime
         elif (TSP.status == grb.GRB.status.TIME_LIMIT):
+            solType = 'IP_TimeLimit'
             ofv = None
             seq = []
             gap = TSP.MIPGap
@@ -489,6 +510,7 @@ def ipTSP(
             'ofv': ofv,
             'seq': seq,
             'gap': gap,
+            'solType': solType,
             'lowerBound': lb,
             'upperBound': ub,
             'runtime': runtime
@@ -532,7 +554,9 @@ def ipTSP(
         ofv = None
         seq = []
         arcs = []
+        solType = None
         if (TSP.status == grb.GRB.status.OPTIMAL):
+            solType = 'IP_Optimal'
             ofv = TSP.getObjective().getValue()
             for i, j in x:
                 if (x[i, j].x > 0.5):
@@ -552,6 +576,7 @@ def ipTSP(
             ub = ofv
             runtime = TSP.Runtime
         elif (TSP.status == grb.GRB.status.TIME_LIMIT):
+            solType = 'IP_TimeLimit'
             ofv = None
             seq = []
             gap = TSP.MIPGap
@@ -563,6 +588,7 @@ def ipTSP(
             'ofv': ofv,
             'seq': seq,
             'gap': gap,
+            'solType': solType,
             'lowerBound': lb,
             'upperBound': ub,
             'runtime': runtime

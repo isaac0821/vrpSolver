@@ -471,7 +471,7 @@ def plotPolygon(
     return fig, ax
 
 def plotGantt(
-    fig:        "Based matplotlib figure object" = None,
+    fig:        "Based matplotlib figure object" = None, 
     ax:         "Based matplotlib ax object" = None,
     gantt:      "List of dictionaries, in the following format\
                     [{\
@@ -494,7 +494,9 @@ def plotGantt(
     gridFlag:   "True if turn on the grid as background" = True,
     labelFlag:  "True if add label of entities on Gantt chart" = True,
     linewidth:  "The width of Gantt block borders" = 1,
-    entities:   "The Gantt chart will be drawn in this order, if None, takes the entities in `gantt`" = None,
+    entities:   "1) None, takes the entities in `gantt` \
+                 2) List of Strings, the Gantt chart will be drawn in this order, \
+                 3) List of String lists, the Gantt chart will be drawn in groups" = None,
     startTime:  "Start time of Gantt, default to be 0, if None, use the earliest time in `gantt`" = 0,
     endTime:    "End time of Gantt, default to be None, if None, use the latest time in `gantt`" = None,
     showTail:   "Show the latest time of all gantt blocks" = True,
@@ -507,7 +509,7 @@ def plotGantt(
 
     # Check for required fields ===============================================
     if (gantt == None):
-        print(ERROR_MISSING_GANTT)
+        msgError(ERROR_MISSING_GANTT)
         return
 
     # Pre-calculate ===========================================================
@@ -530,9 +532,9 @@ def plotGantt(
     if (entities != None):
         for g in entities:
             if (g not in entList):
-                print(ERROR_INCOR_GANTT_MISSENT)
+                msgError(ERROR_INCOR_GANTT_MISSENT)
                 return
-    else:
+    elif (entities == None):
         entities = [i for i in entList]
 
     # Check overwritten fields ================================================
@@ -651,7 +653,7 @@ def plotNodes(
 
     # Check for required fields ===============================================
     if (nodes == None):
-        print(ERROR_MISSING_NODES)
+        msgError(ERROR_MISSING_NODES)
         return
 
     # If no based matplotlib figure provided, define boundary =================
@@ -766,7 +768,7 @@ def plotArcs(
 
     # Check for required fields ===============================================
     if (nodes == None):
-        print(ERROR_MISSING_NODES)
+        msgError(ERROR_MISSING_NODES)
         return
 
     # If no based matplotlib figure, define boundary ==========================

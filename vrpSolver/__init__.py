@@ -1,4 +1,4 @@
-__version__ = "0.0.47"
+__version__ = "0.0.48"
 __author__ = "Lan Peng"
 
 '''
@@ -61,6 +61,7 @@ __author__ = "Lan Peng"
 # v0.0.45 - 03062022 - Post process of TSP
 # v0.0.46 - 03222022 - Add the `lbTSP()` for calculating the lower bound of TSP using Held and Karp Algorithm
 # v0.0.47 - 03302022 - Add `heuVRP()` with CW Saving algorithm
+# v0.0.48 - 05052022 - Start v0.1.0 development: vrpSolver engine
 # =============================================================================
 '''
 
@@ -99,3 +100,11 @@ from .lbTSP import *
 # VRP
 # from .ipVRP import *
 from .heuVRP import *
+
+def setGlobal(newConfig):
+	global config
+	if ('MESSAGE_SHOW_WARNING' in newConfig):
+		config['MESSAGE_SHOW_WARNING'] = newConfig['MESSAGE_SHOW_WARNING']
+	if ('MESSAGE_SHOW_ERROR' in newConfig):
+		config['MESSAGE_SHOW_ERROR'] = newConfig['MESSAGE_SHOW_ERROR']
+	return

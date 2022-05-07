@@ -27,11 +27,19 @@ def heuVRP(
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All',
     serviceTime:"Service time spent on each customer (will be added into travel matrix)" = 0,
-    vehCap:     "Capacity of each vehicle" = None,
+    objective:  "Objective function\
+                 1) String, 'Makespan', or\
+                 2) String, 'Cost'" = 'Makespan',
+    vehicle:    "Dictionary, describing the vehicle situation, \
+                 { \
+                    'numTruck': number of truck, if not provided, default to be infinite\
+                    'capTruck': capacity of truck, if not provided, default to be infinite\
+                 }" = None,
     consAlgo:   "1) String 'CWSaving' or \
-                 2) String (not available) 'Sweep'" = 'CWSaving',
-    impAlgo:    "1) String '2Opt'" = '2Opt'
-    ) -> "Use given heuristic methods to get TSP solution":
+                 2) String (not available) 'Sweep' or \
+                 3) String (not available) " = 'CWSaving',
+    impAlgo:    "1) String '3Opt'" = '3Opt'
+    ) -> "Use given heuristic methods to get basic Capacitated VRP solution":
 
     # Define nodeIDs ==========================================================
     customerID = []
@@ -41,17 +49,21 @@ def heuVRP(
             for i in nodes:
                 nodeIDs.append(i)
         else:
-            print(ERROR_INCOR_NODEIDS)
+            msgError(ERROR_INCOR_NODEIDS)
             return
     customerID = [i for i in nodeIDs if i != depotID]
 
     # Initialize demands ======================================================
     demands = {}
-    for n in customerID:
+    noDemandList = []
+    for n in customerID:        
         if ('demand' not in nodes[n]):
+            noDemandList.append(n)
             demands[n] = 1
         else:
             demands[n] = nodes[n]['demand']
+    if (len(noDemandList) > 0):
+        msgWarning("MESSAGE: 'demands' is missing in nodes %s, set to default value (as 1)" % list2String(noDemandList))
 
     # Define tau ==============================================================
     tau = {}
@@ -63,7 +75,7 @@ def heuVRP(
         elif (edges == 'Grid'):
             tau = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
         else:
-            print(ERROR_INCOR_TAU)
+            msgError(ERROR_INCOR_TAU)
             return None
     else:
         tau = dict(edges)
@@ -79,19 +91,23 @@ def heuVRP(
         serviceTime = 0
 
     # Subroutines =============================================================
-    def _consVRPClarkeWright(nodes, depotID, customerID, tau, vehCap):
+    def _consVRPClarkeWright(nodes, depotID, customerID, tau, vehCap, vehNum):
         # Initial routes
         routes = {}
         for i in range(len(customerID)):
             routes[i] = {
                 'route': [depotID, customerID[i], depotID],
                 'demand': demands[customerID[i]],
-                'length': 2 * tau[depotID, customerID[i]]
+                'length': tau[depotID, customerID[i]] + tau[customerID[i], depotID]
             }
 
         # vehCap
         if (vehCap == None):
             vehCap = len(nodeIDs) + 1
+
+        # vehNum
+        if (vehNum == None):
+            vehNum = len(nodeIDs) + 1
 
         # Initial saving raking
         rankSaving = []
@@ -182,7 +198,8 @@ def heuVRP(
             if (routeI != None 
                 and routeJ != None 
                 and routeI != routeJ 
-                and routes[routeI]['demand'] + routes[routeJ]['demand'] <= vehCap):
+                and routes[routeI]['demand'] + routes[routeJ]['demand'] <= vehCap
+                and len(routes) >= vehNum):
                 merge(bestSaving[1][0], bestSaving[1][1])
 
         # Rename the route name
@@ -202,7 +219,7 @@ def heuVRP(
     # Solve by different formulations =========================================
     res = None
     if (consAlgo == 'CWSaving'):
-        res = _consVRPClarkeWright(nodes, depotID, customerID, tau, vehCap)
+        res = _consVRPClarkeWright(nodes, depotID, customerID, tau, vehicle['capTruck'], vehicle['numTruck'])
     else:
         print("Error: Incorrect or unavailable CVRP formulation option!")
 
