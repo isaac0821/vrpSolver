@@ -32,6 +32,23 @@ def rndPick(
 
     return idx
 
+def iterSeq(seqL, i, direction):
+    q = None
+    j = None
+    if (direction == 'next'):
+        if (i < seqL - 1):
+            j = i + 1
+        else:
+            j = 0
+    elif (direction == 'prev'):
+        if (i > 0):
+            j = i - 1
+        else:
+            j = seqL - 1
+    else:
+        return None
+    return j
+
 def insideInterval(
     val:            "The value to be compared with the interval" = None,
     interval:   "List, in the format of [start, end], None if no constraint on that side" = [None, None]    

@@ -470,162 +470,6 @@ def plotPolygon(
 
     return fig, ax
 
-def plotGantt(
-    fig:        "Based matplotlib figure object" = None, 
-    ax:         "Based matplotlib ax object" = None,
-    gantt:      "List of dictionaries, in the following format\
-                    [{\
-                        'entityID': entityID, \
-                        'timeWindow': [startTime, endTime], \
-                        'desc': (optional) description of the window,\
-                        'trackID': (optional, default as '0') parallel gantt chart ID, \
-                        'color': (optional, default as 'random') color, \
-                        'style': (optional, default as 'solid') 'solid' \
-                    }, ... , \
-                    {\
-                        'entityID': entityID, \
-                        'timeStamps': [timeStamp1, timeStamp2, ..., timeStampN], \
-                        'desc': (optional) [List of descriptions, correspond to `timeStamps`],\
-                        'trackID': (optional, default as '0') parallel gantt chart ID, \
-                        'color': (optional, default as 'random') color, \
-                        'style': (optional, default as 'solid') 'solid' \
-                    }, ... , ]\
-                " = None,
-    gridFlag:   "True if turn on the grid as background" = True,
-    labelFlag:  "True if add label of entities on Gantt chart" = True,
-    linewidth:  "The width of Gantt block borders" = 1,
-    entities:   "1) None, takes the entities in `gantt` \
-                 2) List of Strings, the Gantt chart will be drawn in this order, \
-                 3) List of String lists, the Gantt chart will be drawn in groups" = None,
-    startTime:  "Start time of Gantt, default to be 0, if None, use the earliest time in `gantt`" = 0,
-    endTime:    "End time of Gantt, default to be None, if None, use the latest time in `gantt`" = None,
-    showTail:   "Show the latest time of all gantt blocks" = True,
-    figSize:    "Size of the figure, in (width, height)" = (12, 5),
-    saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None,
-    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
-                 recommended to turn off if generate a batch of images" = True
-    ) -> "Given a Gantt dictionary, plot Gantt":
-
-    # Check for required fields ===============================================
-    if (gantt == None):
-        msgError(ERROR_MISSING_GANTT)
-        return
-
-    # Pre-calculate ===========================================================
-    realStart = None
-    realEnd = None
-    entList = []
-    for g in gantt:
-        if (g['entityID'] not in entList):
-            entList.append(g['entityID'])
-        if ('timeWindow' in g):
-            if (realStart == None or realStart > g['timeWindow'][0]):
-                realStart = g['timeWindow'][0]
-            if (realEnd == None or realEnd < g['timeWindow'][1]):
-                realEnd = g['timeWindow'][1]
-        elif ('timeStamps' in g):
-            if (realStart == None or realStart > g['timeStamps'][0]):
-                realStart = g['timeStamps'][0]
-            if (realEnd == None or realEnd < g['timeStamps'][-1]):
-                realEnd = g['timeStamps'][-1]
-    if (entities != None):
-        for g in entities:
-            if (g not in entList):
-                msgError(ERROR_INCOR_GANTT_MISSENT)
-                return
-    elif (entities == None):
-        entities = [i for i in entList]
-
-    # Check overwritten fields ================================================
-    if (startTime != None):
-        startTime = startTime
-    else:
-        startTime = realStart
-
-    if (endTime != None):
-        endTime = endTime
-    else:
-        endTime = realEnd
-
-    # If no based matplotlib figure, define fig size ==========================
-    if (fig == None or ax == None):
-        fig, ax = plt.subplots()
-        fig.set_figheight(figSize[1])
-        fig.set_figwidth(figSize[0])
-        ax.set_xlim(startTime, endTime + (endTime - startTime) * 0.05)
-        ax.set_ylim(0, len(entities) + 0.2)
-
-    # Set axis ================================================================
-    ax.set_yticks([i + 0.5 for i in range(len(entities))])
-    entities.reverse()
-    ax.set_yticklabels(entities)
-    entities.reverse()
-    ax.set_xlabel("Time")
-
-    # Grids ===================================================================
-    if (gridFlag):
-        ax.grid(b = True, linestyle=':')
-
-    # Loop through `gantt` and draw gantt =====================================
-    for g in gantt:
-        if (g['entityID'] in entities):
-            bottom = len(entities) - entities.index(g['entityID']) - 0.9
-            top = 0
-            if (labelFlag == True):
-                top = len(entities) - entities.index(g['entityID']) - 0.5
-            else:
-                top = len(entities) - entities.index(g['entityID']) - 0.25
-            if ('timeWindow' in g):
-                s = g['timeWindow'][0]
-                e = g['timeWindow'][1]
-                x = [s, s, e, e, s]
-                y = [bottom, top, top, bottom, bottom]
-                ax.plot(x, y, color = 'black', linewidth = linewidth)
-                if (g['color'] != 'random'):
-                    ax.fill(x, y, color = g['color'], linewidth = linewidth)
-                else:
-                    rndColor = colorRandom()
-                    ax.fill(x, y, color = rndColor, linewidth = linewidth)
-                if (labelFlag == True):
-                    ax.annotate(g['desc'], (s, top + 0.1))
-                if (g['style'] != 'solid'):
-                    ax.fill(x, y, hatch = g['style'], fill=False, linewidth = linewidth)
-            elif ('timeStamps' in g):
-                for i in range(len(g['timeStamps']) - 1):
-                    s = g['timeStamps'][i]
-                    e = g['timeStamps'][i + 1]
-                    x = [s, s, e, e, s]
-                    y = [bottom, top, top, bottom, bottom]
-                    ax.plot(x, y, color = 'black', linewidth = linewidth)
-                    ax.annotate(g['desc'][i], (s, top + 0.1))
-                    if (g['color'] != 'random'):
-                        ax.fill(x, y, color = g['color'], linewidth = linewidth)
-                    else:
-                        rndColor = colorRandom()
-                        ax.fill(x, y, color = rndColor, linewidth = linewidth)
-                    if (g['style'] != 'solid'):
-                        ax.fill(x, y, hatch = g['style'], fill=False, linewidth = linewidth)
-                if (labelFlag == True):
-                    ax.annotate(g['desc'][-1], (g['timeStamps'][-1], top + 0.1))
-
-    # Show time span ==========================================================
-    if (showTail):
-        xTicks = list(ax.get_xticks())
-        xTicks.append(realEnd)
-        ax.set_xticks(xTicks)  
-
-    # Fix height if fig, ax are not provided ==================================
-    if (fig == None or ax == None):
-        fig.set_figheight(5 * len(entities))
-
-    # Save figure =============================================================
-    if (saveFigPath != None):
-        fig.savefig(saveFigPath)
-    if (not showFig):
-        plt.close(fig)
-    return fig, ax
-
 def plotNodes(
     fig:        "Based matplotlib figure object" = None,
     ax:         "Based matplotlib ax object" = None,
@@ -901,3 +745,370 @@ def plotSeq(
 
     return fig, ax
 
+def plotGantt(
+    fig:        "Based matplotlib figure object" = None, 
+    ax:         "Based matplotlib ax object" = None,
+    gantt:      "List of dictionaries, in the following format\
+                    [{\
+                        'entityID': entityID, \
+                        'timeWindow': [startTime, endTime], \
+                        'desc': (optional) description of the window,\
+                        'trackID': (optional, default as '0') parallel gantt chart ID, \
+                        'color': (optional, default as 'random') color, \
+                        'style': (optional, default as 'solid') 'solid' \
+                    }, ... , \
+                    {\
+                        'entityID': entityID, \
+                        'timeStamps': [timeStamp1, timeStamp2, ..., timeStampN], \
+                        'desc': (optional) [List of descriptions, correspond to `timeStamps`],\
+                        'trackID': (optional, default as '0') parallel gantt chart ID, \
+                        'color': (optional, default as 'random') color, \
+                        'style': (optional, default as 'solid') 'solid' \
+                    }, ... , ]\
+                " = None,
+    gridFlag:   "True if turn on the grid as background" = True,
+    labelFlag:  "True if add label of entities on Gantt chart" = True,
+    linewidth:  "The width of Gantt block borders" = 1,
+    entities:   "1) None, takes the entities in `gantt` \
+                 2) List of strings, the Gantt chart will be drawn in this order, \
+                 3) List of lists (strings), the Gantt chart will be drawn in groups" = None,
+    startTime:  "Start time of Gantt, default to be 0, if None, use the earliest time in `gantt`" = 0,
+    endTime:    "End time of Gantt, default to be None, if None, use the latest time in `gantt`" = None,
+    showTail:   "Show the latest time of all gantt blocks" = True,
+    figSize:    "Size of the figure, in (width, height)" = (12, 5),
+    saveFigPath:"1) None, if not exporting image, or \
+                 2) String, the path for exporting image" = None,
+    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
+                 recommended to turn off if generate a batch of images" = True
+    ) -> "Given a Gantt dictionary, plot Gantt":
+
+    # Check for required fields ===============================================
+    if (gantt == None):
+        msgError(ERROR_MISSING_GANTT)
+        return
+
+    # Pre-calculate ===========================================================
+    realStart = None
+    realEnd = None
+    entList = []
+    for g in gantt:
+        if (g['entityID'] not in entList):
+            entList.append(g['entityID'])
+        if ('timeWindow' in g):
+            if (realStart == None or realStart > g['timeWindow'][0]):
+                realStart = g['timeWindow'][0]
+            if (realEnd == None or realEnd < g['timeWindow'][1]):
+                realEnd = g['timeWindow'][1]
+        elif ('timeStamps' in g):
+            if (realStart == None or realStart > g['timeStamps'][0]):
+                realStart = g['timeStamps'][0]
+            if (realEnd == None or realEnd < g['timeStamps'][-1]):
+                realEnd = g['timeStamps'][-1]
+
+    # Check overwritten fields ================================================
+    if (startTime != None):
+        startTime = startTime
+    else:
+        startTime = realStart
+
+    if (endTime != None):
+        endTime = endTime
+    else:
+        endTime = realEnd
+
+    # Arrange entities ========================================================              
+    if (entities != None):
+        # Check inputs
+        groupFlag = False
+        for e in entities:
+            if (type(e) == list):
+                groupFlag = True
+                break
+        # If the type of entities is List of Lists, the entities are grouped
+        if (groupFlag == True):
+            groupEntities = []
+            for el in entities:
+                if (type(el) != list):
+                    msgError(ERROR_INCOR_GANTT_ENTITYGROUP)
+                    return
+                for e in el:
+                    groupEntities.append(e)
+                groupEntities.append(None)
+            groupEntities = groupEntities[:-1] # Remove the last None
+            entities = [i for i in groupEntities]
+        for e in entities:
+            if (e not in entList and e != None):
+                msgError(ERROR_INCOR_GANTT_MISSENT)
+                return
+    elif (entities == None):
+        entities = [i for i in entList]
+
+    # If no based matplotlib figure, define fig size ==========================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        fig.set_figheight(figSize[1])
+        fig.set_figwidth(figSize[0])
+        ax.set_xlim(startTime, endTime + (endTime - startTime) * 0.05)
+        ax.set_ylim(0, len(entities) + 0.2)
+
+    # Set axis ================================================================
+    entities.reverse()
+    yticks = []
+    pos = 0.5
+    for i in range(len(entities)):
+        yticks.append(pos)
+        if (entities[i] != None):
+            pos += 1
+        else:
+            pos += 0.5
+    ax.set_yticks(yticks)   
+    ax.set_yticklabels(entities)
+    entities.reverse()
+    ax.set_xlabel("Time")
+
+    # Grids ===================================================================
+    if (gridFlag):
+        ax.grid(b = True, linestyle=':')
+
+    # Loop through `gantt` and draw gantt =====================================
+    for g in gantt:
+        if (g['entityID'] in entities):
+            bottom = yticks[len(yticks) - 1 - entities.index(g['entityID'])] + 0.4 - 0.8
+            top = 0
+            if (labelFlag == True):
+                top = yticks[len(yticks) - 1 - entities.index(g['entityID'])] + 0.20
+            else:
+                top = yticks[len(yticks) - 1 - entities.index(g['entityID'])] + 0.4
+            if ('timeWindow' in g):
+                s = g['timeWindow'][0]
+                e = g['timeWindow'][1]
+                x = [s, s, e, e, s]
+                y = [bottom, top, top, bottom, bottom]
+                ax.plot(x, y, color = 'black', linewidth = linewidth)
+                if (g['color'] != 'random'):
+                    ax.fill(x, y, color = g['color'], linewidth = linewidth)
+                else:
+                    rndColor = colorRandom()
+                    ax.fill(x, y, color = rndColor, linewidth = linewidth)
+                if (labelFlag == True):
+                    ax.annotate(g['desc'], (s, top + 0.1))
+                if (g['style'] != 'solid'):
+                    ax.fill(x, y, hatch = g['style'], fill=False, linewidth = linewidth)
+            elif ('timeStamps' in g):
+                for i in range(len(g['timeStamps']) - 1):
+                    s = g['timeStamps'][i]
+                    e = g['timeStamps'][i + 1]
+                    x = [s, s, e, e, s]
+                    y = [bottom, top, top, bottom, bottom]
+                    ax.plot(x, y, color = 'black', linewidth = linewidth)
+                    ax.annotate(g['desc'][i], (s, top + 0.1))
+                    if (g['color'] != 'random'):
+                        ax.fill(x, y, color = g['color'], linewidth = linewidth)
+                    else:
+                        rndColor = colorRandom()
+                        ax.fill(x, y, color = rndColor, linewidth = linewidth)
+                    if (g['style'] != 'solid'):
+                        ax.fill(x, y, hatch = g['style'], fill=False, linewidth = linewidth)
+                if (labelFlag == True):
+                    ax.annotate(g['desc'][-1], (g['timeStamps'][-1], top + 0.1))
+
+    # Show time span ==========================================================
+    if (showTail):
+        xTicks = list(ax.get_xticks())
+        xTicks.append(realEnd)
+        ax.set_xticks(xTicks)  
+
+    # Fix height if fig, ax are not provided ==================================
+    if (fig == None or ax == None):
+        fig.set_figheight(5 * max(pos))
+
+    # Save figure =============================================================
+    if (saveFigPath != None):
+        fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
+    return fig, ax
+
+def plotStep(
+    fig:        "Based matplotlib figure object" = None, 
+    ax:         "Based matplotlib ax object" = None,
+    step:       "List of dictionaries, in the following format\
+                    [{\
+                        'resID': resource ID, \
+                        'timeStamp': list of time stamps, \
+                        'useLevel': number of resource that are been used after correspond time stamp, \
+                        'color': (optional, default as 'random') color, \
+                        'style': (optional, default as 'solid') 'solid' \
+                    }, ... , ]\
+                " = None,
+    stepInt:    "Interval of stat" = 1,
+    showPercentageFlag: "True if show the percentage of time for each level" = True,
+    gridFlag:   "True if turn on the grid as background" = True,
+    labelFlag:  "True if add label of entities on Gantt chart" = True,
+    linewidth:  "The width of step block borders" = 1,
+    entities:   "1) None, takes the entities in `step` \
+                 2) List of Strings, the step chart will be drawn in this order" = None,
+    startTime:  "Start time of step, default to be 0, if None, use the earliest time in `step`" = 0,
+    endTime:    "End time of step, default to be None, if None, use the latest time in `step`" = None,
+    showTail:   "Show the latest time of all step blocks" = True,
+    figSize:    "Size of the figure, in (width, height)" = (12, 5),
+    saveFigPath:"1) None, if not exporting image, or \
+                 2) String, the path for exporting image" = None,
+    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
+                 recommended to turn off if generate a batch of images" = True
+    ) -> "Given a step dictionary, plot step chart":
+
+    # Check for required fields ===============================================
+    if (step == None):
+        msgError(ERROR_MISSING_STEP)
+        return
+
+    # Pre-calculate ===========================================================
+    realStart = None
+    realEnd = None
+    resList = []
+    for st in step:
+        if (st['resID'] not in resList):
+            resList.append(st['resID'])
+
+        for t in st['timeStamp']:
+            if (realStart == None or realStart > st['timeStamp'][0]):
+                realStart = st['timeStamp'][0]
+            if (realEnd == None or realEnd < st['timeStamp'][-1]):
+                realEnd = st['timeStamp'][-1]
+    if (entities != None):
+        for e in entities:
+            if (e not in resList):
+                msgError(ERROR_INCOR_GANTT_MISSENT)
+                return
+    elif (entities == None):
+        entities = [i for i in resList]
+
+    # Check overwritten fields ================================================
+    if (startTime != None):
+        startTime = startTime
+    else:
+        startTime = realStart
+
+    if (endTime != None):
+        endTime = endTime
+    else:
+        endTime = realEnd
+
+    # If no based matplotlib figure, define fig size ==========================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        fig.set_figwidth(figSize[0])
+        ax.set_xlim(startTime, endTime + (endTime - startTime) * 0.05)
+
+    # Set axis ================================================================
+    rangeByEntity = {}
+    for st in step:
+        rangeByEntity[st['resID']] = [min(st['useLevel']), max(st['useLevel'])]
+
+    entities.reverse()
+    # yticks = []
+
+    btm = {}
+    yticks = [0]
+    yticklabels = [0]
+    accBtm = 0
+    for i in range(len(entities)):
+        btm[entities[i]] = accBtm
+        if (accBtm + rangeByEntity[entities[i]][0] != yticks[-1]):
+            yticks.append(accBtm + rangeByEntity[entities[i]][0])
+            yticklabels.append(rangeByEntity[entities[i]][0])
+        for j in range(math.ceil(rangeByEntity[entities[i]][0]), math.floor(rangeByEntity[entities[i]][1])):
+            yticks.append(accBtm + j)
+            yticklabels.append(j)
+
+        accBtm += rangeByEntity[entities[i]][1] - rangeByEntity[entities[i]][0]
+        if (rangeByEntity[entities[i]][1] != yticklabels[-1]):
+            yticks.append(accBtm)
+            yticklabels.append(rangeByEntity[entities[i]][1])
+        accBtm += 1 # Space between step charts
+
+    ax.set_yticks(yticks)
+    # entities.reverse()
+    ax.set_yticklabels(yticklabels)
+    entities.reverse()
+    ax.set_xlabel("Time")
+
+    if (fig == None and ax == None):
+        ax.set_ylim(0, accBtm)
+
+    # Grids ===================================================================
+    if (gridFlag):
+        ax.grid(b = True, linestyle=':')
+
+    # Loop through `step` and draw step chart =================================
+    for st in step:
+        if (st['resID'] in resList):
+            bottom = btm[st['resID']]
+            polyX = [realStart]
+            polyY = [bottom]
+            polyX = [st['timeStamp'][0]]
+            polyY = [bottom]
+            for i in range(len(st['timeStamp']) - 1):
+                polyX.append(st['timeStamp'][i])
+                polyY.append(bottom + st['useLevel'][i] - rangeByEntity[st['resID']][0])
+                polyX.append(st['timeStamp'][i + 1])
+                polyY.append(bottom + st['useLevel'][i] - rangeByEntity[st['resID']][0])
+            polyX.append(st['timeStamp'][-1])
+            polyY.append(bottom + st['useLevel'][-1])
+            if (st['timeStamp'][-1] >= realEnd):
+                polyX.append(realEnd)
+                polyY.append(bottom)
+
+            ax.plot(polyX, polyY, color = 'black', linewidth = linewidth)            
+            if ('color' in st and st['color'] != 'random'):
+                ax.fill(polyX, polyY, color = st['color'], linewidth = linewidth)
+                ax.annotate(st['resID'], (0, bottom + 0.1))
+            else:
+                rndColor = colorRandom()
+                ax.fill(polyX, polyY, color = str(rndColor), linewidth = linewidth)
+                ax.annotate(st['resID'], (0, bottom + 0.1), color = 'black')
+            if ('style' in st and st['style'] != 'solid'):
+                ax.fill(polyX, polyY, hatch = st['style'], fill=False, linewidth = linewidth)
+
+    # Show percentage =========================================================
+    if (showPercentageFlag):
+        # Get stat
+        stStatScale = {}
+        for st in step:
+            if (st['resID'] in resList):
+                stStatScale[st['resID']] = []
+                for r in range(0, math.ceil(rangeByEntity[st['resID']][1] - rangeByEntity[st['resID']][0]), stepInt):
+                    rangeStat = [rangeByEntity[st['resID']][0] + r * stepInt, rangeByEntity[st['resID']][0] + (r + 1) * stepInt]
+                    stStatScale[st['resID']].append({
+                        'rangeStat': rangeStat,
+                        'totalLength': 0
+                    })
+                for i in range(len(st['timeStamp']) - 1):
+                    lengthOfLevel = st['timeStamp'][i + 1] - st['timeStamp'][i]
+                    for j in range(len(stStatScale[st['resID']])):
+                        if (st['useLevel'][i] > stStatScale[st['resID']][j]['rangeStat'][0] and st['useLevel'][i] <= stStatScale[st['resID']][j]['rangeStat'][1]):
+                            stStatScale[st['resID']][j]['totalLength'] += lengthOfLevel
+        # Plot Stat
+        for st in step:
+            if (st['resID'] in resList):
+                for stat in stStatScale[st['resID']]:
+                    note = "[" + str(stat['rangeStat'][0]) + ", " + str(stat['rangeStat'][1]) + "]: " + str(round(stat['totalLength'] / realEnd * 100, 2)) + "%"
+                    ax.annotate(note, (ax.get_xlim()[1] + 5, 0.1 + btm[st['resID']] + stat['rangeStat'][0]))
+
+    # Show time span ==========================================================
+    if (showTail):
+        xTicks = list(ax.get_xticks())
+        xTicks.append(realEnd)
+        ax.set_xticks(xTicks)  
+
+    # Fix height if fig, ax are not provided ==================================
+    if (fig == None or ax == None):
+        fig.set_figheight(5 * len(entities))
+
+    # Save figure =============================================================
+    if (saveFigPath != None):
+        fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
+    return fig, ax

@@ -62,6 +62,7 @@ __author__ = "Lan Peng"
 # v0.0.46 - 03222022 - Add the `lbTSP()` for calculating the lower bound of TSP using Held and Karp Algorithm
 # v0.0.47 - 03302022 - Add `heuVRP()` with CW Saving algorithm
 # v0.0.48 - 05052022 - Start v0.1.0 development: vrpSolver engine
+# v0.0.49 - 05122022 - Add `metaTSP()` with Simulated Annealing
 # =============================================================================
 '''
 
@@ -94,13 +95,17 @@ from .warehouse import *
 # TSP
 from .ipTSP import *
 from .heuTSP import *
-from .analysisTSP import *
+from .metaTSP import *
 from .lbTSP import *
 
 # VRP
 # from .ipVRP import *
 from .heuVRP import *
 
+# Post optimization
+from .stat import *
+
+# System config
 def setGlobal(newConfig):
 	global config
 	if ('MESSAGE_SHOW_WARNING' in newConfig):

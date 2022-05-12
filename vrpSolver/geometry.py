@@ -855,7 +855,7 @@ def getSweepSeq(
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All',
     centerLoc:  "1) (Default) String, 'Centroid' the centroid of nodes, or\
-                 2) List, [x, y], the center point" = None,
+                 2) List, [x, y], the center point" = 'Centroid',
     isClockwise: "True if the sweeping direction is clock-wise, False otherwise" = True,
     initDeg:    "Starting direction of the sweeping, 0 as North" = 0
     ) -> "Given a set of locations, and a center point, gets the sequence from sweeping":

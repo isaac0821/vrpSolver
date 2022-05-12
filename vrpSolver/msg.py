@@ -49,6 +49,12 @@ ERROR_MISSING_GANTT                 =("ERROR: Missing required field `gantt`. Th
                                     + "        'color': color, \n"
                                     + "        'style': 'solid' \n"
                                     + "    }]\n")
+ERROR_MISSING_STEP                  =("ERROR: Missing required field `step`. The format of `step` is \n"
+                                    + "    [{\n"
+                                    + "        'resID': resource ID, \n"
+                                    + "        'timeStamp': list of time stamps, \n"
+                                    + "        'useLevel': number of resource that are been used after correspond time stamp \n"
+                                    + "    }]\n")
 ERROR_ZERO_VECTOR                   = "ERROR: Segment or Ray should be defined using two different points"
 
 # Error message - Incorrect input option
@@ -61,6 +67,7 @@ ERROR_OPTS_SHORTESTPATH_ALGO        = "ERROR: There exists negative weight arcs,
 ERROR_INCOR_NODEIDS                 = "ERROR: Incorrect `nodeIDs`, options are 1) 'All', 2) A list of node IDs"
 ERROR_INCOR_TAU                     = "ERROR: Incorrect `edges`, options are 'Euclidean', 'LatLon', 'Grid' (additional info needed to create grid), and travel matrix."
 ERROR_INCOR_GANTT_MISSENT           = "ERROR: Missing entity in `gantt`"
+ERROR_INCOR_GANTT_ENTITYGROUP       = "ERROR: Incorrect `entities`, options are 1) None (by default), 2) List of strings of entity IDs, or 3) List of list, each list is a list of strings of entity IDs."
 ERROR_INCOR_DISTARG                 =("ERROR: Incorrect `distr` for customer locations, options are \n"
                                     + "1) 'uniformSquare', \n"
                                     + "2) 'uniformCircleXY', \n"

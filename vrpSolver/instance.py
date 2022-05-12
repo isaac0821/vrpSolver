@@ -587,4 +587,3 @@ def getRndPtUniformCircleLatLon(
     r = math.sqrt(random.uniform(0, radius ** 2))
     (lat, lon) = pointInDistLatLon(centerLoc, theta, r)
     return (lat, lon)
-
