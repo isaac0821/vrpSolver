@@ -93,10 +93,10 @@ def metaTSP(
         if (metaAlgoArgs == None):
             metaAlgoArgs = {
                 'initAlgo': 'Sweep', 
-                'initTemp': 1000, 
-                'iterTemp': 20,
+                'initTemp': 100, 
+                'iterTemp': 200,
                 'optRatio': (0.2, 0.2, 0.3),
-                'coolRate': 0.99,
+                'coolRate': 0.995,
                 'stopCriteria': [('Executed_Time', 10)]
             }
             msgWarning("WARNING: Missing `metaAlgoArgs`. Using default setting as follows, results may not be satisfactory.")
