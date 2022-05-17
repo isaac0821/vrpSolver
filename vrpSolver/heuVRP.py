@@ -6,6 +6,7 @@ from .common import *
 from .graph import *
 from .geometry import *
 from .msg import *
+from .operator import *
 
 def heuVRP(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
@@ -42,14 +43,11 @@ def heuVRP(
     ) -> "Use given heuristic methods to get basic Capacitated VRP solution":
 
     # Define nodeIDs ==========================================================
-    customerID = []
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
-            nodeIDs = []
-            for i in nodes:
-                nodeIDs.append(i)
+            nodeIDs = [i for i in nodes]
         else:
-            msgError(ERROR_INCOR_NODEIDS)
+            msgError(ERROR_INCOR_NODEIDS) 
             return
     customerID = [i for i in nodeIDs if i != depotID]
 
@@ -66,32 +64,10 @@ def heuVRP(
         msgWarning("MESSAGE: 'demands' is missing in nodes %s, set to default value (as 1)" % list2String(noDemandList))
 
     # Define tau ==============================================================
-    tau = {}
-    if (type(edges) is not dict):
-        if (edges == 'Euclidean'):
-            tau = getTauEuclidean(nodes, nodeIDs)
-        elif (edges == 'LatLon'):
-            tau = getTauLatLon(nodes, nodeIDs)
-        elif (edges == 'Grid'):
-            tau = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
-        else:
-            msgError(ERROR_INCOR_TAU)
-            return None
-    else:
-        tau = dict(edges)
-
-    # Service time ============================================================
-    if (serviceTime != None and serviceTime > 0):
-        for (i, j) in tau:
-            if (i != depotID and j != depotID and i != j):
-                tau[i, j] += serviceTime
-            elif (i == depotID or j == depotID and i != j):
-                tau[i, j] += serviceTime / 2 
-    else:
-        serviceTime = 0
+    tau = getTau(nodes, edges, edgeArgs, depotID, nodeIDs, serviceTime)
 
     # Subroutines =============================================================
-    def _consVRPClarkeWright(nodes, depotID, customerID, tau, vehCap, vehNum):
+    def _consVRPClarkeWright(nodes, depotID, customerID, tau, vehicle):
         # Initial routes
         routes = {}
         for i in range(len(customerID)):
@@ -225,10 +201,7 @@ def heuVRP(
 
     return res
 
-def heuVRPGeneral_Temp():
-    return
-
-def heuVRPConstructing(
+def heuVRPMakespan(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
                         nodeID1: {'loc': (x, y), 'demand': 1, ...}, \
@@ -251,231 +224,128 @@ def heuVRPConstructing(
     objective:  "Objective function\
                  1) String, 'Makespan', or\
                  2) String, 'Cost'" = 'Makespan',
-    vehicle:    "Dictionary, describing the vehicle situation, \
+    constraint: "Dictionary, describing the constraints, \
                  [{\
-                    'vehicleID': vehicleID,\
-                    'capacity': capacity of vehicle,\
-                    'maxDist': maximum travel distance\
+                    'vehCap': capacity of vehicle, \
+                    'numVeh': maximum number of vehicle, \
+                    'maxCost': maximum travel distance/time of a vehicle \
                  }]" = None,
     consAlgo:   "1) String 'CWSaving' or \
-                 2) String 'Sweep' or \
+                 2) String (not available) 'Sweep' or \
                  3) String (not available) 'Petal' " = 'CWSaving',
-    impAlgo:    "1) String '2Opt'" = '2Opt'
+    consAlgoArgs: "Dictionary" = None,
+    impAlgo:    "1) String '2Opt'" = '2Opt',
+    impAlgoArgs: "Dictionary" = None
     ) -> "Use given heuristic methods to get basic Capacitated VRP solution":
+
+    # FIXME: for now, this function is only for minimizing makespan
 
     # Define nodeIDs ==========================================================
     customerID = []
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
-            nodeIDs = []
-            for i in nodes:
-                nodeIDs.append(i)
+            nodeIDs = [i for i in nodes]
         else:
             msgError(ERROR_INCOR_NODEIDS)
             return
     customerID = [i for i in nodeIDs if i != depotID]
 
     # Initialize demands ======================================================
-    demands = {}
+    demand = {}
     noDemandList = []
     for n in customerID:
         if ('demand' not in nodes[n]):
             noDemandList.append(n)
-            demands[n] = 1
+            demand[n] = 1
         else:
-            demands[n] = nodes[n]['demand']
+            demand[n] = nodes[n]['demand']
     if (len(noDemandList) > 0):
         msgWarning("MESSAGE: 'demands' is missing in nodes %s, set to default value (as 1)" % list2String(noDemandList))
 
     # Quick estimate for terminating the function =============================
     capableCus = 0
-    for v in vehicle:
-        capableCus += v['capacity']
-    if (capableCus < len(customerIDs)):
-        msgError("ERROR: Insufficient delivery capacity")
+    if ('vehCap' in constraint and 'numVeh' in constraint):
+        capableCus = constraint['vehCap'] * constraint['numVeh']
+        if (capableCus < len(customerIDs)):
+            msgError("ERROR: Insufficient delivery capacity")
+            return
+
+    # Check constraint ========================================================
+    if (constraint == None or ('vehCap' not in constraint and 'numVeh' not in constraint and 'maxCost' not in constraint)):
+        msgError("ERROR: Missing constraint")
         return
 
     # Define tau ==============================================================
-    tau = {}
-    if (type(edges) is not dict):
-        if (edges == 'Euclidean'):
-            tau = getTauEuclidean(nodes, nodeIDs)
-        elif (edges == 'LatLon'):
-            tau = getTauLatLon(nodes, nodeIDs)
-        elif (edges == 'Grid'):
-            tau = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
-        else:
-            msgError(ERROR_INCOR_TAU)
-            return
-    else:
-        tau = dict(edges)
+    tau = getTau(nodes, edges, edgeArgs, depotID, nodeIDs, serviceTime)
 
     # Check if it is asymmetric ===============================================
-    asymmetricFlag = False
+    asymFlag = False
     for i in nodeIDs:
         for j in nodeIDs:
             if (i != j and tau[i, j] != tau[j, i]):
-                asymmetricFlag = True
+                asymFlag = True
                 break
-        if (asymmetricFlag):
+        if (asymFlag):
             break
 
-    # Service time ============================================================
-    if (serviceTime != None and serviceTime > 0):
-        for (i, j) in tau:
-            if (i != depotID and j != depotID and i != j):
-                tau[i, j] += serviceTime
-            elif (i == depotID or j == depotID and i != j):
-                tau[i, j] += serviceTime / 2 
-    else:
-        serviceTime = 0
-
     # Subroutines =============================================================
-    def _consVRPClarkeWright(nodes, depotID, customerID, tau, vehicle, objective):
+    def _consVRPClarkeWright(nodes, depotID, customerID, tau, constraint):
         # Initial routes
-        routes = {}
+        route = {}
         for i in range(len(customerID)):
-            routes[i] = {
+            route[i] = {
                 'route': [depotID, customerID[i], depotID],
-                'demand': demands[customerID[i]],
-                'length': tau[depotID, customerID[i]] + tau[customerID[i], depotID],
-                'reverseLength': tau[depotID, customerID[i]] + tau[customerID[i], depotID]
+                'demand': demand[customerID[i]],
+                'cost': tau[depotID, customerID[i]] + tau[customerID[i], depotID],
+                'revCost': tau[depotID, customerID[i]] + tau[customerID[i], depotID]
             }
 
-        # Initial dist saving raking - naked saving, for symmetric VRP is already enough 
-        rankSaving = []
+        # Constraints
+        maxDemand = None
+        if ('maxDemand' in constraint):
+            maxDemand = constraint['maxDemand']
+        if ('maxCost' in constraint):
+            maxCost = constraint['maxCost']
+
+        # Initial dist saving raking
+        mergeSaving = {}
         for i in customerID:
             for j in customerID:
-                if (i != j):
-                    # Calculate saving for connecting depot -> i' -> i -> j -> j' -> depot
-                    sav = tau[i, depotID] + tau[depotID, j] - tau[i, j]
-                    # heapq returns the smallest, so add a negative sign
-                    # NOTE: this step is asymmetric
-                    heapq.heappush(rankSaving, (-sav, (i, j)))
-
-        # Initial calculation of the saving - for symmetric VRP will be the same all the time
-        saving = []
-        while (len(rankSaving) > 0):
-            tmp = heapq.heappop(rankSaving)
-            saving.append([-tmp[0], tmp[1], tmp[2]]) # Revert the saving
-
-        # Merge routes subroutine
-        # i and j are index of customer
-        # After merging, i is adjacent to j 
-        def merge(i, j):
-            # Cannot merge the same route
-            if (i == j):
-                return {
-                    'feasible': False,
-                    'saving': None,
-                    'route': None,
-                    'length': None,
-                    'revLength': None
-                }
-
-            # Step 1: Find routes that has i and j, and check position
-            # i and j has to been either the first visiting customer or the last visiting customer
-            rI = None
-            rJ = None
-            posI = None
-            potJ = None
-            for r in routes:
-                if (rI == None and i in routes[r]['route']):
-                    rI = r
-                    if (i == routes[r]['route'][1] and i != route[r]['route'][-2]):
-                        posI = 'Left'
-                    elif (i != routes[r]['route'][1] and i == route[r]['route'][-2]):
-                        posI = 'Right'
-                    elif (i == routes[r]['route'][1] and i == route[r]['route'][-2]):
-                        posI = 'Mid'
-                    else:
-                        return {
-                            'feasible': False,
-                            'saving': None,
-                            'route': None,
-                            'length': None,
-                            'revLength': None
-                        }
-                if (rJ == None and j in routes[r]['route']):
-                    rJ = r
-                    if (j == routes[r]['route'][1] and j != route[r]['route'][-2]):
-                        posJ = 'Left'
-                    elif (j != routes[r]['route'][1] and j == route[r]['route'][-2]):
-                        posJ = 'Right'
-                    elif (j == routes[r]['route'][1] and j == route[r]['route'][-2]):
-                        posJ = 'Mid'
-                    else:
-                        return {
-                            'feasible': False,
-                            'saving': None,
-                            'route': None,
-                            'length': None,
-                            'revLength': None
-                        }
-                if (rI != None and rJ != None):
-                    break
-            if (rI == rJ):
-                return {
-                    'feasible': False,
-                    'saving': None,
-                    'route': None,
-                    'length': None,
-                    'revLength': None
-                }
+                if (i < j):
+                    mergeIJ = merge(
+                        routeI = route[i]['route'],
+                        routeJ = route[j]['route'],
+                        depotID = depotID,
+                        tau = tau,
+                        costI = route[i]['cost'],
+                        revCostI = route[i]['revCost'],
+                        costJ = route[j]['cost'],
+                        revCostJ = route[j]['cost'],
+                        demand = demand,
+                        maxDemand = maxDemand,
+                        maxCost = maxCost,
+                        asymFlag = asymFlag)
+                    if (mergeIJ['newSeq'] != None):
+                        mergeSaving[i, j] = mergeIJ
 
         # Merge routes
-        continueFlag = True
-        while (continueFlag):
-            # 
-
-            # Get the biggest saving
-            
-            # Flip it back
-            sav = -bestSaving[0]
-            # If there is saving, check which two routes can be merged
-            routeI = None
-            routeJ = None
-            for r in routes:
-                if (bestSaving[1][0] == routes[r]['route'][1] or bestSaving[1][0] == routes[r]['route'][-2]):
-                    routeI = r
-                if (bestSaving[1][1] == routes[r]['route'][1] or bestSaving[1][1] == routes[r]['route'][-2]):
-                    routeJ = r
-                if (routeI != None and routeJ != None):
-                    break
-            # Two routes has to be different, and satisfied the capacity
-            if (routeI != None 
-                and routeJ != None 
-                and routeI != routeJ 
-                and routes[routeI]['demand'] + routes[routeJ]['demand'] <= vehCap
-                and len(routes) >= vehNum):
-                merge(bestSaving[1][0], bestSaving[1][1])
-
-        # Rename the route name
-        ofv = 0
-        route = {}
-        acc = 1
-        for r in routes:
-            ofv += routes[r]['length']
-            route[acc] = [i for i in routes[r]['route']]
-            acc += 1
+        if (objective == 'Cost'):
+            # Constructing
+            print("Constructing")
+            return None
+        elif (objective == 'Makespan'):
+            # NOTE: I don't know if this is the correct implementation of CWSaving...
+            print("Constructing")
+            return Nond
 
         return {
             'ofv': ofv,
             'route': route
         }
-    def _consVRPSweep(nodes, depotID, customerID, tau, vehCap, vehNum, objective):
-        # NOTE: This method can be applied for all objectives
-
-        sweepSeq = getSweepSeq(
-            nodes = nodes,
-            nodeIDs = customerID,
-            centerLoc = nodes[depotID]['locs'])
 
 
-        return {
-            'ofv': ofv,
-            'route': route
-        }
+    def _consVRPRandom(nodes, depotID, customerID, tau):
+        return res
 
     # Solve by different formulations =========================================
     res = None
@@ -485,16 +355,96 @@ def heuVRPConstructing(
         msgError("Error: Incorrect or unavailable CVRP formulation option!")
 
     # Solve the local improvement =============================================
-    def _lImpIntraRoute(route):
-        return
+    def _lImpRoute(nodes, depotID, customerID, tau, route, asymFlag, demand, maxDemand, maxCost):
+
+        # First, initialize the saving of removing any node from its existing positing
+        # This dictionary will be updated every time two routes are updated
+        removal = {}
+        for r in route:
+            saving = calRemovalSaving(
+                route = route[r]['route'],
+                cost = route[r]['cost'],
+                revCost = route[r]['revCost'],
+                tau = tau,
+                asymFlag = asymFlag)
+            for n in saving:
+                removal[n] = saving[n]
+        
+        canImproveFlag = True
+        while(canImproveFlag):
+            canImproveFlag = False
+
+            # Stage 1: Try moving a customer to another route
+            for n in nodeIDs:
+                # Find which route is the node to be removed comes from
+                removalRoute = None
+                for r in route:
+                    if (n in route[r]['route']):
+                        removalRoute = r
+                        break
+
+                # Try to find a route that can insert the node
+                for r in route:
+                    # If the node is not in route r, try insert it
+                    if (n not in route[r]['route']):
+                        insertion = calInsertionCost(
+                            route = route[r]['route'],
+                            cost = route[r]['cost'],
+                            revCost = route[r]['revCost'],
+                            tau = tau,
+                            nJ = n,
+                            demand = demand,
+                            maxDemand = maxDemand,
+                            maxCost = maxCost,
+                            asymFlag = asymFlag)
+
+                        # If insertion is feasible, try to see if it is improving makespan between these two vehicle
+                        if (insertion['newSeq'] != None):
+                            oldMakespan = max(route[removalRoute]['cost'], route[r]['cost'])
+                            newMakespan = max(removal[n]['newCost'], insertion['newCost'])
+                            if (newMakespan < oldMakespan):
+                                canImproveFlag = True
+                                # Update the route that has node removed
+                                route[removalRoute]['route'] = removal[n]['newSeq']
+                                route[removalRoute]['cost'] = removal[n]['cost']
+                                route[removalRoute]['revCost'] = removal[n]['revCost']
+                                # Update the route that has node inserted
+                                route[r]['route'] = insertion['newSeq']
+                                route[r]['cost'] = insertion['newCost']
+                                route[r]['revCost'] = insertion['revNewCost']
+                                # Update removal dictionary
+                                for updateR in [removalRoute, r]:
+                                    saving = calRemovalSaving(
+                                        route = route[updateR]['route'],
+                                        cost = route[updateR]['cost'],
+                                        revCost = route[updateR]['revCost'],
+                                        tau = tau,
+                                        asymFlag = asymFlag)
+                                    for updateN in saving:
+                                        removal[updateN] = saving[updateN]
+
+            # Stage 2: Try swapping two customers in the route
+            for nI in nodeIDs:
+                for nJ in nodeIDs:
+                    # FIXME: Skip for now
+                    pass
+
+            # Stage 3: Try improving each route using TSP
+            for r in routes:
+                updateTSP = heuTSP(
+                    nodes = nodes,
+                    edges = tau,
+                    depotID = depotID,
+                    nodeIDs = [route[r]['route'][i] for i in range(1, len(route[r]['route']) - 1)],
+                    serviceTime = 0, # Do not update tau again
+                    consAlgo = 'PreDefine',
+                    consAlgoArgs = {'initSeq': route[r]['route']})
+                if (updateTSP['ofv'] < route[r]['cost']):
+                    rotue[r]['route'] = updateTSP['seq']
+                    route[r]['cost'] = updateTSP['ofv']
+                    rotue[r]['revCost'] = calSeqCostMatrix(
+                        tau, 
+                        [updateTSP['seq'][len(updateTSP['seq']) - 1 - i] for i in range(len(updateTSP['seq']))])
 
     return res
 
-def heuCVRPTW():
-    return
-
-def heuCVRPPD():
-    return
-
-def heuCVRPPDTW():
-    return

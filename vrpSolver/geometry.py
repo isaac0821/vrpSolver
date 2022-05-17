@@ -446,6 +446,80 @@ def calPolygonAreaLatLon(
 
     return area
 
+def getTau(
+    nodes:      "Dictionary, returns the coordinate of given nodeID, \
+                    {\
+                        nodeID1: {'loc': (x, y)}, \
+                        nodeID2: {'loc': (x, y)}, \
+                        ... \
+                    }" = None, 
+    edges:      "1) String (default) 'Euclidean' or \
+                 2) String 'LatLon' or \
+                 3) Dictionary {(nodeID1, nodeID2): dist, ...} or \
+                 4) String 'Grid', will need to add arguments using `edgeArgs`" = "Euclidean",
+    edgeArgs:   "Dictionary, to help defining traveling cost matrix \
+                 1) for 'Euclidean', 'LatLon', Travel cost dictionary,\
+                    {\
+                        'scale': 1, \
+                    }\
+                 2) for 'Grid'\
+                    {\
+                        'colRow': (numCol, numRow),\
+                        'barriers': [(coordX, coordY), ...], \
+                    }" = None,
+    depotID:    "DepotID, default to be 0" = 0,
+    nodeIDs:    "1) String (default) 'All', or \
+                 2) A list of node IDs" = 'All',
+    serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0):
+    # Define tau ==============================================================
+    tau = {}
+    if (type(edges) is not dict):
+        if (edges == 'Euclidean'):
+            if (edgeArgs == None):
+                tau = getTauEuclidean(nodes, nodeIDs)
+            elif ('scale' not in edgeArgs):
+                msgWarning("WARNING: Missing 'scale' in `edgeArgs`. Set to be default value as 1")
+                tau = getTauEuclidean(nodes, nodeIDs)
+            else:
+                tau = getTauEuclidean(nodes, nodeIDs, edgeArgs['scale'])
+        elif (edges == 'LatLon'):
+            if (edgeArgs == None):
+                tau = getTauLatLon(nodes, nodeIDs)
+            elif ('scale' not in edgeArgs):
+                msgWarning("WARNING: Missing 'scale' in `edgeArgs`. Set to be default value as 1")
+                tau = getTauLatLon(nodes, nodeIDs)
+            else:
+                tau = getTauLatLon(nodes, nodeIDs, edgeArgs['scale'])
+        elif (edges == 'Grid'):
+            if (edgeArgs == None or 'colRow' not in edgeArgs or 'barriers' not in edgeArgs):
+                msgError("ERROR: Need more information to define the grid.")
+                return None
+            tau = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
+        else:
+            msgError(ERROR_INCOR_TAU)
+            return None
+    else:
+        if (edgeArgs == None):
+            for p in edges:
+                tau[p] = edges[p]
+        elif ('scale' not in edgeArgs):
+            msgWarning("WARNING: Missing 'scale' in `edgeArgs`. Set to be default value as 1")
+            for p in edges:
+                tau[p] = edges[p]
+        else:
+            for p in edges:
+                tau[p] = edges[p] * edgeArgs['scale']
+
+    # Service time ============================================================
+    if (serviceTime != None and serviceTime > 0):
+        for (i, j) in tau:
+            if (i != depotID and j != depotID and i != j):
+                tau[i, j] += serviceTime
+            elif (i == depotID or j == depotID and i != j):
+                tau[i, j] += serviceTime / 2 
+
+    return tau
+
 def getTauEuclidean(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\

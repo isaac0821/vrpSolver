@@ -42,37 +42,13 @@ def lbTSP(
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
-            nodeIDs = []
-            for i in nodes:
-                nodeIDs.append(i)
+            nodeIDs = [i for i in nodes]
         else:
             msgError(ERROR_INCOR_NODEIDS)
             return
 
     # Define tau ==============================================================
-    tau = {}
-    if (type(edges) is not dict):
-        if (edges == 'Euclidean'):
-            tau = getTauEuclidean(nodes, nodeIDs)
-        elif (edges == 'LatLon'):
-            tau = getTauLatLon(nodes, nodeIDs)
-        elif (edges == 'Grid'):
-            tau = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
-        else:
-            msgError(ERROR_INCOR_TAU)
-            return None
-    else:
-        tau = dict(edges)
-
-    # Service time ============================================================
-    if (serviceTime != None and serviceTime > 0):
-        for (i, j) in tau:
-            if (i != depotID and j != depotID and i != j):
-                tau[i, j] += serviceTime
-            elif (i == depotID or j == depotID and i != j):
-                tau[i, j] += serviceTime / 2 
-    else:
-        serviceTime = 0
+    tau = getTau(nodes, edges, edgeArgs, depotID, nodeIDs, serviceTime)
         
     # Default configuration ===================================================
     if (algo == 'HeldKarp' and algoArgs == None):
