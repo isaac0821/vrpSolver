@@ -326,3 +326,38 @@ def getTWInsertFlexibility(
             'minDelayNeeded': minDelayNeeded
         }
 
+def getStepFromTWs(
+    res:        "Name of the resource" = None,
+    tws:        "A list of time windows that one of the resource is occupied, could (and highly likely) be overlapped" = None,
+    share:      "number of user sharing one item" = 1
+    ) -> "Given a set of occupied time windows of given resource, returns a step sequence represent utilization": 
+    
+    # Initialize ==============================================================
+    timeStamp = []
+    useLevel = []
+    occLevel = []
+
+    # Get the timeStamps ======================================================
+    for tw in tws:
+        if (tw[0] not in timeStamp):
+            timeStamp.append(tw[0])
+        if (tw[1] not in timeStamp):
+            timeStamp.append(tw[1])
+    timeStamp.sort()
+    for i in range(len(timeStamp)):
+        useLevel.append(0)
+        occLevel.append(0)
+
+    # Update useLevel =========================================================
+    for tw in tws:
+        # Use level between start time and end time will increase by 1
+        for i in range(len(timeStamp)):
+            if (timeStamp[i] >= tw[0] and timeStamp[i] < tw[1]):
+                useLevel[i] += 1
+                occLevel[i] = math.ceil(useLevel[i] / share)
+
+    return {
+        'resID': res,
+        'timeStamp': timeStamp,
+        'useLevel': occLevel
+    }

@@ -247,7 +247,7 @@ def rndTimeWindowsNodes(
                     }" = None
     ) -> "A set of nodes with time windows":
     # Initialize ==============================================================
-    nodes = copy.deepcopy(plainNodes)
+    nodes = dict(plainNodes)
 
     # Check for required fields ===============================================
     if (plainNodes == None):

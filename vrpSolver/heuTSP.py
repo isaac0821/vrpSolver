@@ -6,6 +6,7 @@ from .common import *
 from .graph import *
 from .geometry import *
 from .msg import *
+from .operator import *
 
 def heuTSP(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
@@ -55,54 +56,35 @@ def heuTSP(
                     {\
                         'initSeq': complete/incomplete initial TSP route\
                     }"= None,
-    impAlgo:    "1) String (not available) 'LKH' or \
-                 2) String (default) '2Opt'" = None,
+    impAlgo:    "1) List of Strings, options are as follows \
+                 2) String (not available) 'LKH' or \
+                 3) String (default) '2Opt'" = '2Opt',
     impAlgoArgs: "Dictionary, args for improvement heuristic" = None
     ) -> "Use given heuristic methods to get TSP solution":
 
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
-            nodeIDs = []
-            for i in nodes:
-                nodeIDs.append(i)
+            nodeIDs = [i for i in nodes]
         else:
             msgError(ERROR_INCOR_NODEIDS)
             return
 
     # Define tau ==============================================================
-    tau = {}
-    if (type(edges) is not dict):
-        if (edges == 'Euclidean'):
-            tau = getTauEuclidean(nodes, nodeIDs)
-        elif (edges == 'LatLon'):
-            tau = getTauLatLon(nodes, nodeIDs)
-        elif (edges == 'Grid'):
-            if (edgeArgs == None or 'colRow' not in edgeArgs or 'barriers' not in edgeArgs):
-                msgError("ERROR: Need more information to define the grid.")
-                return None
-            tau = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
-        else:
-            msgError(ERROR_INCOR_TAU)
-            return None
-    else:
-        tau = dict(edges)
+    tau = getTau(nodes, edges, edgeArgs, depotID, nodeIDs, serviceTime)
 
-    # Service time ============================================================
-    if (serviceTime != None and serviceTime > 0):
-        for (i, j) in tau:
-            if (i != depotID and j != depotID and i != j):
-                tau[i, j] += serviceTime
-            elif (i == depotID or j == depotID and i != j):
-                tau[i, j] += serviceTime / 2 
-    else:
-        serviceTime = 0
+    # Check symmetric =========================================================
+    asymFlag = False
+    for (i, j) in tau:
+        if (tau[i, j] != tau[j, i]):
+            asymFlag = True
+            break
 
     # Subroutines for different constructive heuristics =======================
     def _consTSPkNearestNeighbor(nodes, nodeIDs, tau, k = 1):
+        # Initialize ----------------------------------------------------------
         seq = [nodeIDs[0]]
         remain = [nodeIDs[i] for i in range(1, len(nodeIDs))]
-
         # Accumulate seq ------------------------------------------------------
         while (len(remain) > 0):
             currentNodeID = seq[-1]
@@ -121,7 +103,6 @@ def heuTSP(
         # Initialize ----------------------------------------------------------
         seq = [nodeIDs[0]]
         remain = [nodeIDs[i] for i in range(1, len(nodeIDs))]
-
         # Accumulate seq ------------------------------------------------------
         while (len(remain) > 0):
             nextLeng = None
@@ -150,9 +131,7 @@ def heuTSP(
         N = len(nodeIDs)
         for i in range(N):
             j = random.randint(0, N - 1)
-            t = seq[i]
-            seq[i] = seq[j]
-            seq[j] = t
+            seq[i], seq[j] = seq[j], seq[i]
         return seq
     def _consTSPInsertion(nodeIDs, initSeq, tau):
         # Initialize ----------------------------------------------------------
@@ -168,7 +147,6 @@ def heuTSP(
                 'seq': None
             }
         unInserted = [i for i in nodeIDs if i not in seq]
-
         # Try insertion one by one --------------------------------------------
         while (len(unInserted) > 0):
             bestCus = None
@@ -189,7 +167,6 @@ def heuTSP(
             if (bestCost != None):
                 seq.insert(bestInsertionIndex, bestCus)
                 unInserted.remove(bestCus)
-
         return seq
 
     # Heuristics that don't need to transform arc representation ==============
@@ -197,7 +174,7 @@ def heuTSP(
     if (consAlgo == 'PreDefined'):
         if (consAlgoArgs == None or 'initSeq' not in consAlgoArgs):
             msgError("Need initial TSP solution for local improvement")
-        seq = consAlgoArgs['initSeq']
+        seq = consAlgoArgs['initSeq'][:-1]
     elif (consAlgo == 'NearestNeighbor'):
         seq = _consTSPkNearestNeighbor(nodes, nodeIDs, tau, 1)
     elif (consAlgo == 'k-NearestNeighbor'):
@@ -284,59 +261,32 @@ def heuTSP(
 
     # Subroutines for different local improvement heuristics ==================
     def _impTSP2Opt(nodeIDs, tau, initSeq):
-        # Check symmetric -----------------------------------------------------
-        symFlag = True
-        for (i, j) in tau:
-            if (tau[i, j] != tau[j, i]):
-                symFlag = False
-                break
-
         # Initialize ----------------------------------------------------------
         canImproveFlag = True
         impSeq = [i for i in initSeq]
-
-        # Revert part of the sequences ----------------------------------------
-        def revert(i, j, seq):
-            rSeq = []
-            if (j == i + 1 or j == i + 2):
-                rSeq = [i for i in seq]
-                rSeq[i], rSeq[j] = rSeq[j], rSeq[i]
-            elif (j > i + 2):
-                rSeq.extend([seq[k] for k in range(i)])
-                rSeq.extend([seq[j - k] for k in range(j - i + 1)])
-                rSeq.extend([seq[k] for k in range(j + 1, len(seq))])
-            return rSeq
-
+        oriOfv = calSeqCostMatrix(tau, impSeq, closeFlag = True)
+        
         # Main iteration ------------------------------------------------------
+        # Needs rewrite, when calculating dist, avoid repeated calculation
         if (len(impSeq) >= 4):
             while (canImproveFlag):
                 canImproveFlag = False
-
                 # Try 2-opt
-                # First arc: (i, i + 1)
-                # Second arc: (j, j + 1)
-                # New arcs: (i, j + 1), (j, i + 1)
-                oriOfv = None
-                if (not symFlag):
-                    oriOfv = calSeqCostMatrix(tau, impSeq, closeFlag = True)
-
                 for i in range(len(impSeq) - 3):
                     for j in range(i + 2, len(impSeq) - 1):
                         # Saving
-                        saving = 0
-                        if ((impSeq[i], impSeq[j]) in tau and (impSeq[i + 1], impSeq[j + 1]) in tau):
-                        # For symmetric TSP, no need to recalculate
-                            if (symFlag):
-                                saving = (tau[impSeq[i], impSeq[i + 1]] + tau[impSeq[j], impSeq[j + 1]]) - (tau[impSeq[i], impSeq[j]] + tau[impSeq[i + 1], impSeq[j + 1]])
-                                if (saving > CONST_EPSILON):
-                                    impSeq = revert(i + 1, j, impSeq)
-                                    canImproveFlag = True
-                            else:
-                                newSeq = revert(i + 1, j, impSeq)
-                                newOfv = calSeqCostMatrix(tau, newSeq, closeFlag = True)
-                                if (newOfv < oriOfv):
-                                    impSeq = [i for i in newSeq]
-                                    canImproveFlag = True
+                        opt = twoOpt(
+                            seq = impSeq, 
+                            tau = tau, 
+                            i = i, 
+                            j = j, 
+                            oldCost = oriOfv, 
+                            asymFlag = asymFlag)
+                        saving = opt['deltaCost']
+                        if (saving <= 0):
+                            canImproveFlag = True
+                            impSeq = opt['seq']
+                            newOfv = opt['newCost']
         return impSeq
 
     def _impTSPLKH(nodeIDs, tau, initSeq):

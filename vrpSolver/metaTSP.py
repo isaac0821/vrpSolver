@@ -53,40 +53,13 @@ def metaTSP(
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
-            nodeIDs = []
-            for i in nodes:
-                nodeIDs.append(i)
+            nodeIDs = [i for i in nodes]
         else:
             msgError(ERROR_INCOR_NODEIDS)
             return
-
+            
     # Define tau ==============================================================
-    tau = {}
-    if (type(edges) is not dict):
-        if (edges == 'Euclidean'):
-            tau = getTauEuclidean(nodes, nodeIDs)
-        elif (edges == 'LatLon'):
-            tau = getTauLatLon(nodes, nodeIDs)
-        elif (edges == 'Grid'):
-            if (edgeArgs == None or 'colRow' not in edgeArgs or 'barriers' not in edgeArgs):
-                msgError("ERROR: Need more information to define the grid.")
-                return None
-            tau = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
-        else:
-            msgError(ERROR_INCOR_TAU)
-            return None
-    else:
-        tau = dict(edges)
-
-    # Service time ============================================================
-    if (serviceTime != None and serviceTime > 0):
-        for (i, j) in tau:
-            if (i != depotID and j != depotID and i != j):
-                tau[i, j] += serviceTime
-            elif (i == depotID or j == depotID and i != j):
-                tau[i, j] += serviceTime / 2 
-    else:
-        serviceTime = 0
+    tau = getTau(nodes, edges, edgeArgs, depotID, nodeIDs, serviceTime)
 
     # Configuration ===========================================================
     if (metaAlgo == 'SimulatedAnnealing'):
@@ -229,9 +202,9 @@ def metaTSP(
             serviceTime = serviceTime, 
             consAlgo = initAlgo, 
             consAlgoArgs = initAlgoArgs)
-        # To avoid all kind of trouble, seq here is not closed
+        # To avoid all kind of trouble, seq here is not closed, but ofv is calculated as closed
         curSeq = initSol['seq'][:-1] 
-        ofv = initSol['ofv'] - tau[curSeq[-1], depotID]
+        ofv = initSol['ofv']
 
         # Main cooling --------------------------------------------------------
         startTime = datetime.datetime.now()
@@ -251,12 +224,27 @@ def metaTSP(
                 newSeq = None
                 deltaC = None
                 res = None
+                N = len(curSeq)
                 if (typeOfNeigh == 0):
-                    res = _swap(curSeq)
+                    # res = _swap(curSeq)
+                    i = random.randint(0, N - 1)
+                    res = neighborSwap(curSeq, tau, i, ofv)
                 elif (typeOfNeigh == 1):
-                    res = _exchange(curSeq)
+                    # res = _exchange(curSeq)
+                    i = None
+                    j = None
+                    while (i == None or j == None or abs(i - j) <= 2 or (i == 0 and j == N - 1) or (i == N - 1 and j == 0)):
+                        i = random.randint(0, N - 1)
+                        j = random.randint(0, N - 1)                    
+                    res = exchange(curSeq, tau, i, j, ofv)
                 elif (typeOfNeigh == 2):
-                    res = _2Opt(curSeq)
+                    # res = _2Opt(curSeq)
+                    i = None
+                    j = None
+                    while (i == None or j == None or j - i <= 2 or (i == 0 and j == N - 1)):
+                        i = random.randint(0, N - 1)
+                        j = random.randint(0, N - 1)
+                    res = twoOpt(curSeq, tau, i, j, ofv)
                 newSeq = res['seq']
                 deltaC = res['deltaC']
 

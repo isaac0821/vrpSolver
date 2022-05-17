@@ -5,6 +5,7 @@ import geopy.distance
 from .geometry import *
 from .timeWindows import *
 from .const import *
+from .instance import *
 
 '''
 # Description =================================================================

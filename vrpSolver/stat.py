@@ -40,11 +40,11 @@ def VRP2Gantt(
 
     # Create gantt ============================================================
     gantt = []
-    for veh in vrpSol['route']:
+    for veh in vrpSol:
         gantt.extend(visitSeq2Gantt(
             entityID = 'Truck_%s' % veh,
             tau = tau,
-            visitSeq = vrpSol['route'][veh],
+            visitSeq = vrpSol[veh]['route'],
             serviceTime = serviceTime))
 
     return gantt
@@ -130,35 +130,3 @@ def visitSeq2Gantt(
     })
 
     return gantt
-
-def getStepFromTWs(
-    res:        "Name of the resource" = None,
-    tws:        "A list of time windows that one of the resource is occupied, could (and highly likely) be overlapped" = None,
-    ) -> "Given a set of occupied time windows of given resource, returns a step sequence represent utilization": 
-    
-    # Initialize ==============================================================
-    timeStamp = []
-    useLevel = []
-
-    # Get the timeStamps ======================================================
-    for tw in tws:
-        if (tw[0] not in timeStamp):
-            timeStamp.append(tw[0])
-        if (tw[1] not in timeStamp):
-            timeStamp.append(tw[1])
-    timeStamp.sort()
-    for i in range(len(timeStamp)):
-        useLevel.append(0)
-
-    # Update useLevel =========================================================
-    for tw in tws:
-        # Use level between start time and end time will increase by 1
-        for i in range(len(timeStamp)):
-            if (timeStamp[i] >= tw[0] and timeStamp[i] < tw[1]):
-                useLevel[i] += 1
-
-    return {
-        'resID': res,
-        'timeStamp': timeStamp,
-        'useLevel': useLevel
-    }

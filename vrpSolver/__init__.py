@@ -1,4 +1,4 @@
-__version__ = "0.0.48"
+__version__ = "0.0.51"
 __author__ = "Lan Peng"
 
 '''
@@ -63,6 +63,8 @@ __author__ = "Lan Peng"
 # v0.0.47 - 03302022 - Add `heuVRP()` with CW Saving algorithm
 # v0.0.48 - 05052022 - Start v0.1.0 development: vrpSolver engine
 # v0.0.49 - 05122022 - Add `metaTSP()` with Simulated Annealing
+# v0.0.50 - 05132022 - Move route operators to `operator.py`, so that it can be reused
+# v0.0.51 - 05172022 - Add a temporary VRP function `heuVRPMakespan()` which minimizes the makespan of VRP
 # =============================================================================
 '''
 
