@@ -283,7 +283,7 @@ def heuTSP(
                             oldCost = oriOfv, 
                             asymFlag = asymFlag)
                         saving = opt['deltaCost']
-                        if (saving <= 0):
+                        if (saving != None and saving <= 0):
                             canImproveFlag = True
                             impSeq = opt['seq']
                             newOfv = opt['newCost']

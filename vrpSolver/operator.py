@@ -142,8 +142,8 @@ def twoOpt(
             or (nINext, nJNext) not in tau):
             return {
                 'seq': None,
-                        'deltaCost': None,
-                        'newCost': None
+                'deltaCost': None,
+                'newCost': None
             }
 
     # deltaCost = newCost - oldCost

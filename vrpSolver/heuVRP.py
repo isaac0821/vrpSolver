@@ -228,12 +228,12 @@ def heuVRPMakespan(
     constraint: "Dictionary, describing the constraints, \
                  [{\
                     'vehCap': capacity of vehicle, \
-                    'numVeh': maximum number of vehicle, \
+                    'vehNum': maximum number of vehicle, \
                     'maxCost': maximum travel distance/time of a vehicle \
                  }]" = None,
     consAlgo:   "1) String 'CWSaving' or \
-                 2) String (not available) 'Sweep' or \
-                 3) String (not available) 'Petal' " = 'CWSaving',
+                 2) String 'Sweep' or \
+                 3) String (not available) 'Petal' " = 'Sweep',
     consAlgoArgs: "Dictionary" = None,
     impAlgo:    "1) String '2Opt'" = '2Opt',
     impAlgoArgs: "Dictionary" = None
@@ -265,14 +265,14 @@ def heuVRPMakespan(
 
     # Quick estimate for terminating the function =============================
     capableCus = 0
-    if ('vehCap' in constraint and 'numVeh' in constraint):
-        capableCus = constraint['vehCap'] * constraint['numVeh']
+    if ('vehCap' in constraint and 'vehNum' in constraint):
+        capableCus = constraint['vehCap'] * constraint['vehNum']
         if (capableCus < len(customerIDs)):
             msgError("ERROR: Insufficient delivery capacity")
             return
 
     # Check constraint ========================================================
-    if (constraint == None or ('vehCap' not in constraint and 'numVeh' not in constraint and 'maxCost' not in constraint)):
+    if (constraint == None or ('vehCap' not in constraint and 'vehNum' not in constraint and 'maxCost' not in constraint)):
         msgError("ERROR: Missing constraint")
         return
 
@@ -290,11 +290,11 @@ def heuVRPMakespan(
             break
 
     # Subroutines =============================================================
-    def _consVRPClarkeWrightTest(nodes, depotID, customerID, tau, constraint):
+    def _consVRPInsertion(nodes, depotID, customerID, tau, vehCap, vehNum):
         # Initial routes
-        route = {}
+        routeBank = {}
         for i in range(len(customerID)):
-            route[i] = {
+            routeBank[i] = {
                 'route': [depotID, customerID[i], depotID],
                 'demand': demand[customerID[i]],
                 'cost': tau[depotID, customerID[i]] + tau[customerID[i], depotID],
@@ -314,17 +314,17 @@ def heuVRPMakespan(
             for j in customerID:
                 if (i < j):
                     mergeIJ = merge(
-                        routeI = route[i]['route'],
-                        routeJ = route[j]['route'],
+                        routeI = routeBank[i]['route'],
+                        routeJ = routeBank[j]['route'],
                         depotID = depotID,
                         tau = tau,
-                        costI = route[i]['cost'],
+                        costI = routeBank[i]['cost'],
                         revCostI = route[i]['revCost'],
-                        costJ = route[j]['cost'],
+                        costJ = routeBank[j]['cost'],
                         revCostJ = route[j]['cost'],
                         demand = demand,
-                        maxDemand = maxDemand,
-                        maxCost = maxCost,
+                        maxDemand = vehCap,
+                        maxCost = None,
                         asymFlag = asymFlag)
                     if (mergeIJ['newSeq'] != None):
                         mergeSaving[i, j] = mergeIJ
@@ -336,8 +336,19 @@ def heuVRPMakespan(
             return None
         elif (objective == 'Makespan'):
             # NOTE: I don't know if this is the correct implementation of CWSaving...
-            print("Constructing")
-            return Nond
+            route = {}
+            for i in range(vehNum):
+                route[i] =  {
+                    'route': [depotID, customerID[i], depotID],
+                    'demand': demand[customerID[i]],
+                    'cost': tau[depotID, customerID[i]] + tau[customerID[i], depotID],
+                    'revCost': tau[depotID, customerID[i]] + tau[customerID[i], depotID]
+                }
+
+            for i in range(vehNum, len(customerID)):
+                for v in range(vehNum):
+                    pass
+            return None
 
         return {
             'ofv': ofv,
@@ -467,15 +478,48 @@ def heuVRPMakespan(
             acc += 1
 
         return route
+    
+    def _consVRPSweep(nodes, depotID, customerID, tau, vehCap, vehNum):
+        sweepSeq = getSweepSeq(
+            nodes = nodes,
+            nodeIDs = customerID,
+            centerLoc = nodes[depotID]['loc'])
+
+        cusPerVeh = math.ceil(len(customerID) / vehNum)
+        split = [sweepSeq[i:i + cusPerVeh] for i in range(0, len(sweepSeq), cusPerVeh)]
+
+        route = {}
+        for r in range(vehNum):
+            sub = [0]
+            sub.extend(split[r])
+            sub.append(0)
+            revSub = [i for i in sub]
+            revSub.reverse()
+            route[r] = {
+                'route': sub,
+                'cost': calSeqCostMatrix(tau, sub),
+                'revCost': calSeqCostMatrix(tau, revSub)
+            }
+        return route
+
     # Solve by different formulations =========================================
     route = None
     if (consAlgo == 'CWSaving'):
         vehCap = None
         vehNum = None
-        if ('numVeh' in constraint):
-            vehNum = constraint['numVeh']
+        if ('vehNum' in constraint):
+            vehNum = constraint['vehNum']
+        if ('vehCap' in constraint):
+            vehCap = constraint['vehCap']
         route = _consVRPClarkeWright(nodes, depotID, customerID, tau, vehCap, vehNum)
-        # print("Constructive", route)
+    if (consAlgo == 'Sweep'):
+        vehCap = None
+        vehNum = None
+        if ('vehNum' in constraint):
+            vehNum = constraint['vehNum']
+        if ('vehCap' in constraint):
+            vehCap = constraint['vehCap']
+        route = _consVRPSweep(nodes, depotID, customerID, tau, vehCap, vehNum)
     else:
         msgError("Error: Incorrect or unavailable CVRP formulation option!")
 
@@ -523,8 +567,6 @@ def heuVRPMakespan(
                                 maxDemand = maxDemand,
                                 maxCost = maxCost,
                                 asymFlag = True)
-                            if (insertion['revNewCost'] == 0):
-                                print(insertion)
 
                             # If insertion is feasible, try to see if it is improving makespan between these two vehicle
                             if (insertion['newSeq'] != None):
@@ -541,7 +583,7 @@ def heuVRPMakespan(
                                     route[r]['cost'] = insertion['newCost']
                                     route[r]['revCost'] = insertion['revNewCost']
 
-                                    # print('Move %s from route %s to %s' % (n, removalRoute, r))
+                                    # print('Move %s from route %s to %s, oldMakespan: %s, newMakespan: %s' % (n, removalRoute, r, oldMakespan, newMakespan))
                                     canImproveFlag = True
                                     break
                     if (canImproveFlag):
@@ -566,7 +608,7 @@ def heuVRPMakespan(
                             serviceTime = 0) # Do not update tau again
                         if (updateTSP['ofv'] + CONST_EPSILON < route[r]['cost']):
                             canImproveFlag = True
-                            print("Improve Route %s from %s to %s" % (r, route[r]['cost'], updateTSP['ofv']))
+                            # print("Improve Route %s from %s to %s" % (r, route[r]['cost'], updateTSP['ofv']))
                             route[r]['route'] = updateTSP['seq']
                             route[r]['cost'] = updateTSP['ofv']
                             revSeq = [i for i in updateTSP['seq']]
@@ -586,6 +628,17 @@ def heuVRPMakespan(
         maxDemand = None,
         maxCost = None)
 
-    return route
+    cost = 0
+    for r in route:
+        cost += route[r]['cost']
+
+    makespan = max([route[r]['cost'] for r in route])
+
+    return {
+        'cost': cost,
+        'makespan': makespan,
+        'route': route,
+        'serviceTime': serviceTime
+    }
 
 
