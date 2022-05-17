@@ -174,7 +174,7 @@ def heuTSP(
     if (consAlgo == 'PreDefined'):
         if (consAlgoArgs == None or 'initSeq' not in consAlgoArgs):
             msgError("Need initial TSP solution for local improvement")
-        seq = consAlgoArgs['initSeq']
+        seq = consAlgoArgs['initSeq'][:-1]
     elif (consAlgo == 'NearestNeighbor'):
         seq = _consTSPkNearestNeighbor(nodes, nodeIDs, tau, 1)
     elif (consAlgo == 'k-NearestNeighbor'):
@@ -275,12 +275,18 @@ def heuTSP(
                 for i in range(len(impSeq) - 3):
                     for j in range(i + 2, len(impSeq) - 1):
                         # Saving
-                        opt = twoOpt(impSeq, tau, i, j, oriOfv, asymFlag)
-                        saving = opt['deltaC']
+                        opt = twoOpt(
+                            seq = impSeq, 
+                            tau = tau, 
+                            i = i, 
+                            j = j, 
+                            oldCost = oriOfv, 
+                            asymFlag = asymFlag)
+                        saving = opt['deltaCost']
                         if (saving <= 0):
                             canImproveFlag = True
                             impSeq = opt['seq']
-                            newOfv = opt['newC']
+                            newOfv = opt['newCost']
         return impSeq
 
     def _impTSPLKH(nodeIDs, tau, initSeq):

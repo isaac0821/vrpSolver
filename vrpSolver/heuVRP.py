@@ -7,6 +7,7 @@ from .graph import *
 from .geometry import *
 from .msg import *
 from .operator import *
+from .heuTSP import *
 
 def heuVRP(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
@@ -289,7 +290,7 @@ def heuVRPMakespan(
             break
 
     # Subroutines =============================================================
-    def _consVRPClarkeWright(nodes, depotID, customerID, tau, constraint):
+    def _consVRPClarkeWrightTest(nodes, depotID, customerID, tau, constraint):
         # Initial routes
         route = {}
         for i in range(len(customerID)):
@@ -343,108 +344,248 @@ def heuVRPMakespan(
             'route': route
         }
 
+    def _consVRPClarkeWright(nodes, depotID, customerID, tau, vehCap, vehNum):
+        # Initial routes
+        routeBank = {}
+        for i in range(len(customerID)):
+            routeBank[i] = {
+                'route': [depotID, customerID[i], depotID],
+                'demand': demand[customerID[i]],
+                'length': tau[depotID, customerID[i]] + tau[customerID[i], depotID]
+            }
 
-    def _consVRPRandom(nodes, depotID, customerID, tau):
-        return res
+        # vehCap
+        if (vehCap == None):
+            vehCap = len(nodeIDs) + 1
 
+        # vehNum
+        if (vehNum == None):
+            vehNum = len(nodeIDs) + 1
+
+        # Initial saving raking
+        rankSaving = []
+        for i in customerID:
+            for j in customerID:
+                if (i != j):
+                    # Calculate saving for each pair
+                    sav = tau[depotID, i] + tau[depotID, j] - tau[i, j]
+                    # heapq returns the smallest, so add a negative sign
+                    heapq.heappush(rankSaving, (-sav, (i, j)))
+
+        # Merge routes subroutine
+        def mergeLocal(i, j):
+            if (i == j):
+                return None
+            rI = None
+            rJ = None
+            iLeft = None
+            iRight = None
+            jLeft = None
+            jRight = None
+            for r in routeBank:
+                if (i == routeBank[r]['route'][1]):
+                    iLeft = True
+                    rI = r
+                if (i == routeBank[r]['route'][-2]):
+                    iRight = True
+                    rI = r
+                if (j == routeBank[r]['route'][1]):
+                    jLeft = True
+                    rJ = r
+                if (j == routeBank[r]['route'][-2]):
+                    jRight = True
+                    rJ = r
+            newRoute = []
+            if (iRight == True and jLeft == True):
+                newRoute = [i for i in routeBank[rI]['route']]
+                addRoute = [i for i in routeBank[rJ]['route']]
+                newRoute.extend(addRoute)
+            elif (iLeft == True and jRight == True):
+                newRoute = [i for i in routeBank[rJ]['route']]
+                addRoute = [i for i in routeBank[rI]['route']]
+                newRoute.extend(addRoute)
+            elif (iLeft == True and jLeft == True):
+                newRoute = [i for i in routeBank[rI]['route']]
+                newRoute.reverse()
+                addRoute = [i for i in routeBank[rJ]['route']]
+                newRoute.extend(addRoute)
+            elif (iRight == True and jRight == True):
+                newRoute = [i for i in routeBank[rI]['route']]
+                addRoute = [i for i in routeBank[rJ]['route']]
+                addRoute.reverse()
+                newRoute.extend(addRoute)
+
+            while (depotID in newRoute):
+                newRoute.remove(depotID)
+            newRoute.insert(0, depotID)
+            newRoute.append(depotID)
+
+            newDemand = routeBank[rI]['demand'] + routeBank[rJ]['demand']
+            newLength = routeBank[rI]['length'] + routeBank[rJ]['length'] + tau[i, j] - tau[depotID, i] - tau[depotID, j]
+            routeBank.pop(rI)
+            routeBank.pop(rJ)
+            newRouteIndex = max(list(routeBank.keys())) + 1
+            routeBank[newRouteIndex] = {
+                'route': newRoute,
+                'demand': newDemand,
+                'length': newLength
+            }
+
+        # Merge routes
+        while (len(rankSaving) > 0):
+            # Get the biggest saving
+            bestSaving = heapq.heappop(rankSaving)
+            # Flip it back
+            sav = -bestSaving[0]
+            # If there is saving, check which two routes can be merged
+            routeI = None
+            routeJ = None
+            for r in routeBank:
+                if (bestSaving[1][0] == routeBank[r]['route'][1] or bestSaving[1][0] == routeBank[r]['route'][-2]):
+                    routeI = r
+                if (bestSaving[1][1] == routeBank[r]['route'][1] or bestSaving[1][1] == routeBank[r]['route'][-2]):
+                    routeJ = r
+                if (routeI != None and routeJ != None):
+                    break
+            # Two routes has to be different, and satisfied the capacity
+            if (routeI != None 
+                and routeJ != None 
+                and routeI != routeJ 
+                and routeBank[routeI]['demand'] + routeBank[routeJ]['demand'] <= vehCap
+                and len(routeBank) > vehNum):
+                mergeLocal(bestSaving[1][0], bestSaving[1][1])
+
+        # Rename the route name
+        route = {}
+        acc = 1
+        for r in routeBank:
+            route[acc] = {
+                'route': [i for i in routeBank[r]['route']],
+                'cost': calSeqCostMatrix(tau, [i for i in routeBank[r]['route']]),
+                'revCost': calSeqCostMatrix(tau, [routeBank[r]['route'][len(routeBank[r]['route']) - 1 - i] for i in range(len(routeBank[r]['route']))])
+            }
+            acc += 1
+
+        return route
     # Solve by different formulations =========================================
-    res = None
+    route = None
     if (consAlgo == 'CWSaving'):
-        res = _consVRPClarkeWright(nodes, depotID, customerID, tau, vehicle['capTruck'], vehicle['numTruck'])
+        vehCap = None
+        vehNum = None
+        if ('numVeh' in constraint):
+            vehNum = constraint['numVeh']
+        route = _consVRPClarkeWright(nodes, depotID, customerID, tau, vehCap, vehNum)
+        # print("Constructive", route)
     else:
         msgError("Error: Incorrect or unavailable CVRP formulation option!")
 
     # Solve the local improvement =============================================
     def _lImpRoute(nodes, depotID, customerID, tau, route, asymFlag, demand, maxDemand, maxCost):
-
         # First, initialize the saving of removing any node from its existing positing
         # This dictionary will be updated every time two routes are updated
         removal = {}
-        for r in route:
-            saving = calRemovalSaving(
-                route = route[r]['route'],
-                cost = route[r]['cost'],
-                revCost = route[r]['revCost'],
-                tau = tau,
-                asymFlag = asymFlag)
-            for n in saving:
-                removal[n] = saving[n]
         
         canImproveFlag = True
         while(canImproveFlag):
             canImproveFlag = False
 
             # Stage 1: Try moving a customer to another route
-            for n in nodeIDs:
-                # Find which route is the node to be removed comes from
-                removalRoute = None
+            if (not canImproveFlag):
                 for r in route:
-                    if (n in route[r]['route']):
-                        removalRoute = r
+                    saving = calRemovalSaving(
+                        route = route[r]['route'],
+                        cost = route[r]['cost'],
+                        revCost = route[r]['revCost'],
+                        tau = tau,
+                        asymFlag = True)
+                    for n in saving:
+                        removal[n] = saving[n]
+
+                for n in customerID:
+                    # Find which route is the node to be removed comes from
+                    removalRoute = None
+                    for r in route:
+                        if (n in route[r]['route']):
+                            removalRoute = r
+                            break
+
+                    # Try to find a route that can insert the node
+                    for r in route:
+                        # If the node is not in route r, try insert it
+                        if (n not in route[r]['route']):
+                            insertion = calInsertionCost(
+                                route = route[r]['route'],
+                                cost = route[r]['cost'],
+                                revCost = route[r]['revCost'],
+                                tau = tau,
+                                nJ = n,
+                                demand = demand,
+                                maxDemand = maxDemand,
+                                maxCost = maxCost,
+                                asymFlag = True)
+                            if (insertion['revNewCost'] == 0):
+                                print(insertion)
+
+                            # If insertion is feasible, try to see if it is improving makespan between these two vehicle
+                            if (insertion['newSeq'] != None):
+                                oldMakespan = max(route[removalRoute]['cost'], route[r]['cost'])
+                                newMakespan = max(removal[n]['newCost'], insertion['newCost'])
+                                if (newMakespan + CONST_EPSILON < oldMakespan):                                    
+                                    # Update the route that has node removed
+                                    route[removalRoute]['route'] = removal[n]['newSeq']
+                                    route[removalRoute]['cost'] = removal[n]['newCost']
+                                    route[removalRoute]['revCost'] = removal[n]['revNewCost']
+
+                                    # Update the route that has node inserted
+                                    route[r]['route'] = insertion['newSeq']
+                                    route[r]['cost'] = insertion['newCost']
+                                    route[r]['revCost'] = insertion['revNewCost']
+
+                                    # print('Move %s from route %s to %s' % (n, removalRoute, r))
+                                    canImproveFlag = True
+                                    break
+                    if (canImproveFlag):
                         break
 
-                # Try to find a route that can insert the node
-                for r in route:
-                    # If the node is not in route r, try insert it
-                    if (n not in route[r]['route']):
-                        insertion = calInsertionCost(
-                            route = route[r]['route'],
-                            cost = route[r]['cost'],
-                            revCost = route[r]['revCost'],
-                            tau = tau,
-                            nJ = n,
-                            demand = demand,
-                            maxDemand = maxDemand,
-                            maxCost = maxCost,
-                            asymFlag = asymFlag)
-
-                        # If insertion is feasible, try to see if it is improving makespan between these two vehicle
-                        if (insertion['newSeq'] != None):
-                            oldMakespan = max(route[removalRoute]['cost'], route[r]['cost'])
-                            newMakespan = max(removal[n]['newCost'], insertion['newCost'])
-                            if (newMakespan < oldMakespan):
-                                canImproveFlag = True
-                                # Update the route that has node removed
-                                route[removalRoute]['route'] = removal[n]['newSeq']
-                                route[removalRoute]['cost'] = removal[n]['cost']
-                                route[removalRoute]['revCost'] = removal[n]['revCost']
-                                # Update the route that has node inserted
-                                route[r]['route'] = insertion['newSeq']
-                                route[r]['cost'] = insertion['newCost']
-                                route[r]['revCost'] = insertion['revNewCost']
-                                # Update removal dictionary
-                                for updateR in [removalRoute, r]:
-                                    saving = calRemovalSaving(
-                                        route = route[updateR]['route'],
-                                        cost = route[updateR]['cost'],
-                                        revCost = route[updateR]['revCost'],
-                                        tau = tau,
-                                        asymFlag = asymFlag)
-                                    for updateN in saving:
-                                        removal[updateN] = saving[updateN]
-
             # Stage 2: Try swapping two customers in the route
-            for nI in nodeIDs:
-                for nJ in nodeIDs:
-                    # FIXME: Skip for now
-                    pass
+            if (not canImproveFlag):
+                for nI in customerID:
+                    for nJ in customerID:
+                        # FIXME: Skip for now
+                        pass
 
             # Stage 3: Try improving each route using TSP
-            for r in routes:
-                updateTSP = heuTSP(
-                    nodes = nodes,
-                    edges = tau,
-                    depotID = depotID,
-                    nodeIDs = [route[r]['route'][i] for i in range(1, len(route[r]['route']) - 1)],
-                    serviceTime = 0, # Do not update tau again
-                    consAlgo = 'PreDefine',
-                    consAlgoArgs = {'initSeq': route[r]['route']})
-                if (updateTSP['ofv'] < route[r]['cost']):
-                    rotue[r]['route'] = updateTSP['seq']
-                    route[r]['cost'] = updateTSP['ofv']
-                    rotue[r]['revCost'] = calSeqCostMatrix(
-                        tau, 
-                        [updateTSP['seq'][len(updateTSP['seq']) - 1 - i] for i in range(len(updateTSP['seq']))])
+            if (not canImproveFlag):
+                for r in route:
+                    if (len(route[r]['route']) > 4):
+                        updateTSP = heuTSP(
+                            nodes = nodes,
+                            edges = tau,
+                            depotID = depotID,
+                            nodeIDs = [route[r]['route'][i] for i in range(len(route[r]['route']) - 1)],
+                            serviceTime = 0) # Do not update tau again
+                        if (updateTSP['ofv'] + CONST_EPSILON < route[r]['cost']):
+                            canImproveFlag = True
+                            print("Improve Route %s from %s to %s" % (r, route[r]['cost'], updateTSP['ofv']))
+                            route[r]['route'] = updateTSP['seq']
+                            route[r]['cost'] = updateTSP['ofv']
+                            revSeq = [i for i in updateTSP['seq']]
+                            revSeq.reverse()
+                            route[r]['revCost'] = calSeqCostMatrix(tau, revSeq)
 
-    return res
+        return route
+
+    route = _lImpRoute(
+        nodes = nodes,
+        depotID = depotID,
+        customerID = customerID,
+        tau = tau,
+        route = route,
+        asymFlag = asymFlag,
+        demand = demand,
+        maxDemand = None,
+        maxCost = None)
+
+    return route
+
 

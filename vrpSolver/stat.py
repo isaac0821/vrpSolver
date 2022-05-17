@@ -40,11 +40,11 @@ def VRP2Gantt(
 
     # Create gantt ============================================================
     gantt = []
-    for veh in vrpSol['route']:
+    for veh in vrpSol:
         gantt.extend(visitSeq2Gantt(
             entityID = 'Truck_%s' % veh,
             tau = tau,
-            visitSeq = vrpSol['route'][veh],
+            visitSeq = vrpSol[veh]['route'],
             serviceTime = serviceTime))
 
     return gantt
