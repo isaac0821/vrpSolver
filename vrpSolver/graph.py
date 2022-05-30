@@ -489,11 +489,15 @@ def calSeqCostMatrix(
 
     cost = 0
     for i in range(startIdx, endIdx):
-        cost += tau[seq[i], seq[i + 1]]
-        # print((seq[i], seq[i + 1]))
+        if ((seq[i], seq[i + 1]) in tau):
+            cost += tau[seq[i], seq[i + 1]]
+        else:
+            return None
 
     if (closeFlag):
-        cost += tau[seq[-1], seq[0]]
-        # print((seq[-1], seq[0]))
+        if ((seq[-1], seq[0]) in tau):
+            cost += tau[seq[-1], seq[0]]
+        else:
+            return None
         
     return cost

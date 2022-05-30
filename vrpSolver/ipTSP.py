@@ -158,6 +158,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
+    
     def _ipTSPMultiCommodityFlow():
         # Decision variables --------------------------------------------------
         x = {}
@@ -248,6 +249,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
+    
     def _ipTSPShortestPath():
         # Decision variables --------------------------------------------------
         x = {}
@@ -324,6 +326,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
+    
     def _ipTSPMTZ():
         # Decision variables --------------------------------------------------
         x = {}
@@ -406,6 +409,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
+    
     def _ipTSPPlainLoop():
         # Decision variables --------------------------------------------------
         x = {}
@@ -491,6 +495,7 @@ def ipTSP(
             'upperBound': ub,
             'runtime': runtime
         }
+    
     def _ipTSPLazyCuts():
         # Decision variables --------------------------------------------------
         x = {}

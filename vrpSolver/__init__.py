@@ -1,4 +1,4 @@
-__version__ = "0.0.51"
+__version__ = "0.0.53"
 __author__ = "Lan Peng"
 
 '''
@@ -66,6 +66,8 @@ __author__ = "Lan Peng"
 # v0.0.50 - 05132022 - Move route operators to `operator.py`, so that it can be reused
 # v0.0.51 - 05172022 - Add a temporary VRP function `heuVRPMakespan()` which minimizes the makespan of VRP
 # v0.0.52 - 05172022 - Minor fixes
+# v0.0.53 - 05282022 - Reconstruct for better framework - separates the seq/route operators
+#                    - Remove weather related functions - not routing related
 # =============================================================================
 '''
 

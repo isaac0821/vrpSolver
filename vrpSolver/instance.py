@@ -88,7 +88,7 @@ def rndPlainNodes(
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
             nodes[n] = {
-                'loc': getRndPtUniformSquare(distrArgs['xRange'], distrArgs['yRange'])
+                'loc': _getRndPtUniformSquare(distrArgs['xRange'], distrArgs['yRange'])
             }
 
     elif (distr == 'uniformCircleXY'):
@@ -104,7 +104,7 @@ def rndPlainNodes(
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
             nodes[n] = {
-                'loc': getRndPtUniformCircleXY(distrArgs['radius'], distrArgs['centerLoc'])
+                'loc': _getRndPtUniformCircleXY(distrArgs['radius'], distrArgs['centerLoc'])
             }
 
     elif (distr == 'uniformCircleLatLon'):
@@ -115,7 +115,7 @@ def rndPlainNodes(
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
             nodes[n] = {
-                'loc': getRndPtUniformCircleLatLon(distrArgs['radius'], distrArgs['centerLoc'])
+                'loc': _getRndPtUniformCircleLatLon(distrArgs['radius'], distrArgs['centerLoc'])
             }
 
     elif (distr == 'uniformPoly'):
@@ -129,7 +129,7 @@ def rndPlainNodes(
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
             nodes[n] = {
-                'loc': getRndPtUniformPoly(distrArgs['poly'])
+                'loc': _getRndPtUniformPoly(distrArgs['poly'])
             }
 
     elif (distr == 'uniformPolys'):
@@ -143,7 +143,7 @@ def rndPlainNodes(
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
             nodes[n] = {
-                'loc': getRndPtUniformPolys(distrArgs['polys'])
+                'loc': _getRndPtUniformPolys(distrArgs['polys'])
             }
 
     elif (distr == 'uniformRoadNetworkPoly'):
@@ -156,7 +156,7 @@ def rndPlainNodes(
             return
 
         # Create nodes --------------------------------------------------------
-        nodeLocs = getRndPtRoadNetworkPoly(
+        nodeLocs = _getRndPtRoadNetworkPoly(
             N if N != None else len(nodeIDs),
             distrArgs['roadNetwork'], 
             distrArgs['poly'] if 'poly' in distrArgs else None)
@@ -178,7 +178,7 @@ def rndPlainNodes(
             return
 
         # Create nodes --------------------------------------------------------
-        nodeLocs = getRndPtRoadNetworkCircle(
+        nodeLocs = _getRndPtRoadNetworkCircle(
             N if N != None else len(nodeIDs),
             distrArgs['roadNetwork'], 
             distrArgs['centerLoc'],
@@ -199,7 +199,7 @@ def rndPlainNodes(
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
             nodes[n] = {
-                'loc': getRndPtClusterXY(distrArgs['centroidLocs'], distrArgs['clusterDiameter'])
+                'loc': _getRndPtClusterXY(distrArgs['centroidLocs'], distrArgs['clusterDiameter'])
             }
 
     elif (distr == 'clusterLatLon'):
@@ -213,7 +213,7 @@ def rndPlainNodes(
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
             nodes[n] = {
-                'loc': getRndPtClusterLatLon(distrArgs['centroidLocs'], distrArgs['clusterDiameterInMeters'])
+                'loc': _getRndPtClusterLatLon(distrArgs['centroidLocs'], distrArgs['clusterDiameterInMeters'])
             }
     else:
         msgError(ERROR_INCOR_DISTARG)
@@ -367,12 +367,12 @@ def rndTimeWindowsNodes(
 
     return nodes
 
-def getRndPtRoadNetworkPoly(
+def _getRndPtRoadNetworkPoly(
     N:          "Number of nodes" = 1,
     roadNetwork: "Dictionary of road network in the format of \
                 {\
                     roadID: {\
-                        'line': [[lat, lon], [lat, lon], ...]\
+                        'shape': [[lat, lon], [lat, lon], ...]\
                     }\
                 }" = None,
     poly:       "Nodes should also within this polygon" = None,
@@ -387,15 +387,15 @@ def getRndPtRoadNetworkPoly(
         if (poly == None):
             includedFlag = True
         else:
-            for i in range(len(roadNetwork[road]['line'])):
-                if (isPtOnPoly(roadNetwork[road]['line'][i], poly)):
+            for i in range(len(roadNetwork[road]['shape'])):
+                if (isPtOnPoly(roadNetwork[road]['shape'][i], poly)):
                     includedFlag = True
                     break
 
         # Check if this road is inside polygon
         if (includedFlag):
-            for i in range(len(roadNetwork[road]['line']) - 1):
-                roadLength += distLatLon(roadNetwork[road]['line'][i], roadNetwork[road]['line'][i + 1])
+            for i in range(len(roadNetwork[road]['shape']) - 1):
+                roadLength += distLatLon(roadNetwork[road]['shape'][i], roadNetwork[road]['shape'][i + 1])
             lengths.append(roadLength)            
         else:
             lengths.append(0)
@@ -416,25 +416,25 @@ def getRndPtRoadNetworkPoly(
             idx = rndPick(lengths)
             edgeLength = lengths[idx]
             edgeDist = random.uniform(0, 1) * edgeLength
-            (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['line'], edgeDist)
+            (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['shape'], edgeDist)
         else:
             insideFlag = False
             while (not insideFlag):
                 idx = rndPick(lengths)
                 edgeLength = lengths[idx]
                 edgeDist = random.uniform(0, 1) * edgeLength
-                (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['line'], edgeDist)
+                (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['shape'], edgeDist)
                 if (isPtOnPoly([lat, lon], poly)):
                     insideFlag = True
         nodeLocs.append((lat, lon))
     return nodeLocs
 
-def getRndPtRoadNetworkCircle(
+def _getRndPtRoadNetworkCircle(
     N:          "Number of nodes" = 1,
     roadNetwork: "Dictionary of road network in the format of \
                 {\
                     roadID: {\
-                        'line': [[lat, lon], [lat, lon], ...]\
+                        'shape': [[lat, lon], [lat, lon], ...]\
                     }\
                 }" = None,\
     centerLoc:  "Center location" = None,
@@ -447,15 +447,15 @@ def getRndPtRoadNetworkCircle(
     for road in roadNetwork:
         roadLength = 0
         includedFlag = False
-        for i in range(len(roadNetwork[road]['line'])):
-            if (distLatLon(roadNetwork[road]['line'][i], centerLoc) <= radius):
+        for i in range(len(roadNetwork[road]['shape'])):
+            if (distLatLon(roadNetwork[road]['shape'][i], centerLoc) <= radius):
                 includedFlag = True
                 break
 
         # Check if this road is inside polygon
         if (includedFlag):
-            for i in range(len(roadNetwork[road]['line']) - 1):
-                roadLength += distLatLon(roadNetwork[road]['line'][i], roadNetwork[road]['line'][i + 1])
+            for i in range(len(roadNetwork[road]['shape']) - 1):
+                roadLength += distLatLon(roadNetwork[road]['shape'][i], roadNetwork[road]['shape'][i + 1])
             lengths.append(roadLength)            
         else:
             lengths.append(0)
@@ -477,13 +477,13 @@ def getRndPtRoadNetworkCircle(
             idx = rndPick(lengths)
             edgeLength = lengths[idx]
             edgeDist = random.uniform(0, 1) * edgeLength
-            (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['line'], edgeDist)
+            (lat, lon) = getMileageInPathLatLon(roadNetwork[roadIDs[idx]]['shape'], edgeDist)
             if (distLatLon([lat, lon], centerLoc) <= radius):
                 insideFlag = True
         nodeLocs.append((lat, lon))
     return nodeLocs
 
-def getRndPtUniformSquare(
+def _getRndPtUniformSquare(
     xRange:    "The range of x coordinates" = (0, 100),
     yRange:    "The range of y coordinates" = (0, 100)
     ) -> "Given the range of x, y, returns a random point in the square defined by the ranges":
@@ -491,7 +491,7 @@ def getRndPtUniformSquare(
     y = random.randrange(yRange[0], yRange[1])
     return (x, y)
 
-def getRndPtUniformTriangle(
+def _getRndPtUniformTriangle(
     triangle:   "The triangle for generating random points" = None
     ) -> "Given a triangle, generate a random point in the triangle uniformly":
     
@@ -508,7 +508,7 @@ def getRndPtUniformTriangle(
 
     return (x, y)
 
-def getRndPtUniformPoly(
+def _getRndPtUniformPoly(
     poly:       "The polygon for generating random points" = None
     ) -> "Given a polygon, generate a random point in the polygons uniformly":
 
@@ -522,11 +522,11 @@ def getRndPtUniformPoly(
 
     # Select a triangle and randomize a point in the triangle =================
     idx = rndPick(lstWeight)
-    (x, y) = getRndPtUniformTriangle(lstTriangle[idx])
+    (x, y) = _getRndPtUniformTriangle(lstTriangle[idx])
 
     return (x, y)
 
-def getRndPtUniformPolys(
+def _getRndPtUniformPolys(
     polys:       "A list of polygons for generating random points" = None
     ) -> "Given a list of polygons, generate a random point in the polygons uniformly":
 
@@ -542,11 +542,11 @@ def getRndPtUniformPolys(
 
     # Select a triangle and randomize a point in the triangle =================
     idx = rndPick(lstWeight)
-    (x, y) = getRndPtUniformTriangle(lstTriangle[idx])
+    (x, y) = _getRndPtUniformTriangle(lstTriangle[idx])
 
     return (x, y)
 
-def getRndPtClusterXY(
+def _getRndPtClusterXY(
     centroidLocs: "A list of center locs of clusters" = None,
     clusterDiameter: "Diameter of cluster" = None
     ):
@@ -558,7 +558,7 @@ def getRndPtClusterXY(
     y = ctrLoc[1] + r * math.sin(theta)
     return (x, y)
 
-def getRndPtClusterLatLon(
+def _getRndPtClusterLatLon(
     centroidLocs: "A list of center locs of clusters" = None,
     clusterDiameterInMeters: "Diameter of cluster" = None
     ):
@@ -569,7 +569,7 @@ def getRndPtClusterLatLon(
     (lat, lon) = pointInDistLatLon(ctrLoc, theta, r)
     return (lat, lon)
 
-def getRndPtUniformCircleXY(
+def _getRndPtUniformCircleXY(
     radius:     "Radius of the circle" = None,
     centerLoc:  "Center location of the circle" = None
     ):
@@ -579,7 +579,7 @@ def getRndPtUniformCircleXY(
     y = centerLoc[1] + r * math.sin(theta)
     return (x, y)
 
-def getRndPtUniformCircleLatLon(
+def _getRndPtUniformCircleLatLon(
     radius:     "Radius of the circle" = None,
     centerLoc:  "Center location of the circle" = None
     ):

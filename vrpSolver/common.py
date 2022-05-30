@@ -29,7 +29,6 @@ def rndPick(
         if rnd <= tmpSum:
             idx = i
             break
-
     return idx
 
 def iterSeq(seqL, i, direction):
@@ -50,21 +49,14 @@ def iterSeq(seqL, i, direction):
     return j
 
 def insideInterval(
-    val:            "The value to be compared with the interval" = None,
+    val:        "The value to be compared with the interval" = None,
     interval:   "List, in the format of [start, end], None if no constraint on that side" = [None, None]    
     ) -> "Given a value `val`, returns true if `val` is inside the interval (or on the edge), false else wise.":
-
-    # Initialize ==============================================================
     [s, e] = interval
-
-    # Check left side =========================================================
     if (s != None and val < s):
         return False
-
-    # Check right side ========================================================
     if (e != None) and val > e:
         return False
-
     return True
 
 def listSetMinus(a, b):
