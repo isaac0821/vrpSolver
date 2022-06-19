@@ -85,10 +85,11 @@ target/
 !README.md
 
 # Data
-*.csv
-*.xlsx
-*.txt
-*.vrp
+**/*.pkl
+**/*.csv
+**/*.xlsx
+**/*.txt
+**/*.vrp
 
 # Backups
 backup

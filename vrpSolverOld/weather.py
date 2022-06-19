@@ -225,7 +225,7 @@ def getLocCoverByCloudsTW(
                     coverTW.append([cloud['appearTime'] + tw[0], cloud['appearTime'] + min(cloud['existDur'], tw[1])])
     
     # Merge time windows of clouds ============================================
-    coverTW = unionTWs(coverTW)
+    coverTW = mergeTimeWindows(coverTW)
 
     return coverTW
 
@@ -313,6 +313,6 @@ def getSegCoverByCloudsTW(
                     coverTWs.append([tmLeft, tmRight])
 
     # Merge time windows of clouds ============================================
-    coverTWs = unionTWs(coverTWs)
+    coverTWs = mergeTimeWindows(coverTWs)
 
     return coverTWs

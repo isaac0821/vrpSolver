@@ -2,6 +2,7 @@ import heapq
 import math
 
 from .const import *
+from .node import *
 from .common import *
 from .graph import *
 from .geometry import *
@@ -245,7 +246,7 @@ def _consTSPDepthFirst(weightArcs):
     mst = graphMST(weightArcs)['mst']
 
     # Seq of visit is the seq of Depth first search on the MST ------------
-    seq = traversalGraph(mst)['seq']
+    seq = graphTraversal(mst)['seq']
     seq.append(seq[0])
     return seq
 
@@ -265,9 +266,8 @@ def _consTSPChristofides(weightArcs, matchingAlgo):
             subGraph.append(arc)
 
     # Find minimum cost matching of the subgraph --------------------------
-    minMatching = graphMatching(
+    minMatching = graphMinMatching(
         weightArcs=subGraph, 
-        mType='Minimum', 
         algo=matchingAlgo)['matching']
 
     # Add them back to create a new graph ---------------------------------
@@ -284,14 +284,14 @@ def _consTSPChristofides(weightArcs, matchingAlgo):
         if (len(neighbors[node]) == 1):
             oID = node
             break
-    seq = traversalGraph(newGraph, oID=oID)['seq']
+    seq = graphTraversal(newGraph, oID=oID)['seq']
     seq.append(seq[0])
 
     return seq
 
 def _impTSPOpts(nodeIDs, tau, initSeq, asymFlag):
     # Initialize ----------------------------------------------------------
-    canImproveAnyFlag = True
+    canImproveFlag = True
     impSeq = [i for i in initSeq]
     oriOfv = calSeqCostMatrix(tau, impSeq, closeFlag = True)
     oriRevOfv = None
@@ -301,13 +301,13 @@ def _impTSPOpts(nodeIDs, tau, initSeq, asymFlag):
     # Main iteration ------------------------------------------------------
     # Needs rewrite, when calculating dist, avoid repeated calculation
     if (len(impSeq) >= 4):
-        while (canImproveAnyFlag):
-            canImproveAnyFlag = False
+        while (canImproveFlag):
+            canImproveFlag = False
 
             # Try node exchange
-            canImproveFlag = True
-            while (canImproveFlag):           
-                canImproveFlag = False        
+            canNodeExchangeFlag = True
+            while (canNodeExchangeFlag):           
+                canNodeExchangeFlag = False        
                 for i in range(len(impSeq) - 2):
                     for j in range(i + 1, len(impSeq) - 1):
                         # Saving
@@ -321,19 +321,19 @@ def _impTSPOpts(nodeIDs, tau, initSeq, asymFlag):
                             asymFlag = asymFlag)
                         if (opt != None and opt['deltaCost'] + CONST_EPSILON < 0):
                             print("2Nodes: [%s, %s]" % (i, j), opt['deltaCost'], oriOfv, opt['newCost'])
+                            canNodeExchangeFlag = True
                             canImproveFlag = True
-                            canImproveAnyFlag = True
                             impSeq = opt['seq']
                             oriOfv = opt['newCost']
                             oriRevOfv = opt['newRevCost']
                             break
-                    if (canImproveFlag):
+                    if (canNodeExchangeFlag):
                         break
 
             # Try 2-opt
-            canImproveFlag = True
-            while (canImproveFlag):
-                canImproveFlag = False                
+            can2OptFlag = True
+            while (can2OptFlag):
+                can2OptFlag = False                
                 for i in range(len(impSeq) - 2):
                     for j in range(i + 2, len(impSeq)):
                         # Saving
@@ -347,19 +347,19 @@ def _impTSPOpts(nodeIDs, tau, initSeq, asymFlag):
                             asymFlag = asymFlag)
                         if (opt != None and opt['deltaCost'] + CONST_EPSILON < 0):
                             print("2Opt: [%s, %s]" % (i, j), opt['deltaCost'], oriOfv, opt['newCost'])
+                            can2OptFlag = True
                             canImproveFlag = True
-                            canImproveAnyFlag = True
                             impSeq = opt['seq']
                             oriOfv = opt['newCost']
                             oriRevOfv = opt['newRevCost']
                             break
-                    if (canImproveFlag):
+                    if (can2OptFlag):
                         break
 
             # Try reinsert
-            canImproveFlag = True
-            while (canImproveFlag):    
-                canImproveFlag = False               
+            canReinsertFlag = True
+            while (canReinsertFlag):    
+                canReinsertFlag = False               
                 for i in range(1, len(impSeq) - 1):
                     # First remove
                     nI = impSeq[i]
@@ -383,8 +383,8 @@ def _impTSPOpts(nodeIDs, tau, initSeq, asymFlag):
                             asymFlag = asymFlag)
                         if (inserted != None and inserted['newCost'] + CONST_EPSILON < oriOfv):
                             print("Reinsert: %s" % nI, oriOfv, inserted['newCost'])
+                            canReinsertFlag = True
                             canImproveFlag = True
-                            canImproveAnyFlag = True
                             impSeq = inserted['newSeq']
                             oriOfv = inserted['newCost']
                             oriRevOfv = inserted['newRevCost']

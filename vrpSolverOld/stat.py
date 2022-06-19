@@ -1,60 +1,7 @@
 from .const import *
 from .geometry import *
 
-def stepFromTWs(
-    res:        "Name of the resource" = None,
-    tws:        "A list of time windows that one of the resource is occupied, could (and highly likely) be overlapped" = None,
-    share:      "number of user sharing one item" = 1,
-    stepInt:    "Interval of stat" = 1,
-    ) -> "Given a set of occupied time windows of given resource, returns a step sequence represent utilization": 
-    
-    # Initialize ==============================================================
-    timeStamp = []
-    useLevel = []
-    occLevel = []
-
-    # Get the timeStamps ======================================================
-    for tw in tws:
-        if (tw[0] not in timeStamp):
-            timeStamp.append(tw[0])
-        if (tw[1] not in timeStamp):
-            timeStamp.append(tw[1])
-    timeStamp.sort()
-    for i in range(len(timeStamp)):
-        useLevel.append(0)
-        occLevel.append(0)
-
-    # Update useLevel =========================================================
-    for tw in tws:
-        # Use level between start time and end time will increase by 1
-        for i in range(len(timeStamp)):
-            if (timeStamp[i] >= tw[0] and timeStamp[i] < tw[1]):
-                useLevel[i] += 1
-                occLevel[i] = math.ceil(useLevel[i] / share)
-
-    # Get stat ================================================================
-    rangeByEntity = [min(useLevel), max(useLevel)]
-    stat = []
-    for r in range(0, math.ceil(rangeByEntity[1] - rangeByEntity[0]), stepInt):
-        rangeStat = [rangeByEntity[0] + r * stepInt, rangeByEntity[0] + (r + 1) * stepInt]
-        stat.append({
-            'rangeStat': rangeStat,
-            'totalLength': 0
-        })
-    for i in range(len(timeStamp) - 1):
-        lengthOfLevel = timeStamp[i + 1] - timeStamp[i]
-        for j in range(len(stat)):
-            if (useLevel[i] > stat[j]['rangeStat'][0] and useLevel[i] <= stat[j]['rangeStat'][1]):
-                stat[j]['totalLength'] += lengthOfLevel
-
-    return {
-        'resID': res,
-        'timeStamp': timeStamp,
-        'useLevel': occLevel,
-        'stat': stat
-    }
-
-def ganttFromVRPSol(
+def VRP2Gantt(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
                         nodeID1: {'loc': (x, y)}, \
@@ -72,7 +19,8 @@ def ganttFromVRPSol(
                     'barriers': [(coordX, coordY), ...], \
                 }" = None,
 
-    vrpSol:     "Dictionary, solution of VRP, by heuVRP(), heuVRPTW(), heuVRPPD(), heuVRPD(), etc." = None
+    vrpSol:     "Dictionary, solution of VRP, by heuVRP(), heuVRPTW(), heuVRPPD(), heuVRPD(), etc." = None,
+    serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0,
     ) -> "Given a VRP result, returns the gantt dictionary for plotGantt()":
 
     # Define tau ==============================================================
@@ -93,17 +41,15 @@ def ganttFromVRPSol(
     # Create gantt ============================================================
     gantt = []
     for veh in vrpSol['route']:
-        gantt.extend(ganttFromVisitSeq(
+        gantt.extend(visitSeq2Gantt(
             entityID = 'Truck_%s' % veh,
             tau = tau,
             visitSeq = vrpSol['route'][veh]['route'],
-            serviceTime = vrpSol['serviceTime'])['gantt'])
+            serviceTime = serviceTime))
 
-    return {
-        'gantt': gantt
-    }
+    return gantt
 
-def ganttFromTSPSol(
+def TSP2Gantt(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
                         nodeID1: {'loc': (x, y)}, \
@@ -119,7 +65,8 @@ def ganttFromTSPSol(
                     'barriers': [(coordX, coordY), ...], \
                 }" = None,
 
-    tspSol:     "Dictionary, solution of TSP, by ipTSP() or heuTSP()" = None
+    tspSol:     "Dictionary, solution of TSP, by ipTSP() or heuTSP()" = None,
+    serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0,
     ) -> "Given a TSP result, returns the gantt dictionary for plotGantt()":
 
     # Define tau ==============================================================
@@ -138,17 +85,15 @@ def ganttFromTSPSol(
         tau = dict(edges)
 
     # Create gantt ============================================================
-    gantt = ganttFromVisitSeq(
+    gantt = visitSeq2Gantt(
         entityID = 'Truck',
         tau = tau,
         visitSeq = tspSol['seq'],
-        serviceTime = tspSol['serviceTime'])['gantt']
+        serviceTime = serviceTime)
 
-    return {
-        'gantt': gantt
-    }
+    return gantt
 
-def ganttFromVisitSeq(
+def visitSeq2Gantt(
     entityID:   "Truck" = 'Truck',
     tau:        "Dictionary {(nodeID1, nodeID2): dist, ...}" = "Euclidean",
     visitSeq:    "Travel sequence" = None,
@@ -184,6 +129,4 @@ def ganttFromVisitSeq(
         'style': '///'
     })
 
-    return {
-        'gantt': gantt
-    }
+    return gantt

@@ -282,6 +282,12 @@ def exchange2Arcs(
     nJ = seq[j]
     nJNext = seq[iterSeq(N, j, 'next')]
 
+    # new seq
+    newSeq = []
+    newSeq.extend([seq[k] for k in range(i + 1)])
+    newSeq.extend([seq[j - k] for k in range(j - i)])
+    newSeq.extend([seq[k] for k in range(j + 1, len(seq))])
+
     # Check if can 2-opt
     can2OptFlag = True
     canRev2OptFlag = asymFlag
@@ -303,20 +309,15 @@ def exchange2Arcs(
                 canRev2OptFlag = False
                 break
 
+    newRevSeq = []
+    if (asymFlag and canRev2OptFlag):
+        newRevSeq = [newSeq[len(newSeq) - 1 - i] for i in range(len(newSeq))]
+
     # Early quit
     if (not asymFlag and not can2OptFlag):
         return None
     elif (asymFlag and not can2OptFlag and not canRev2OptFlag):
         return None
-
-    # new seq
-    newSeq = []
-    newSeq.extend([seq[k] for k in range(i + 1)])
-    newSeq.extend([seq[j - k] for k in range(j - i)])
-    newSeq.extend([seq[k] for k in range(j + 1, len(seq))])
-    newRevSeq = []
-    if (asymFlag and canRev2OptFlag):
-        newRevSeq = [newSeq[len(newSeq) - 1 - i] for i in range(len(newSeq))]
 
     # Calculate deltaCost
     newCost = None

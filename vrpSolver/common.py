@@ -32,21 +32,12 @@ def rndPick(
     return idx
 
 def iterSeq(seqL, i, direction):
-    q = None
-    j = None
     if (direction == 'next'):
-        if (i < seqL - 1):
-            j = i + 1
-        else:
-            j = 0
+        return i + 1 if i < seqL - 1 else 0
     elif (direction == 'prev'):
-        if (i > 0):
-            j = i - 1
-        else:
-            j = seqL - 1
+        return i - i if i > 0 else seqL - 1
     else:
         return None
-    return j
 
 def insideInterval(
     val:        "The value to be compared with the interval" = None,
@@ -55,18 +46,20 @@ def insideInterval(
     [s, e] = interval
     if (s != None and val < s):
         return False
-    if (e != None) and val > e:
+    if (e != None and val > e):
         return False
     return True
 
 def listSetMinus(a, b):
-    return list(set(a) - set(b))
+    return [v for v in a if v not in b]
 
 def listSetIntersect(a, b):
-    return [value for value in a if value in b]
+    return [v for v in a if v in b]
 
 def listSetUnion(a, b):
-    return list(set(a).union(b))
+    l = [v for v in a]
+    l.extend([v for v in b if v not in a])
+    return l
 
 def list2String(l):
     listString = "["
@@ -79,3 +72,54 @@ def list2Tuple(l):
     sortedList.sort()
     tp = tuple(sortedList)
     return tp
+
+def calSeqCostArcs(
+    weightArcs: "A list of 3-tuple (nodeID1, nodeID2, weight)",
+    seq:        "List, sequence of visiting node ids"
+    ) -> "Return the cost on the graph given a list of arcs weights":
+
+    # Accumulate costs ========================================================
+    cost = 0
+    for i in range(len(seq) - 1):
+        c = None
+        for j in range(len(weightArcs)):
+            if (seq[i] == weightArcs[j][0] and seq[i + 1] == weightArcs[j][1]):
+                c = weightArcs[j][2]
+                break
+            elif (seq[i] == weightArcs[j][1] and seq[i + 1] == weightArcs[j][0]):
+                c = weightArcs[j][2]
+                break
+        if (c == None):
+            print("Error: Missing arc (%s, %s) in `weightArcs`" % (seq[i], seq[i + 1]))
+            return
+        else:
+            cost += c
+
+    return cost
+
+def calSeqCostMatrix(
+    tau:        "Dictionary {(nodeID1, nodeID2): dist, ...}", 
+    seq:        "List, sequence of visiting node ids",
+    closeFlag:  "True if the seq is closed" = False,
+    i:          "Start index" = 0,
+    j:          "End index" = None
+    ) -> "Return the cost on the graph given cost matrix/dictionary tau":
+    # Accumulate costs ========================================================
+    if (j == None):
+        j = len(seq) - 1
+
+    cost = 0
+    for k in range(i, j):
+        if ((seq[k], seq[k + 1]) in tau):
+            cost += tau[seq[k], seq[k + 1]]
+        else:
+            return None
+
+    if (closeFlag):
+        if ((seq[-1], seq[0]) in tau):
+            cost += tau[seq[-1], seq[0]]
+        else:
+            return None
+        
+    return cost
+

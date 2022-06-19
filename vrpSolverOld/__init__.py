@@ -1,4 +1,4 @@
-__version__ = "0.0.53"
+__version__ = "0.0.51"
 __author__ = "Lan Peng"
 
 '''
@@ -7,8 +7,9 @@ __author__ = "Lan Peng"
 # v0.0.2  - 04282021 - Add `plotGantt()` function to plot Gantt chart
 # v0.0.3  - 05022021 - `plotGantt()` add descriptions
 # v0.0.4  - 05042021 - Reorganize structure of package
-#                    - Remove `saTSP()`, prepare for rewrite
-#                    - Add `rndTimeWindowsNodes()` function to generate nodes with time windows
+#                    - Remove `saTSP()` prepare for rewrite
+#                    - Add `rndTimeWindowsNodes()` function to generate nodes 
+#                      with time windows
 # v0.0.5  - 05042021 - Minor fixes
 # v0.0.6  - 05052021 - Add `timePin` option to `plotGantt()` function
 # v0.0.7  - 05262021 - Gantt enables force drawing time window
@@ -25,9 +26,11 @@ __author__ = "Lan Peng"
 # v0.0.16 - 10102021 - Minor fixes
 # v0.0.17 - 10102021 - Minor fixes
 # v0.0.18 - 10312021 - Minor fixes
-# v0.0.19 - 11102021 - A bunch of `geometry.py` functions for finding the intersection between line segments, rays, polygons, etc.
+# v0.0.19 - 11102021 - A bunch of `geometry.py` functions for finding the intersection
+#                      between line segments, rays, polygons, etc.
 # v0.0.20 - 11152021 - Add `ptXY2LatLonMercator()`, `ptLatLon2XYMercator()` for projection
-#                    - Add `twMovingPtInsidePolyXY()`, `twMovingPtInsidePolyLatLon()` for time windows of a moving object that is shadowed by another moving object
+#                    - Add `twMovingPtInsidePolyXY()`, `twMovingPtInsidePolyLatLon()` for 
+#                      time windows of a moving object that is shadowed by another moving object
 # v0.0.21 - 11172021 - Add `getCloseNeighbor()` to find cluster of nodes that all close to each others
 # v0.0.22 - 11192021 - Add `getCentroid()` and minor fixes
 # v0.0.23 - 11192021 - Minor fixes
@@ -41,16 +44,18 @@ __author__ = "Lan Peng"
 # v0.0.31 - 12122021 - Minor fixes
 # v0.0.32 - 12122021 - Minor fixes
 # v0.0.33 - 12182021 - Add `createWarehouseLayout()` and now TSP can support routing on grids with barriers
-# v0.0.34 - 01032022 - Add naive method for `rndRainCloud()`, `getCloudCurrentPosition()`, and `getLocCoverByCloudsTW()`
+# v0.0.34 - 01032022 - Add naive method for `rndRainCloud()`, `getCloudCurrentPosition()`, 
+#                      and `getLocCoverByCloudsTW()`
 # v0.0.35 - 01052022 - Minor fixes
 # v0.0.36 - 01052022 - Minor fixes
 # v0.0.37 - 01052022 - Minor fixes
 # v0.0.38 - 01062022 - Fix `isSegIntSeg()`
-# v0.0.39 - 01102022 - Add service time for TSP, and now TSP can designate depotID (fix the seq so it start/end in depotID)
+# v0.0.39 - 01102022 - Add service time for TSP, and now TSP can designate depotID (fix the seq 
+#                      so it start/end in depotID)
 # v0.0.40 - 01242022 - Simulate movement of rain clouds
 # v0.0.41 - 01262022 - Create customers on road network using `rndPlainNodes()`
 # v0.0.42 - 01302022 - Fix the issue with service time in `ipTSP()` and `heuTSP()`
-#                    - Remove `lbTSP()` (for now, will be added back)
+#                      Remove `lbTSP()` (for now, will be added back)
 # v0.0.43 - 01312022 - Fix the `heuTSP()` with ATSP
 # v0.0.44 - 02252022 - Runtime optimization
 # v0.0.45 - 03062022 - Post process of TSP
@@ -61,9 +66,6 @@ __author__ = "Lan Peng"
 # v0.0.50 - 05132022 - Move route operators to `operator.py`, so that it can be reused
 # v0.0.51 - 05172022 - Add a temporary VRP function `heuVRPMakespan()` which minimizes the makespan of VRP
 # v0.0.52 - 05172022 - Minor fixes
-# v0.0.53 - 06122022 - Reconstruct for better framework: 1. separates the seq/route operators
-#                    -                                   2. nodes related functions
-#                    - Remove weather related functions: Not routing related
 # =============================================================================
 '''
 
@@ -81,7 +83,6 @@ from .vector import *
 
 # Geometry
 from .geometry import *
-from .node import *
 from .relation import *
 from .geojson import *
 
@@ -95,7 +96,6 @@ from .PMS import *
 from .warehouse import *
 
 # TSP
-from .operator import *
 from .ipTSP import *
 from .heuTSP import *
 from .metaTSP import *
