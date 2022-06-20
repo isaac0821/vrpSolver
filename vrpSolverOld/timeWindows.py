@@ -3,150 +3,63 @@ import math
 from .common import *
 from .const import *
 
-'''
-# Description =================================================================
-# This script is for processing time windows
-#     including: TW (time window) and TWs (time windows)
-# Notice:
-# 1. Time windows can be unbounded, the unbounded side will be None, e.g., [None, 9] represents t <= 9
-# 2. All the time windows include the edge (close set)
-'''
-
-def sortTWs(
-    unsortedTWs: "List of unsorted time windows" = None,
+def sortTimeWindows(
+    unsortedTW: "List of unsorted time windows" = None,
     ) -> "Given a list of time windows, returns None if the TWs are overlapping returns a sorted list of time windows":
 
-    # Example =================================================================
-    # In: -> unsortedTWs = [[17.8, 20], [12, 14], [21, None], [17, 17.5], [None, 10]]
-    #     -> sortTWs(unsortedTWs)
-    # Out:-> [[None, 10], [12, 14], [17, 17.5], [17.8, 20], [21, None]]
-
     # Initialize ==============================================================
-    sortedTWs = []
+    sortedTW = []
 
-    # Separate infinite time windows ==========================================
-    leftInfTW = None
-    rightInfTW = None
-    bothInfTW = None
+    # Sort start/end time of each time windows ================================
+    # Get the list of start times and end times and all timestamps
     startTimeList = []
     endTimeList = []
-    for tw in unsortedTWs:
-        if (tw[0] == None and tw[1] == None):
-            if (bothInfTW != None):
-                msgError(ERROR_TW_OVERLAP)
-                return None
-            else:
-                bothInfTW = tw # tw = [None, None]
-        if (tw[0] == None and tw[1] != None):
-            if (leftInfTW != None):
-                msgError(ERROR_TW_OVERLAP)
-                return None
-            else:
-                leftInfTW = tw # tw = [None, time]
-        if (tw[0] != None and tw[1] == None):
-            if (rightInfTW != None):
-                msgError(ERROR_TW_OVERLAP)
-                return None
-            else:
-                rightInfTW = tw # tw = [time, None]
-        if (tw[0] != None and tw[1] != None):
-            startTimeList.append(tw[0])
-            endTimeList.append(tw[1])
-
-    # Quick filter for bothInfTW ==============================================
-    if (bothInfTW != None):
-        if (len(unsortedTWs) > 1):
-            msgError(ERROR_TW_OVERLAP)
-            return None
-        else:
-            return [bothInfTW]
-
-    # Sort start/end time of each finite time windows =========================
-    # Get the list of start times and end times and all timestamps
+    for tw in unsortedTW:
+        startTimeList.append(tw[0])
+        endTimeList.append(tw[1])
     sortedStartIndexList = sorted(range(len(startTimeList)), key=lambda k: startTimeList[k])
     sortedEndIndexList = sorted(range(len(endTimeList)), key=lambda k: endTimeList[k])
 
     # Check overlapping =======================================================
     if (sortedStartIndexList != sortedEndIndexList):
-        msgError(ERROR_TW_OVERLAP)
         return None
 
     # Sort time windows =======================================================
-    sortedTWs = [[startTimeList[sortedStartIndexList[i]], endTimeList[sortedStartIndexList[i]]] for i in range(len(sortedStartIndexList))]
+    for i in range(len(sortedStartIndexList)):
+        sortedTW.append(unsortedTW[sortedStartIndexList[i]])
 
-    # Check overlapping =======================================================
-    for i in range(len(sortedTWs) - 1):
-        if (sortedTWs[i][1] > sortedTWs[i + 1][0]):
-            msgError(ERROR_TW_OVERLAP)
+    # Check overlapping again =================================================
+    for i in range(len(sortedTW) - 1):
+        if (sortedTW[i][1] > sortedTW[i + 1][0]):
             return None 
 
-    # Add back infinite time windows ==========================================
-    if (leftInfTW != None):
-        if (len(sortedTWs) > 0):
-            if (leftInfTW[1] > sortedTWs[0][0]):
-                msgError(ERROR_TW_OVERLAP)
-                return None
-            else:
-                sortedTWs.insert(0, leftInfTW)
-        else:
-            sortedTWs.insert(0, leftInfTW)
-    if (rightInfTW != None):
-        if (len(sortedTWs) > 0):
-            if (rightInfTW[0] < sortedTWs[-1][1]):
-                msgError(ERROR_TW_OVERLAP)
-                return None
-            else:
-                sortedTWs.append(rightInfTW)
-        else:
-            sortedTWs.append(rightInfTW)
+    return sortedTW
 
-    return sortedTWs
-
-def unionTWs(
+def mergeTimeWindows(
     tws:        "List of time windows, might be overlapping" = None
     ) -> "Given a list of time windows, which might be overlapping, merge the time windows that are overlapping":
 
-    # Examples ================================================================
-    # Example 1:
-    # In: -> tws1 = [[0, 10], [12, 14], [18, 20]]
-    #     -> tws2 = [[9, 13], [19, 23]]
-    #     -> twsBeforeMerging = []
-    #     -> twsBeforeMerging.extend(tws1)
-    #     -> twsBeforeMerging.extend(tws2)
-    #     -> twsAfterMerging = unionTWs(twsBeforeMerging)
-    # Out:-> [[0, 14], [18, 23]]
-    # Example 2:
-    # In: -> tws = [[31, None], [17.5, 17.8], [15.6, 17.6], [2, 14], [None, 3]]
-    #     -> unionTimeWindows(tws)
-    # Out:-> [[None, 14], [15.6, 17.8], [31, None]]
+    # Example =================================================================
+    # Input ->: tws1 = [[0, 10], [12, 14], [18, 20]]
+    #           tws2 = [[9, 13], [19, 23]]
+    #           twsBeforeMerging = []
+    #           twsBeforeMerging.extend(tws1)
+    #           twsBeforeMerging.extend(tws2)
+    #           twsAfterMerging = mergeTimeWindows(twsBeforeMerging)
+    # Output ->: [[0, 14], [18, 23]]
 
     # Initialize ==============================================================
-    unionedTWs = []
+    mergedTWs = []
 
-    # Separate infinite time windows ==========================================
-    leftInfTW = None
-    rightInfTW = None
-    bothInfTW = None
-    for tw in tws:
-        if (tw[0] == None and tw[1] == None):
-            bothInfTW = tw # tw = [None, None]
-            return bothInfTW
-        if (tw[0] == None and tw[1] != None):
-            if (leftInfTW == None or tw[1] > leftInfTW[1]):
-                leftInfTW = tw
-        if (tw[0] != None and tw[1] == None):
-            if (rightInfTW == None or tw[0] < rightInfTW[0]):
-                rightInfTW = tw
-
-    # Merge finite tws ========================================================
+    # Merge tws ===============================================================
     for tw in tws:
         # Find the index of tw that involves the s/e of tw, if there is any
         sIndex = None
         eIndex = None
-        for bgTwIndex in range(len(unionedTWs)):
-            if (insideInterval(tw[0], unionedTWs[bgTwIndex])):
+        for bgTwIndex in range(len(mergedTWs)):
+            if (insideInterval(tw[0], mergedTWs[bgTwIndex])):
                 sIndex = bgTwIndex
-            if (insideInterval(tw[1], unionedTWs[bgTwIndex])):
+            if (insideInterval(tw[1], mergedTWs[bgTwIndex])):
                 eIndex = bgTwIndex
             if (sIndex != None and eIndex != None):
                 break
@@ -154,29 +67,29 @@ def unionTWs(
         ts = None
         te = None
         if (sIndex != None):
-            ts = unionedTWs[sIndex][0]
+            ts = mergedTWs[sIndex][0]
         else:
             ts = tw[0]
         if (eIndex != None):
-            te = unionedTWs[eIndex][1]
+            te = mergedTWs[eIndex][1]
         else:
             te = tw[1]
-        unionedTWs.append([ts, te])
+        mergedTWs.append([ts, te])
 
         # Remove the tws that partially covered by [ts, te], remove them
-        tmpMergedTWs = [i for i in unionedTWs]
-        unionedTWs = [[ts, te]] # merged tw should be included
+        tmpMergedTWs = [i for i in mergedTWs]
+        mergedTWs = [[ts, te]] # merged tw should be included
         for newTW in tmpMergedTWs:
             # For existed tws, both s and e should not inside the [ts, te]
             if (not insideInterval(newTW[0], [ts, te]) and not insideInterval(newTW[1], [ts, te])):
-                unionedTWs.append(newTW)
+                mergedTWs.append(newTW)
         
         # Sort tws
-        unionedTWs = sortTWs(unionedTWs)
+        mergedTWs = sortTimeWindows(mergedTWs)
 
-    return unionedTWs
+    return mergedTWs
 
-def intersectTWs(
+def intersectTimeWindows(
     tws1:       "List of time windows, must not be overlapping" = None,
     tws2:       "List of time windows, must not be overlapping" = None
     ) -> "Given two lists of time windows, return a new list of time windows that are the intersection of those two lists":
@@ -204,7 +117,7 @@ def intersectTWs(
                 intTW = [tw2[0], tw2[1]]
             if (intTW != None):
                 intTWs.append(intTW)
-    intTWs = sortTWs(intTWs)
+    intTWs = sortTimeWindows(intTWs)
 
     return intTWs
 
@@ -236,7 +149,7 @@ def lenTWOverlap(
 
     return overlapTime
 
-def reverseTWs(
+def reverseTimeWindows(
     tws:        "List of existing time windows" = None,
     epoch:      "Another time window that we wanna find opposite time windows of `tws` inside `epoch`" = None
     ) -> "Given a list of time windows `tws`, given another time window `epoch`, returns the opposite time windows of `tws` in `epoch":
@@ -245,12 +158,12 @@ def reverseTWs(
     oppTws = [[i for i in epoch]]
 
     # Reverse time windows ====================================================
-    # Start with epoch, using `blockTWs` to reverse time windows
+    # Start with epoch, using `blockTimeWindows` to reverse time windows
     for tw in tws:
-        oppTws = blockTWs(oppTws, tw)
+        oppTws = blockTimeWindows(oppTws, tw)
     return oppTws
 
-def blockTWs(
+def blockTimeWindows(
     tws:        "List of existing available time windows" = None,
     block:      "A piece of time make part of tws unavailable" = None,
     ) -> "Given a list of non-overlapping time windows, use a time window to block (make the period unavailable) the existing `tws`":
@@ -314,7 +227,7 @@ def getAvailStartTW(
     startTws = []
 
     # Get the list of time windows that can insert new time window ============
-    availTws = reverseTWs(bgTws, epoch)
+    availTws = reverseTimeWindows(bgTws, epoch)
 
     # For each available time windows, try to see if it is long enough ========
     for tw in availTws:
@@ -342,7 +255,7 @@ def getTWInsertFlexibility(
     insertedTW.extend([i for i in bgTws])
     insertedTW.append(tw)
     insertedTW.append([epoch[1], epoch[1] + CONST_EPSILON])
-    insertedTW = sortTWs(insertedTW)
+    insertedTW = sortTimeWindows(insertedTW)
     if (insertedTW is None):
         canInsertFlag = False
 
@@ -350,7 +263,7 @@ def getTWInsertFlexibility(
     # If insert-able, find the gap that can fit the entire tw    
     if (canInsertFlag):
         # Get reversion of bgTWs, return the gap ------------------------------
-        reverseTW = reverseTWs(bgTws, epoch)
+        reverseTW = reverseTimeWindows(bgTws, epoch)
         gapInserted = None
         for gap in reverseTW:
             if (gap[0] <= tw[0] and tw[1] <= gap[1]):
@@ -390,7 +303,7 @@ def getTWInsertFlexibility(
             candidateEpoch = [epoch[0], tw[1] + tdRange[1]]
         elif (tdRange[0] is not None and tdRange[1] is not None):
             candidateEpoch = [tw[0] + tdRange[0], tw[1] + tdRange[1]]
-        reverseTW = reverseTWs(bgTws, candidateEpoch)
+        reverseTW = reverseTimeWindows(bgTws, candidateEpoch)
 
         # Find gaps within the candidateEpoch, and calculate the minimum time needed for inserting the tw by advancing/delaying
         minDelayNeeded = None
@@ -412,3 +325,39 @@ def getTWInsertFlexibility(
             'minAdvanceNeeded': minAdvanceNeeded,
             'minDelayNeeded': minDelayNeeded
         }
+
+def getStepFromTWs(
+    res:        "Name of the resource" = None,
+    tws:        "A list of time windows that one of the resource is occupied, could (and highly likely) be overlapped" = None,
+    share:      "number of user sharing one item" = 1
+    ) -> "Given a set of occupied time windows of given resource, returns a step sequence represent utilization": 
+    
+    # Initialize ==============================================================
+    timeStamp = []
+    useLevel = []
+    occLevel = []
+
+    # Get the timeStamps ======================================================
+    for tw in tws:
+        if (tw[0] not in timeStamp):
+            timeStamp.append(tw[0])
+        if (tw[1] not in timeStamp):
+            timeStamp.append(tw[1])
+    timeStamp.sort()
+    for i in range(len(timeStamp)):
+        useLevel.append(0)
+        occLevel.append(0)
+
+    # Update useLevel =========================================================
+    for tw in tws:
+        # Use level between start time and end time will increase by 1
+        for i in range(len(timeStamp)):
+            if (timeStamp[i] >= tw[0] and timeStamp[i] < tw[1]):
+                useLevel[i] += 1
+                occLevel[i] = math.ceil(useLevel[i] / share)
+
+    return {
+        'resID': res,
+        'timeStamp': timeStamp,
+        'useLevel': occLevel
+    }

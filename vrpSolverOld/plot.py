@@ -4,6 +4,7 @@ import random
 from .color import *
 from .geometry import *
 from .msg import *
+from .weather import *
 
 def plotGrid(
     fig:        "Based matplotlib figure object" = None,
@@ -141,6 +142,157 @@ def plotGridPath(
         x = [path[i][0] * gridSize + gridSize / 2, path[i + 1][0] * gridSize + gridSize / 2]
         y = [path[i][1] * gridSize + gridSize / 2, path[i + 1][1] * gridSize + gridSize / 2]
         ax.plot(x, y, color = pathColor, linewidth = pathWidth)
+
+    # Save figure =============================================================
+    if (saveFigPath != None):
+        fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
+
+    return fig, ax
+
+def plotWinds(
+    fig:        "fig" = None,
+    ax:         "ax" = None,
+    width:      "Width of the figure" = None,
+    height:     "Height of the figure" = 3,
+    winds:      "List of dictionary, wind speed/wind direct in time sequence, time starts from 0\
+                [{\
+                    'startTime': startTime,\
+                    'endTime': endTime,\
+                    'windSpd': windSpd, # In [m/s]\
+                    'windDeg': winDeg, # In [Degree]\
+                }, ...]" = None,
+    startOfDay: "Start time of the day in [h]" = 0,
+    saveFigPath:"1) None, if not exporting image, or \
+                 2) String, the path for exporting image" = None,
+    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
+                 recommended to turn off if generate a batch of images" = True
+    ) -> "Given a list of wind, plot the wind direction and wind speed":
+
+    # Draw frame ==============================================================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        if (height != None):
+            fig.set_figheight(height)
+        if (width != None):
+            fig.set_figwidth(width)
+        else:
+            fig.set_figwidth(len(winds) * 0.5 + 0.25)
+    ax.set_xlabel("Time of the day [h]")
+    ax.set_ylabel("Wind speed [m/s]")
+    
+    # Draw wind speeds ========================================================
+    ticks = [winds[0]['startTime'] / 3600 + startOfDay]
+    for w in range(len(winds)):
+        ticks.append(winds[w]['endTime'] / 3600 + startOfDay)
+        ax.plot(
+            [winds[w]['startTime'] / 3600 + startOfDay, winds[w]['endTime'] / 3600 + startOfDay], 
+            [winds[w]['windSpd'], winds[w]['windSpd']],
+            color = 'black')
+    for w in range(1, len(winds)):
+        ax.plot(
+            [winds[w - 1]['endTime'] / 3600 + startOfDay, winds[w]['startTime'] / 3600 + startOfDay], 
+            [winds[w - 1]['windSpd'], winds[w]['windSpd']],
+            color = 'black')
+
+    # Draw wind direction =====================================================
+    for w in range(len(winds)):
+        arrowMidX = (winds[w]['startTime'] + winds[w]['endTime']) / 7200 + startOfDay
+        arrowMidY = winds[w]['windSpd'] + 0.7
+        dx = math.sin(math.radians(winds[w]['windDeg'])) * 0.25
+        dy = math.cos(math.radians(winds[w]['windDeg'])) * 0.25
+        ax.arrow(
+            x = arrowMidX - dx / 2, 
+            y = arrowMidY - dy / 2, 
+            dx = dx, 
+            dy = dy, 
+            linewidth=2, head_width=0.15, head_length=0.32)
+
+    # Set ticks ===============================================================
+    ax.set_xticks(ticks)
+
+    # Save figure =============================================================
+    if (saveFigPath != None):
+        fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
+
+    return fig, ax
+
+def plotCloudsInTime(
+    fig:        "fig" = None,
+    ax:         "ax" = None,
+    figSize:    "Size of the figure, in (width, height)" = (5, 5), 
+    xMin:       "min of x-axis" = None,
+    xMax:       "max of x-axis" = None,
+    yMin:       "min of y-axis" = None,
+    yMax:       "max of y-axis" = None,
+    edgeWidth:  "Width on the edge" = 0.05,
+    clouds:     "A list of clouds" = None,
+    nodes:      "nodes with locations coordinates" = None,
+    timeStamp:  "Time stamps of the frame" = None,
+    saveFigPath:"1) None, if not exporting image, or \
+                 2) String, the path for exporting image" = None,
+    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
+                 recommended to turn off if generate a batch of images" = True
+    ) -> "Given a time stamp, plot the locations of clouds and customers":
+
+    # If no based matplotlib figure, define boundary ==========================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        allX = []
+        allY = []
+
+        # locs of nodes -------------------------------------------------------
+        for n in nodes:
+            allX.append(nodes[n]['loc'][1])
+            allY.append(nodes[n]['loc'][0])
+
+        if (xMin == None):
+            xMin = min(allX) - edgeWidth
+        if (xMax == None):
+            xMax = max(allX) + edgeWidth
+        if (yMin == None):
+            yMin = min(allY) - edgeWidth
+        if (yMax == None):
+            yMax = max(allY) + edgeWidth
+        if (figSize == None):
+            if (xMax - xMin > yMax - yMin):
+                width = 5
+                height = 5 * ((yMax - yMin) / (xMax - xMin))
+            else:
+                width = 5 * ((xMax - xMin) / (yMax - yMin))
+                height = 5
+        else:
+            (width, height) = figSize
+        fig.set_figwidth(width)
+        fig.set_figheight(height)
+        ax.set_xlim(xMin, xMax)
+        ax.set_ylim(yMin, yMax)
+
+    # Plot nodes ==============================================================
+    fig, ax = plotNodes(
+        fig = fig,
+        ax = ax,
+        nodes = nodes,
+        color = 'green',
+        xyReverseFlag = True)
+
+    # Plot clouds =============================================================
+    for c in clouds:
+        currentCloudPosition = getCloudCurrentPosition(c, timeStamp)
+        if (currentCloudPosition != None):
+            fig, ax = plotPolygon(
+                fig = fig,
+                ax = ax,
+                edgeColor = 'black',
+                fillColor = 'gray',
+                fillStyle = '///',
+                opacity = 0.8,
+                poly = currentCloudPosition,
+                xyReverseFlag = True)
+    plt.close(fig)
 
     # Save figure =============================================================
     if (saveFigPath != None):
@@ -684,13 +836,10 @@ def plotGantt(
                 groupEntities.append(None)
             groupEntities = groupEntities[:-1] # Remove the last None
             entities = [i for i in groupEntities]
-        notFound = []
-        for e in entities:            
+        for e in entities:
             if (e not in entList and e != None):
-                notFound.append("\"" + str(e) + "\"")
-        if (len(notFound) > 0):
-            msgError(ERROR_INCOR_GANTT_MISSENT + ": " + list2String(notFound))
-            return
+                msgError(ERROR_INCOR_GANTT_MISSENT)
+                return
     elif (entities == None):
         entities = [i for i in entList]
 

@@ -77,6 +77,3 @@ ERROR_INCOR_DISTARG                 =("ERROR: Incorrect `distr` for customer loc
                                     + "6) 'uniformRoadNetwork', \n"
                                     + "7) 'clusterXY', \n"
                                     + "8) 'clusterLatLon'")
-
-# Error message - Time windows related
-ERROR_TW_OVERLAP                    = "ERROR: Overlapped time windows."
