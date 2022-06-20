@@ -39,13 +39,13 @@ def gridPathFinding(
     return res
 
 def _gridPathFindingAStar(gridColRow, barriers, startCoord, endCoord, distMeasure):
-    # Heuristic measure ---------------------------------------------------
+    # Heuristic measure ==================================================-
     def _calManhattenDist(coord1, coord2):
         return abs(coord1[0] - coord2[0]) + abs(coord1[1] - coord2[1])
     def _calEuclideanDist(coord1, coord2):
         return math.sqrt((coord1[0] - coord2[0])**2 + (coord1[1] - coord2[1])**2)
 
-    # Initialize grid -----------------------------------------------------
+    # Initialize grid ====================================================-
     # Evaluate value f(n) = g(n) + h(n)
     gridStatus = {}
     for col in range(gridColRow[0]):
@@ -62,11 +62,11 @@ def _gridPathFindingAStar(gridColRow, barriers, startCoord, endCoord, distMeasur
         gridStatus[startCoord] = (0, _calEuclideanDist(startCoord, endCoord), None)
     gridStatus[endCoord] = (None, 0, None)
 
-    # Open/close set ------------------------------------------------------
+    # Open/close set ======================================================
     openList = [startCoord]
     closeList = [i for i in barriers]
 
-    # Find smallest Fn ----------------------------------------------------
+    # Find smallest Fn ====================================================
     def _findSmallestFnGrid():
         bestFn = None
         bestCoord = None
@@ -78,7 +78,7 @@ def _gridPathFindingAStar(gridColRow, barriers, startCoord, endCoord, distMeasur
                 bestCoord = coord
         return bestCoord
 
-    # For each grid in open set, update g(n) ------------------------------
+    # For each grid in open set, update g(n) ==============================
     while (len(openList) > 0):
         tmpOpenList = []
         coord = _findSmallestFnGrid()
@@ -134,7 +134,7 @@ def _gridPathFindingAStar(gridColRow, barriers, startCoord, endCoord, distMeasur
         openList.extend(tmpOpenList)
         closeList.append(coord)
 
-    # Recover path --------------------------------------------------------
+    # Recover path ========================================================
     path = []
     curCoord = endCoord
     finishReconstructFlag = True
@@ -150,12 +150,10 @@ def _gridPathFindingAStar(gridColRow, barriers, startCoord, endCoord, distMeasur
     }
 
 def treeTraversal(
-    tree:       "Dictionary, returns the children of given nodeID, tuple if in order, list otherwise, \
+    tree:       "Dictionary, returns the children of given nodeID, None if no child, \
                 {\
-                    nodeID1: (child1, child2, ...), \
-                    nodeID2: [child1, child2, ...], \
-                    nodeID3: child, \
-                    nodeWithNoChild: None, \
+                    nodeID1: {child1: weight, child2: weight, ...}, \
+                    nodeWithNoChild: None, # We can ignore these items in the dictionary\
                     ... \
                 }" = None, 
     oID:        "String/Integer, nodeID of the root" = None,
@@ -180,7 +178,17 @@ def graphTraversal(
                  2) String, 'BreadthFirst'" = 'DepthFirst'
     ) -> "Return a sequence of node ids that traverses the tree":
     # Convert arcs into adjList ===============================================
-    mst = graphMST(arcs = weightArcs, algo = 'Krusal', exportAs = 'Tree')['mst']
+    weightArcs = []
+    for arc in arcs:
+        if (len(arc) == 3):
+            weightArcs.append(arc)
+        elif (len(arc) == 2):
+            weightArcs.append((arc[0], arc[1], 1))
+        else:
+            msgError("ERROR: Incorrect `arcs` format")
+            return
+
+    mst = graphMST(weightArcs = weightArcs, algo = 'Krusal', exportAs = 'Tree')['mst']
 
     # Set Default oID =========================================================
     if (oID == None):
@@ -188,23 +196,21 @@ def graphTraversal(
         oID = min(mst)
 
     # Solve by different algorithms ===========================================
-    res = treeTraversal(mstAsTree, oID, algo)
+    res = treeTraversal(mst, oID, algo)
     return res
 
 def _treeTraversalDepthFirst(tree, oID):
     visited = []
-    # Visit children recursively ------------------------------------------
+
+    # Visit children recursively ==============================================
     def _visitNode(nodeID):
-        visited.append(nodeID)
-        children = tree[nodeID]
-        if (children != None and children not in visited):
-            if (type(children) == int or type(children) == str):
-                _visitNode(children)
-            else:
-                for child in children:
+        if (nodeID not in visited):
+            visited.append(nodeID)
+            if (nodeID in tree and tree[nodeID] != None):
+                for child in tree[nodeID]:
                     _visitNode(child)
 
-    # Start search from root ----------------------------------------------
+    # Start search from root ==================================================
     _visitNode(oID)
 
     return {
@@ -214,24 +220,23 @@ def _treeTraversalDepthFirst(tree, oID):
 def _treeTraversalBreadthFirst(tree, oID):
     visited = [oID]
     pointer = 0
+
+    # Main iterations =========================================================
     while (pointer < len(visited)):
         # Scan though visited, add the children to the end of visited
-        if (tree[visited[pointer]] != None):
-            if (type(tree[visited[pointer]]) == list or type(tree[visited[pointer]]) == tuple):                
-                for i in range(len(tree[visited[pointer]])):
-                    if (tree[visited[pointer]][i] not in visited):
-                        visited.append(tree[visited[pointer]][i])
-            else:
-                if (tree[visited[pointer]] not in visited):
-                    visited.append(tree[visited[pointer]])
+        if (visited[pointer] in tree and tree[visited[pointer]] != None):             
+            for v in tree[visited[pointer]]:
+                if (v not in visited):
+                    visited.append(v)
         pointer += 1
+
     return {
         'seq': visited
     }
     
 def graphComponents(
-    arcs:       "1) A list of 2-tuples, (ID1, ID2), as undirected graph, or \
-                 2) a list of 3-tuples, (ID1, ID2, weight), as directed graph" = None
+    arcs:       "1) A list of 2-tuples, (ID1, ID2), or \
+                 2) A list of 3-tuples, (ID1, ID2, weight)" = None
     ) -> "A list of components":
     # Create adj list, each vertex start with an empty list ===================
     adjList = graphArcs2AdjList(arcs)
@@ -252,11 +257,12 @@ def graphComponents(
             q.append(i)
             while (q):
                 v = q.pop(0)
-                for u in adjList[v]:
-                    if (found[u[0]] == 0):
-                        found[u[0]] = 1
-                        comp.append(u[0])
-                        q.append(u[0])
+                if (v in adjList and adjList[v] != None):
+                    for u in adjList[v]:
+                        if (found[u] == 0):
+                            found[u] = 1
+                            comp.append(u)
+                            q.append(u)
             components.append(comp)
     return components
 
@@ -335,17 +341,18 @@ def graphMST(
         return
 
 def _graphMSTKrusal(weightArcs, numVertices):
-    # Initialize
+    # Initialize ==============================================================
     mst = []
     val = 0
     compList = []
 
-    # Arc ranking
+    # Arc sorting =============================================================
     sortedWeightArcs = []
     for i in range(len(weightArcs)):
         heapq.heappush(sortedWeightArcs, (weightArcs[i][2], weightArcs[i]))
     
-    # Krusal algorithm, add weightArcs between components
+    # Krusal algorithm, add weightArcs between components =====================
+    # NOTICE: Will return incorrect result if there are multiple components in the graph
     while(len(mst) < numVertices - 1 and len(sortedWeightArcs) > 0):
         # Uninserted arc with minimal weight
         currArc = heapq.heappop(sortedWeightArcs)
@@ -395,47 +402,134 @@ def _graphMSTKrusal(weightArcs, numVertices):
         'value': val
     }
 
+def graphCheckBipartite(
+    arcs:       "1) A list of 3-tuple (nodeID1, nodeID2, weight) or, \
+                 2) A list of 2-tuple (nodeID1, nodeID2)" = None
+    ) -> "Given a graph, check if the graph is bipartite":
+    
+    # FIXME: This function can be simplified, but not urgent
+    adjList = graphArcs2AdjList(arcs = arcs)
+
+    # Initialize setA and setB
+    minID = min(adjList)
+    setA = [minID]
+    setB = [i for i in adjList[minID]]
+
+    # Use BFS to color the graph
+    tvs = graphTraversal(arcs = arcs, oID = minID, algo = 'BreadthFirst')['seq']
+    for v in tvs:
+        childrenV = [i for i in adjList[v]]
+        if (v in setA):
+            for c in childrenV:
+                if (c in setA):
+                    return {
+                        'bipartiteFlag': False,
+                        'setA': None,
+                        'setB': None
+                    }
+                elif (c not in setA and c not in setB):
+                    setB.append(c)
+        elif (v in setB):
+            for c in childrenV:
+                if (c in setB):
+                    return {
+                        'bipartiteFlag': False,
+                        'setA': None,
+                        'setB': None
+                    }
+                elif (c not in setA and c not in setB):
+                    setA.append(c)
+    return {
+        'bipartiteFlag': True,
+        'setA': setA,
+        'setB': setB
+    }
+
 # [Constructing]
-def graphMinMatching(
+def graphMaximumFlow():
+    return
+
+# [Constructing]
+def graphMatching(
     weightArcs: "A list of 3-tuples, (ID1, ID2, weight), indexes of vertices must start from 0" = None,
-    directedFlag: "Bypass directed graph checking" = None,
-    bipartiteFlag: "Bypass bipartite graph checking" = None,
+    bipartiteFlag: "Bypass bipartite graph checking, leave it as None if we do not know, preferably set it to be True/False if we know" = None,
+    mType:      "1) String, 'Minimum' if to find minimum matching, or\
+                 2) String, 'Maximum' if to find maximum matching" = 'Minimum',
     algo:       "1) String, (not available) 'Blossom' or, \
-                 2) String, (default if bipartite) 'Hungarian', for bipartite graph or, \
-                 3) String, (default if not bipartite) 'IP'" = None
-    ) -> "Return a set of vertices that forms a Minimum Matching": 
+                 2) String, (default if bipartite) 'Hungarian' or 'Kuhn_Munkres', O(|V|^3), for bipartite graph or, \
+                 3) String, (default if not bipartite) 'IP', NPC" = None,
+    algoArgs:   "1) If `algo` == 'Hungarian' or 'Kuhn_Munkres'\
+                {\
+                    'setA': setA, \
+                    'setB': setB\
+                }" = None
+    ) -> "Return a set of vertices that forms a Minimum/Maximum Matching": 
 
     # Check bipartite =========================================================
-    directedFlag = True
-    for arc in weightArcs:
-        pass
+    checkBipartiteFlag = False
+    # Case 1: algo is not designated, bipartiteFlag is None, check bipartite to determine default
+    if (algo == None and bipartiteFlag == None):
+        checkBipartiteFlag = True
+    # Case 2: algo is not designated, bipartiteFlag is True, but missing setA and/or setB info
+    elif (algo == None and bipartiteFlag == True 
+        and (algoArgs == None or 'setA' not in algoArgs or 'setB' not in algoArgs)):
+        checkBipartiteFlag = True
+    # Case 2: algo is designated as bipartite method, bipartiteFlag is None
+    elif (algo in ['Hungarian', 'Kuhn_Munkres'] and bipartiteFlag == None):
+        checkBipartiteFlag = True
+    # Case 3: algo is designated as bipartite method, bipartiteFlag is True, but missing setA and/or setB info
+    elif (algo in ['Hungarian', 'Kuhn_Munkres'] and bipartiteFlag == True 
+        and (algoArgs == None or 'setA' not in algoArgs or 'setB' not in algoArgs)):
+        checkBipartiteFlag = True
 
-    bipartiteFlag = True
-    setA = []
-    setB = []
-    for arc in weightArcs:
-        pass
+    if (checkBipartiteFlag):
+        bpt = graphCheckBipartite(arcs = weightArcs)
+        bipartiteFlag = bpt['bipartiteFlag']
+        algoArgs['setA'] = bpt['setA']
+        algoArgs['setB'] = bpt['setB']
+
+    if (algo == None):
+        if (bipartiteFlag):
+            algo = 'Hungarian'
+        else:
+            algo = 'IP'
+
+    # Convert arcs based on mType =============================================
+    convertedArcs = []
+    if (mType == 'Maximum'):
+        convertedArcs = [i for i in weightArcs]
+    elif (mType == 'Minimum'):
+        maxWeight = max([arc[2] for arc in weightArcs]) + 1
+        convertedArcs = [(i[0], i[1], maxWeight - i[2]) for i in weightArcs]
+    else:
+        msgError("ERROR: Please select `mType` from ['Maximum', 'Minimum']")
 
     # Calculate matching using different algorithms ===========================
     res = None
     if (algo == 'IP'):
-        res = _graphMinMatchingIP(weightArcs)
+        res = _graphMaxMatchingIP(convertedArcs)
+    elif (algo in ['Hungarian', 'Kuhn_Munkres']):
+        if (bipartiteFlag != True):
+            msgError("ERROR: 'Hungarian' option only applies for bipartite graph")
+            return
+        res = _graphMaxMatchingHungarian(convertedArcs, algoArgs['setA'], algoArgs['setB'])
+
     return res
 
-def _graphMinMatchingIP(weightArcs):
+def _graphMaxMatchingIP(weightArcs):
     matching = []
     M = grb.Model('Matching')
 
-    # Decision variables --------------------------------------------------
+    # Decision variables ==================================================
     x = {}
     for e in range(len(weightArcs)):
         x[e] = M.addVar(vtype = grb.GRB.BINARY, obj = weightArcs[e][2])
 
-    # Matching objective function -----------------------------------------
-    M.modelSense = grb.GRB.MINIMIZE
+    # Matching objective function ========================================-
+    M.modelSense = grb.GRB.MAXIMUM
     M.update()
 
-    # Perfect matching ----------------------------------------------------
+    # Perfect matching ====================================================
     # First find neighborhoods
     neighborhoods = graphArcs2AdjList(weightArcs)
     for node in neighborhoods:
@@ -448,10 +542,10 @@ def _graphMinMatchingIP(weightArcs):
                     neiArcs.append(i)
         M.addConstr(grb.quicksum(x[e] for e in neiArcs) == 1)
 
-    # Matching ------------------------------------------------------------
+    # Matching ============================================================
     M.optimize()
 
-    # Construct solution --------------------------------------------------
+    # Construct solution ==================================================
     ofv = None
     if (M.status == grb.GRB.status.OPTIMAL):
         ofv = M.getObjective().getValue()
@@ -464,13 +558,62 @@ def _graphMinMatchingIP(weightArcs):
         'matching': matching
     }
 
-def _graphMinMatchingHungarian(bipartiteTree):
+def _graphMaxMatchingHungarian(weightArcs, setA, setB):
+    # Ref: https://cse.hkust.edu.hk/~golin/COMP572/Notes/Matching.pdf
 
-    matrix = []
+    # Initialize ==============================================================
+    adjList = graphArcs2AdjList(arcs = weightArcs)
+    # Initialize labeling, E_l and M
+    # NOTE: Assume all arcs in E_l is from B -> A, i.e., from X -> Y
+    labelA = {}
+    labelB = {}
+    curE = []
+    for v in setA:
+        labelA[v] = 0
+    for v in setB:
+        labelB[v] = max(adjList[v].values())
+        curE.append((v, max(adjList[v]), max(adjList[v].values())))
+    # Find initial match
+    curE = sorted(curE, key = lambda x: x[2], reverse = True)
+    coveredY = []
+    coveredX = []
+    curM = []
+    for arc in curE:
+        if (arc[0] not in coveredX and arc[1] not in coveredY):
+            curM.append(arc)
+            coveredX.append(arc[0])
+            coveredY.append(arc[1])
+    # Find initial set S and set T
+    S = [v for v in setB if v not in coveredX]  # S \subseteq X(or setB)
+    T = []                                      # T <= N_l(S) \neq Y(or setA)
 
-    coveredFlag = False
-    while (not coveredFlag):
-        coveredFlag = True
+    # Subroutine ==============================================================
+    def getNlS(Sl, curEl):
+        Tl = []
+        for arc in curEl:
+            if (arc[0] in Sl and arc[1] not in Tl):
+                Tl.append(arc[1])
+        return Tl
+
+    # Improve matching ========================================================
+    canImproveFlag = True
+    while (canImproveFlag):
+        canImproveFlag = False
+
+        # Get N_l(S)
+        NlS = getNls(S, curE)
+
+        # If N_l(S) = T update labels
+        if (Nls == T):
+            # Find alpha_l = \min_{x \in S, y \notin T} \{l(x) + l(y) - w(x, y)\}
+            alphal = None
+            for x in S:
+                for y in setB:
+                    if (y not in T):
+                        if (alphal == None or labelB[x] + label[y] - adjList[x][y] < alphal):
+                            alphal = labelB[x] + label[y] - adjList[x][y]
+
+        else:
 
     return {
         'ofv': ofv,
@@ -482,31 +625,16 @@ def graphArcs2AdjList(
                  2) A list of 2-tuple (nodeID1, nodeID2)"
     ) -> "Dictionary of neighbors of each node":
 
-    neighbors = {}
+    adjList = {}
     for i in range(len(arcs)):
-        if (arcs[i][0] not in neighbors):
-            if (len(arcs[i]) == 3):
-                neighbors[arcs[i][0]] = [(arcs[i][1], arcs[i][2])]
-            else:
-                neighbors[arcs[i][0]] = [(arcs[i][1], 1)]
-        else:
-            if (len(arcs[i]) == 3):
-                neighbors[arcs[i][0]].append((arcs[i][1], arcs[i][2]))
-            else:
-                neighbors[arcs[i][0]].append((arcs[i][1], 1))
+        if (arcs[i][0] not in adjList):
+            adjList[arcs[i][0]] = {}
+        if (arcs[i][1] not in adjList):
+            adjList[arcs[i][1]] = {} 
+        adjList[arcs[i][0]][arcs[i][1]] = arcs[i][2] if (len(arcs[i]) == 3) else 1
+        adjList[arcs[i][1]][arcs[i][0]] = arcs[i][2] if (len(arcs[i]) == 3) else 1
 
-        if (arcs[i][1] not in neighbors):
-            if (len(arcs[i]) == 3):
-                neighbors[arcs[i][1]] = [(arcs[i][0], arcs[i][2])]
-            else:
-                neighbors[arcs[i][1]] = [(arcs[i][0], 1)]
-        else:
-            if (len(arcs[i]) == 3):
-                neighbors[arcs[i][1]].append((arcs[i][0], arcs[i][2]))
-            else:
-                neighbors[arcs[i][1]].append((arcs[i][0], 1))
-
-    return neighbors
+    return adjList
 
 def graphAdjList2Arcs(
     adjList:    "A Dictionary that has the neighbors info" = None,
@@ -514,10 +642,9 @@ def graphAdjList2Arcs(
     ) -> "adjList convert to arcs":
 
     arcs = []
-
     for n in adjList:
-        for neighbor in adjList[n]:
-            if (directedFlag or n < neighbor):
-                arcs.append((n, neighbor, adjList[n][1]))
-
+        if (adjList[n] != None):
+            for v in adjList[n]:
+                if (directedFlag or n < v):
+                    arcs.append((n, v, adjList[n][v]))
     return arcs
