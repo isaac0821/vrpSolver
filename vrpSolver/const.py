@@ -5,7 +5,8 @@ CONST_EARTH_RADIUS_METERS = 6378137.0
 
 config = {
 	'MESSAGE_SHOW_WARNING': False,
-	'MESSAGE_SHOW_ERROR': True
+	'MESSAGE_SHOW_ERROR': True,
+	'DEFAULT_ASYMFLAG': False
 }
 
 def msgWarning(*args):

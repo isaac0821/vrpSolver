@@ -90,6 +90,7 @@ target/
 **/*.xlsx
 **/*.txt
 **/*.vrp
+**/*.geojson
 
 # Backups
 backup

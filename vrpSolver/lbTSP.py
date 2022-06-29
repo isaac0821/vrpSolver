@@ -61,125 +61,124 @@ def lbTSP(
             'stopRuntime': 600
         }
 
-    # Subroutines for different lower bound algorithms ========================
-    def _lbTSPHeldKarp():
-        # Initialize ----------------------------------------------------------
-        k = 0
-        u = [0 for i in range(len(nodeIDs))]
-        d = None
-        costSum = None
-        L = None
-        oldL = None
-        startTime = datetime.datetime.now()
-
-        # Calculate 1 tree ----------------------------------------------------
-        def _cal1Tree(weightArcs):
-            # Separate first node
-            arcsWithVertexOne = []
-            arcsWithoutVertexOne = []
-            for i in range(len(weightArcs)):
-                if (weightArcs[i][0] == 0 or weightArcs[i][1] == 0):
-                    arcsWithVertexOne.append(weightArcs[i])
-                else:
-                    arcsWithoutVertexOne.append(weightArcs[i])
-
-            # MST for the rest of vertices
-            mst = graphMST(arcsWithoutVertexOne)['mst']
-
-            # Find two cheapest arcs to vertex one
-            sortedArcswithVertexOne = []
-            for i in range(len(arcsWithVertexOne)):
-                heapq.heappush(sortedArcswithVertexOne, (arcsWithVertexOne[i][2], arcsWithVertexOne[i]))
-
-            # Build 1-tree
-            leastTwo = []
-            leastTwo.append(heapq.heappop(sortedArcswithVertexOne))
-            leastTwo.append(heapq.heappop(sortedArcswithVertexOne))
-
-            m1t = [i for i in mst]
-            m1t.append(leastTwo[0][1])
-            m1t.append(leastTwo[1][1])
-
-            # Calculate total cost
-            costSum = 0
-            for i in range(len(m1t)):
-                costSum += m1t[i][2]
-
-            # Arcs to neighbors
-            neighbors = arcs2AdjList(m1t)
-            d = []
-            for i in range(len(nodeIDs)):
-                d.append(2 - len(neighbors[i]))
-
-            return {
-                'costSum': costSum,
-                'm1t': m1t,
-                'd': d
-            }
-
-        # Main iteration ------------------------------------------------------
-        continueFlag = True
-        while (continueFlag):
-            # Update cost of each edge
-            weightArcs = []
-            for i in range(len(nodeIDs)):
-                for j in range(len(nodeIDs)):
-                    if (i != None and j != None and i < j):
-                        weightArcs.append((i, j, tau[i, j] - u[i] - u[j]))
-
-            # Calculate 1-tree
-            oneTree = _cal1Tree(weightArcs)
-
-            # Update L and d
-            costSum = oneTree['costSum']
-            m1t = oneTree['m1t']
-            uSum = sum(u)
-            if (L != None):
-                oldL = L
-            L = costSum + 2 * uSum
-            d = oneTree['d']
-
-            # update u
-            oldU = [i for i in u]
-            u = []
-            eff = algoArgs['subgradM'] * math.pow(algoArgs['subgradRho'], k)
-            for i in range(len(nodeIDs)):
-                u.append(oldU[i] + eff * d[i])
-
-            # Check if continue
-            def _allZero(d):
-                for i in d:
-                    if (i != 0):
-                        return False
-                return True
-
-            # Check stop criteria
-            if (algoArgs['stopType'] == 'Epsilon'):
-                if (oldL != None and abs(oldL - L) <= algoArgs['stopEpsilon']):
-                    continueFlag = False
-            elif (algoArgs['stopType'] == 'IterNum'):
-                if (k >= algoArgs['stopK']):
-                    continueFlag = False
-            elif (algoArgs['stopType'] == 'Runtime'):
-                if ((datetime.datetime.now() - startTime).total_seconds() >= algoArgs['stopRuntime']):
-                    continueFlag = False
-            else:
-                if (_allZero(d)):
-                    continueFlag = False
-            k += 1
-
-        return {
-            'lowerBound': costSum,
-            'm1t': m1t,
-            'runtime': (datetime.datetime.now() - startTime).total_seconds()
-        }
-
     # Choose lower bound algorithm ============================================
     lowerBound = None
     if (algo == 'HeldKarp'):
-        lowerBound = _lbTSPHeldKarp()
+        lowerBound = _lbTSPHeldKarp(nodeIDs, tau, weightArcs, algoArgs)
     else:
         print("ERROR: Acceptable options for `algo` is: 'HeldKarp'")
         return
 
     return lowerBound
+
+def _lbTSPHeldKarp(nodeIDs, tau, weightArcs, algoArgs):
+    # Initialize ----------------------------------------------------------
+    k = 0
+    u = [0 for i in range(len(nodeIDs))]
+    d = None
+    costSum = None
+    L = None
+    oldL = None
+    startTime = datetime.datetime.now()
+
+    # Calculate 1 tree ----------------------------------------------------
+    def _cal1Tree(weightArcs):
+        # Separate first node
+        arcsWithVertexOne = []
+        arcsWithoutVertexOne = []
+        for i in range(len(weightArcs)):
+            if (weightArcs[i][0] == 0 or weightArcs[i][1] == 0):
+                arcsWithVertexOne.append(weightArcs[i])
+            else:
+                arcsWithoutVertexOne.append(weightArcs[i])
+
+        # MST for the rest of vertices
+        mst = graphMST(arcsWithoutVertexOne)['mst']
+
+        # Find two cheapest arcs to vertex one
+        sortedArcswithVertexOne = []
+        for i in range(len(arcsWithVertexOne)):
+            heapq.heappush(sortedArcswithVertexOne, (arcsWithVertexOne[i][2], arcsWithVertexOne[i]))
+
+        # Build 1-tree
+        leastTwo = []
+        leastTwo.append(heapq.heappop(sortedArcswithVertexOne))
+        leastTwo.append(heapq.heappop(sortedArcswithVertexOne))
+
+        m1t = [i for i in mst]
+        m1t.append(leastTwo[0][1])
+        m1t.append(leastTwo[1][1])
+
+        # Calculate total cost
+        costSum = 0
+        for i in range(len(m1t)):
+            costSum += m1t[i][2]
+
+        # Arcs to neighbors
+        neighbors = arcs2AdjList(m1t)
+        d = []
+        for i in range(len(nodeIDs)):
+            d.append(2 - len(neighbors[i]))
+
+        return {
+            'costSum': costSum,
+            'm1t': m1t,
+            'd': d
+        }
+
+    # Main iteration ------------------------------------------------------
+    continueFlag = True
+    while (continueFlag):
+        # Update cost of each edge
+        weightArcs = []
+        for i in range(len(nodeIDs)):
+            for j in range(len(nodeIDs)):
+                if (i != None and j != None and i < j):
+                    weightArcs.append((i, j, tau[i, j] - u[i] - u[j]))
+
+        # Calculate 1-tree
+        oneTree = _cal1Tree(weightArcs)
+
+        # Update L and d
+        costSum = oneTree['costSum']
+        m1t = oneTree['m1t']
+        uSum = sum(u)
+        if (L != None):
+            oldL = L
+        L = costSum + 2 * uSum
+        d = oneTree['d']
+
+        # update u
+        oldU = [i for i in u]
+        u = []
+        eff = algoArgs['subgradM'] * math.pow(algoArgs['subgradRho'], k)
+        for i in range(len(nodeIDs)):
+            u.append(oldU[i] + eff * d[i])
+
+        # Check if continue
+        def _allZero(d):
+            for i in d:
+                if (i != 0):
+                    return False
+            return True
+
+        # Check stop criteria
+        if (algoArgs['stopType'] == 'Epsilon'):
+            if (oldL != None and abs(oldL - L) <= algoArgs['stopEpsilon']):
+                continueFlag = False
+        elif (algoArgs['stopType'] == 'IterNum'):
+            if (k >= algoArgs['stopK']):
+                continueFlag = False
+        elif (algoArgs['stopType'] == 'Runtime'):
+            if ((datetime.datetime.now() - startTime).total_seconds() >= algoArgs['stopRuntime']):
+                continueFlag = False
+        else:
+            if (_allZero(d)):
+                continueFlag = False
+        k += 1
+
+    return {
+        'lowerBound': costSum,
+        'm1t': m1t,
+        'runtime': (datetime.datetime.now() - startTime).total_seconds()
+    }

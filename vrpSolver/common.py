@@ -100,7 +100,7 @@ def calSeqCostArcs(
 def calSeqCostMatrix(
     tau:        "Dictionary {(nodeID1, nodeID2): dist, ...}", 
     seq:        "List, sequence of visiting node ids",
-    closeFlag:  "True if the seq is closed" = False,
+    closeFlag:  "True if the seq is closed" = None,
     i:          "Start index" = 0,
     j:          "End index" = None
     ) -> "Return the cost on the graph given cost matrix/dictionary tau":

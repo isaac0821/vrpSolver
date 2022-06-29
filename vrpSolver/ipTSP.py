@@ -1,12 +1,18 @@
 import heapq
-import gurobipy as grb
 import math
+
+try:
+    import gurobipy as grb
+except(ImportError):
+    GUROBI_EXIST = False
 
 from .common import *
 from .node import *
 from .const import *
 from .geometry import *
 from .graph import *
+
+GUROBI_EXIST = True
 
 def ipTSP(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
@@ -40,6 +46,11 @@ def ipTSP(
                  2) (default) None, no gap limit" = None,
     outputFlag: "Boolean, True if export the gurobi logs" = False
     ) -> "Exact solution for TSP":
+
+    # Check if Gurobi exists ==================================================
+    if (not GUROBI_EXIST):
+        msgError("ERROR: Cannot find Gurobi")
+        return
 
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):

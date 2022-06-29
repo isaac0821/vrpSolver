@@ -4,7 +4,4 @@ This is a personal-use-purpose package that integrates basic functions in vehicl
 
 - Create instances
 - Basic graph algorithms
-- Create TSP routes using heuristic/MILP
-- Basic computation geometry functions
-- Basic time windows operations
-- Basic warehouse design functions
+- Create TSP/VRP routes using heuristic/MILP

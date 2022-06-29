@@ -142,7 +142,7 @@ def _getTauGrid(nodes, nodeIDs, grid):
                 tau[j, i] = 0
     return tau
 
-def _getTauNetwork(
+def _getTauRoadNetwork(
     nodes:      "Dictionary, returns the coordinate of given nodeIDs, \
                     {\
                         nodeIDs1: {'loc': (x, y)}, \
@@ -368,54 +368,53 @@ def getCentroid(
             for i in nodes:
                 nodeIDs.append(i)
 
-    # Subroutine for finding centroid =========================================
-    def _getCentroidWeiszfeld(nodes, nodeIDs):
-        # Initialize ----------------------------------------------------------
-        q = [1 for i in range(len(nodeIDs))]
-        a = [nodes[nodeIDs[i]]['loc'][0] for i in range(len(nodeIDs))]
-        b = [nodes[nodeIDs[i]]['loc'][1] for i in range(len(nodeIDs))]
-        x = sum(a) / len(a)
-        y = sum(b) / len(b)
-        f = 0
-        for i in range(len(nodeIDs)):
-            f += math.sqrt((x - a[i])**2 + (y - b[i])**2)
-
-        # Iterations ----------------------------------------------------------
-        canGoFlag = True
-        while (canGoFlag):
-            # update q
-            q = []
-            for i in range(len(nodeIDs)):
-                q.append(1 / math.sqrt((x - a[i])**2 + (y - b[i])**2))
-
-            # update x, y
-            x = 0
-            y = 0
-            for i in range(len(nodeIDs)):
-                x += q[i] * a[i]
-                y += q[i] * b[i]
-            x /= sum(q)
-            y /= sum(q)
-
-            # update f
-            newF = 0
-            for i in range(len(nodeIDs)):
-                newF += math.sqrt((x - a[i])**2 + (y - b[i])**2)
-            if (abs(newF - f) < CONST_EPSILON):
-                canGoFlag = False
-            f = newF
-
-        # Output --------------------------------------------------------------
-        centroid = (x, y)
-
-        return centroid
-
     # Call subroutines ========================================================
     centroid = None
     if (algo == "Weiszfeld"):
         centroid = _getCentroidWeiszfeld(nodes, nodeIDs)
     else:
         return None
+
+    return centroid
+
+def _getCentroidWeiszfeld(nodes, nodeIDs):
+    # Initialize ==============================================================
+    q = [1 for i in range(len(nodeIDs))]
+    a = [nodes[nodeIDs[i]]['loc'][0] for i in range(len(nodeIDs))]
+    b = [nodes[nodeIDs[i]]['loc'][1] for i in range(len(nodeIDs))]
+    x = sum(a) / len(a)
+    y = sum(b) / len(b)
+    f = 0
+    for i in range(len(nodeIDs)):
+        f += math.sqrt((x - a[i])**2 + (y - b[i])**2)
+
+    # Iterations ==============================================================
+    canGoFlag = True
+    while (canGoFlag):
+        # update q
+        q = []
+        for i in range(len(nodeIDs)):
+            q.append(1 / math.sqrt((x - a[i])**2 + (y - b[i])**2))
+
+        # update x, y
+        x = 0
+        y = 0
+        for i in range(len(nodeIDs)):
+            x += q[i] * a[i]
+            y += q[i] * b[i]
+        x /= sum(q)
+        y /= sum(q)
+
+        # update f
+        newF = 0
+        for i in range(len(nodeIDs)):
+            newF += math.sqrt((x - a[i])**2 + (y - b[i])**2)
+        if (abs(newF - f) < CONST_EPSILON):
+            canGoFlag = False
+        f = newF
+
+    # Output ==================================================================
+    centroid = (x, y)
 
     return centroid
 
@@ -478,46 +477,45 @@ def getConvexHull(
             chSeq.append(n)
         return chSeq
 
-    # Subroutines for finding convex hull =====================================
-    def _getConvexHullJavis():
-        # References ----------------------------------------------------------
-        # 1. https://blog.csdn.net/Bone_ACE/article/details/46239187
-        # 2. chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/viewer.html?pdfurl=http%3A%2F%2Fwww.ams.sunysb.edu%2F~jsbm%2Fcourses%2F345%2F13%2Fmelkman.pdf&clen=46562&chunk=true
-        # 3. https://en.wikipedia.org/wiki/Convex_hull_algorithms
-
-        # Initialize ----------------------------------------------------------
-        chSeq = []
-
-        # Get the location of the left-most nodeID ----------------------------
-        # Find an initial point which guaranteed to be in convex hull
-        leftMostID = None
-        leftMostX = None
-        for n in nodes:
-            if (leftMostID == None or nodes[n]['loc'][0] < leftMostX):
-                leftMostID = n
-                leftMostX = nodes[n]['loc'][0]
-
-        # Jarvis march --------------------------------------------------------
-        curNodeID = leftMostID
-        curDirection = 0
-        marchFlag = True
-        while (marchFlag):
-            sweepSeq = getSweepSeq(
-                nodes = nodes,
-                nodeIDs = [i for i in nodes if i not in chSeq],
-                centerLoc = nodes[curNodeID]['loc'],
-                initDeg = curDirection)
-            if (sweepSeq[0] == leftMostID):
-                marchFlag = False
-            chSeq.append(sweepSeq[0])
-            curDirection = headingXY(nodes[curNodeID]['loc'], nodes[sweepSeq[0]]['loc'])    
-            curNodeID = sweepSeq[0]
-        return chSeq
-
     # Call subroutines ========================================================
     if (algo == "Jarvis"):
-        chSeq = _getConvexHullJavis()
+        chSeq = _getConvexHullJavis(nodes)
     else:
         return None
     
+    return chSeq
+
+def _getConvexHullJavis(nodes):
+    # References ==============================================================
+    # 1. https://blog.csdn.net/Bone_ACE/article/details/46239187
+    # 2. chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/viewer.html?pdfurl=http%3A%2F%2Fwww.ams.sunysb.edu%2F~jsbm%2Fcourses%2F345%2F13%2Fmelkman.pdf&clen=46562&chunk=true
+    # 3. https://en.wikipedia.org/wiki/Convex_hull_algorithms
+
+    # Initialize ==============================================================
+    chSeq = []
+
+    # Get the location of the left-most nodeID ================================
+    # Find an initial point which guaranteed to be in convex hull
+    leftMostID = None
+    leftMostX = None
+    for n in nodes:
+        if (leftMostID == None or nodes[n]['loc'][0] < leftMostX):
+            leftMostID = n
+            leftMostX = nodes[n]['loc'][0]
+
+    # Jarvis march ============================================================
+    curNodeID = leftMostID
+    curDirection = 0
+    marchFlag = True
+    while (marchFlag):
+        sweepSeq = getSweepSeq(
+            nodes = nodes,
+            nodeIDs = [i for i in nodes if i not in chSeq],
+            centerLoc = nodes[curNodeID]['loc'],
+            initDeg = curDirection)
+        if (sweepSeq[0] == leftMostID):
+            marchFlag = False
+        chSeq.append(sweepSeq[0])
+        curDirection = headingXY(nodes[curNodeID]['loc'], nodes[sweepSeq[0]]['loc'])    
+        curNodeID = sweepSeq[0]
     return chSeq

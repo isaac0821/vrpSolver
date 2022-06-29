@@ -8,7 +8,8 @@ def gridPathFinding(
     grid:       "Dictionary, includes the grid info\
                 {\
                     'gridColRow': gridColRow,\
-                    'barriers': barriers\
+                    'barriers': barriers,\
+                    'type': 'Square' # or 'Hexagon'\
                 }" = None,
     startCoord: "Start coordinate" = (0, 0),
     endCoord:   "End coordinate" = (0, 0),
@@ -614,6 +615,7 @@ def _graphMaxMatchingHungarian(weightArcs, setA, setB):
                             alphal = labelB[x] + label[y] - adjList[x][y]
 
         else:
+            pass
 
     return {
         'ofv': ofv,

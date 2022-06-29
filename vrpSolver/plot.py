@@ -155,9 +155,16 @@ def plotRoadNetwork(
     ax:         "Based matplotlib ax object" = None,
     roadNetwork: "A road network dictionary" = None,
     linewidth:  "Width of arcs" = 1,
-    color:      "1) String 'Random', or\
-                 2) String, color" = 'black',
-    figSize:    "Size of the figure, in (width, height)" = (5, 5), 
+    roadColor:  "1) String 'Random', random color for each class of road, or\
+                 2) String, one color for all, or\
+                 3) (Default) Dictionary, designated color for each class of road, " = None,
+    roadClass:  "1) String 'All', show all classes, or\
+                 2) List of strings, a list of classes to be shown" = 'All',
+    buildingColor: "1) String 'Random', random color for each class of road, or\
+                 2) String, one color for all, or\
+                 3) (Default) Dictionary, designated color for each class of road, " = None,
+    showBuildingFlag: "True if include buildings, False otherwise" = False,
+    figSize:    "Size of the figure, in (width, height)" = None, 
     xMin:       "min of x-axis" = None,
     xMax:       "max of x-axis" = None,
     yMin:       "min of y-axis" = None,
@@ -169,16 +176,37 @@ def plotRoadNetwork(
                  recommended to turn off if generate a batch of images" = True
     ) -> "Draw a set of polylines, usually for plotting road network": 
 
+    # Default color for different classes of the road =========================
+    if (roadColor == None):
+        roadColor = {
+            'motorway': 'red',
+            'truck': 'orange',
+            'primary': 'orange',
+            'secondary': 'orange',
+            'tertiary': 'orange',
+            'residential': 'green',
+            'others': 'gray'
+        }
+    if (buildingColor == None):
+        buildingColor = {
+            'building': 'yellow',
+            'commercial': 'yellow',
+            'residential': 'green',
+            'house': 'green',
+            'static_caravan': 'green',
+            'industrial': 'orange',
+            'manufacture': 'orange'
+        }
+
     # FIXME: In future, we might want to distinguish roads by max speed or show the names of roads
     # If no based matplotlib figure, define boundary ==========================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
         allX = []
         allY = []
-        for road in roadNetwork:
-            for pt in roadNetwork[road]['line']:
-                allX.append(pt[1])
-                allY.append(pt[0])
+        for pt in roadNetwork['boundary']:
+            allX.append(pt[1])
+            allY.append(pt[0])
         if (xMin == None):
             xMin = min(allX) - edgeWidth
         if (xMax == None):
@@ -189,11 +217,11 @@ def plotRoadNetwork(
             yMax = max(allY) + edgeWidth
         if (figSize == None):
             if (xMax - xMin > yMax - yMin):
-                width = 5
-                height = 5 * ((yMax - yMin) / (xMax - xMin))
+                width = 15
+                height = 15 * ((yMax - yMin) / (xMax - xMin))
             else:
-                width = 5 * ((xMax - xMin) / (yMax - yMin))
-                height = 5
+                width = 15 * ((xMax - xMin) / (yMax - yMin))
+                height = 15
         else:
             (width, height) = figSize
         fig.set_figwidth(width)
@@ -201,17 +229,44 @@ def plotRoadNetwork(
         ax.set_xlim(xMin, xMax)
         ax.set_ylim(yMin, yMax)
 
-    # Get the x, y list =======================================================
-    for road in roadNetwork:
-        x = []
-        y = []
-        for pt in roadNetwork[road]['line']:
-            x.append(pt[1])
-            y.append(pt[0])
-        edgeColor = color
-        if (color == 'Random'):
-                edgeColor = colorRandom()
-        ax.plot(x, y, color = edgeColor, linewidth = linewidth)
+    # Plot roads ==============================================================
+    for road in roadNetwork['road']:
+        if (roadClass == 'All' or type(roadClass) == list and roadNetwork['road'][road]['class'] in roadClass):
+            x = []
+            y = []
+            for pt in roadNetwork['road'][road]['shape']:
+                x.append(pt[1])
+                y.append(pt[0])
+            color = None
+            if (roadColor == 'Random'):
+                color = colorRandom()
+            elif (type(roadColor) == str):
+                color = roadColor
+            elif (type(roadColor) == dict):
+                if (roadNetwork['road'][road]['class'] in roadColor):
+                    color = roadColor[roadNetwork['road'][road]['class']]
+                else:
+                    color = 'gray'
+            ax.plot(x, y, color = color, linewidth = linewidth)
+
+    # Plot buildings ==========================================================
+    if (showBuildingFlag):
+        for building in roadNetwork['building']:
+            x = []
+            y = []
+            for pt in roadNetwork['building'][building]['shape']:
+                x.append(pt[1])
+                y.append(pt[0])
+            if (buildingColor == 'Random'):
+                color = colorRandom()
+            elif (type(buildingColor) == str):
+                color = buildingColor
+            elif (type(buildingColor) == dict):
+                if (roadNetwork['building'][building]['type'] in buildingColor):
+                    color = buildingColor[roadNetwork['building'][building]['type']]
+                else:
+                    color = 'gray'
+            ax.fill(x, y, facecolor=color)
 
     plt.close(fig)
 

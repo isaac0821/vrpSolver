@@ -38,16 +38,18 @@ def rndPlainNodes(
                     }\
                  4) for 'uniformRoadNetworkPoly'\
                     {\
-                        'network': list of arcs that can be sampled \
-                        'poly': nodes should generated within the polygon, if not provided, will consider the entire network \
+                        'road': list of arcs that can be sampled \
+                        'poly': nodes should generated within the polygon, if not provided, will consider the entire network, \
+                        'class': list of classes that can be sampled \
                     }\
                  5) for 'uniformRoadNetworkCircle'\
                     {\
-                        'network': list of arcs that can be sampled \
+                        'road': list of arcs that can be sampled \
                         'circle': {\
                             'centerLoc': [lat, lon], \
                             'radius': radius in [m] \
-                        }\
+                        }, \
+                        'class': list of classes that can be sampled\
                     }\
                  6) for 'clustered\
                     {\
@@ -152,15 +154,16 @@ def rndPlainNodes(
         if (distrArgs == None):
             msgError(ERROR_MISSING_DISTRARGS)
             return
-        if ('roadNetwork' not in distrArgs):
+        if ('road' not in distrArgs):
             msgError(ERROR_MISSING_DISTRARGS_UNIROADNETWORK)
             return
 
         # Create nodes --------------------------------------------------------
         nodeLocs = _rndPtRoadNetworkPoly(
             N if N != None else len(nodeIDs),
-            distrArgs['roadNetwork'], 
-            distrArgs['poly'] if 'poly' in distrArgs else None)
+            distrArgs['road'], 
+            distrArgs['poly'] if 'poly' in distrArgs else None,
+            distrArgs['class'] if 'class' in distrArgs else ['residential'])
         for n in range(len(nodeIDs)):
             nodes[nodeIDs[n]] = {
                 'loc': nodeLocs[n]
@@ -171,7 +174,7 @@ def rndPlainNodes(
         if (distrArgs == None):
             msgError(ERROR_MISSING_DISTRARGS)
             return
-        if ('roadNetwork' not in distrArgs):
+        if ('road' not in distrArgs):
             msgError(ERROR_MISSING_DISTRARGS_UNIROADNETWORK)
             return
         if ('centerLoc' not in distrArgs or 'radius' not in distrArgs):
@@ -181,9 +184,10 @@ def rndPlainNodes(
         # Create nodes --------------------------------------------------------
         nodeLocs = _rndPtRoadNetworkCircle(
             N if N != None else len(nodeIDs),
-            distrArgs['roadNetwork'], 
+            distrArgs['road'], 
             distrArgs['centerLoc'],
-            distrArgs['radius'])
+            distrArgs['radius'],
+            distrArgs['class'] if 'class' in distrArgs else ['residential'])
         for n in range(len(nodeIDs)):
             nodes[nodeIDs[n]] = {
                 'loc': nodeLocs[n]
@@ -370,38 +374,39 @@ def rndTimeWindowsNodes(
 
 def _rndPtRoadNetworkPoly(
     N:          "Number of nodes" = 1,
-    roadNetwork: "Dictionary of road network in the format of \
+    road:       "Dictionary of road network in the format of \
                 {\
                     roadID: {\
                         'shape': [[lat, lon], [lat, lon], ...]\
                     }\
                 }" = None,
     poly:       "Nodes should also within this polygon" = None,
+    roadClass:  "List of classes that can be sampled" = None
     ) -> "Given a road network, generate customers that locates on the road network":
     
     # Calculate the length of each edge =======================================
     lengths = []
     roadIDs = []
-    for road in roadNetwork:
+    for rID in road:
         roadLength = 0
         includedFlag = False
-        if (poly == None):
+        if (poly == None and 'class' in road[rID] and road[rID]['class'] in roadClass):
             includedFlag = True
-        else:
-            for i in range(len(roadNetwork[road]['shape'])):
-                if (isPtOnPoly(roadNetwork[road]['shape'][i], poly)):
+        elif ('class' in road[rID] and road[rID]['class'] in roadClass):
+            for i in range(len(road[rID]['shape'])):
+                if (isPtOnPoly(road[rID]['shape'][i], poly)):
                     includedFlag = True
                     break
 
         # Check if this road is inside polygon
         if (includedFlag):
-            for i in range(len(roadNetwork[road]['shape']) - 1):
-                roadLength += distLatLon(roadNetwork[road]['shape'][i], roadNetwork[road]['shape'][i + 1])
+            for i in range(len(road[rID]['shape']) - 1):
+                roadLength += distLatLon(road[rID]['shape'][i], road[rID]['shape'][i + 1])
             lengths.append(roadLength)            
         else:
             lengths.append(0)
 
-        roadIDs.append(road)
+        roadIDs.append(rID)
 
     # Check if there are roads included =======================================
     if (sum(lengths) == 0):
@@ -409,6 +414,7 @@ def _rndPtRoadNetworkPoly(
 
     # Use accept-denial to test if the node is within poly ====================
     # FIXME: Inefficient approach, will need to be rewritten
+    # FIXME: Truncate the roads that partially in side polygon
     nodeLocs = []
     for i in range(N):
         lat = None
@@ -417,14 +423,14 @@ def _rndPtRoadNetworkPoly(
             idx = rndPick(lengths)
             edgeLength = lengths[idx]
             edgeDist = random.uniform(0, 1) * edgeLength
-            (lat, lon) = mileageInPathLatLon(roadNetwork[roadIDs[idx]]['shape'], edgeDist)
+            (lat, lon) = mileageInPathLatLon(road[roadIDs[idx]]['shape'], edgeDist)
         else:
             insideFlag = False
             while (not insideFlag):
                 idx = rndPick(lengths)
                 edgeLength = lengths[idx]
                 edgeDist = random.uniform(0, 1) * edgeLength
-                (lat, lon) = mileageInPathLatLon(roadNetwork[roadIDs[idx]]['shape'], edgeDist)
+                (lat, lon) = mileageInPathLatLon(road[roadIDs[idx]]['shape'], edgeDist)
                 if (isPtOnPoly([lat, lon], poly)):
                     insideFlag = True
         nodeLocs.append((lat, lon))
@@ -432,36 +438,38 @@ def _rndPtRoadNetworkPoly(
 
 def _rndPtRoadNetworkCircle(
     N:          "Number of nodes" = 1,
-    roadNetwork: "Dictionary of road network in the format of \
+    road: "Dictionary of road network in the format of \
                 {\
                     roadID: {\
                         'shape': [[lat, lon], [lat, lon], ...]\
                     }\
                 }" = None,\
     centerLoc:  "Center location" = None,
-    radius:     "Radius in [m]" = None
+    radius:     "Radius in [m]" = None,
+    roadClass:  "List of classes that can be sampled" = None
     ) -> "Given a road network, generate customers that locates on the road network":
     
     # Calculate the length of each edge =======================================
     lengths = []
     roadIDs = []
-    for road in roadNetwork:
+    for rID in road:
         roadLength = 0
         includedFlag = False
-        for i in range(len(roadNetwork[road]['shape'])):
-            if (distLatLon(roadNetwork[road]['shape'][i], centerLoc) <= radius):
+        for i in range(len(road[rID]['shape'])):
+            if (road[rID]['class'] in roadClass and distLatLon(road[rID]['shape'][i], centerLoc) <= radius):
                 includedFlag = True
                 break
 
         # Check if this road is inside polygon
         if (includedFlag):
-            for i in range(len(roadNetwork[road]['shape']) - 1):
-                roadLength += distLatLon(roadNetwork[road]['shape'][i], roadNetwork[road]['shape'][i + 1])
+            for i in range(len(road[rID]['shape']) - 1):
+                roadLength += distLatLon(road[rID]['shape'][i], road[rID]['shape'][i + 1])
             lengths.append(roadLength)            
         else:
             lengths.append(0)
 
-        roadIDs.append(road)
+        roadIDs.append(rID)
+
 
     # Check if there are roads included =======================================
     if (sum(lengths) == 0):
@@ -478,7 +486,7 @@ def _rndPtRoadNetworkCircle(
             idx = rndPick(lengths)
             edgeLength = lengths[idx]
             edgeDist = random.uniform(0, 1) * edgeLength
-            (lat, lon) = mileageInPathLatLon(roadNetwork[roadIDs[idx]]['shape'], edgeDist)
+            (lat, lon) = mileageInPathLatLon(road[roadIDs[idx]]['shape'], edgeDist)
             if (distLatLon([lat, lon], centerLoc) <= radius):
                 insideFlag = True
         nodeLocs.append((lat, lon))
