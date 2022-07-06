@@ -8,28 +8,30 @@ from .graph import *
 from .geometry import *
 from .msg import *
 from .operator import *
+from .calculate import *
+from .plot import *
 
 def heuTSP(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None, 
+                 {\
+                    nodeID1: {'loc': (x, y)}, \
+                    nodeID2: {'loc': (x, y)}, \
+                    ... \
+                 }" = None, 
     edges:      "1) String (default) 'Euclidean' or \
                  2) String 'LatLon' or \
                  3) Dictionary {(nodeID1, nodeID2): dist, ...} or \
                  4) String 'Grid', will need to add arguments using `edgeArgs`" = "Euclidean",
     edgeArgs:   "If choose 'Grid' as tau option, we need to provide the following dictionary \
-                    {\
-                        'colRow': (numCol, numRow),\
-                        'barriers': [(coordX, coordY), ...], \
-                    }" = None,
+                 {\
+                    'colRow': (numCol, numRow),\
+                    'barriers': [(coordX, coordY), ...], \
+                 }" = None,
     depotID:    "DepotID, default to be 0" = 0,
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All',
     serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0,
-    consAlgo:   "1) None, if TSP initial solution is given or \
+    consAlgo:   "1) None, if TSP initial solution (start and end with the depot) is given, usually for local improving, or \
                  2) String 'NearestNeighbor' (will be regarded as k-NearestNeighbor and k = 1) or \
                  2) String 'k-NearestNeighbor' or \
                  3) String 'FarthestNeighbor' or \
@@ -37,7 +39,7 @@ def heuTSP(
                  5) String 'Sweep' or \
                  6) String 'DepthFirst' or \
                  7) String 'Christofides' or \
-                 8) String (not available) 'CycleCover', particular for ATSP, also work for TSP or \
+                 8) String (not available) 'CycleCover', for ATSP, also works for TSP or \
                  9) String 'Random'" = 'Insertion',
     consAlgoArgs: "Dictionary, args for constructive heuristic \
                  1) None for unspecified `algo` options, or \
@@ -57,10 +59,15 @@ def heuTSP(
                     {\
                         'initSeq': complete/incomplete initial TSP route\
                     }"= None,
-    impAlgo:    "1) List of Strings, options are as follows \
-                 2) String (not available) 'LKH' or \
-                 3) String (default) '2Opt'" = '2Opt',
-    impAlgoArgs: "Dictionary, args for improvement heuristic" = None
+    impAlgo:    "A string or a list of strings, options are as follows \
+                 1) String (not available) 'LKH' or \
+                 2) String (default) '2Opt' or\
+                 3) String 'Reinsert'" = '2Opt',
+    impAlgoArgs: "Dictionary, args for local improvement heuristic,\
+                 1) For '2Opt'\
+                 {\
+                    'bestInFirstNMove': 5, \
+                 }" = None
     ) -> "Use given heuristic methods to get TSP solution":
 
     # Define nodeIDs ==========================================================
@@ -80,25 +87,46 @@ def heuTSP(
         if (tau[i, j] != tau[j, i]):
             asymFlag = True
             break
+    msgDebug("asymFlag: ", asymFlag)
 
     # Heuristics that don't need to transform arc representation ==============
     seq = None
     if (consAlgo == None):
         if (consAlgoArgs == None or 'initSeq' not in consAlgoArgs):
-            msgError("Need initial TSP solution for local improvement")
-        seq = consAlgoArgs['initSeq'][:-1]
+            msgError("ERROR: Need initial TSP solution for local improvement")
+            if (len(consAlgoArgs['initSeq']) != len(nodeIDs) + 1
+                or consAlgoArgs['initSeq'][0] != depotID
+                or consAlgoArgs['initSeq'][-1] != depotID):
+                msgError("ERROR: Incorrect initial TSP, should start and end with depotID")
+        seq = consAlgoArgs['initSeq']
     elif (consAlgo == 'NearestNeighbor'):
-        seq = _consTSPkNearestNeighbor(nodes, nodeIDs, tau, 1)
+        # Nearest neighbor: k = 1
+        seq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, 1)
     elif (consAlgo == 'k-NearestNeighbor'):
         if (consAlgoArgs == None):
+            msgWarning("Warning: Missing parameter k for k-NearestNeighbor, set to be default value as k = 1")
             consAlgoArgs = {'k': 1}
-        seq = _consTSPkNearestNeighbor(nodes, nodeIDs, tau, consAlgoArgs['k'])
+        seq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, consAlgoArgs['k'])
     elif (consAlgo == 'FarthestNeighbor'):
-        seq = _consTSPFarthestNeighbor(nodeIDs, tau)
+        # NOTE: "Worst" initial solution
+        seq = _consTSPFarthestNeighbor(depotID, nodeIDs, tau)
     elif (consAlgo == 'Insertion'):
         if (consAlgoArgs == None or 'initSeq' not in consAlgoArgs):
-            consAlgoArgs = {'initSeq': [nodeIDs[0], nodeIDs[1]]}
+            # If missing initial sequence, start with "depot -> farthest -> depot"
+            farthestDist = None
+            farthestID = None
+            for n in nodeIDs:
+                if ((n, depotID) in tau):
+                    if (farthestDist == None or tau[n, depotID] > farthestDist):
+                        farthestID = n
+                        farthestDist = tau[n, depotID]
+                elif ((depotID, n) in tau):
+                    if (farthestDist == None or tau[depotID, n] > farthestDist):
+                        farthestID = n
+                        farthestDist = tau[depotID, n]
+            consAlgoArgs = {'initSeq': [depotID, farthestID, depotID]}
         seq = _consTSPInsertion(nodeIDs, consAlgoArgs['initSeq'], tau)
+
     elif (consAlgo == 'Sweep'):
         seq = _consTSPSweep(nodes, nodeIDs, tau)
     elif (consAlgo == 'Random'):
@@ -108,13 +136,13 @@ def heuTSP(
 
     weightArcs = []
     # Create arcs =============================================================
-    if (seq == None):    
+    if (seq == None and not asymFlag):
         for (i, j) in tau:
             if (i != None and j != None and i < j):
                 weightArcs.append((i, j, tau[i, j]))
 
     # Constructive Heuristics for TSP =========================================
-    if (seq == None):
+    if (seq == None and not asymFlag):
         if (consAlgo == 'DepthFirst'):
             seq = _consTSPDepthFirst(weightArcs)
         elif (consAlgo == 'Christofides'):
@@ -122,56 +150,96 @@ def heuTSP(
                 consAlgoArgs = {'matchingAlgo': 'IP'}
             seq = _consTSPChristofides(weightArcs, consAlgoArgs['matchingAlgo'])
 
-    # Heuristics that don't need to transform arc representation ==============
-    if (impAlgo == '2Opt'):
-        seq = _impTSPOpts(nodeIDs, tau, seq, asymFlag)
-
     # Fix the sequence to make it start from and end with the depot ===========
     # NOTE: nodeID gets duplicated, if nodeID == 0, the sequence starts and ends with a 0
+    if (seq[-1] == depotID):
+        seq = seq[:-1]
     startIndex = None
-    truckSeq = []
+    tmpSeq = []
     for k in range(len(seq)):
         if (seq[k] == depotID):
             startIndex = k
     if (startIndex <= len(seq) - 1):
         for k in range(startIndex, len(seq)):
-            truckSeq.append(seq[k])
+            tmpSeq.append(seq[k])
     if (startIndex >= 0):
         for k in range(0, startIndex):
-            truckSeq.append(seq[k])
-    truckSeq.append(depotID)
+            tmpSeq.append(seq[k])
+    tmpSeq.append(depotID)
+    seq = [i for i in tmpSeq]
 
-    ofv = calSeqCostMatrix(tau, truckSeq)
+    # Confirm constructive results ============================================
+    if (seq == None):
+        msgError("ERROR: Incorrect constructive algorithm")
+        return
+
+    # Local improvement ======================================================= 
+    canImproveFlag = False
+    ofv = calSeqCostMatrix(tau, seq, closeFlag = True)
+    revOfv = None
+    if (impAlgo != None):
+        canImproveFlag = True
+        if (type(impAlgo) == str):
+            impAlgo = [impAlgo]        
+        if (asymFlag):
+            revOfv = calSeqCostMatrix(tau, [seq[len(seq) - i - 1] for i in range(len(seq))], closeFlag = True)
+    msgDebug("Ofv: ", ofv, " revOfv: ", revOfv)
+    msgDebug("Constructive Seq: ", seq)
+
+    while (canImproveFlag):
+        canImproveFlag = False
+
+        # Try 2Opts
+        if (not canImproveFlag and '2Opt' in impAlgo):
+            imp = _impTSP2Opts(nodeIDs, tau, seq, asymFlag)
+            if (imp['improvedFlag']):
+                canImproveFlag = True
+                seq = imp['impSeq']
+                ofv = imp['oriOfv']
+                revOfv = imp['oriRevOfv']
+
+        # Try reinsert
+        if (not canImproveFlag and 'Reinsert' in impAlgo):
+            imp = _impTSPReinsert(nodeIDs, tau, seq, ofv, revOfv, asymFlag)
+            if (imp['improvedFlag']):
+                canImproveFlag = True
+                seq = imp['impSeq']
+                ofv = imp['oriOfv']
+                revOfv = imp['oriRevOfv']
 
     return {
         'ofv': ofv,
-        'seq': truckSeq,
+        'seq': seq,
         'serviceTime': serviceTime
     }
 
-def _consTSPkNearestNeighbor(nodes, nodeIDs, tau, k = 1):
+def _consTSPkNearestNeighbor(depotID, nodeIDs, tau, k = 1):
     # Initialize ----------------------------------------------------------
-    seq = [nodeIDs[0]]
-    remain = [nodeIDs[i] for i in range(1, len(nodeIDs))]
+    seq = [depotID]
+    remain = [nodeIDs[i] for i in range(len(nodeIDs)) if nodeIDs[i] != depotID]
     # Accumulate seq ------------------------------------------------------
     while (len(remain) > 0):
         currentNodeID = seq[-1]
-        sortedNodes = getSortedNodesByDist(
-            nodes = nodes,
-            edges = tau,
-            nodeIDs = remain,
-            refNodeID = currentNodeID)
+
+        sortedSeq = []
+        sortedSeqHeap = []
+        for n in remain:
+            dist = tau[currentNodeID, n]
+            heapq.heappush(sortedSeqHeap, (dist, n))
+        while (len(sortedSeqHeap) > 0):
+            sortedSeq.append(heapq.heappop(sortedSeqHeap)[1])  
+
         if (k > len(remain)):
-            seq.append(sortedNodes[-1])
+            seq.append(sortedSeq[-1])
         else:
-            seq.append(sortedNodes[k - 1])
+            seq.append(sortedSeq[k - 1])
         remain = [i for i in nodeIDs if i not in seq]
     return seq
 
-def _consTSPFarthestNeighbor(nodeIDs, tau):
+def _consTSPFarthestNeighbor(depotID, nodeIDs, tau):
     # Initialize ----------------------------------------------------------
-    seq = [nodeIDs[0]]
-    remain = [nodeIDs[i] for i in range(1, len(nodeIDs))]
+    seq = [depotID]
+    remain = [nodeIDs[i] for i in range(len(nodeIDs)) if nodeIDs[i] != depotID]
     # Accumulate seq ------------------------------------------------------
     while (len(remain) > 0):
         nextLeng = None
@@ -266,7 +334,7 @@ def _consTSPChristofides(weightArcs, matchingAlgo):
             subGraph.append(arc)
 
     # Find minimum cost matching of the subgraph --------------------------
-    minMatching = graphMinMatching(
+    minMatching = graphMatching(
         weightArcs=subGraph, 
         algo=matchingAlgo)['matching']
 
@@ -289,105 +357,119 @@ def _consTSPChristofides(weightArcs, matchingAlgo):
 
     return seq
 
-def _impTSPOpts(nodeIDs, tau, initSeq, asymFlag):
-    # Initialize ----------------------------------------------------------
-    canImproveFlag = True
+def _impTSP2Opts(nodeIDs, tau, initSeq, asymFlag):
+    # Initialize ==============================================================
+    improvedFlag = False
     impSeq = [i for i in initSeq]
-    oriOfv = calSeqCostMatrix(tau, impSeq, closeFlag = True)
-    oriRevOfv = None
-    if (asymFlag):
-        oriRevOfv = calSeqCostMatrix(tau, [impSeq[len(impSeq) - i - 1] for i in range(len(impSeq))], closeFlag = True)
-    
-    # Main iteration ------------------------------------------------------
+    msgDebug("initSeq: ", initSeq)
+
+    # Main iteration ==========================================================
     # Needs rewrite, when calculating dist, avoid repeated calculation
     if (len(impSeq) >= 4):
-        while (canImproveFlag):
-            canImproveFlag = False
+        # Try 2-opt
+        can2OptFlag = True
+        while (can2OptFlag):
+            can2OptFlag = False
 
-            # Try node exchange
-            canNodeExchangeFlag = True
-            while (canNodeExchangeFlag):           
-                canNodeExchangeFlag = False        
-                for i in range(len(impSeq) - 2):
-                    for j in range(i + 1, len(impSeq) - 1):
-                        # Saving
-                        opt = exchange2Nodes(
-                            seq = impSeq,
-                            tau = tau,
-                            i = i,
-                            j = j,
-                            cost = oriOfv,
-                            revCost = oriRevOfv,
-                            asymFlag = asymFlag)
-                        if (opt != None and opt['deltaCost'] + CONST_EPSILON < 0):
-                            print("2Nodes: [%s, %s]" % (i, j), opt['deltaCost'], oriOfv, opt['newCost'])
-                            canNodeExchangeFlag = True
-                            canImproveFlag = True
-                            impSeq = opt['seq']
-                            oriOfv = opt['newCost']
-                            oriRevOfv = opt['newRevCost']
-                            break
-                    if (canNodeExchangeFlag):
-                        break
+            # To save 2-opt time, we have an easy way to calculate the length of ABCD and DCBA segment
+            d = 0
+            accDist = []
+            for i in range(len(impSeq) - 1):
+                accDist.append(d)
+                d += tau[impSeq[i], impSeq[i + 1]]
+            accDist.append(d)
+            oriOfv = accDist[-1]
 
-            # Try 2-opt
-            can2OptFlag = True
-            while (can2OptFlag):
-                can2OptFlag = False                
-                for i in range(len(impSeq) - 2):
-                    for j in range(i + 2, len(impSeq)):
-                        # Saving
-                        opt = exchange2Arcs(
-                            seq = impSeq, 
-                            tau = tau, 
-                            i = i, 
-                            j = j, 
-                            cost = oriOfv, 
-                            revCost = oriRevOfv,
-                            asymFlag = asymFlag)
-                        if (opt != None and opt['deltaCost'] + CONST_EPSILON < 0):
-                            print("2Opt: [%s, %s]" % (i, j), opt['deltaCost'], oriOfv, opt['newCost'])
-                            can2OptFlag = True
-                            canImproveFlag = True
-                            impSeq = opt['seq']
-                            oriOfv = opt['newCost']
-                            oriRevOfv = opt['newRevCost']
-                            break
-                    if (can2OptFlag):
-                        break
+            revD = 0
+            accRevDist = []
+            oriRevOfv = None
+            if (asymFlag):
+                for i in range(len(impSeq) - 1):
+                    accRevDist.insert(0, revD)
+                    revD += tau[impSeq[len(impSeq) - i - 1], impSeq[len(impSeq) - i - 2]]
+                accRevDist.insert(0, revD)
+                oriRevOfv = accRevDist[0]
+            # msgDebug(accDist)
+            # msgDebug(accRevDist)
+            msgDebug("oriOfv: ", oriOfv, " oriRevOfv: ", oriRevOfv)
 
-            # Try reinsert
-            canReinsertFlag = True
-            while (canReinsertFlag):    
-                canReinsertFlag = False               
-                for i in range(1, len(impSeq) - 1):
-                    # First remove
-                    nI = impSeq[i]
-                    removed = calRemovalSaving(
-                        route = impSeq,
-                        tau = tau,
-                        i = i,
-                        cost = oriOfv,
-                        revCost = oriRevOfv,
+            for i in range(len(impSeq) - 2):
+                for j in range(i + 2, len(impSeq) - 1):
+                    # Saving
+                    opt = exchange2Arcs(
+                        route = impSeq, 
+                        tau = tau, 
+                        i = i, 
+                        j = j, 
+                        accDist = accDist,
+                        accRevDist = accRevDist,
                         asymFlag = asymFlag)
-                    if (removed != None):
-                        removedSeq = removed['newSeq']
-                        newRemovedOfv = removed['newCost']
-                        newRevRemovedOfv = removed['newRevCost']
-                        inserted = calInsertionCost(
-                            route = removedSeq,
-                            tau = tau,
-                            nJ = nI,
-                            cost = newRemovedOfv,
-                            revCost = newRevRemovedOfv,
-                            asymFlag = asymFlag)
-                        if (inserted != None and inserted['newCost'] + CONST_EPSILON < oriOfv):
-                            print("Reinsert: %s" % nI, oriOfv, inserted['newCost'])
-                            canReinsertFlag = True
-                            canImproveFlag = True
-                            impSeq = inserted['newSeq']
-                            oriOfv = inserted['newCost']
-                            oriRevOfv = inserted['newRevCost']
-                            break
+                    if (opt != None and opt['deltaCost'] + CONST_EPSILON < 0):
+                        msgDebug("2Opt: [%s-%s, %s-%s]" % (impSeq[i], impSeq[i + 1], impSeq[j], impSeq[j + 1]), opt['deltaCost'], oriOfv, opt['newCost'])
+                        can2OptFlag = True
+                        improvedFlag = True
+                        impSeq = opt['seq']
+                        oriOfv = opt['newCost']
+                        oriRevOfv = opt['newRevCost']
+                        break
+                if (can2OptFlag):
+                    break
+    return {
+        'impSeq': impSeq,
+        'improvedFlag': improvedFlag,
+        'oriOfv': oriOfv,
+        'oriRevOfv': oriRevOfv
+    }
 
-    return impSeq
+def _impTSPReinsert(nodeIDs, tau, initSeq, oriOfv, oriRevOfv, asymFlag):
+    # Initialize ==============================================================
+    improvedFlag = False
+    impSeq = [i for i in initSeq]
+
+    # Logic ===================================================================
+    # In each iteration
+    # Step 1: 
+    
+    # Main iteration ==========================================================
+    # Needs rewrite, when calculating dist, avoid repeated calculation
+    if (len(impSeq) >= 4):
+        # Try reinsert
+        canReinsertFlag = True
+        while (canReinsertFlag):
+            canReinsertFlag = False
+            # Does not consider the "reinsert" of the depot
+            for i in range(1, len(impSeq) - 1):
+                # First remove
+                nI = impSeq[i]
+                removed = calRemovalSaving(
+                    route = impSeq,
+                    tau = tau,
+                    i = i,
+                    cost = oriOfv,
+                    revCost = oriRevOfv,
+                    asymFlag = asymFlag)
+                if (removed != None):
+                    removedSeq = removed['newSeq']
+                    newRemovedOfv = removed['newCost']
+                    newRevRemovedOfv = removed['newRevCost']
+                    inserted = calInsertionCost(
+                        route = removedSeq,
+                        tau = tau,
+                        nJ = nI,
+                        cost = newRemovedOfv,
+                        revCost = newRevRemovedOfv,
+                        asymFlag = asymFlag)
+                    if (inserted != None and inserted['newCost'] + CONST_EPSILON < oriOfv):
+                        msgDebug("Reinsert: %s" % nI, oriOfv, inserted['newCost'])
+                        canReinsertFlag = True
+                        improvedFlag = True
+                        impSeq = inserted['newSeq']
+                        oriOfv = inserted['newCost']
+                        oriRevOfv = inserted['newRevCost']
+                        break
+    return {
+        'impSeq': impSeq,
+        'improvedFlag': improvedFlag,
+        'oriOfv': oriOfv,
+        'oriRevOfv': oriRevOfv
+    }

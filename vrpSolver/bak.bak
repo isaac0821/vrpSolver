@@ -278,3 +278,358 @@ def heuVRPBackup(
         print("Error: Incorrect or unavailable CVRP formulation option!")
 
     return res
+
+def swap2NeighborNodes(
+    seq:        "A given sequence of vehicle route, assuming this route is feasible",
+    tau:        "Traveling cost matrix", 
+    i:          "Index in the sequence, will swap i and i + 1 in the route, 0 <= i <= len(seq) - 1",     
+    cost:       "Total cost before swapping, if we need to calculate the new cost, input this value, otherwise newCost will be None" = None,
+    revCost:    "Reversed cost before swapping, it is possible that after swapping, the revered route is preferable" = None,
+    asymFlag:   "True if asymmetric" = False
+    ) -> "Swap the ith and (i+1)th visit in the sequence, if it is applicable, notice that for asymmetric tau, the result is the same":
+
+    # Before: ... --> nIPrev -> nI -> nJ -> nJNext --> ...
+    # After:  ... --> nIPrev -> nJ -> nI -> nJNext --> ...
+    N = len(seq)
+    nIPrev = seq[iterSeq(N, i, 'prev')]
+    nI = seq[i]
+    nJ = seq[iterSeq(N, i, 'next')]
+    nJNext = seq[iterSeq(N, iterSeq(N, i, 'next'), 'next')]
+
+    # Check if can swap
+    # Flag that swapping is feasible
+    canSwapFlag = True
+    # Flag that reversed of swapped seq is feasible and need to consider, will be False if not asymmetric
+    canRevSwapFlag = asymFlag
+
+    # If any one of the new links is not available, swapping is not available
+    if ((nIPrev, nJ) not in tau or (nJ, nI) not in tau or (nI, nJNext) not in tau):
+        canSwapFlag = False
+    if (asymFlag):
+        if ((nJNext, nI) not in tau or (nI, nJ) not in tau or (nJ, nIPrev) not in tau):
+            canRevSwapFlag = False
+
+    # Early quit
+    if (not canSwapFlag and not canRevSwapFlag):
+        return None
+
+    # newSeq
+    newSeq = [k for k in seq]
+    j = iterSeq(N, i, 'next')
+    newSeq[i], newSeq[j] = newSeq[j], newSeq[i]
+    newRevSeq = []
+    if (asymFlag and canRevSwapFlag):
+        newRevSeq = [newSeq[len(newSeq) - 1 - i] for i in range(len(newSeq))]
+
+    # Calculate deltaCost
+    newCost = None
+    newRevCost = None
+    reverseFlag = False
+
+    # If not asymmetric, only one situation possible, so directly calculate deltaCost
+    if (not asymFlag):
+        deltaCost = ((tau[nIPrev, nJ] + tau[nJ, nI] + tau[nI, nJNext])
+                   - (tau[nIPrev, nI] + tau[nI, nJ] + tau[nJ, nJNext]))
+        # For the case that we do not need to calculate the total cost, let them be None
+        if (cost == None):
+            newCost = None
+            newRevCost = None
+        else:
+            if (cost != None):
+                newCost = cost + deltaCost
+                newRevCost = None
+
+    # If asymmetric, the following cases need to be considered:
+    # 1. newSeq feasible + newRevSeq feasible => deltaCost: min(newRevCost, newCost) - cost
+    #    - newCost is better
+    #    - newRevCost is better, need to take the reversed seq as a new seq
+    # 2. newSeq infeasible + newRevSeq feasible => deltaCost: newRevCost - cost
+    #    - need to take the reversed seq as a new seq
+    # 3. newSeq feasible + newRevSeq infeasible => deltaCost: newCost - cost
+    #    - same as symmetric
+    else:
+        if (canSwapFlag):
+            if (cost != None):
+                newCost = (cost - (tau[nIPrev, nI] + tau[nI, nJ] + tau[nJ, nJNext])
+                                + (tau[nIPrev, nJ] + tau[nJ, nI] + tau[nI, nJNext]))
+            else:
+                newCost = calSeqCostMatrix(
+                    tau = tau,
+                    seq = newSeq,
+                    closeFlag = True)
+                if (newCost == None):
+                    canSwapFlag = False
+        if (canRevSwapFlag):
+            # NOTE: if revCost != None, it means the reverse seq is feasible, no need to check the links
+            if (revCost != None):
+                newRevCost = (revCost - (tau[nJNext, nJ] + tau[nJ, nI] + tau[nI, nIPrev])
+                                      + (tau[nJNext, nI] + tau[nI, nJ] + tau[nJ, nIPrev]))
+            else:
+                newRevCost = calSeqCostMatrix(
+                    tau = tau,
+                    seq = newRevSeq,
+                    closeFlag = True)
+                if (newRevCost == None):
+                    canRevSwapFlag = False
+
+        # Case 1
+        if (canSwapFlag and canRevSwapFlag):
+            deltaCost1 = newCost - cost
+            deltaCost2 = newRevCost - cost
+            if (deltaCost1 <= deltaCost2):
+                deltaCost = deltaCost1
+            else:
+                deltaCost = deltaCost2
+                newSeq = [i for i in newRevSeq]
+                reverseFlag = True
+                newCost, newRevCost = newRevCost, newCost
+        # Case 2
+        elif (not canSwapFlag and canRevSwapFlag):
+            deltaCost = newRevCost - cost
+            newSeq = [i for i in newRevSeq]
+            reverseFlag = True
+            newCost, newRevCost = newRevCost, newCost
+        # Case 3
+        elif (canSwapFlag and not canRevSwapFlag):
+            deltaCost = newCost - cost
+
+    # NOTE: If deltaCost < 0, it means the route is improved after swapping
+
+    return {
+        'seq': newSeq,
+        'deltaCost': deltaCost,
+        'reversed': reverseFlag,
+        'newCost': newCost,
+        'newRevCost': newRevCost
+    }
+
+def exchange2Nodes(
+    seq:        "A given sequence of vehicle route, assuming this route is feasible", 
+    tau:        "Traveling cost matrix", 
+    i:          "Index in the sequence, 0 <= i <= len(seq) - 1", 
+    j:          "Index in the sequence, 0 <= i <= len(seq) - 1, i != j",     
+    cost:       "Total cost before swapping, if we need to calculate the new cost, input this value, otherwise newCost will be None" = None,
+    revCost:    "Reversed cost before swapping, it is possible that after swapping, the revered route is preferable" = None,
+    asymFlag:   "True if asymmetric" = False
+    ) -> "Swap the ith and jth visit in the sequence, if it is applicable, notice that for asymmetric tau, the result is the same":
+
+    # Before: ... --> nIPrev -> nI -> nINext --> ... --> nJPrev -> nJ -> nJNext --> ...
+    # After:  ... --> nIPrev -> nJ -> nINext --> ... --> nJPrev -> nI -> nJNext --> ...
+    N = len(seq)
+    nIPrev = seq[iterSeq(N, i, 'prev')]
+    nI = seq[i]
+    nINext = seq[iterSeq(N, i, 'next')]
+    nJPrev = seq[iterSeq(N, j, 'prev')]
+    nJ = seq[j]
+    nJNext = seq[iterSeq(N, j, 'next')]
+
+    # nINext == nJ
+    if (nINext == nJ):
+        return swap2NeighborNodes(
+            seq = seq,
+            tau = tau,
+            i = i,
+            cost = cost,
+            revCost = revCost,
+            asymFlag = asymFlag)
+
+    # Check if can exchange
+    canExchangeFlag = True
+    canRevExchangeFlag = asymFlag
+
+    # If any one of the new links is not available, exchanging is not available
+    if ((nIPrev, nJ) not in tau or (nJ, nINext) not in tau or (nJPrev, nI) not in tau or (nI, nJNext) not in tau):
+        canExchangeFlag = False
+    if (asymFlag):
+        if ((nJNext, nI) not in tau or (nI, nJPrev) not in tau or (nINext, nJ) not in tau or (nJ, nIPrev) not in tau):
+            canRevExchangeFlag = False
+
+    # Early quit
+    if (not canExchangeFlag and not canRevExchangeFlag):
+        return None
+
+    # New seq
+    newSeq = [k for k in seq]
+    newSeq[i], newSeq[j] = newSeq[j], newSeq[i]
+    newRevSeq = []
+    if (asymFlag and canRevExchangeFlag):
+        newRevSeq = [newSeq[len(newSeq) - 1 - i] for i in range(len(newSeq))]
+
+    # Calculate deltaCost
+    newCost = None
+    newRevCost = None
+    reverseFlag = False
+
+    # If not asymmetric, only one situation possible, so directly calculate deltaCost
+    if (not asymFlag):
+        deltaCost = ((tau[nIPrev, nJ] + tau[nJ, nINext] + tau[nJPrev, nI] + tau[nI, nJNext])
+                   - (tau[nIPrev, nI] + tau[nI, nINext] + tau[nJPrev, nJ] + tau[nJ, nJNext]))
+        # For the case that we do not need to calculate the total cost, let them be None
+        if (cost == None):
+            newCost = None
+            newRevCost = None
+        else:
+            if (cost != None):
+                newCost = cost + deltaCost
+                newRevCost = None
+
+    # If asymmetric, the following cases need to be considered:
+    # 1. newSeq feasible + newRevSeq feasible => deltaCost: min(newRevCost, newCost) - cost
+    #    - newCost is better
+    #    - newRevCost is better, need to take the reversed seq as a new seq
+    # 2. newSeq infeasible + newRevSeq feasible => deltaCost: newRevCost - cost
+    #    - need to take the reversed seq as a new seq
+    # 3. newSeq feasible + newRevSeq infeasible => deltaCost: newCost - cost
+    #    - same as symmetric
+    else:
+        if (canExchangeFlag):
+            if (cost != None):
+                newCost = (cost + tau[nIPrev, nJ] + tau[nJ, nINext] + tau[nJPrev, nI] + tau[nI, nJNext]
+                          - (tau[nIPrev, nI] + tau[nI, nINext] + tau[nJPrev, nJ] + tau[nJ, nJNext]))
+            else:
+                newCost = calSeqCostMatrix(
+                    tau = tau,
+                    seq = newSeq) 
+        if (canRevExchangeFlag):
+            # NOTE: if revCost != None, it means the reverse seq is feasible, no need to check the links
+            if (revCost != None):
+                newRevCost = (revCost + tau[nJNext, nI] + tau[nI, nJPrev] + tau[nINext, nJ] + tau[nJ, nIPrev]
+                           - (tau[nJNext, nJ] + tau[nJ, nJPrev] + tau[nINext, nI] + tau[nI, nIPrev]))
+            else:
+                newRevCost = calSeqCostMatrix(
+                    tau = tau,
+                    seq = newRevSeq)
+                if (newRevCost == None):
+                    canRevExchangeFlag = False
+
+        # Case 1
+        if (canExchangeFlag and canRevExchangeFlag):
+            deltaCost1 = newCost - cost
+            deltaCost2 = newRevCost - cost
+            if (deltaCost1 <= deltaCost2):
+                deltaCost = deltaCost1
+            else:
+                deltaCost = deltaCost2
+                newSeq = newRevSeq
+                reverseFlag = True
+                newCost, newRevCost = newRevCost, newCost
+        # Case 2
+        elif (not canExchangeFlag and canRevExchangeFlag):
+            deltaCost = newRevCost - cost
+            newSeq = newRevSeq
+            reverseFlag = True
+            newCost, newRevCost = newRevCost, newCost
+        # Case 3
+        elif (canExchangeFlag and not canRevExchangeFlag):
+            deltaCost = newCost - cost
+
+    return {
+        'seq': newSeq,
+        'deltaCost': deltaCost,
+        'reversed': reverseFlag,
+        'newCost': newCost,
+        'newRevCost': newRevCost
+    }
+
+def createWarehouseLayout(
+    shelfCol:   "Integer, Number of columns in the warehouse layout" = 5,
+    shelfRow:   "Integer, Number of rows in warehouse layout" = 10,
+    shelfWidth: "Integer, Width of shelf" = 1,
+    shelfDeep:  "Integer, Number of deeps of the shelf" = 1,
+    aisleWidth: "Integer, Width of the aisles" = 1,
+    layoutType: "1) String, 'Traditional' or\
+                 2) String, 'CrossAisle'" = 'CrossAisle',
+    RSPointType: "1) String, 'BottomMiddle' or\
+                 2) String, 'LeftMiddle' or\
+                 3) String, 'Corner'" = 'BottomMiddle'
+    ) -> "Create the travel network and the grid":
+
+    # Initialize ==============================================================
+    dicLayout = {}
+
+    # Metadata ================================================================
+    dicLayout['meta'] = {
+        'shelfCol': shelfCol,
+        'shelfRow': shelfRow,
+        'shelfWidth': shelfWidth,
+        'shelfDeep': shelfDeep,
+        'aisleWidth': aisleWidth,
+        'layoutType': layoutType,
+        'RSPointType': RSPointType
+    }
+
+    # Create grids ============================================================
+    dicLayout['grid'] = {}
+    numCol = aisleWidth + (shelfWidth * shelfDeep + aisleWidth) * shelfCol
+    numRow = aisleWidth * 2 + shelfWidth * shelfRow + aisleWidth * (1 if layoutType == 'CrossAisle' else 0)
+    dicLayout['grid']['colRow'] = (numCol, numRow)
+    dicLayout['grid']['barriers'] = []
+    if (layoutType == 'Traditional'):
+        for i in range(1, shelfRow + 1):
+            for j in range(shelfCol):
+                for d in range(shelfDeep):
+                    dicLayout['grid']['barriers'].append((aisleWidth + (shelfDeep * shelfWidth + aisleWidth) * j + shelfWidth * d, i))
+    elif (layoutType == 'CrossAisle'):
+        for i in range(1, int((shelfRow + 1) / 2) + 1):
+            for j in range(shelfCol):
+                for d in range(shelfDeep):
+                    dicLayout['grid']['barriers'].append((aisleWidth + (shelfDeep * shelfWidth + aisleWidth) * j + shelfWidth * d, i))
+        for i in range(int((shelfRow + 1) / 2) + 2, shelfRow + 2):
+            for j in range(shelfCol):
+                for d in range(shelfDeep):
+                    dicLayout['grid']['barriers'].append((aisleWidth + (shelfDeep * shelfWidth + aisleWidth) * j + shelfWidth * d, i))
+
+    # Create RS location ======================================================
+    RSX = None
+    RSY = None
+    if (RSPointType == 'BottomMiddle'):
+        RSX = (aisleWidth + (aisleWidth + shelfDeep * shelfWidth) * shelfCol) / 2
+        RSY = aisleWidth / 2
+        dicLayout['RSGridID'] = (int((aisleWidth + (aisleWidth + shelfDeep * shelfWidth) * shelfCol) / 2), 0)
+    elif (RSPointType == 'LeftMiddle'):
+        RSX = aisleWidth / 2
+        RSY = (aisleWidth * 2 + shelfWidth * shelfRow + (aisleWidth if layoutType == 'CrossAisle' else 0)) / 2
+        dicLayout['RSGridID'] = (0, int((aisleWidth * 2 + shelfWidth * shelfRow + (aisleWidth if layoutType == 'CrossAisle' else 0)) / 2))
+    elif (RSPointType == 'Corner'):
+        RSX = aisleWidth / 2
+        RSY = aisleWidth / 2
+        dicLayout['RSGridID'] = (0, 0)
+    dicLayout['RS'] = [RSX, RSY]
+
+    # Create shelves ==========================================================
+    dicLayout['shelf'] = {}
+    shelfID = 1
+    for col in range(shelfCol):
+        for row in range(shelfRow):
+            for deep in range(shelfDeep):
+                topLeftX = aisleWidth + col * (aisleWidth + shelfDeep * shelfWidth) + deep * shelfWidth
+                topTopY = None
+                if (layoutType == 'Traditional'):
+                    topTopY = aisleWidth + shelfWidth + row * shelfWidth
+                elif (layoutType == 'CrossAisle'):
+                    if (row < shelfRow / 2):
+                        topTopY = aisleWidth + shelfWidth + row * shelfWidth
+                    else:
+                        topTopY = 2 * aisleWidth + shelfWidth + row * shelfWidth
+                poly = [[topLeftX, topTopY], 
+                        [topLeftX, topTopY - shelfWidth], 
+                        [topLeftX + shelfWidth, topTopY - shelfWidth], 
+                        [topLeftX + shelfWidth, topTopY]]
+                dicLayout['shelf'][shelfID] = {
+                    'poly': poly,
+                    'rowID': row,
+                    'colID': col,
+                    'deepID': deep
+                }
+                shelfID += 1
+
+    # For the boundary ========================================================
+    dicLayout['boundary'] = {}
+    dicLayout['boundary']['ploy'] = [
+        [0, 0], 
+        [aisleWidth + (aisleWidth + shelfDeep * shelfWidth) * shelfCol, 0],
+        [aisleWidth + (aisleWidth + shelfDeep * shelfWidth) * shelfCol, aisleWidth * 2 + shelfWidth * shelfRow + (aisleWidth if layoutType == 'CrossAisle' else 0)],
+        [0, aisleWidth * 2 + shelfWidth * shelfRow + (aisleWidth if layoutType == 'CrossAisle' else 0)]        
+    ]   
+
+    return dicLayout

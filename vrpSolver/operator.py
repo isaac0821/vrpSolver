@@ -1,13 +1,14 @@
 from .common import *
 from .graph import *
+from .calculate import *
 
 # Definitions =================================================================
-# 1. seq v.s. route: `seq` is a sequence of visits, may not start/end with the depot, 
+# 1. route v.s. route: `route` is a sequence of visits, may not start/end with the depot, 
 #                    `route` is a sequence of visits that starts and ends with the depot
 # 2. tau v.s. edge: `tau` is the traveling matrix that considered service time
 #                   `edge` could be a string indicating the type of traveling matrices, 
 #                   and might need additional information in `edgeArgs`
-# 3. i, j v.s. nI, nJ: `i` or `j` indicates the index in a route/seq, and `nI`
+# 3. i, j v.s. nI, nJ: `i` or `j` indicates the index in a route/route, and `nI`
 #                      or `nJ` indicates the ID of the node
 # =============================================================================
 
@@ -15,302 +16,52 @@ from .graph import *
 # The operations here does not involve any constraints checking
 # =============================================================================
 
-def swap2NeighborNodes(
-    seq:        "A given sequence of vehicle route, assuming this route is feasible",
-    tau:        "Traveling cost matrix", 
-    i:          "Index in the sequence, will swap i and i + 1 in the route, 0 <= i <= len(seq) - 1",     
-    cost:       "Total cost before swapping, if we need to calculate the new cost, input this value, otherwise newCost will be None" = None,
-    revCost:    "Reversed cost before swapping, it is possible that after swapping, the revered route is preferable" = None,
-    asymFlag:   "True if asymmetric" = False
-    ) -> "Swap the ith and (i+1)th visit in the sequence, if it is applicable, notice that for asymmetric tau, the result is the same":
-
-    # Before: ... --> nIPrev -> nI -> nJ -> nJNext --> ...
-    # After:  ... --> nIPrev -> nJ -> nI -> nJNext --> ...
-    N = len(seq)
-    nIPrev = seq[iterSeq(N, i, 'prev')]
-    nI = seq[i]
-    nJ = seq[iterSeq(N, i, 'next')]
-    nJNext = seq[iterSeq(N, iterSeq(N, i, 'next'), 'next')]
-
-    # Check if can swap
-    # Flag that swapping is feasible
-    canSwapFlag = True
-    # Flag that reversed of swapped seq is feasible and need to consider, will be False if not asymmetric
-    canRevSwapFlag = asymFlag
-
-    # If any one of the new links is not available, swapping is not available
-    if ((nIPrev, nJ) not in tau or (nJ, nI) not in tau or (nI, nJNext) not in tau):
-        canSwapFlag = False
-    if (asymFlag):
-        if ((nJNext, nI) not in tau or (nI, nJ) not in tau or (nJ, nIPrev) not in tau):
-            canRevSwapFlag = False
-
-    # Early quit
-    if (not canSwapFlag and not canRevSwapFlag):
-        return None
-
-    # newSeq
-    newSeq = [k for k in seq]
-    j = iterSeq(N, i, 'next')
-    newSeq[i], newSeq[j] = newSeq[j], newSeq[i]
-    newRevSeq = []
-    if (asymFlag and canRevSwapFlag):
-        newRevSeq = [newSeq[len(newSeq) - 1 - i] for i in range(len(newSeq))]
-
-    # Calculate deltaCost
-    newCost = None
-    newRevCost = None
-    reverseFlag = False
-
-    # If not asymmetric, only one situation possible, so directly calculate deltaCost
-    if (not asymFlag):
-        deltaCost = ((tau[nIPrev, nJ] + tau[nJ, nI] + tau[nI, nJNext])
-                   - (tau[nIPrev, nI] + tau[nI, nJ] + tau[nJ, nJNext]))
-        # For the case that we do not need to calculate the total cost, let them be None
-        if (cost == None):
-            newCost = None
-            newRevCost = None
-        else:
-            if (cost != None):
-                newCost = cost + deltaCost
-                newRevCost = None
-
-    # If asymmetric, the following cases need to be considered:
-    # 1. newSeq feasible + newRevSeq feasible => deltaCost: min(newRevCost, newCost) - cost
-    #    - newCost is better
-    #    - newRevCost is better, need to take the reversed seq as a new seq
-    # 2. newSeq infeasible + newRevSeq feasible => deltaCost: newRevCost - cost
-    #    - need to take the reversed seq as a new seq
-    # 3. newSeq feasible + newRevSeq infeasible => deltaCost: newCost - cost
-    #    - same as symmetric
-    else:
-        if (canSwapFlag):
-            if (cost != None):
-                newCost = (cost - (tau[nIPrev, nI] + tau[nI, nJ] + tau[nJ, nJNext])
-                                + (tau[nIPrev, nJ] + tau[nJ, nI] + tau[nI, nJNext]))
-            else:
-                newCost = calSeqCostMatrix(
-                    tau = tau,
-                    seq = newSeq,
-                    closeFlag = True)
-                if (newCost == None):
-                    canSwapFlag = False
-        if (canRevSwapFlag):
-            # NOTE: if revCost != None, it means the reverse seq is feasible, no need to check the links
-            if (revCost != None):
-                newRevCost = (revCost - (tau[nJNext, nJ] + tau[nJ, nI] + tau[nI, nIPrev])
-                                      + (tau[nJNext, nI] + tau[nI, nJ] + tau[nJ, nIPrev]))
-            else:
-                newRevCost = calSeqCostMatrix(
-                    tau = tau,
-                    seq = newRevSeq,
-                    closeFlag = True)
-                if (newRevCost == None):
-                    canRevSwapFlag = False
-
-        # Case 1
-        if (canSwapFlag and canRevSwapFlag):
-            deltaCost1 = newCost - cost
-            deltaCost2 = newRevCost - cost
-            if (deltaCost1 <= deltaCost2):
-                deltaCost = deltaCost1
-            else:
-                deltaCost = deltaCost2
-                newSeq = [i for i in newRevSeq]
-                reverseFlag = True
-                newCost, newRevCost = newRevCost, newCost
-        # Case 2
-        elif (not canSwapFlag and canRevSwapFlag):
-            deltaCost = newRevCost - cost
-            newSeq = [i for i in newRevSeq]
-            reverseFlag = True
-            newCost, newRevCost = newRevCost, newCost
-        # Case 3
-        elif (canSwapFlag and not canRevSwapFlag):
-            deltaCost = newCost - cost
-
-    # NOTE: If deltaCost < 0, it means the route is improved after swapping
-
-    return {
-        'seq': newSeq,
-        'deltaCost': deltaCost,
-        'reversed': reverseFlag,
-        'newCost': newCost,
-        'newRevCost': newRevCost
-    }
-
-def exchange2Nodes(
-    seq:        "A given sequence of vehicle route, assuming this route is feasible", 
-    tau:        "Traveling cost matrix", 
-    i:          "Index in the sequence, 0 <= i <= len(seq) - 1", 
-    j:          "Index in the sequence, 0 <= i <= len(seq) - 1, i != j",     
-    cost:       "Total cost before swapping, if we need to calculate the new cost, input this value, otherwise newCost will be None" = None,
-    revCost:    "Reversed cost before swapping, it is possible that after swapping, the revered route is preferable" = None,
-    asymFlag:   "True if asymmetric" = False
-    ) -> "Swap the ith and jth visit in the sequence, if it is applicable, notice that for asymmetric tau, the result is the same":
-
-    # Before: ... --> nIPrev -> nI -> nINext --> ... --> nJPrev -> nJ -> nJNext --> ...
-    # After:  ... --> nIPrev -> nJ -> nINext --> ... --> nJPrev -> nI -> nJNext --> ...
-    N = len(seq)
-    nIPrev = seq[iterSeq(N, i, 'prev')]
-    nI = seq[i]
-    nINext = seq[iterSeq(N, i, 'next')]
-    nJPrev = seq[iterSeq(N, j, 'prev')]
-    nJ = seq[j]
-    nJNext = seq[iterSeq(N, j, 'next')]
-
-    # nINext == nJ
-    if (nINext == nJ):
-        return swap2NeighborNodes(
-            seq = seq,
-            tau = tau,
-            i = i,
-            cost = cost,
-            revCost = revCost,
-            asymFlag = asymFlag)
-
-    # Check if can exchange
-    canExchangeFlag = True
-    canRevExchangeFlag = asymFlag
-
-    # If any one of the new links is not available, exchanging is not available
-    if ((nIPrev, nJ) not in tau or (nJ, nINext) not in tau or (nJPrev, nI) not in tau or (nI, nJNext) not in tau):
-        canExchangeFlag = False
-    if (asymFlag):
-        if ((nJNext, nI) not in tau or (nI, nJPrev) not in tau or (nINext, nJ) not in tau or (nJ, nIPrev) not in tau):
-            canRevExchangeFlag = False
-
-    # Early quit
-    if (not canExchangeFlag and not canRevExchangeFlag):
-        return None
-
-    # New seq
-    newSeq = [k for k in seq]
-    newSeq[i], newSeq[j] = newSeq[j], newSeq[i]
-    newRevSeq = []
-    if (asymFlag and canRevExchangeFlag):
-        newRevSeq = [newSeq[len(newSeq) - 1 - i] for i in range(len(newSeq))]
-
-    # Calculate deltaCost
-    newCost = None
-    newRevCost = None
-    reverseFlag = False
-
-    # If not asymmetric, only one situation possible, so directly calculate deltaCost
-    if (not asymFlag):
-        deltaCost = ((tau[nIPrev, nJ] + tau[nJ, nINext] + tau[nJPrev, nI] + tau[nI, nJNext])
-                   - (tau[nIPrev, nI] + tau[nI, nINext] + tau[nJPrev, nJ] + tau[nJ, nJNext]))
-        # For the case that we do not need to calculate the total cost, let them be None
-        if (cost == None):
-            newCost = None
-            newRevCost = None
-        else:
-            if (cost != None):
-                newCost = cost + deltaCost
-                newRevCost = None
-
-    # If asymmetric, the following cases need to be considered:
-    # 1. newSeq feasible + newRevSeq feasible => deltaCost: min(newRevCost, newCost) - cost
-    #    - newCost is better
-    #    - newRevCost is better, need to take the reversed seq as a new seq
-    # 2. newSeq infeasible + newRevSeq feasible => deltaCost: newRevCost - cost
-    #    - need to take the reversed seq as a new seq
-    # 3. newSeq feasible + newRevSeq infeasible => deltaCost: newCost - cost
-    #    - same as symmetric
-    else:
-        if (canExchangeFlag):
-            if (cost != None):
-                newCost = (cost + tau[nIPrev, nJ] + tau[nJ, nINext] + tau[nJPrev, nI] + tau[nI, nJNext]
-                          - (tau[nIPrev, nI] + tau[nI, nINext] + tau[nJPrev, nJ] + tau[nJ, nJNext]))
-            else:
-                newCost = calSeqCostMatrix(
-                    tau = tau,
-                    seq = newSeq) 
-        if (canRevExchangeFlag):
-            # NOTE: if revCost != None, it means the reverse seq is feasible, no need to check the links
-            if (revCost != None):
-                newRevCost = (revCost + tau[nJNext, nI] + tau[nI, nJPrev] + tau[nINext, nJ] + tau[nJ, nIPrev]
-                           - (tau[nJNext, nJ] + tau[nJ, nJPrev] + tau[nINext, nI] + tau[nI, nIPrev]))
-            else:
-                newRevCost = calSeqCostMatrix(
-                    tau = tau,
-                    seq = newRevSeq)
-                if (newRevCost == None):
-                    canRevExchangeFlag = False
-
-        # Case 1
-        if (canExchangeFlag and canRevExchangeFlag):
-            deltaCost1 = newCost - cost
-            deltaCost2 = newRevCost - cost
-            if (deltaCost1 <= deltaCost2):
-                deltaCost = deltaCost1
-            else:
-                deltaCost = deltaCost2
-                newSeq = newRevSeq
-                reverseFlag = True
-                newCost, newRevCost = newRevCost, newCost
-        # Case 2
-        elif (not canExchangeFlag and canRevExchangeFlag):
-            deltaCost = newRevCost - cost
-            newSeq = newRevSeq
-            reverseFlag = True
-            newCost, newRevCost = newRevCost, newCost
-        # Case 3
-        elif (canExchangeFlag and not canRevExchangeFlag):
-            deltaCost = newCost - cost
-
-    return {
-        'seq': newSeq,
-        'deltaCost': deltaCost,
-        'reversed': reverseFlag,
-        'newCost': newCost,
-        'newRevCost': newRevCost
-    }
-
 def exchange2Arcs(
-    seq:        "A given sequence of vehicle route, assuming this route is feasible", 
-    tau:        "Traveling cost matrix", 
-    i:          "Index in the sequence, 0 <= i <= len(seq) - 2", 
-    j:          "Index in the sequence, 0 <= i <= len(seq) - 2, i.Next() != j",
-    cost:       "Total cost before swapping, if we need to calculate the new cost, input this value, otherwise newCost will be None" = None,
-    revCost:    "Reversed cost before swapping, it is possible that after swapping, the revered route is preferable" = None,
+    route:      "A given sequence of vehicle route, start/end with the depot, assuming this route is feasible" = None, 
+    tau:        "Traveling cost matrix" = None, 
+    completeTauFlag: "True if tau is completed, to bypass calculation" = True,
+    i:          "Index in the sequence, 0 <= i <= len(route) - 2" = None, 
+    j:          "Index in the sequence, 0 <= i <= len(route) - 2, i.Next() != j" = None,
+    accDist:    "Accumulated travel distance from depot" = None,
+    accRevDist: "Accumulated travel distance for reveres route" = None,
     asymFlag:   "True if asymmetric" = False
     ) -> "2Opt, Reconnect arc between i, i+1 and j, j+1, if it is applicable":
 
     # Before: ... --> nI -> nINext --> ...abcd... --> nJ     -> nJNext --> ...
     # After:  ... --> nI -> nJ     --> ...dcba... --> nINext -> nJNext --> ...
-    N = len(seq)
-    nI = seq[i]
-    nINext = seq[iterSeq(N, i, 'next')]
-    nJ = seq[j]
-    nJNext = seq[iterSeq(N, j, 'next')]
+    N = len(route)
+    nI = route[i]
+    nINext = route[i + 1]
+    nJ = route[j]
+    nJNext = route[j + 1]
 
-    # new seq
+    # new route
     newSeq = []
-    newSeq.extend([seq[k] for k in range(i + 1)])
-    newSeq.extend([seq[j - k] for k in range(j - i)])
-    newSeq.extend([seq[k] for k in range(j + 1, len(seq))])
+    newSeq.extend([route[k] for k in range(i + 1)])
+    newSeq.extend([route[j - k] for k in range(j - i)])
+    newSeq.extend([route[k] for k in range(j + 1, len(route))])
 
     # Check if can 2-opt
     can2OptFlag = True
     canRev2OptFlag = asymFlag
-    if ((nI, nJ) not in tau or (nINext, nJNext) not in tau):
-        can2OptFlag = False
-    if (asymFlag):
-        # Check dcba
-        for k in range(i, min(iterSeq(N, j, 'next'), N - 1)):
-            if ((newSeq[k], newSeq[k + 1] not in tau)):
-                can2OptFlag = False
-                break
-        # Check newRevSeq
-        for k in range(0, min(i, N - 1)):
-            if ((seq[k + 1], seq[k]) not in tau):
-                canRev2OptFlag = False
-                break
-        for k in range(min(iterSeq(N, j, 'next'), N - 1), N - 1):
-            if ((seq[k + 1], seq[k]) not in tau):
-                canRev2OptFlag = False
-                break
+    if (not completeTauFlag):
+        if ((nI, nJ) not in tau or (nINext, nJNext) not in tau):
+            can2OptFlag = False
+        if (asymFlag):
+            # Check dcba
+            for k in range(i, min(j + 1, N - 1)):
+                if ((newSeq[k], newSeq[k + 1] not in tau)):
+                    can2OptFlag = False
+                    break
+            # Check newRevSeq
+            for k in range(0, min(i, N - 1)):
+                if ((route[k + 1], route[k]) not in tau):
+                    canRev2OptFlag = False
+                    break
+            for k in range(min(j + 1, N - 1), N - 1):
+                if ((route[k + 1], route[k]) not in tau):
+                    canRev2OptFlag = False
+                    break
 
     newRevSeq = []
     if (asymFlag and canRev2OptFlag):
@@ -325,60 +76,37 @@ def exchange2Arcs(
     # Calculate deltaCost
     newCost = None
     newRevCost = None
-    reverseFlag = False
+    reverseFlag = None
+
+    cost = accDist[-1]
+    revCost = accRevDist[0]
 
     # If not asymmetric, only one situation possible, so directly calculate deltaCost
     if (not asymFlag):
-        deltaCost = ((tau[nI, nJ] + tau[nINext, nJNext]) 
-                - (tau[nI, nINext] + tau[nJ, nJNext]))
-        # For the case that we do not need to calculate the total cost, let them be None
-        if (cost == None):
-            newCost = None
-            newRevCost = None
-        else:
-            if (cost != None):
-                newCost = cost + deltaCost
-                newRevCost = None
+        newCost = (cost - (tau[nI, nINext] + tau[nJ, nJNext])
+                        + (tau[nI, nJ] + tau[nINext, nJNext]))
+        deltaCost = newCost - cost
+        reverseFlag = False
+        newRevCost = None
 
     # If asymmetric, the following cases need to be considered:
     # 1. newSeq feasible + newRevSeq feasible => deltaCost: min(newRevCost, newCost) - cost
     #    - newCost is better
-    #    - newRevCost is better, need to take the reversed seq as a new seq
+    #    - newRevCost is better, need to take the reversed route as a new route
     # 2. newSeq infeasible + newRevSeq feasible => deltaCost: newRevCost - cost
-    #    - need to take the reversed seq as a new seq
+    #    - need to take the reversed route as a new route
     # 3. newSeq feasible + newRevSeq infeasible => deltaCost: newCost - cost
     #    - same as symmetric
     else:
-        costABCD = calSeqCostMatrix(
-            tau = tau,
-            seq = seq,
-            i = iterSeq(N, i, 'next'),
-            j = j)
-        costDCBA = calSeqCostMatrix(
-            tau = tau,
-            seq = newSeq,
-            i = iterSeq(N, i, 'next'),
-            j = j)
+        costABCD = accDist[j] - accDist[i + 1]
+        costDCBA = accRevDist[i + 1] - accRevDist[j]
 
         if (can2OptFlag):
-            if (cost != None):
-                newCost = (cost + tau[nI, nJ] + tau[nINext, nJNext] + costDCBA
-                        - (tau[nI, nINext] + tau[nJ, nJNext] + costABCD))
-            else:
-                newCost = calSeqCostMatrix(
-                    tau = tau,
-                    seq = newSeq) 
+            newCost = (cost - (tau[nI, nINext] + tau[nJ, nJNext] + costABCD)
+                            + (tau[nI, nJ] + tau[nINext, nJNext] + costDCBA))
         if (canRev2OptFlag):
-            # NOTE: if revCost != None, it means the reverse seq is feasible, no need to check the links
-            if (revCost != None):
-                newRevCost = (revCost + tau[nJ, nI] + tau[nJNext, nINext] + costABCD
-                           - (tau[nINext, nI] + tau[nJNext, nJ] + costDCBA))
-            else:
-                newRevCost = calSeqCostMatrix(
-                    tau = tau,
-                    seq = newRevSeq)
-                if (newRevCost == None):
-                    canRev2OptFlag = False
+            newRevCost = (revCost - (tau[nINext, nI] + tau[nJNext, nJ] + costDCBA)
+                                  + (tau[nJ, nI] + tau[nJNext, nINext] + costABCD))
 
         # Case 1
         if (can2OptFlag and canRev2OptFlag):
@@ -386,6 +114,7 @@ def exchange2Arcs(
             deltaCost2 = newRevCost - cost
             if (deltaCost1 <= deltaCost2):
                 deltaCost = deltaCost1
+                reverseFlag = False
             else:
                 deltaCost = deltaCost2
                 newSeq = newRevSeq
@@ -400,22 +129,25 @@ def exchange2Arcs(
         # Case 3
         elif (can2OptFlag and not canRev2OptFlag):
             deltaCost = newCost - cost
+            reverseFlag = False
 
     return {
-        'seq': newSeq,
+        'route': newSeq,
         'deltaCost': deltaCost,
         'reversed': reverseFlag,
         'newCost': newCost,
         'newRevCost': newRevCost
     }
 
+# [Constructing]
 def exchange3Arcs(
-    seq:        "A given sequence of vehicle route, assuming this route is feasible", 
+    route:      "A given sequence of vehicle route, assuming this route is feasible", 
     tau:        "Traveling cost matrix", 
-    i:          "Index in the sequence, 0 <= i <= len(seq) - 2", 
-    j:          "Index in the sequence, 0 <= j <= len(seq) - 2, i.Next() != j",
-    k:          "Index in the sequence, 0 <= k <= len(seq) - 2, j.Next() != k",
-    oldC:       "Total cost before swapping, if we need to calculate the new cost, input this value, otherwise newC will be None" = None,
+    i:          "Index in the sequence, 0 <= i <= len(route) - 2", 
+    j:          "Index in the sequence, 0 <= j <= len(route) - 2, i.Next() != j",
+    k:          "Index in the sequence, 0 <= k <= len(route) - 2, j.Next() != k",
+    cost:       "Total cost before swapping, if we need to calculate the new cost, input this value, otherwise newCost will be None" = None,
+    revCost:    "Reversed cost before swapping, it is possible that after swapping, the revered route is preferable" = None,
     asymFlag:   "True if asymmetric" = False
     ) -> "Reconnect arc between i, i+1 and j, j+1, if it is applicable":
 
@@ -427,47 +159,47 @@ def exchange3Arcs(
     # After5: ... --> nI -> nJNext --> ...efgh... --> nK     -> nJ     --> ...dcba... --> nINext -> nKNext --> ...
     # After6: ... --> nI -> nK     --> ...hgfe... --> nJNext -> nINext --> ...abcd... --> nJ     -> nKNext --> ...
     # After7: ... --> nI -> nK     --> ...hgfe... --> nJNext -> nJ     --> ...dcba... --> nINext -> nKNext --> ...
-    N = len(seq)
-    nIPrev = seq[iterSeq(N, i, 'prev')]
-    nI = seq[i]
-    nINext = seq[iterSeq(N, i, 'next')]
-    nJPrev = seq[iterSeq(N, j, 'prev')]
-    nJ = seq[j]
-    nJNext = seq[iterSeq(N, j, 'next')]
-    nKPrev = seq[iterSeq(N, k, 'prev')]
-    nK = seq[k]
-    nKNext = seq[iterSeq(N, k, 'next')]
+    N = len(route)
+    nIPrev = route[i - 1]
+    nI = route[i]
+    nINext = route[i + 1]
+    nJPrev = route[j - 1]
+    nJ = route[j]
+    nJNext = route[j + 1]
+    nKPrev = route[k - 1]
+    nK = route[k]
+    nKNext = route[k + 1]
 
-    revSeq = [seq[len(seq) - i - 1] for i in range(len(seq))]
-    costABCD = calSeqCostMatrix(tau, seq, iterSeq(N, i, 'next'), j)
-    costEFGH = calSeqCostMatrix(tau, seq, iterSeq(N, j, 'next'), k)
-    costDCBA = calSeqCostMatrix(tau, revSeq, N - j, N - iterSeq(N, i, 'next'))
-    costHGFE = calSeqCostMatrix(tau, revSeq, N - k, N - iterSeq(N, j, 'next'))
+    revSeq = [route[len(route) - i - 1] for i in range(len(route))]
+    costABCD = calSeqCostMatrix(tau, route, i + 1, j)
+    costEFGH = calSeqCostMatrix(tau, route, j + 1, k)
+    costDCBA = calSeqCostMatrix(tau, revSeq, N - j, N - i + 1)
+    costHGFE = calSeqCostMatrix(tau, revSeq, N - k, N - j + 1)
 
     # Check feasibility
     availDCBA = True
     availHGFE = True
     if (asymFlag):
-        for m in range(N - j, N - iterSeq(N, i, 'next')):
+        for m in range(N - j, N - i + 1):
             if ((revSeq[m], revSeq[m + 1]) not in tau):
                 availDCBA = False
                 break
-        for m in range(N - k, N - iterSeq(N, j, 'next')):
+        for m in range(N - k, N - j + 1):
             if ((revSeq[m], revSeq[m + 1] not in tau)):
                 availHGFE = False
                 break
 
     # Seq 1
     newSeq1 = []
-    newSeq1.extend([seq[m] for m in range(i + 1)])
-    newSeq1.extend([seq[j - m] for m in range(j - i)])
-    newSeq1.extend([seq[m] for m in range(j + 1, len(seq))])
+    newSeq1.extend([route[m] for m in range(i + 1)])
+    newSeq1.extend([route[j - m] for m in range(j - i)])
+    newSeq1.extend([route[m] for m in range(j + 1, len(route))])
 
     newSeq1 = []
-    newSeq1.extend([seq[m] for m in range(j + 1)])
+    newSeq1.extend([route[m] for m in range(j + 1)])
 
 
-    print(seq)
+    print(route)
     print(i, j, k)
     print(nI, nJ, nK)
     print(newSeq1)
@@ -549,7 +281,7 @@ def merge2Routes(
     # Case 1:
     # ... abcd ... efgh ...
     if ((nD, nE) in tau):
-        # New seq
+        # New route
         newSeq = []
         newSeq.extend([i for i in routeI[:-1]])
         newSeq.extend([i for i in routeJ[1:]])
@@ -745,173 +477,4 @@ def merge2Routes(
         'newRevCost': newRevCost,
         'demand': demand,
         'move': move
-    }
-
-def calInsertionCost(
-    route:      "A given sequence of vehicle route, assuming this route is feasible" = None, 
-    tau:        "Traveling cost matrix" = None, 
-    nJ:         "Node to be inserted" = None,
-    cost:       "Cost of the route" = None,
-    revCost:    "Reverse length of the route" = None,
-    asymFlag:   "True if asymmetric" = None
-    ) -> "Calculate the cost of inserting node nJ into the route":
-
-    # Initialize ==============================================================
-    opt = {}
-
-    # FIXME: Potential improvement here - reduce insertion attempts
-    # distNI = []
-    # for j in range(len(route) - 1):
-    #     if ((nJ, nI) in tau):
-    #         heapq.heappush(distNI, (tau[nJ, nI], nJ, 'oriDirection'))
-    #     if (asymFlag and (nI, nJ) in tau):
-    #         heapq.heappush(distNI, (tau[nI, nJ], nJ, 'revDirection'))
-
-    # # Insertion positions
-    # insertPosCandi = []
-    # if (insertSearchRange == None):
-    #     if (not asymFlag):
-    #         insertSearchRange = len(route) - 1
-    #     else:
-    #         insertSearchRange = 2 * len(route) - 2
-    # for i in range(min(insertSearchRange, len(distNI))):
-    #     insertPosCandi.append(heapq.heappop(distNI))
-
-    # Try to insert between any two existing nodes ============================
-    for i in range(0, len(route) - 1):
-        # Before: ... --> nI -> xx -> nINext --> ...
-        # After:  ... --> nI -> nJ -> nINext --> ...
-        nI = route[i]
-        nINext = route[i + 1]
-        
-        # New route
-        newSeq = [k for k in route]
-        newSeq.insert(i + 1, nJ)
-
-        # Update costs
-        newCost = None
-        if ((nI, nJ) in tau and (nJ, nINext) in tau):
-            # deltaC = newCost - cost
-            newCost = cost + tau[nI, nJ] + tau[nJ, nINext] - tau[nI, nINext]
-            deltaCost = newCost - cost
-        newRevCost = None
-        if (asymFlag and (nJ, nI) in tau and (nINext, nJ) in tau):
-            newRevCost = revCost + tau[nINext, nJ] + tau[nJ, nI] - tau[nINext, nI]
-
-        # Check which direction is better
-        if (not asymFlag):
-            if (newCost != None):
-                opt['Insert_Btw_%s_%s' % (nI, nINext)] = {
-                    'newSeq': newSeq,
-                    'deltaCost': deltaCost,
-                    'reversed': False,
-                    'newCost': newCost,
-                    'newRevCost': newRevCost
-                }
-        else:
-            # If only revert route is feasible
-            if (newCost == None and newRevCost != None):
-                newSeq.reverse()
-                deltaCost = newRevCost - cost
-                newCost, newRevCost = newRevCost, newCost
-                opt['Insert_Btw_%s_%s' % (nINext, nI)] = {
-                    'newSeq': newSeq,
-                    'deltaCost': deltaCost,
-                    'reversed': True,
-                    'newCost': newCost,
-                    'newRevCost': newRevCost
-                }
-            elif (newCost != None and newRevCost == None):
-                opt['Insert_Btw_%s_%s' % (nI, nINext)] = {
-                    'newSeq': newSeq,
-                    'deltaCost': deltaCost,
-                    'reversed': False,
-                    'newCost': newCost,
-                    'newRevCost': newRevCost
-                }
-            elif (newCost != None and newRevCost != None):
-                if (newCost < newRevCost):
-                    opt['Insert_Btw_%s_%s' % (nI, nINext)] = {
-                        'newSeq': newSeq,
-                        'deltaCost': deltaCost,
-                        'reversed': False,
-                        'newCost': newCost,
-                        'newRevCost': newRevCost
-                    }
-                else:
-                    newSeq.reverse()
-                    deltaCost = newRevCost - cost
-                    newCost, newRevCost = newRevCost, newCost 
-                    opt['Insert_Btw_%s_%s' % (nINext, nI)] = {
-                        'newSeq': newSeq,
-                        'deltaCost': deltaCost,
-                        'reversed': True,
-                        'newCost': newCost,
-                        'newRevCost': newRevCost
-                    }
-
-    # print(opt)
-    if (len(opt) > 0):
-        move = min(opt, key = lambda x: opt[x]['deltaCost'])
-        newSeq = opt[move]['newSeq']
-        deltaCost = opt[move]['deltaCost']
-        reverseFlag = opt[move]['reversed']
-        newCost = opt[move]['newCost']
-        newRevCost = opt[move]['newRevCost']
-        return {
-            'newSeq': newSeq,
-            'deltaCost': deltaCost,
-            'reversed': reverseFlag,
-            'newCost': newCost,
-            'newRevCost': newRevCost,
-        }
-    else:
-        return None
-
-def calRemovalSaving(
-    route:      "A given sequence of vehicle route, assuming this route is feasible" = None, 
-    tau:        "Traveling cost matrix" = None, 
-    i:          "Index in the sequence, 0 <= i <= len(seq) - 2" = None, 
-    cost:       "Cost of the route" = None,
-    revCost:    "Reverse cost of the route" = None,    
-    asymFlag:   "True if asymmetric" = None
-    ) -> "Given a route, returns the saving of removing (potentially beneficial) customer(s)":
-
-    # Before: ... --> nIPrev -> nI -> nINext --> ...
-    # After:  ... --> nIPrev -> xx -> nINext --> ...
-    nIPrev = route[i - 1]
-    nI = route[i]
-    nINext = route[i + 1]
-
-    # First check saving of removing the customer
-    newCost = None
-    deltaCost = None
-    newSeq = None
-    reverseFlag = False
-    if ((nIPrev, nINext) in tau):
-        # deltaCost = newCost - cost
-        newCost = cost + tau[nIPrev, nINext] - (tau[nIPrev, nI] + tau[nI, nINext])
-        deltaCost = newCost - cost
-        newSeq = [j for j in route if j != nI]
-
-    # Then, check if the reversed route is feasible and can give better saving
-    newRevCost = None
-    if (asymFlag):
-        if ((nINext, nIPrev) in tau):
-            if (revCost != None):
-                newRevCost = revCost + tau[nINext, nIPrev] - (tau[nINext, nI] + tau[nI, nIPrev])
-
-    # If asymmetric, revert the sequence if needed
-    if (asymFlag and newRevCost != None and newCost != None and newRevCost < newCost):
-        newSeq.reverse()
-        reverseFlag = True
-        deltaCost = newRevCost - cost
-        newCost, newRevCost = newRevCost, newCost
-
-    return {
-        'newSeq': newSeq,
-        'deltaCost': deltaCost,
-        'reversed': reverseFlag,
-        'newCost': newCost,
-        'newRevCost': newRevCost,
     }

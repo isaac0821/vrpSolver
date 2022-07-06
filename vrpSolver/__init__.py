@@ -64,6 +64,8 @@ __author__ = "Lan Peng"
 # v0.0.53 - 06242022 - Reconstruct for better framework: 1. separates the seq/route operators
 #                    -                                   2. nodes related functions
 #                    - Remove weather related functions: Not routing related
+#                    - Remove PMS functions: Not routing related
+#                    - Remove warehouse functions: Not directed related to VRP, the grid-based VRP remains in the package
 #                    - Last version before v0.1.0
 # =============================================================================
 '''
@@ -79,6 +81,7 @@ from .instance import *
 from .timeWindows import *
 from .color import *
 from .vector import *
+from .calculate import *
 
 # Geometry
 from .geometry import *
@@ -88,12 +91,6 @@ from .road import *
 
 # Graph/network algorithms
 from .graph import *
-
-# Parallel machine scheduling problem
-from .PMS import *
-
-# Warehouse
-from .warehouse import *
 
 # TSP
 from .operator import *

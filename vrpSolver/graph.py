@@ -454,8 +454,8 @@ def graphMaximumFlow():
 def graphMatching(
     weightArcs: "A list of 3-tuples, (ID1, ID2, weight), indexes of vertices must start from 0" = None,
     bipartiteFlag: "Bypass bipartite graph checking, leave it as None if we do not know, preferably set it to be True/False if we know" = None,
-    mType:      "1) String, 'Minimum' if to find minimum matching, or\
-                 2) String, 'Maximum' if to find maximum matching" = 'Minimum',
+    mType:      "1) String, 'Minimum' or 'Min' if to find minimum matching, or\
+                 2) String, 'Maximum' or 'Max' if to find maximum matching" = 'Minimum',
     algo:       "1) String, (not available) 'Blossom' or, \
                  2) String, (default if bipartite) 'Hungarian' or 'Kuhn_Munkres', O(|V|^3), for bipartite graph or, \
                  3) String, (default if not bipartite) 'IP', NPC" = None,
@@ -475,10 +475,10 @@ def graphMatching(
     elif (algo == None and bipartiteFlag == True 
         and (algoArgs == None or 'setA' not in algoArgs or 'setB' not in algoArgs)):
         checkBipartiteFlag = True
-    # Case 2: algo is designated as bipartite method, bipartiteFlag is None
+    # Case 3: algo is designated as bipartite method, bipartiteFlag is None
     elif (algo in ['Hungarian', 'Kuhn_Munkres'] and bipartiteFlag == None):
         checkBipartiteFlag = True
-    # Case 3: algo is designated as bipartite method, bipartiteFlag is True, but missing setA and/or setB info
+    # Case 4: algo is designated as bipartite method, bipartiteFlag is True, but missing setA and/or setB info
     elif (algo in ['Hungarian', 'Kuhn_Munkres'] and bipartiteFlag == True 
         and (algoArgs == None or 'setA' not in algoArgs or 'setB' not in algoArgs)):
         checkBipartiteFlag = True
@@ -497,9 +497,9 @@ def graphMatching(
 
     # Convert arcs based on mType =============================================
     convertedArcs = []
-    if (mType == 'Maximum'):
+    if (mType == 'Maximum' or 'Max'):
         convertedArcs = [i for i in weightArcs]
-    elif (mType == 'Minimum'):
+    elif (mType == 'Minimum' or 'Min'):
         maxWeight = max([arc[2] for arc in weightArcs]) + 1
         convertedArcs = [(i[0], i[1], maxWeight - i[2]) for i in weightArcs]
     else:
@@ -511,7 +511,7 @@ def graphMatching(
         res = _graphMaxMatchingIP(convertedArcs)
     elif (algo in ['Hungarian', 'Kuhn_Munkres']):
         if (bipartiteFlag != True):
-            msgError("ERROR: 'Hungarian' option only applies for bipartite graph")
+            msgError("ERROR: 'Hungarian' and 'Kuhn_Munkres' option only applies for bipartite graph")
             return
         res = _graphMaxMatchingHungarian(convertedArcs, algoArgs['setA'], algoArgs['setB'])
 
@@ -559,13 +559,14 @@ def _graphMaxMatchingIP(weightArcs):
         'matching': matching
     }
 
+# [Constructing]
 def _graphMaxMatchingHungarian(weightArcs, setA, setB):
     # Ref: https://cse.hkust.edu.hk/~golin/COMP572/Notes/Matching.pdf
 
     # Initialize ==============================================================
     adjList = graphArcs2AdjList(arcs = weightArcs)
     # Initialize labeling, E_l and M
-    # NOTE: Assume all arcs in E_l is from B -> A, i.e., from X -> Y
+    # NOTE: Assume all arcs in E_l is from B -> A
     labelA = {}
     labelB = {}
     curE = []
@@ -576,17 +577,18 @@ def _graphMaxMatchingHungarian(weightArcs, setA, setB):
         curE.append((v, max(adjList[v]), max(adjList[v].values())))
     # Find initial match
     curE = sorted(curE, key = lambda x: x[2], reverse = True)
-    coveredY = []
-    coveredX = []
+    coveredA = []
+    coveredB = []
     curM = []
     for arc in curE:
-        if (arc[0] not in coveredX and arc[1] not in coveredY):
+        if (arc[0] not in coveredB and arc[1] not in coveredA):
             curM.append(arc)
-            coveredX.append(arc[0])
-            coveredY.append(arc[1])
+            coveredA.append(arc[1])
+            coveredB.append(arc[0])
+            
     # Find initial set S and set T
-    S = [v for v in setB if v not in coveredX]  # S \subseteq X(or setB)
-    T = []                                      # T <= N_l(S) \neq Y(or setA)
+    S = [v for v in setB if v not in coveredB]  # S \subseteq B
+    T = []                                      # T <= N_l(S) \neq A
 
     # Subroutine ==============================================================
     def getNlS(Sl, curEl):

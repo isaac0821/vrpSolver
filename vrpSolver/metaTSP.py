@@ -104,87 +104,6 @@ def metaTSP(
                 msgWarning("WARNING: Adjusted `metaAlgoArgs` is as follows:")
                 msgWarning(metaAlgoArgs)
 
-    # Subroutines to generate neighborhoods ===================================
-    # Swap two nearby vertices
-    def _swap(seq):
-        N = len(seq)
-        i = random.randint(0, N - 1)
-
-        # newSeq
-        newSeq = [k for k in seq]
-        t = newSeq[i]
-        j = iterSeq(N, i, 'next')
-        newSeq[i] = newSeq[j]
-        newSeq[j] = t
-
-        # deltaC = newC - preC
-        deltaC = ((tau[seq[iterSeq(N, i, 'prev')], seq[j]]
-                 + tau[seq[i], seq[iterSeq(N, j, 'next')]])
-                - (tau[seq[iterSeq(N, i, 'prev')], seq[i]]
-                 + tau[seq[j], seq[iterSeq(N, j, 'next')]]))
-
-        return {
-            'seq': newSeq,
-            'deltaC': deltaC
-        }
-    # Randomly exchange two vertices
-    def _exchange(seq):
-        # Randomly choose i, j
-        N = len(seq)
-        i = None
-        j = None
-        while (i == None or j == None or abs(i - j) <= 2 or (i == 0 and j == len(seq) - 1) or (i == len(seq) - 1 and j == 0)):
-            i = random.randint(0, N - 1)
-            j = random.randint(0, N - 1)
-
-        # new seq
-        newSeq = [k for k in seq]
-        t = newSeq[i]
-        newSeq[i] = newSeq[j]
-        newSeq[j] = t
-
-        # deltaC = newC - preC    
-        deltaC = ((tau[seq[iterSeq(N, i, 'prev')], seq[j]] 
-                 + tau[seq[j], seq[iterSeq(N, i, 'next')]] 
-                 + tau[seq[iterSeq(N, j, 'prev')], seq[i]]
-                 + tau[seq[i], seq[iterSeq(N, j, 'next')]])
-                - (tau[seq[iterSeq(N, i, 'prev')], seq[i]] 
-                 + tau[seq[i], seq[iterSeq(N, i, 'next')]] 
-                 + tau[seq[iterSeq(N, j, 'prev')], seq[j]]
-                 + tau[seq[j], seq[iterSeq(N, j, 'next')]]))
-
-        return {
-            'seq': newSeq,
-            'deltaC': deltaC
-        }
-    # Randomly rotate part of seq
-    def _2Opt(seq):
-        # randomize i, j
-        N = len(seq)
-        i = None
-        j = None
-        while (i == None or j == None or j - i <= 2 or (i == 0 and j == len(seq) - 1)):
-            i = random.randint(0, N - 1)
-            j = random.randint(0, N - 1)
-
-        # new seq
-        newSeq = [seq[k] for k in range(i)]
-        newSeq.append(seq[j])
-        newSeq.extend([seq[j - k - 1] for k in range(j - i - 1)])
-        newSeq.append(seq[i])
-        newSeq.extend([seq[k] for k in range(j + 1, N)])
-
-        # deltaC = newC - preC
-        deltaC = ((tau[seq[iterSeq(N, i, 'prev')], seq[j]]
-                 + tau[seq[i], seq[iterSeq(N, j, 'next')]])
-                - (tau[seq[iterSeq(N, i, 'prev')], seq[i]]
-                 + tau[seq[j], seq[iterSeq(N, j, 'next')]]))
-
-        return {
-            'seq': newSeq,
-            'deltaC': deltaC
-        }
-
     # Subroutines for different metaheuristic =================================
     def _metaTSPSimulatedAnnealing(initAlgo, initAlgoArgs, initTemp, iterTemp, optRatio, coolRate, stopCriteria):
         # Initialize
@@ -244,9 +163,14 @@ def metaTSP(
                     while (i == None or j == None or j - i <= 2 or (i == 0 and j == N - 1)):
                         i = random.randint(0, N - 1)
                         j = random.randint(0, N - 1)
-                    res = twoOpt(curSeq, tau, i, j, ofv)
+                    res = exchange2Arcs(
+                        seq = curSeq, 
+                        tau = tau, 
+                        i = i, 
+                        j = j, 
+                        cost = ofv)
                 newSeq = res['seq']
-                deltaC = res['deltaC']
+                deltaC = res['deltaCost']
 
                 # If this new neighbor is good, accept it, 
                 #     otherwise accept it with probability

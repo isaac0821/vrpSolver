@@ -4,6 +4,7 @@ import math
 try:
     import gurobipy as grb
 except(ImportError):
+    global GUROBI_EXIST
     GUROBI_EXIST = False
 
 from .common import *
@@ -674,4 +675,3 @@ def _ipTSPLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
         'upperBound': ub,
         'runtime': runtime
     }
-

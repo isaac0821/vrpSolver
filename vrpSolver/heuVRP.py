@@ -32,17 +32,21 @@ def heuVRP(
     serviceTime:"Service time spent on each customer (will be added into travel matrix)" = 0,
     objective:  "Objective function\
                  1) String, 'Min_Max', or\
-                 2) String, 'Min_Cost', or\
-                 3) String (not available), 'Min_Range' " = 'Min_Max',
+                 2) String, 'Min_Cost' " = 'Min_Max',
     constraint: "Dictionary, describing the constraints, \
-                 [{\
+                 {\
                     'vehCap': capacity of vehicle, \
                     'numVeh': maximum number of vehicle, \
                     'maxCost': maximum travel distance/time of a vehicle \
-                 }]" = None,
-    consAlgo:   "1) String 'CWSaving' or \
+                 }" = None,
+    consAlgo:   "If `objective == 'Min_Cost'` \
+                 1) String 'CWSaving' or \
                  2) String 'Sweep' or \
-                 3) String (not available) 'Petal' " = 'Sweep',
+                 3) String (not available) 'Petal' or\
+                 4) String (not available) 'Cluster-First-Route-Second' or\
+                 5) String (not available) 'Route-First-Cluster-Second' or\
+                 If `objective == 'Min_Max'` \
+                 1) String 'Sweep' " = 'Sweep',
     consAlgoArgs: "Dictionary" = None,
     impAlgo:    "1) String '2Opt'" = '2Opt',
     impAlgoArgs: "Dictionary" = None
@@ -112,18 +116,18 @@ def heuVRP(
 
     # Solve by different formulations =========================================
     route = None
-    if (consAlgo == 'CWSaving'):
-        if (objective == 'Min_Cost'):
+    if (objective == 'Min_Cost'):
+        if (consAlgo == 'CWSaving'):
             route = _consVRPClarkeWright(nodes, depotID, customerID, tau, vehCap, numVeh)
-        elif (objective == 'Min_Max'):
-            route = _consVRPClarkeWright(nodes, depotID, customerID, tau, min(vehCap, math.ceil(len(nodeIDs) / numVeh)), numVeh)
-    if (consAlgo == 'Sweep'):
-        if (objective == 'Min_Max'):
+    elif (objective == 'Min_Max'):
+        if (consAlgo == 'Sweep'):
             route = _consVRPSweep(nodes, depotID, customerID, tau, numVeh)
     else:
-        msgError("Error: Incorrect or unavailable CVRP formulation option!")
+        msgError("Error: Incorrect or unavailable CVRP objective option!")
 
-    if (objective == 'Min_Max'):
+    if (objective == 'Min_Cost'):
+        pass
+    elif (objective == 'Min_Max'):
         route = _lImpRouteMinMax(
             nodes = nodes,
             depotID = depotID,
