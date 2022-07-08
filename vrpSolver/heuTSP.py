@@ -1,5 +1,6 @@
 import heapq
 import math
+import datetime
 
 from .const import *
 from .node import *
@@ -45,7 +46,7 @@ def heuTSP(
                  1) None for unspecified `algo` options, or \
                  2) for None, which an initial route should be given\
                     {\
-                        'initSeq': complete initial TSP route\
+                        'initSeq': complete initial TSP route, start and end with the depotID\
                     }\
                  2) for 'k-NearestNeighbor' \
                     {\
@@ -125,12 +126,13 @@ def heuTSP(
                         farthestID = n
                         farthestDist = tau[depotID, n]
             consAlgoArgs = {'initSeq': [depotID, farthestID, depotID]}
+            msgWarning("WARNING: 'initSeq' was not provided, initial with [depotID, farthest, depotID]")
         seq = _consTSPInsertion(nodeIDs, consAlgoArgs['initSeq'], tau)
 
     elif (consAlgo == 'Sweep'):
-        seq = _consTSPSweep(nodes, nodeIDs, tau)
+        seq = _consTSPSweep(nodes, depotID, nodeIDs, tau)
     elif (consAlgo == 'Random'):
-        seq = _consTSPRandomSeq(nodeIDs, tau)
+        seq = _consTSPRandomSeq(depotID, nodeIDs, tau)
     else:
         pass
 
@@ -150,39 +152,26 @@ def heuTSP(
                 consAlgoArgs = {'matchingAlgo': 'IP'}
             seq = _consTSPChristofides(weightArcs, consAlgoArgs['matchingAlgo'])
 
-    # Fix the sequence to make it start from and end with the depot ===========
-    # NOTE: nodeID gets duplicated, if nodeID == 0, the sequence starts and ends with a 0
-    if (seq[-1] == depotID):
-        seq = seq[:-1]
-    startIndex = None
-    tmpSeq = []
-    for k in range(len(seq)):
-        if (seq[k] == depotID):
-            startIndex = k
-    if (startIndex <= len(seq) - 1):
-        for k in range(startIndex, len(seq)):
-            tmpSeq.append(seq[k])
-    if (startIndex >= 0):
-        for k in range(0, startIndex):
-            tmpSeq.append(seq[k])
-    tmpSeq.append(depotID)
-    seq = [i for i in tmpSeq]
-
     # Confirm constructive results ============================================
     if (seq == None):
         msgError("ERROR: Incorrect constructive algorithm")
         return
+    else:
+        msgError("Constructive: ", seq)
 
     # Local improvement ======================================================= 
     canImproveFlag = False
-    ofv = calSeqCostMatrix(tau, seq, closeFlag = True)
+    
+    # NOTE: seq should starts and ends with depotID
+    ofv = calSeqCostMatrix(tau, seq, closeFlag = False)
     revOfv = None
+    if (asymFlag):
+        revOfv = calSeqCostMatrix(tau, [seq[len(seq) - i - 1] for i in range(len(seq))], closeFlag = False)
+
     if (impAlgo != None):
         canImproveFlag = True
         if (type(impAlgo) == str):
             impAlgo = [impAlgo]        
-        if (asymFlag):
-            revOfv = calSeqCostMatrix(tau, [seq[len(seq) - i - 1] for i in range(len(seq))], closeFlag = True)
     msgDebug("Ofv: ", ofv, " revOfv: ", revOfv)
     msgDebug("Constructive Seq: ", seq)
 
@@ -221,19 +210,24 @@ def _consTSPkNearestNeighbor(depotID, nodeIDs, tau, k = 1):
     while (len(remain) > 0):
         currentNodeID = seq[-1]
 
+        # Sort the distance from current node to the rest of nodes
         sortedSeq = []
         sortedSeqHeap = []
         for n in remain:
-            dist = tau[currentNodeID, n]
-            heapq.heappush(sortedSeqHeap, (dist, n))
-        while (len(sortedSeqHeap) > 0):
-            sortedSeq.append(heapq.heappop(sortedSeqHeap)[1])  
+            if ((currentNodeID, n) in tau):
+                dist = tau[currentNodeID, n]
+                heapq.heappush(sortedSeqHeap, (dist, n))
 
-        if (k > len(remain)):
-            seq.append(sortedSeq[-1])
-        else:
-            seq.append(sortedSeq[k - 1])
-        remain = [i for i in nodeIDs if i not in seq]
+        # Get the kth of sorted node and append it to seq
+        nextNodeID = None
+        for i in range(k):
+            if (len(sortedSeqHeap) > 0):
+                nextNodeID = heapq.heappop(sortedSeqHeap)[1]
+        seq.append(nextNodeID)
+
+        # Update remain
+        remain.remove(nextNodeID)
+    seq.append(depotID)
     return seq
 
 def _consTSPFarthestNeighbor(depotID, nodeIDs, tau):
@@ -244,42 +238,49 @@ def _consTSPFarthestNeighbor(depotID, nodeIDs, tau):
     while (len(remain) > 0):
         nextLeng = None
         nextID = None
-        for node in remain:
-            if ((node, seq[-1]) in tau):
-                if (nextLeng == None or tau[node, seq[-1]] > nextLeng):
-                    nextID = node
-                    nextLeng = tau[node, seq[-1]]
-            elif ((seq[-1], node) in tau):
-                if (nextLeng == None or tau[seq[-1], node] > nextLeng):
-                    nextID = node
-                    nextLeng = tau[seq[-1], node]
+        for n in remain:
+            if ((n, seq[-1]) in tau):
+                if (nextLeng == None or tau[n, seq[-1]] > nextLeng):
+                    nextID = n
+                    nextLeng = tau[n, seq[-1]]
+            elif ((seq[-1], n) in tau):
+                if (nextLeng == None or tau[seq[-1], n] > nextLeng):
+                    nextID = n
+                    nextLeng = tau[seq[-1], n]
         seq.append(nextID)
         remain.remove(nextID)
+    seq.append(depotID)
     return seq
 
-def _consTSPSweep(nodes, nodeIDs, tau):
+def _consTSPSweep(nodes, depotID, nodeIDs, tau):
     # Sweep seq -----------------------------------------------------------
-    sweepSeq = getSweepSeq(
+    sweep = getSweepSeq(
         nodes = nodes, 
         nodeIDs = nodeIDs)
-    return sweepSeq
 
-def _consTSPRandomSeq(nodeIDs, tau):
-    # Get random seq ------------------------------------------------------
-    seq = [i for i in nodeIDs]
-    N = len(nodeIDs)
-    for i in range(N):
-        j = random.randint(0, N - 1)
-        seq[i], seq[j] = seq[j], seq[i]
+    startIndex = None
+    seq = []
+    for k in range(len(sweep)):
+        if (sweep[k] == depotID):
+            startIndex = k
+    seq.extend([sweep[k] for k in range(startIndex, len(sweep))])
+    seq.extend([sweep[k] for k in range(0, startIndex)])
+    seq.append(0)
+
     return seq
 
-def _consTSPInsertion(nodeIDs, initSeq, tau):
+def _consTSPRandomSeq(depotID, nodeIDs, tau):
+    # Get random seq ------------------------------------------------------
+    seq = [i for i in nodeIDs if i != depotID]
+    random.shuffle(seq)
+    seq.insert(0, depotID)
+    seq.append(depotID)
+    return seq
+
+def _consTSPInsertion(depotID, nodeIDs, initSeq, tau):
     # Initialize ----------------------------------------------------------
-    seq = None
-    if (initSeq == None):
-        seq = [nodeIDs[0], nodeIDs[1]]
-    else:
-        seq = [i for i in initSeq]
+    # NOTE: initSeq should starts and ends with depotID
+    seq = [i for i in initSeq]
     insertDict = {}
     if (len(nodeIDs) < 1):
         return {

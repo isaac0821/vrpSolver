@@ -224,12 +224,14 @@ def calSeqCostMatrix(
         if ((seq[k], seq[k + 1]) in tau):
             cost += tau[seq[k], seq[k + 1]]
         else:
+            msgError(seq[k], seq[k + 1])
             return None
 
     if (i == 0 and j == len(seq) - 1 and closeFlag):
         if ((seq[-1], seq[0]) in tau):
             cost += tau[seq[-1], seq[0]]
         else:
+            msgError(seq[-1], seq[0])
             return None
         
     return cost
