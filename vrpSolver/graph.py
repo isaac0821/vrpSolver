@@ -518,6 +518,13 @@ def graphMatching(
     return res
 
 def _graphMaxMatchingIP(weightArcs):
+    # Check if Gurobi exists ==================================================
+    try:
+        import gurobipy as grb
+    except(ImportError):
+        msgError("ERROR: Cannot find Gurobi")
+        return
+    
     matching = []
     M = grb.Model('Matching')
 

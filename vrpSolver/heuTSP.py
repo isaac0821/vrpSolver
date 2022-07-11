@@ -90,7 +90,9 @@ def heuTSP(
             break
     msgDebug("asymFlag: ", asymFlag)
 
-    # Heuristics that don't need to transform arc representation ==============
+    # Constructive heuristics =================================================
+    # NOTE: These heuristics don't need to transform into arc representation
+    # NOTE: Output format: [depotID, xx, xx, xx, depotID]
     seq = None
     if (consAlgo == None):
         if (consAlgoArgs == None or 'initSeq' not in consAlgoArgs):
@@ -128,7 +130,6 @@ def heuTSP(
             consAlgoArgs = {'initSeq': [depotID, farthestID, depotID]}
             msgWarning("WARNING: 'initSeq' was not provided, initial with [depotID, farthest, depotID]")
         seq = _consTSPInsertion(nodeIDs, consAlgoArgs['initSeq'], tau)
-
     elif (consAlgo == 'Sweep'):
         seq = _consTSPSweep(nodes, depotID, nodeIDs, tau)
     elif (consAlgo == 'Random'):
@@ -175,6 +176,12 @@ def heuTSP(
     msgDebug("Ofv: ", ofv, " revOfv: ", revOfv)
     msgDebug("Constructive Seq: ", seq)
 
+    lImpTimeAnalysis = {
+        'calAccDist': 0,
+        '2OptValid': 0,
+        '2OptInvalid': 0
+    }
+
     while (canImproveFlag):
         canImproveFlag = False
 
@@ -186,6 +193,11 @@ def heuTSP(
                 seq = imp['impSeq']
                 ofv = imp['oriOfv']
                 revOfv = imp['oriRevOfv']
+                for item in imp['timeAnalysis']:
+                    if (item in lImpTimeAnalysis):
+                        lImpTimeAnalysis[item] += imp['timeAnalysis'][item]
+                    else:
+                        lImpTimeAnalysis[item] = imp['timeAnalysis'][item]
 
         # Try reinsert
         if (not canImproveFlag and 'Reinsert' in impAlgo):
@@ -199,6 +211,7 @@ def heuTSP(
     return {
         'ofv': ofv,
         'seq': seq,
+        'lImpTimeAnalysis': lImpTimeAnalysis,
         'serviceTime': serviceTime
     }
 
@@ -277,7 +290,7 @@ def _consTSPRandomSeq(depotID, nodeIDs, tau):
     seq.append(depotID)
     return seq
 
-def _consTSPInsertion(depotID, nodeIDs, initSeq, tau):
+def _consTSPInsertion(nodeIDs, initSeq, tau):
     # Initialize ----------------------------------------------------------
     # NOTE: initSeq should starts and ends with depotID
     seq = [i for i in initSeq]
@@ -295,12 +308,12 @@ def _consTSPInsertion(depotID, nodeIDs, initSeq, tau):
         bestInsertionIndex = None
         for cus in unInserted:
             for i in range(1, len(seq)):
-                if (list2Tuple([seq[i - 1], cus, seq[i]]) not in insertDict):
-                    insertDict[list2Tuple([seq[i - 1], cus, seq[i]])] = (
+                if ((seq[i - 1], cus, seq[i]) not in insertDict):
+                    insertDict[(seq[i - 1], cus, seq[i])] = (
                         tau[seq[i - 1], cus] 
                         + tau[cus, seq[i]] 
                         - (tau[seq[i - 1], seq[i]] if seq[i - 1] != seq[i] else 0))
-                cost = insertDict[list2Tuple([seq[i - 1], cus, seq[i]])]
+                cost = insertDict[(seq[i - 1], cus, seq[i])]
                 if (bestCost == None or bestCost > cost):
                     bestCost = cost
                     bestCus = cus
@@ -310,24 +323,30 @@ def _consTSPInsertion(depotID, nodeIDs, initSeq, tau):
             unInserted.remove(bestCus)
     return seq
 
-def _consTSPDepthFirst(weightArcs):
+def _consTSPDepthFirst(depotID, weightArcs):
     # Create MST ----------------------------------------------------------
-    mst = graphMST(weightArcs)['mst']
+    mst = graphMST(
+        weightArcs = weightArcs,
+        exportAs = 'Arcs')['mst']
 
     # Seq of visit is the seq of Depth first search on the MST ------------
-    seq = graphTraversal(mst)['seq']
-    seq.append(seq[0])
+    seq = graphTraversal(
+        arcs = mst,
+        oID = depotID)['seq']
+    seq.append(depotID)
     return seq
 
-def _consTSPChristofides(weightArcs, matchingAlgo):
+def _consTSPChristofides(depotID, weightArcs, matchingAlgo):
     # Create MST ----------------------------------------------------------
-    mst = graphMST(weightArcs)['mst']
+    mst = graphMST(
+        weightArcs = weightArcs,
+        exportAs = 'Arcs')['mst']
+    mstAsTree = graphArcs2AdjList(mst['mst'])
 
     # Derive subgraph of odd degree vertices ------------------------------
-    neighbors = arcs2AdjList(mst)
     oddDegrees = []
-    for node in neighbors:
-        if (len(neighbors[node]) % 2 != 0):
+    for node in mstAsTree:
+        if (len(mstAsTree[node]) % 2 != 0):
             oddDegrees.append(node)
     subGraph = []
     for arc in weightArcs:
@@ -336,8 +355,9 @@ def _consTSPChristofides(weightArcs, matchingAlgo):
 
     # Find minimum cost matching of the subgraph --------------------------
     minMatching = graphMatching(
-        weightArcs=subGraph, 
-        algo=matchingAlgo)['matching']
+        weightArcs = subGraph, 
+        algo = matchingAlgo,
+        mType = 'Minimize')['matching']
 
     # Add them back to create a new graph ---------------------------------
     newGraph = []
@@ -347,14 +367,10 @@ def _consTSPChristofides(weightArcs, matchingAlgo):
         newGraph.append(arc)
 
     # Traverse graph and get seq ------------------------------------------
-    # Try to find a vertex with degree 1
-    oID = None
-    for node in neighbors:
-        if (len(neighbors[node]) == 1):
-            oID = node
-            break
-    seq = graphTraversal(newGraph, oID=oID)['seq']
-    seq.append(seq[0])
+    seq = graphTraversal(
+        arcs = newGraph, 
+        oID = depotID)['seq']
+    seq.append(depotID)
 
     return seq
 
@@ -363,6 +379,11 @@ def _impTSP2Opts(nodeIDs, tau, initSeq, asymFlag):
     improvedFlag = False
     impSeq = [i for i in initSeq]
     msgDebug("initSeq: ", initSeq)
+    timeAnalysis = {
+        'calAccDist': 0,
+        '2OptValid': 0,
+        '2OptInvalid': 0
+    }
 
     # Main iteration ==========================================================
     # Needs rewrite, when calculating dist, avoid repeated calculation
@@ -372,31 +393,40 @@ def _impTSP2Opts(nodeIDs, tau, initSeq, asymFlag):
         while (can2OptFlag):
             can2OptFlag = False
 
-            # To save 2-opt time, we have an easy way to calculate the length of ABCD and DCBA segment
+            # To save 2-opt time, we have an easy way to 
+            # 1. 
+            # 2. calculate the length of ABCD and DCBA segment
+            startTimeDist = datetime.datetime.now()
             d = 0
             accDist = []
             for i in range(len(impSeq) - 1):
                 accDist.append(d)
-                d += tau[impSeq[i], impSeq[i + 1]]
+                if (d != None and (impSeq[i], impSeq[i + 1]) in tau):
+                    d += tau[impSeq[i], impSeq[i + 1]]
+                else:
+                    d = None
             accDist.append(d)
             oriOfv = accDist[-1]
 
             revD = 0
             accRevDist = []
-            oriRevOfv = None
             if (asymFlag):
                 for i in range(len(impSeq) - 1):
                     accRevDist.insert(0, revD)
-                    revD += tau[impSeq[len(impSeq) - i - 1], impSeq[len(impSeq) - i - 2]]
-                accRevDist.insert(0, revD)
-                oriRevOfv = accRevDist[0]
-            # msgDebug(accDist)
-            # msgDebug(accRevDist)
+                    if (revD != None and (impSeq[len(impSeq) - i - 1], impSeq[len(impSeq) - i - 2]) in tau):
+                        revD += tau[impSeq[len(impSeq) - i - 1], impSeq[len(impSeq) - i - 2]]
+                    else:
+                        revD = None
+            accRevDist.insert(0, revD)
+            oriRevOfv = accRevDist[0]
+            timeAnalysis['calAccDist'] += (datetime.datetime.now() - startTimeDist).total_seconds()
+
             msgDebug("oriOfv: ", oriOfv, " oriRevOfv: ", oriRevOfv)
 
             for i in range(len(impSeq) - 2):
                 for j in range(i + 2, len(impSeq) - 1):
                     # Saving
+                    startTime2Opt = datetime.datetime.now()
                     opt = exchange2Arcs(
                         route = impSeq, 
                         tau = tau, 
@@ -409,17 +439,21 @@ def _impTSP2Opts(nodeIDs, tau, initSeq, asymFlag):
                         msgDebug("2Opt: [%s-%s, %s-%s]" % (impSeq[i], impSeq[i + 1], impSeq[j], impSeq[j + 1]), opt['deltaCost'], oriOfv, opt['newCost'])
                         can2OptFlag = True
                         improvedFlag = True
-                        impSeq = opt['seq']
+                        impSeq = opt['route']
                         oriOfv = opt['newCost']
                         oriRevOfv = opt['newRevCost']
+                        timeAnalysis['2OptValid'] += (datetime.datetime.now() - startTime2Opt).total_seconds()
                         break
+                    else:
+                        timeAnalysis['2OptInvalid'] += (datetime.datetime.now() - startTime2Opt).total_seconds()
                 if (can2OptFlag):
                     break
     return {
         'impSeq': impSeq,
         'improvedFlag': improvedFlag,
         'oriOfv': oriOfv,
-        'oriRevOfv': oriRevOfv
+        'oriRevOfv': oriRevOfv,
+        'timeAnalysis': timeAnalysis
     }
 
 def _impTSPReinsert(nodeIDs, tau, initSeq, oriOfv, oriRevOfv, asymFlag):

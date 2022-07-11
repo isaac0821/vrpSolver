@@ -38,36 +38,18 @@ def exchange2Arcs(
     nJNext = route[j + 1]
 
     # new route
-    newSeq = []
-    newSeq.extend([route[k] for k in range(i + 1)])
-    newSeq.extend([route[j - k] for k in range(j - i)])
-    newSeq.extend([route[k] for k in range(j + 1, len(route))])
+    # newSeq = []
+    # newSeq.extend([route[k] for k in range(i + 1)])
+    # newSeq.extend([route[j - k] for k in range(j - i)])
+    # newSeq.extend([route[k] for k in range(j + 1, len(route))])
 
     # Check if can 2-opt
-    can2OptFlag = True
-    canRev2OptFlag = asymFlag
-    if (not completeTauFlag):
-        if ((nI, nJ) not in tau or (nINext, nJNext) not in tau):
-            can2OptFlag = False
-        if (asymFlag):
-            # Check dcba
-            for k in range(i, min(j + 1, N - 1)):
-                if ((newSeq[k], newSeq[k + 1] not in tau)):
-                    can2OptFlag = False
-                    break
-            # Check newRevSeq
-            for k in range(0, min(i, N - 1)):
-                if ((route[k + 1], route[k]) not in tau):
-                    canRev2OptFlag = False
-                    break
-            for k in range(min(j + 1, N - 1), N - 1):
-                if ((route[k + 1], route[k]) not in tau):
-                    canRev2OptFlag = False
-                    break
+    can2OptFlag = True if (accDist[-1] != None) else False
+    canRev2OptFlag = asymFlag and (True if (accRevDist[-1] != None) else False)
 
-    newRevSeq = []
-    if (asymFlag and canRev2OptFlag):
-        newRevSeq = [newSeq[len(newSeq) - 1 - i] for i in range(len(newSeq))]
+    # newRevSeq = []
+    # if (asymFlag and canRev2OptFlag):
+    #     newRevSeq = [newSeq[len(newSeq) - 1 - i] for i in range(len(newSeq))]
 
     # Early quit
     if (not asymFlag and not can2OptFlag):
@@ -78,7 +60,7 @@ def exchange2Arcs(
     # Calculate deltaCost
     newCost = None
     newRevCost = None
-    reverseFlag = None
+    reverseFlag = False
 
     cost = accDist[-1]
     revCost = accRevDist[0]
@@ -88,7 +70,6 @@ def exchange2Arcs(
         newCost = (cost - (tau[nI, nINext] + tau[nJ, nJNext])
                         + (tau[nI, nJ] + tau[nINext, nJNext]))
         deltaCost = newCost - cost
-        reverseFlag = False
         newRevCost = None
 
     # If asymmetric, the following cases need to be considered:
@@ -112,34 +93,37 @@ def exchange2Arcs(
 
         # Case 1
         if (can2OptFlag and canRev2OptFlag):
-            deltaCost1 = newCost - cost
-            deltaCost2 = newRevCost - cost
-            if (deltaCost1 <= deltaCost2):
-                deltaCost = deltaCost1
-                reverseFlag = False
+            if (newRevCost <= newCost):
+                deltaCost = newCost - cost
             else:
-                deltaCost = deltaCost2
-                newSeq = newRevSeq
+                deltaCost = newRevCost - cost
                 reverseFlag = True
                 newCost, newRevCost = newRevCost, newCost
         # Case 2
         elif (not can2OptFlag and canRev2OptFlag):
             deltaCost = newRevCost - cost
-            newSeq = newRevSeq
             reverseFlag = True
             newCost, newRevCost = newRevCost, newCost
         # Case 3
         elif (can2OptFlag and not canRev2OptFlag):
             deltaCost = newCost - cost
-            reverseFlag = False
 
-    return {
-        'route': newSeq,
-        'deltaCost': deltaCost,
-        'reversed': reverseFlag,
-        'newCost': newCost,
-        'newRevCost': newRevCost
-    }
+    newSeq = []
+    if (deltaCost < 0):
+        newSeq.extend([route[k] for k in range(i + 1)])
+        newSeq.extend([route[j - k] for k in range(j - i)])
+        newSeq.extend([route[k] for k in range(j + 1, len(route))])
+        if (reverseFlag):
+            newSeq.reverse()
+        return {
+            'route': newSeq,
+            'deltaCost': deltaCost,
+            'reversed': reverseFlag,
+            'newCost': newCost,
+            'newRevCost': newRevCost
+        }
+    else:
+        return None
 
 # [Constructing]
 def exchange3Arcs(

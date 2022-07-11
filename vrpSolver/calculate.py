@@ -3,9 +3,9 @@ import math
 from .common import *
 
 def calInsertionCost(
-    route:      "A given sequence of vehicle route, assuming this route is feasible" = None, 
+    route:      "A given sequence of vehicle route, starts and ends with depotID, assuming this route is feasible" = None, 
     tau:        "Traveling cost matrix" = None, 
-    nJ:         "Node to be inserted" = None,
+    nJ:         "nodeID to be inserted" = None,
     cost:       "Cost of the route" = None,
     revCost:    "Reverse length of the route" = None,
     asymFlag:   "True if asymmetric" = None
@@ -38,17 +38,12 @@ def calInsertionCost(
         # After:  ... --> nI -> nJ -> nINext --> ...
         nI = route[i]
         nINext = route[i + 1]
-        
-        # New route
-        newSeq = [k for k in route]
-        newSeq.insert(i + 1, nJ)
 
         # Update costs
         newCost = None
         if ((nI, nJ) in tau and (nJ, nINext) in tau):
             # deltaC = newCost - cost
             newCost = cost + tau[nI, nJ] + tau[nJ, nINext] - tau[nI, nINext]
-            deltaCost = newCost - cost
         newRevCost = None
         if (asymFlag and (nJ, nI) in tau and (nINext, nJ) in tau):
             newRevCost = revCost + tau[nINext, nJ] + tau[nJ, nI] - tau[nINext, nI]
@@ -58,6 +53,7 @@ def calInsertionCost(
             if (newCost != None):
                 newSeq = [k for k in route]
                 newSeq.insert(i + 1, nJ)
+                deltaCost = newCost - cost
                 opt['Insert_Btw_%s_%s' % (nI, nINext)] = {
                     'newSeq': newSeq,
                     'deltaCost': deltaCost,
@@ -83,6 +79,7 @@ def calInsertionCost(
             elif (newCost != None and newRevCost == None):
                 newSeq = [k for k in route]
                 newSeq.insert(i + 1, nJ)
+                deltaCost = newCost - cost
                 opt['Insert_Btw_%s_%s' % (nI, nINext)] = {
                     'newSeq': newSeq,
                     'deltaCost': deltaCost,
@@ -94,6 +91,7 @@ def calInsertionCost(
                 if (newCost < newRevCost):
                     newSeq = [k for k in route]
                     newSeq.insert(i + 1, nJ)
+                    deltaCost = newCost - cost
                     opt['Insert_Btw_%s_%s' % (nI, nINext)] = {
                         'newSeq': newSeq,
                         'deltaCost': deltaCost,

@@ -1,5 +1,4 @@
 import heapq
-import gurobipy as grb
 import math
 
 from .common import *
@@ -34,6 +33,13 @@ def ipVRP(
                  2) (default) None, no gap limit" = None,
     outputFlag: "Boolean, True if export the gurobi logs" = False
     ) -> "Exact solution for VRP with vehicle capacity (CVRP)":
+
+    # Check if Gurobi exists ==================================================
+    try:
+        import gurobipy as grb
+    except(ImportError):
+        msgError("ERROR: Cannot find Gurobi")
+        return
 
     # Define nodes ==========================================================
     if (customerID == 'AllButDepot'):
