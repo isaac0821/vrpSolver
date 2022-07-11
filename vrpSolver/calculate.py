@@ -9,28 +9,12 @@ def calInsertionCost(
     cost:       "Cost of the route" = None,
     revCost:    "Reverse length of the route" = None,
     asymFlag:   "True if asymmetric" = None
-    ) -> "Calculate the cost of inserting node nJ into the route":
+    ) -> "Calculate the cheapest cost of inserting node nJ into the route":
 
     # Initialize ==============================================================
-    opt = {}
-
-    # FIXME: Potential improvement here - reduce insertion attempts
-    # distNI = []
-    # for j in range(len(route) - 1):
-    #     if ((nJ, nI) in tau):
-    #         heapq.heappush(distNI, (tau[nJ, nI], nJ, 'oriDirection'))
-    #     if (asymFlag and (nI, nJ) in tau):
-    #         heapq.heappush(distNI, (tau[nI, nJ], nJ, 'revDirection'))
-
-    # # Insertion positions
-    # insertPosCandi = []
-    # if (insertSearchRange == None):
-    #     if (not asymFlag):
-    #         insertSearchRange = len(route) - 1
-    #     else:
-    #         insertSearchRange = 2 * len(route) - 2
-    # for i in range(min(insertSearchRange, len(distNI))):
-    #     insertPosCandi.append(heapq.heappop(distNI))
+    opt = None
+    sofarCheapestCost = max(cost, revCost)
+    insertIndex = None
 
     # Try to insert between any two existing nodes ============================
     for i in range(0, len(route) - 1):
@@ -51,90 +35,76 @@ def calInsertionCost(
         # Check which direction is better
         if (not asymFlag):
             if (newCost != None):
-                newSeq = [k for k in route]
-                newSeq.insert(i + 1, nJ)
                 deltaCost = newCost - cost
-                opt['Insert_Btw_%s_%s' % (nI, nINext)] = {
-                    'newSeq': newSeq,
-                    'deltaCost': deltaCost,
-                    'reversed': False,
-                    'newCost': newCost,
-                    'newRevCost': newRevCost
-                }
-        else:
-            # If only revert route is feasible
-            if (newCost == None and newRevCost != None):
-                newSeq = [k for k in route]
-                newSeq.insert(i + 1, nJ)
-                newSeq.reverse()
-                deltaCost = newRevCost - cost
-                newCost, newRevCost = newRevCost, newCost
-                opt['Insert_Btw_%s_%s' % (nINext, nI)] = {
-                    'newSeq': newSeq,
-                    'deltaCost': deltaCost,
-                    'reversed': True,
-                    'newCost': newCost,
-                    'newRevCost': newRevCost
-                }
-            elif (newCost != None and newRevCost == None):
-                newSeq = [k for k in route]
-                newSeq.insert(i + 1, nJ)
-                deltaCost = newCost - cost
-                opt['Insert_Btw_%s_%s' % (nI, nINext)] = {
-                    'newSeq': newSeq,
-                    'deltaCost': deltaCost,
-                    'reversed': False,
-                    'newCost': newCost,
-                    'newRevCost': newRevCost
-                }
-            elif (newCost != None and newRevCost != None):
-                if (newCost < newRevCost):
-                    newSeq = [k for k in route]
-                    newSeq.insert(i + 1, nJ)
-                    deltaCost = newCost - cost
-                    opt['Insert_Btw_%s_%s' % (nI, nINext)] = {
-                        'newSeq': newSeq,
+                if (deltaCost < sofarCheapestCost):
+                    sofarCheapestCost = deltaCost
+                    insertIndex = i
+                    opt = {
                         'deltaCost': deltaCost,
                         'reversed': False,
                         'newCost': newCost,
                         'newRevCost': newRevCost
                     }
-                else:
-                    newSeq = [k for k in route]
-                    newSeq.insert(i + 1, nJ)
-                    newSeq.reverse()
-                    deltaCost = newRevCost - cost
-                    newCost, newRevCost = newRevCost, newCost 
-                    opt['Insert_Btw_%s_%s' % (nINext, nI)] = {
-                        'newSeq': newSeq,
+        else:
+            # If only revert route is feasible
+            if (newCost == None and newRevCost != None):
+                deltaCost = newRevCost - cost
+                if (deltaCost < sofarCheapestCost):
+                    sofarCheapestCost = deltaCost
+                    insertIndex = i
+                    opt = {
                         'deltaCost': deltaCost,
                         'reversed': True,
+                        'newCost': newRevCost,
+                        'newRevCost': newCost
+                    }
+            elif (newCost != None and newRevCost == None):
+                deltaCost = newCost - cost
+                if (deltaCost < sofarCheapestCost):
+                    sofarCheapestCost = deltaCost
+                    insertIndex = i
+                    opt = {
+                        'deltaCost': deltaCost,
+                        'reversed': False,
                         'newCost': newCost,
                         'newRevCost': newRevCost
                     }
+            elif (newCost != None and newRevCost != None and newCost < newRevCost):
+                deltaCost = newCost - cost 
+                if (deltaCost < sofarCheapestCost):
+                    sofarCheapestCost = deltaCost
+                    insertIndex = i
+                    opt = {
+                        'deltaCost': deltaCost,
+                        'reversed': False,
+                        'newCost': newCost,
+                        'newRevCost': newRevCost
+                    }
+            elif (newCost != None and newRevCost != None and newCost > newRevCost):
+                deltaCost = newRevCost - cost
+                if (deltaCost < sofarCheapestCost):
+                    sofarCheapestCost = deltaCost
+                    insertIndex = i
+                    opt = {
+                        'deltaCost': deltaCost,
+                        'reversed': True,
+                        'newCost': newRevCost,
+                        'newRevCost': newCost
+                    }
 
-    # print(opt)
-    if (len(opt) > 0):
-        move = min(opt, key = lambda x: opt[x]['deltaCost'])
-        newSeq = opt[move]['newSeq']
-        deltaCost = opt[move]['deltaCost']
-        reverseFlag = opt[move]['reversed']
-        newCost = opt[move]['newCost']
-        newRevCost = opt[move]['newRevCost']
-        return {
-            'newSeq': newSeq,
-            'deltaCost': deltaCost,
-            'reversed': reverseFlag,
-            'newCost': newCost,
-            'newRevCost': newRevCost,
-        }
-    else:
-        return None
+    if (opt != None):
+        newSeq = [k for k in route]
+        newSeq.insert(insertIndex + 1, nJ)
+        if (opt['reversed']):
+            newSeq.reverse()
+        opt['newSeq'] = newSeq
+        return opt
+    return None
 
 def calRemovalSaving(
     route:      "A given sequence of vehicle route, assuming this route is feasible" = None, 
     tau:        "Traveling cost matrix" = None, 
-    i:          "Index in the sequence, 0 <= i <= len(seq) - 2" = None, 
+    nI:         "nodeID to be removed" = None,
     cost:       "Cost of the route" = None,
     revCost:    "Reverse cost of the route" = None,    
     asymFlag:   "True if asymmetric" = None
@@ -142,45 +112,77 @@ def calRemovalSaving(
 
     # Before: ... --> nIPrev -> nI -> nINext --> ...
     # After:  ... --> nIPrev -> xx -> nINext --> ...
-    N = len(route)
-    # nIPrev = route[iterSeq(N, i, 'prev')]
-    nIPrev = route[i - 1]
-    nI = route[i]
-    # nINext = route[iterSeq(N, i, 'next')]
-    nINext = route[i + 1]
+    nIPrev = None
+    nINext = None
+    if (nI not in route or nI == route[0] or nI == route[-1]):
+        return None
+    else:
+        i = route.index(nI)
+        nIPrev = route[i - 1]
+        nINext = route[i + 1]
+    opt = None
 
-    # First check saving of removing the customer
+    # Update costs
     newCost = None
-    deltaCost = None
-    newSeq = None
-    reverseFlag = False
     if ((nIPrev, nINext) in tau):
-        # deltaCost = newCost - cost
         newCost = cost + tau[nIPrev, nINext] - (tau[nIPrev, nI] + tau[nI, nINext])
-        deltaCost = newCost - cost
-        newSeq = [j for j in route if j != nI]
-
-    # Then, check if the reversed route is feasible and can give better saving
     newRevCost = None
-    if (asymFlag):
-        if ((nINext, nIPrev) in tau):
-            if (revCost != None):
-                newRevCost = revCost + tau[nINext, nIPrev] - (tau[nINext, nI] + tau[nI, nIPrev])
+    if (asymFlag and (nINext, nIPrev) in tau):
+        newRevCost = revCost + tau[nINext, nIPrev] - (tau[nINext, nI] + tau[nI, nIPrev])
 
-    # If asymmetric, revert the sequence if needed
-    if (asymFlag and newRevCost != None and newCost != None and newRevCost < newCost):
-        newSeq.reverse()
-        reverseFlag = True
-        deltaCost = newRevCost - cost
-        newCost, newRevCost = newRevCost, newCost
+    # Check which direction is better
+    if (not asymFlag):
+        if (newCost != None):
+            deltaCost = newCost - cost
+            opt = {
+                'deltaCost': deltaCost,
+                'reversed': False,
+                'newCost': newCost,
+                'newRevCost': newRevCost
+            }
+    else:
+        # If only revert route is feasible
+        if (newCost == None and newRevCost != None):
+            deltaCost = newRevCost - cost
+            opt = {
+                'deltaCost': deltaCost,
+                'reversed': True,
+                'newCost': newRevCost,
+                'newRevCost': newCost
+            }
+        elif (newCost != None and newRevCost == None):
+            deltaCost = newCost - cost
+            opt = {
+                'deltaCost': deltaCost,
+                'reversed': False,
+                'newCost': newCost,
+                'newRevCost': newRevCost
+            }
+        elif (newCost != None and newRevCost != None and newCost < newRevCost):
+            deltaCost = newCost - cost 
+            opt = {
+                'deltaCost': deltaCost,
+                'reversed': False,
+                'newCost': newCost,
+                'newRevCost': newRevCost
+            }
+        elif (newCost != None and newRevCost != None and newCost > newRevCost):
+            deltaCost = newRevCost - cost
+            opt = {
+                'deltaCost': deltaCost,
+                'reversed': True,
+                'newCost': newRevCost,
+                'newRevCost': newCost
+            }
 
-    return {
-        'newSeq': newSeq,
-        'deltaCost': deltaCost,
-        'reversed': reverseFlag,
-        'newCost': newCost,
-        'newRevCost': newRevCost,
-    }
+    if (opt != None):
+        newSeq = [k for k in route]
+        newSeq.remove(nI)
+        if (opt['reversed']):
+            newSeq.reverse()
+        opt['newSeq'] = newSeq
+        return opt
+    return None
 
 def calSeqCostArcs(
     weightArcs: "A list of 3-tuple (nodeID1, nodeID2, weight)",
@@ -210,6 +212,7 @@ def calSeqCostMatrix(
     tau:        "Dictionary {(nodeID1, nodeID2): dist, ...}", 
     seq:        "List, sequence of visiting node ids",
     closeFlag:  "True if the seq is closed" = None,
+    reverseFlag: "True if calculates the cost of the reversed seq" = False,
     i:          "Start index" = 0,
     j:          "End index" = None
     ) -> "Return the cost on the graph given cost matrix/dictionary tau":
@@ -219,18 +222,28 @@ def calSeqCostMatrix(
 
     cost = 0
     for k in range(i, j):
-        if ((seq[k], seq[k + 1]) in tau):
-            cost += tau[seq[k], seq[k + 1]]
+        if (not reverseFlag):
+            if ((seq[k], seq[k + 1]) in tau):            
+                cost += tau[seq[k], seq[k + 1]]
+            else:
+                return None
         else:
-            msgError(seq[k], seq[k + 1])
-            return None
+            if ((seq[len(seq) - k - 1], seq[len(seq) - k - 2]) in tau):
+                cost += tau[seq[len(seq) - k - 1], seq[len(seq) - k - 2]]
+            else:
+                return None
 
     if (i == 0 and j == len(seq) - 1 and closeFlag):
-        if ((seq[-1], seq[0]) in tau):
-            cost += tau[seq[-1], seq[0]]
+        if (not reverseFlag):
+            if ((seq[-1], seq[0]) in tau):
+                cost += tau[seq[-1], seq[0]]
+            else:
+                return None
         else:
-            msgError(seq[-1], seq[0])
-            return None
+            if ((seq[0], seq[-1]) in tau):
+                cost += tau[seq[0], seq[-1]]
+            else:
+                return None
         
     return cost
 

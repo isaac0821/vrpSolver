@@ -171,12 +171,6 @@ def heuTSP(
         if (type(impAlgo) == str):
             impAlgo = [impAlgo]        
 
-    lImpTimeAnalysis = {
-        'calAccDist': 0,
-        '2OptValid': 0,
-        '2OptInvalid': 0
-    }
-
     while (canImproveFlag):
         canImproveFlag = False
 
@@ -188,11 +182,6 @@ def heuTSP(
                 seq = imp['impSeq']
                 ofv = imp['oriOfv']
                 revOfv = imp['oriRevOfv']
-                for item in imp['timeAnalysis']:
-                    if (item in lImpTimeAnalysis):
-                        lImpTimeAnalysis[item] += imp['timeAnalysis'][item]
-                    else:
-                        lImpTimeAnalysis[item] = imp['timeAnalysis'][item]
 
         # Try reinsert
         if (not canImproveFlag and 'Reinsert' in impAlgo):
@@ -207,7 +196,6 @@ def heuTSP(
         'ofv': ofv,
         'consOfv': consOfv,
         'seq': seq,
-        'lImpTimeAnalysis': lImpTimeAnalysis,
         'serviceTime': serviceTime
     }
 
@@ -374,11 +362,33 @@ def _impTSP2Opts(nodeIDs, tau, initSeq, asymFlag):
     # Initialize ==============================================================
     improvedFlag = False
     impSeq = [i for i in initSeq]
-    timeAnalysis = {
-        'calAccDist': 0,
-        '2OptValid': 0,
-        '2OptInvalid': 0
-    }
+
+    # Initialize accDist/accRevDist ===========================================
+    # FIXME: accDist and accRevDist can be improved, but not necessary right now
+    # Accumulated distance from depot
+    d = 0
+    accDist = []
+    for i in range(len(impSeq) - 1):
+        accDist.append(d)
+        if (d != None and (impSeq[i], impSeq[i + 1]) in tau):
+            d += tau[impSeq[i], impSeq[i + 1]]
+        else:
+            d = None
+    accDist.append(d)
+    oriOfv = accDist[-1]
+
+    # Accumulated distance to depot (reversed seq)
+    revD = 0
+    accRevDist = []
+    if (asymFlag):
+        for i in range(len(impSeq) - 1):
+            accRevDist.insert(0, revD)
+            if (revD != None and (impSeq[len(impSeq) - i - 1], impSeq[len(impSeq) - i - 2]) in tau):
+                revD += tau[impSeq[len(impSeq) - i - 1], impSeq[len(impSeq) - i - 2]]
+            else:
+                revD = None
+    accRevDist.insert(0, revD)
+    oriRevOfv = accRevDist[0]
 
     # Main iteration ==========================================================
     # Needs rewrite, when calculating dist, avoid repeated calculation
@@ -387,38 +397,9 @@ def _impTSP2Opts(nodeIDs, tau, initSeq, asymFlag):
         can2OptFlag = True
         while (can2OptFlag):
             can2OptFlag = False
-
-            # To save 2-opt time, we have an easy way to 
-            # 1. 
-            # 2. calculate the length of ABCD and DCBA segment
-            startTimeDist = datetime.datetime.now()
-            d = 0
-            accDist = []
-            for i in range(len(impSeq) - 1):
-                accDist.append(d)
-                if (d != None and (impSeq[i], impSeq[i + 1]) in tau):
-                    d += tau[impSeq[i], impSeq[i + 1]]
-                else:
-                    d = None
-            accDist.append(d)
-            oriOfv = accDist[-1]
-
-            revD = 0
-            accRevDist = []
-            if (asymFlag):
-                for i in range(len(impSeq) - 1):
-                    accRevDist.insert(0, revD)
-                    if (revD != None and (impSeq[len(impSeq) - i - 1], impSeq[len(impSeq) - i - 2]) in tau):
-                        revD += tau[impSeq[len(impSeq) - i - 1], impSeq[len(impSeq) - i - 2]]
-                    else:
-                        revD = None
-            accRevDist.insert(0, revD)
-            oriRevOfv = accRevDist[0]
-            timeAnalysis['calAccDist'] += (datetime.datetime.now() - startTimeDist).total_seconds()
+            # Try 2Opt
             for i in range(len(impSeq) - 2):
                 for j in range(i + 2, len(impSeq) - 1):
-                    # Saving
-                    startTime2Opt = datetime.datetime.now()
                     opt = exchange2Arcs(
                         route = impSeq, 
                         tau = tau, 
@@ -433,28 +414,41 @@ def _impTSP2Opts(nodeIDs, tau, initSeq, asymFlag):
                         impSeq = opt['route']
                         oriOfv = opt['newCost']
                         oriRevOfv = opt['newRevCost']
-                        timeAnalysis['2OptValid'] += (datetime.datetime.now() - startTime2Opt).total_seconds()
+
+                        d = 0
+                        accDist = []
+                        for i in range(len(impSeq) - 1):
+                            accDist.append(d)
+                            if (d != None and (impSeq[i], impSeq[i + 1]) in tau):
+                                d += tau[impSeq[i], impSeq[i + 1]]
+                            else:
+                                d = None
+                        accDist.append(d)
+                        oriOfv = accDist[-1]
+
+                        revD = 0
+                        accRevDist = []
+                        if (asymFlag):
+                            for i in range(len(impSeq) - 1):
+                                accRevDist.insert(0, revD)
+                                if (revD != None and (impSeq[len(impSeq) - i - 1], impSeq[len(impSeq) - i - 2]) in tau):
+                                    revD += tau[impSeq[len(impSeq) - i - 1], impSeq[len(impSeq) - i - 2]]
+                                else:
+                                    revD = None
+                        accRevDist.insert(0, revD)
+                        oriRevOfv = accRevDist[0]
                         break
-                    else:
-                        timeAnalysis['2OptInvalid'] += (datetime.datetime.now() - startTime2Opt).total_seconds()
-                if (can2OptFlag):
-                    break
     return {
         'impSeq': impSeq,
         'improvedFlag': improvedFlag,
         'oriOfv': oriOfv,
         'oriRevOfv': oriRevOfv,
-        'timeAnalysis': timeAnalysis
     }
 
 def _impTSPReinsert(nodeIDs, tau, initSeq, oriOfv, oriRevOfv, asymFlag):
     # Initialize ==============================================================
     improvedFlag = False
     impSeq = [i for i in initSeq]
-
-    # Logic ===================================================================
-    # In each iteration
-    # Step 1: 
     
     # Main iteration ==========================================================
     # Needs rewrite, when calculating dist, avoid repeated calculation
@@ -470,29 +464,24 @@ def _impTSPReinsert(nodeIDs, tau, initSeq, oriOfv, oriRevOfv, asymFlag):
                 removed = calRemovalSaving(
                     route = impSeq,
                     tau = tau,
-                    i = i,
+                    nI = nI,
                     cost = oriOfv,
                     revCost = oriRevOfv,
                     asymFlag = asymFlag)
                 if (removed != None):
-                    removedSeq = removed['newSeq']
-                    newRemovedOfv = removed['newCost']
-                    newRevRemovedOfv = removed['newRevCost']
                     inserted = calInsertionCost(
-                        route = removedSeq,
+                        route = removed['newSeq'],
                         tau = tau,
                         nJ = nI,
-                        cost = newRemovedOfv,
-                        revCost = newRevRemovedOfv,
+                        cost = removed['newCost'],
+                        revCost = removed['newRevCost'],
                         asymFlag = asymFlag)
                     if (inserted != None and inserted['newCost'] + CONST_EPSILON < oriOfv):
-                        msgDebug("Reinsert: %s" % nI, oriOfv, inserted['newCost'])
                         canReinsertFlag = True
                         improvedFlag = True
                         impSeq = inserted['newSeq']
                         oriOfv = inserted['newCost']
                         oriRevOfv = inserted['newRevCost']
-                        break
     return {
         'impSeq': impSeq,
         'improvedFlag': improvedFlag,

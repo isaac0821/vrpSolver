@@ -61,7 +61,8 @@ __author__ = "Lan Peng"
 # v0.0.50 - 05132022 - Move route operators to `operator.py`, so that it can be reused
 # v0.0.51 - 05172022 - Add a temporary VRP function `heuVRPMakespan()` which minimizes the makespan of VRP
 # v0.0.52 - 05172022 - Minor fixes
-# v0.0.53 - 06242022 - Reconstruct for better framework: 1. separates the seq/route operators
+# v0.0.53 - 07112022 - Improve solution quality of 2Opts for TSP
+# v0.0.54 - (working)- Reconstruct for better framework: 1. separates the seq/route operators
 #                    -                                   2. nodes related functions
 #                    - Remove weather related functions: Not routing related
 #                    - Remove PMS functions: Not routing related
