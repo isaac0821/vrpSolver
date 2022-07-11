@@ -157,24 +157,19 @@ def heuTSP(
     if (seq == None):
         msgError("ERROR: Incorrect constructive algorithm")
         return
-    else:
-        msgError("Constructive: ", seq)
 
     # Local improvement ======================================================= 
     canImproveFlag = False
     
     # NOTE: seq should starts and ends with depotID
     ofv = calSeqCostMatrix(tau, seq, closeFlag = False)
-    revOfv = None
-    if (asymFlag):
-        revOfv = calSeqCostMatrix(tau, [seq[len(seq) - i - 1] for i in range(len(seq))], closeFlag = False)
+    revOfv = None if not asymFlag else calSeqCostMatrix(tau, [seq[len(seq) - i - 1] for i in range(len(seq))], closeFlag = False)
+    consOfv = ofv
 
     if (impAlgo != None):
         canImproveFlag = True
         if (type(impAlgo) == str):
             impAlgo = [impAlgo]        
-    msgDebug("Ofv: ", ofv, " revOfv: ", revOfv)
-    msgDebug("Constructive Seq: ", seq)
 
     lImpTimeAnalysis = {
         'calAccDist': 0,
@@ -210,6 +205,7 @@ def heuTSP(
 
     return {
         'ofv': ofv,
+        'consOfv': consOfv,
         'seq': seq,
         'lImpTimeAnalysis': lImpTimeAnalysis,
         'serviceTime': serviceTime
@@ -378,7 +374,6 @@ def _impTSP2Opts(nodeIDs, tau, initSeq, asymFlag):
     # Initialize ==============================================================
     improvedFlag = False
     impSeq = [i for i in initSeq]
-    msgDebug("initSeq: ", initSeq)
     timeAnalysis = {
         'calAccDist': 0,
         '2OptValid': 0,
@@ -420,9 +415,6 @@ def _impTSP2Opts(nodeIDs, tau, initSeq, asymFlag):
             accRevDist.insert(0, revD)
             oriRevOfv = accRevDist[0]
             timeAnalysis['calAccDist'] += (datetime.datetime.now() - startTimeDist).total_seconds()
-
-            msgDebug("oriOfv: ", oriOfv, " oriRevOfv: ", oriRevOfv)
-
             for i in range(len(impSeq) - 2):
                 for j in range(i + 2, len(impSeq) - 1):
                     # Saving
@@ -436,7 +428,6 @@ def _impTSP2Opts(nodeIDs, tau, initSeq, asymFlag):
                         accRevDist = accRevDist,
                         asymFlag = asymFlag)
                     if (opt != None and opt['deltaCost'] + CONST_EPSILON < 0):
-                        msgDebug("2Opt: [%s-%s, %s-%s]" % (impSeq[i], impSeq[i + 1], impSeq[j], impSeq[j + 1]), opt['deltaCost'], oriOfv, opt['newCost'])
                         can2OptFlag = True
                         improvedFlag = True
                         impSeq = opt['route']

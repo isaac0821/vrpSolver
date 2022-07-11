@@ -5,12 +5,10 @@ from .graph import *
 from .calculate import *
 
 # Definitions =================================================================
-# 1. route v.s. route: `route` is a sequence of visits, may not start/end with the depot, 
-#                    `route` is a sequence of visits that starts and ends with the depot
-# 2. tau v.s. edge: `tau` is the traveling matrix that considered service time
+# 1. tau v.s. edge: `tau` is the traveling matrix that considered service time
 #                   `edge` could be a string indicating the type of traveling matrices, 
 #                   and might need additional information in `edgeArgs`
-# 3. i, j v.s. nI, nJ: `i` or `j` indicates the index in a route/route, and `nI`
+# 2. i, j v.s. nI, nJ: `i` or `j` indicates the index in a route/route, and `nI`
 #                      or `nJ` indicates the ID of the node
 # =============================================================================
 
@@ -37,19 +35,9 @@ def exchange2Arcs(
     nJ = route[j]
     nJNext = route[j + 1]
 
-    # new route
-    # newSeq = []
-    # newSeq.extend([route[k] for k in range(i + 1)])
-    # newSeq.extend([route[j - k] for k in range(j - i)])
-    # newSeq.extend([route[k] for k in range(j + 1, len(route))])
-
     # Check if can 2-opt
     can2OptFlag = True if (accDist[-1] != None) else False
     canRev2OptFlag = asymFlag and (True if (accRevDist[-1] != None) else False)
-
-    # newRevSeq = []
-    # if (asymFlag and canRev2OptFlag):
-    #     newRevSeq = [newSeq[len(newSeq) - 1 - i] for i in range(len(newSeq))]
 
     # Early quit
     if (not asymFlag and not can2OptFlag):
@@ -93,7 +81,7 @@ def exchange2Arcs(
 
         # Case 1
         if (can2OptFlag and canRev2OptFlag):
-            if (newRevCost <= newCost):
+            if (newRevCost >= newCost):
                 deltaCost = newCost - cost
             else:
                 deltaCost = newRevCost - cost
@@ -196,6 +184,9 @@ def exchange3Arcs(
     print(newSeq6)
     print(newSeq7)
 
+    return
+
+def conseqArcExchange():
     return
 
 # [Constructing]
