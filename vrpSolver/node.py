@@ -184,9 +184,9 @@ def getNeighborCluster(
 
     # Define edges ============================================================
     if (edges == 'Euclidean'):
-        edges = getTauEuclidean(nodes)
+        edges = _getTauEuclidean(nodes, nodeIDs)
     elif (edges == 'LatLon'):
-        edges = getTauLatLon(nodes)
+        edges = _getTauLatLon(nodes, nodeIDs)
     else:
         print("Error: Incorrect type `edges`")
         return None
@@ -271,9 +271,9 @@ def getSortedNodesByDist(
     # Define edges ============================================================
     if (type(edges) is not dict):
         if (edges == 'Euclidean'):
-            edges = getTauEuclidean(nodes)
+            edges = _getTauEuclidean(nodes, nodeIDs)
         elif (edges == 'LatLon'):
-            edges = getTauLatLon(nodes)
+            edges = _getTauLatLon(nodes, nodeIDs)
         else:
             print("Error: Incorrect type `edges`")
             return None
