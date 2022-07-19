@@ -7,8 +7,8 @@ from .common import *
 from .const import *
 from .geometry import *
 from .msg import *
+from .error import *
 from .relation import *
-from .node import *
 
 def rndPlainNodes(
     N:          "Number of vertices" = None,
@@ -68,8 +68,7 @@ def rndPlainNodes(
 
     # Check for required fields ===============================================
     if (N == None and nodeIDs == None):
-        msgError(ERROR_MISSING_N)
-        return
+        raise MissingParameterError(ERROR_MISSING_N)
 
     # Initialize ==============================================================
     nodes = {}
@@ -102,8 +101,7 @@ def rndPlainNodes(
                 'radius': 100
             }
         if ('centerLoc' not in distrArgs or 'radius' not in distrArgs):
-            msgError(ERROR_MISSING_DISTRARGS_UNICC)
-            return
+            raise MissingParameterError(ERROR_MISSING_DISTRARGS_UNICC)
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
             nodes[n] = {
@@ -113,8 +111,7 @@ def rndPlainNodes(
     elif (distr == 'uniformCircleLatLon'):
         # Sanity check --------------------------------------------------------
         if (distrArgs == None):
-            msgError(ERROR_MISSING_DISTRARGS)
-            return
+            raise MissingParameterError(ERROR_MISSING_DISTRARGS)
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
             nodes[n] = {
@@ -124,11 +121,9 @@ def rndPlainNodes(
     elif (distr == 'uniformPoly'):
         # Sanity check --------------------------------------------------------
         if (distrArgs == None):
-            msgError(ERROR_MISSING_DISTRARGS)
-            return
+            raise MissingParameterError(ERROR_MISSING_DISTRARGS)
         if ('poly' not in distrArgs):
-            msgError(ERROR_MISSING_DISTRARGS_UNIPOLY)
-            return
+            raise MissingParameterError(ERROR_MISSING_DISTRARGS_UNIPOLY)
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
             nodes[n] = {
@@ -138,11 +133,9 @@ def rndPlainNodes(
     elif (distr == 'uniformPolys'):
         # Sanity check --------------------------------------------------------
         if (distrArgs == None):
-            msgError(ERROR_MISSING_DISTRARGS)
-            return
+            raise MissingParameterError(ERROR_MISSING_DISTRARGS)
         if ('polys' not in distrArgs):
-            msgError(ERROR_MISSING_DISTRARGS_UNIPOLY)
-            return
+            raise MissingParameterError(ERROR_MISSING_DISTRARGS_UNIPOLY)
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
             nodes[n] = {
@@ -152,11 +145,9 @@ def rndPlainNodes(
     elif (distr == 'uniformRoadNetworkPoly'):
         # Sanity check --------------------------------------------------------
         if (distrArgs == None):
-            msgError(ERROR_MISSING_DISTRARGS)
-            return
+            raise MissingParameterError(ERROR_MISSING_DISTRARGS)
         if ('road' not in distrArgs):
-            msgError(ERROR_MISSING_DISTRARGS_UNIROADNETWORK)
-            return
+            raise MissingParameterError(ERROR_MISSING_DISTRARGS_UNIROADNETWORK)
 
         # Create nodes --------------------------------------------------------
         nodeLocs = _rndPtRoadNetworkPoly(
@@ -172,11 +163,9 @@ def rndPlainNodes(
     elif (distr == 'uniformRoadNetworkCircle'):
         # Sanity check --------------------------------------------------------
         if (distrArgs == None):
-            msgError(ERROR_MISSING_DISTRARGS)
-            return
+            raise MissingParameterError(ERROR_MISSING_DISTRARGS)
         if ('road' not in distrArgs):
-            msgError(ERROR_MISSING_DISTRARGS_UNIROADNETWORK)
-            return
+            raise MissingParameterError(ERROR_MISSING_DISTRARGS_UNIROADNETWORK)
         if ('centerLoc' not in distrArgs or 'radius' not in distrArgs):
             print("Missing circle definition")
             return
@@ -196,11 +185,9 @@ def rndPlainNodes(
     elif (distr == 'clusterXY'):
         # Sanity check --------------------------------------------------------
         if (distrArgs == None):
-            msgError(ERROR_MISSING_DISTRARGS)
-            return
+            raise MissingParameterError(ERROR_MISSING_DISTRARGS)
         if ('centroidLocs' not in distrArgs or 'clusterDiameter' not in distrArgs):
-            msgError(ERROR_MISSING_DISTRARGS_CLUSTER)
-            return
+            raise MissingParameterError(ERROR_MISSING_DISTRARGS_CLUSTER)
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
             nodes[n] = {
@@ -210,11 +197,9 @@ def rndPlainNodes(
     elif (distr == 'clusterLatLon'):
         # Sanity check --------------------------------------------------------
         if (distrArgs == None):
-            msgError(ERROR_MISSING_DISTRARGS)
-            return
+            raise MissingParameterError(ERROR_MISSING_DISTRARGS)
         if ('centroidLocs' not in distrArgs or 'clusterDiameterInMeters' not in distrArgs):
-            msgError(ERROR_MISSING_DISTRARGS_CLUSTER)
-            return
+            raise MissingParameterError(ERROR_MISSING_DISTRARGS_CLUSTER)
         # Create nodes --------------------------------------------------------
         for n in nodeIDs:
             nodes[n] = {

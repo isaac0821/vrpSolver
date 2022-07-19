@@ -63,7 +63,9 @@ __author__ = "Lan Peng"
 # v0.0.52 - 05172022 - Minor fixes
 # v0.0.53 - 07112022 - Improve solution quality of 2Opts for TSP
 # v0.0.54 - 07112022 - Minor fixes
-# v0.0.55 - (working)- Reconstruct for better framework: 1. separates the seq/route operators
+# v0.0.55 - (working)- Implement data structures
+#                    - Add Error exceptions
+#                    - Reconstruct for better framework: 1. separates the seq/route operators
 #                    -                                   2. nodes related functions
 #                    - Remove weather related functions: Not routing related
 #                    - Remove PMS functions: Not routing related
@@ -75,6 +77,10 @@ __author__ = "Lan Peng"
 # Constants and messages
 from .const import *
 from .msg import *
+from .error import *
+
+# Data structure definition
+from .ds import *
 
 # Basic modules
 from .common import *
@@ -87,7 +93,6 @@ from .calculate import *
 
 # Geometry
 from .geometry import *
-from .node import *
 from .relation import *
 from .road import *
 

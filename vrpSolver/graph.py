@@ -3,6 +3,7 @@ import gurobipy as grb
 import math
 
 from .common import *
+from .geometry import *
 
 def gridPathFinding(
     grid:       "Dictionary, includes the grid info\

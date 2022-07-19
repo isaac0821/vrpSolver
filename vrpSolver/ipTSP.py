@@ -2,7 +2,6 @@ import heapq
 import math
 
 from .common import *
-from .node import *
 from .const import *
 from .geometry import *
 from .graph import *

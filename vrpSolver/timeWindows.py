@@ -2,15 +2,26 @@ import math
 
 from .common import *
 from .const import *
+from .ds import *
 
 '''
 # Description =================================================================
+# NOTE: Rewriting - do time intervals more efficiently
 # This script is for processing time windows
 #     including: TW (time window) and TWs (time windows)
 # Notice:
 # 1. Time windows can be unbounded, the unbounded side will be None, e.g., [None, 9] represents t <= 9
 # 2. All the time windows include the edge (close set)
 '''
+
+def buildTWs(
+    tws:        "A list of time windows" = None
+    ) -> "Given a list of time windows, return an interval tree":
+
+    twTree = TimeWindowsTree()
+    for tw in tws:
+        twTree.insert(TimeWindowsTreeNode(tw[0], tw[1], tw[2]))
+    return twTree
 
 def sortTWs(
     unsortedTWs: "List of unsorted time windows" = None,
@@ -77,7 +88,7 @@ def sortTWs(
     # Check overlapping =======================================================
     for i in range(len(sortedTWs) - 1):
         if (sortedTWs[i][1] > sortedTWs[i + 1][0]):
-            msgError(ERROR_TW_OVERLAP)
+            msgError(ERROR_TW_OVERLAP) 
             return None 
 
     # Add back infinite time windows ==========================================
@@ -280,7 +291,7 @@ def blockTWs(
             pass
     return newTWs
 
-def getIndexInTimeWindow(
+def indexInTWs(
     bgTws:      "List of non-overlapping time windows as background" = None,
     t:          "Time stamp" = None
     ) -> "Given a time stamp and a list of time windows, check if the time stamp is in time windows":
@@ -289,7 +300,7 @@ def getIndexInTimeWindow(
             return i
     return None
 
-def getEarliestNextAvailTime(
+def nextAvailTimeInTWs(
     bgTws:      "List of non-overlapping time windows as background" = None,
     t:          "Time stamp" = None
     ) -> "Given a time stamp, get next launchable time":
@@ -303,7 +314,7 @@ def getEarliestNextAvailTime(
             return t
     return earliestNext
 
-def getAvailStartTW(
+def availStartInTWs(
     bgTws:      "List of non-overlapping time windows as background (CANNOT be covered by inserting time window)" = None,
     epoch:      "The outer epoch of `bgTws` time windows" = None,
     twLen:      "Length of time window that trying to add into bgTws (within epoch)" = None
@@ -324,7 +335,7 @@ def getAvailStartTW(
 
     return startTws
 
-def getTWInsertFlexibility(
+def insertAvailInTWs(
     bgTws:      "List of non-overlapping time windows as background (CANNOT be covered by inserting time window)" = None,
     epoch:      "The outer epoch of `bgTws` time windows" = None,
     tw:         "The time windows to be inserted" = None,
@@ -412,3 +423,8 @@ def getTWInsertFlexibility(
             'minAdvanceNeeded': minAdvanceNeeded,
             'minDelayNeeded': minDelayNeeded
         }
+
+def idListGivenTime(
+    ) -> "Given a interval tree with overlapped intervals, and given a timestamp, returns a list of intervals":
+
+    return idList
