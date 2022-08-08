@@ -1,6 +1,7 @@
 import heapq
 import math
 import datetime
+import warnings
 
 from .const import *
 from .common import *
@@ -73,7 +74,7 @@ def heuVRP(
         else:
             demand[n] = nodes[n]['demand']
     if (len(noDemandList) > 0):
-        msgWarning("MESSAGE: 'demands' is missing in nodes %s, set to default value (as 1)" % list2String(noDemandList))
+        warnings.warn("MESSAGE: 'demands' is missing in nodes %s, set to default value (as 1)" % list2String(noDemandList))
 
     # Decode and pre-check constraints ========================================
     if (constraint == None or (

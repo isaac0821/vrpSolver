@@ -72,3 +72,14 @@ def list2Tuple(l):
     sortedList.sort()
     tp = tuple(sortedList)
     return tp
+    
+def hyphenStr(s, length=75, sym='-'):
+    lenMidS = len(s)
+    if (s == ""):
+        return length * sym
+    elif (lenMidS + 2 < length):
+        lenLeftS = (int)((length - lenMidS - 2) / 2)
+        lenRightS = length - lenMidS - lenLeftS - 2
+        return (lenLeftS * sym) + " " + s + " " + (lenRightS * sym)
+    else:
+        return s

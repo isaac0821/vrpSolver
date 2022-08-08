@@ -14,15 +14,6 @@ from .ds import *
 # 2. All the time windows include the edge (close set)
 '''
 
-def buildTWs(
-    tws:        "A list of time windows" = None
-    ) -> "Given a list of time windows, return an interval tree":
-
-    twTree = TimeWindowsTree()
-    for tw in tws:
-        twTree.insert(TimeWindowsTreeNode(tw[0], tw[1], tw[2]))
-    return twTree
-
 def sortTWs(
     unsortedTWs: "List of unsorted time windows" = None,
     ) -> "Given a list of time windows, returns None if the TWs are overlapping returns a sorted list of time windows":

@@ -95,7 +95,7 @@ def ganttFromVRPSol(
     for veh in vrpSol['route']:
         gantt.extend(ganttFromVisitSeq(
             entityID = 'Truck_%s' % veh,
-            tau = tau,
+            edges = tau,
             visitSeq = vrpSol['route'][veh]['route'],
             serviceTime = vrpSol['serviceTime'])['gantt'])
 
@@ -140,7 +140,7 @@ def ganttFromTSPSol(
     # Create gantt ============================================================
     gantt = ganttFromVisitSeq(
         entityID = 'Truck',
-        tau = tau,
+        edges = tau,
         visitSeq = tspSol['seq'],
         serviceTime = tspSol['serviceTime'])['gantt']
 
@@ -150,7 +150,7 @@ def ganttFromTSPSol(
 
 def ganttFromVisitSeq(
     entityID:   "Truck" = 'Truck',
-    tau:        "Dictionary {(nodeID1, nodeID2): dist, ...}" = "Euclidean",
+    edges:        "Dictionary {(nodeID1, nodeID2): dist, ...}" = "Euclidean",
     visitSeq:    "Travel sequence" = None,
     serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0,
     ) -> "Given a TSP result, returns the gantt dictionary for plotGantt()":
@@ -159,7 +159,7 @@ def ganttFromVisitSeq(
     gantt = []
     acc = 0
     for i in range(len(visitSeq) - 2):
-        dt = tau[visitSeq[i], visitSeq[i + 1]]
+        dt = edges[visitSeq[i], visitSeq[i + 1]]
         gantt.append({
             'entityID': entityID,
             'timeWindow': [acc, acc + dt],
@@ -175,7 +175,7 @@ def ganttFromVisitSeq(
             'style': '////'
         })
         acc += dt + serviceTime
-    dt = tau[visitSeq[-2], visitSeq[-1]]
+    dt = edges[visitSeq[-2], visitSeq[-1]]
     gantt.append({
         'entityID': entityID,
         'timeWindow': [acc, acc + dt],

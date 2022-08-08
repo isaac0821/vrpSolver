@@ -658,7 +658,7 @@ def getTau(
                 tau[p] = edges[p] * edgeArgs['scale']
 
     # Service time ============================================================
-    if (serviceTime != None and serviceTime > 0):
+    if (depotID != None and serviceTime != None and serviceTime > 0):
         for (i, j) in tau:
             if (i != depotID and j != depotID and i != j):
                 tau[i, j] += serviceTime
@@ -760,7 +760,14 @@ def getNeighborCluster(
                         ... \
                     }" = None, 
     edges:      "1) String (default) 'Euclidean' or \
-                 2) String 'LatLon'" = "Euclidean",
+                 2) String 'LatLon' or \
+                 3) Dictionary {(nodeID1, nodeID2): dist, ...} or \
+                 4) String 'Grid', will need to add arguments using `edgeArgs`"= "Euclidean",
+    edgeArgs:   "If choose 'Grid' as tau option, we need to provide the following dictionary \
+                 {\
+                    'colRow': (numCol, numRow),\
+                    'barriers': [(coordX, coordY), ...], \
+                 }" = None,
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All',
     diameter:   "The diameter of the neighborhood" = None,
@@ -775,23 +782,18 @@ def getNeighborCluster(
                 nodeIDs.append(i)
 
     # Define edges ============================================================
-    if (edges == 'Euclidean'):
-        edges = _getTauEuclidean(nodes, nodeIDs)
-    elif (edges == 'LatLon'):
-        edges = _getTauLatLon(nodes, nodeIDs)
-    else:
-        print("Error: Incorrect type `edges`")
-        return None
+    tau = getTau(nodes, edges, edgeArgs, None, nodeIDs, None)
 
     # Initialize ==============================================================
     seedClique = []
     # For each node get the neighbors within diameter
     neighbor = {}
+    for n in nodeIDs:
+        neighbor[n] = []
+
     for n1 in nodeIDs:
         for n2 in nodeIDs:
-            if (n1 != n2 and edges[n1, n2] <= diameter):
-                if (n1 not in neighbor):
-                    neighbor[n1] = []
+            if (n1 != n2 and tau[n1, n2] <= diameter):
                 neighbor[n1].append(n2)
 
     # Find seed cliques in the neighbor graph =================================
@@ -1029,7 +1031,7 @@ def getScan(
         if (maxDist == None or d > maxDist):
             maxDist = 1.2 * d
     basePt = ptInDistXY(centroid, direction, maxDist)
-    baseline = getPerpendicularLine(basePt, vecPolar2XY([10, direction]))
+    baseline = linePerpendicularLine(basePt, vecPolar2XY([10, direction]))
 
     # Distance to the baseline ================================================
     distHeap = []

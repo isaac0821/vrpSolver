@@ -1,7 +1,7 @@
 from .common import *
 from .error import *
 
-class BSTreeNode:
+class BSTreeNode(object):
     def __init__(self, key, value, parent=None, left=None, right=None):
         self.key = key
         self.value = value
@@ -9,7 +9,15 @@ class BSTreeNode:
         self.left = left
         self.right = right
 
-class BSTree:
+    def print(self):
+        print("Key: ", self.key, 
+            "Value: ", self.value, 
+            "Parent: ", self.parent.key if self.parent != None else 'None',
+            "Left: ", self.left.key if self.left != None else 'None',
+            "Right: ", self.right.key if self.right != None else 'None')
+        return
+
+class BSTree(object):
     # Binary Search Tree ======================================================
     # NOTE: Father/ancestor of a series of tree structures
 
@@ -30,6 +38,12 @@ class BSTree:
             else:
                 return search(n.right, key)
         return search(self.root, key)
+
+    def print(self):
+        t = self.traverse()
+        for n in t:
+            n.print()
+        return
 
     def traverse(self, mode='Left'):
         traverse = []
@@ -173,6 +187,15 @@ class RedBlackTreeNode(BSTreeNode):
     def __init__(self, key, value, parent=None, left=None, right=None, color=None):
         super(RedBlackTreeNode, self).__init__(key, value, parent, left, right)
         self.color = color
+
+    def print(self):
+        print("Key: ", self.key, 
+            "Value: ", self.value, 
+            "Color: ", self.color,
+            "Parent: ", self.parent.key if self.parent != None else 'None',
+            "Left: ", self.left.key if self.left != None else 'None',
+            "Right: ", self.right.key if self.right != None else 'None')
+        return
 
 class RedBlackTree(BSTree):
     def __init__(self):
@@ -347,7 +370,7 @@ class RedBlackTree(BSTree):
         return
 
 class IntervalTreeNode(RedBlackTreeNode):
-    def __init__(self, lower, upper, value, parent=None, left=None, right=None):
+    def __init__(self, lower, upper, value, parent=None, left=None, right=None, color=None, childUpper=None):
         self.key = lower
         self.value = value
         self.lower = lower # float('-inf') represents infinite
@@ -355,8 +378,56 @@ class IntervalTreeNode(RedBlackTreeNode):
         self.parent = parent
         self.left = left
         self.right = right
-        self.color = None  # RedBlackTree
+        self.color = color  # RedBlackTree
 
+    def print(self):
+        print("Key: ", self.key, 
+            "\tValue: ", self.value, 
+            "\tInterval: [", self.lower, ", ", self.upper, "]",
+            "\tParent: ", self.parent.key if self.parent != None else 'None',
+            "\tLeft: ", self.left.key if self.left != None else 'None',
+            "\tRight: ", self.right.key if self.right != None else 'None')
+        return
+
+class NonOverlapIntervalTree(RedBlackTree):
+    def __init__(self):
+        self.nil = IntervalTreeNode(None, None, None, color='B')
+        self.root = self.nil
+
+    def query(self, t):
+        def search(n, t):
+            if (n == self.nil):
+                return self.nil
+            if (n.lower <= t and t <= n.upper):
+                return n
+            if (t < n.lower):
+                return search(n.left, t)
+            elif (t > n.upper):
+                return search(n.right, t)
+        return search(self.root, t)
+
+    def earlisetAvail(self, t):
+        visited = []
+        def search(n, t):
+            if (n == self.nil):
+                return self.nil
+            else:
+                visited.append(n)
+            if (n.lower <= t and t <= n.upper):
+                return n
+            if (t < n.lower):
+                return search(n.left, t)
+            elif (t > n.upper):
+                return search(n.right, t)
+        s = search(self.root, t)
+        if (s != self.nil):
+            return t, s
+        elif (t > visited[-1].upper):
+            i = self.next(visited[-1])
+            return i.lower, i
+        elif (t < visited[-1].lower):
+            return visited[-1].lower, visited[-1]
+ 
 class IntervalTree(RedBlackTree):
     # Interval tree ===========================================================
     # NOTE: Interval tree is an augmented version of Red Black tree
@@ -381,33 +452,14 @@ class IntervalTree(RedBlackTree):
         search(self.root, t)
         return intervals
 
-    def earlisetAvail(self, t):
-
-
-        n = self.query(key)
-        if (n != self.nil):
-            return self.next(n)
-
-
-        if (n.right != self.nil):
-            return self.min(n.right)
-        else:
-            y = n.parent
-            while (y != self.nil and n == y.right):
-                n = y
-                y = y.parent
-            return y
-
-        return nextAvail
-
-class LinkedListNode:
+class LinkedListNode(object):
     def __init__(self, key, value, prev=None, succ=None):
         self.key = key
         self.value = value
         self.prev = prev
         self.succ = succ
 
-class LinkedList:
+class LinkedList(object):
     # Linked list =============================================================
     # NOTE: used in TSP/VRP, representing routes
     def __init__(self):

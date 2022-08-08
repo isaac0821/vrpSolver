@@ -1,6 +1,7 @@
 import heapq
 import gurobipy as grb
 import math
+import warnings
 
 from .common import *
 from .geometry import *
@@ -33,7 +34,7 @@ def gridPathFinding(
     # Call path finding =======================================================
     if (algo == 'A*'):
         if (algoArgs == None or 'distMeasure' not in algoArgs):
-            msgWarning("Warning: Missing `algoArgs` or missing 'distMeasure' in `algoArgs`. Set 'distMeasure' to be 'Manhatten'")
+            warnings.warn("Warning: Missing `algoArgs` or missing 'distMeasure' in `algoArgs`. Set 'distMeasure' to be 'Manhatten'")
             algoArgs = {'distMeasure': 'Manhatten'}
         res = _gridPathFindingAStar(gridColRow, barriers, startCoord, endCoord, algoArgs['distMeasure'])
     else:
@@ -194,7 +195,7 @@ def graphTraversal(
 
     # Set Default oID =========================================================
     if (oID == None):
-        msgWarning("Warning: Missing `oID` as the root of traversing, default set as the smallest ID")
+        warnings.warn("Warning: Missing `oID` as the root of traversing, default set as the smallest ID")
         oID = min(mst)
 
     # Solve by different algorithms ===========================================

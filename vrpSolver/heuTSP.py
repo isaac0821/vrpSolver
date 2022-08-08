@@ -1,6 +1,7 @@
 import heapq
 import math
 import datetime
+import warnings
 
 from .const import *
 from .common import *
@@ -106,7 +107,7 @@ def heuTSP(
         seq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, 1)
     elif (consAlgo == 'k-NearestNeighbor'):
         if (consAlgoArgs == None):
-            msgWarning("Warning: Missing parameter k for k-NearestNeighbor, set to be default value as k = 1")
+            warnings.warn("Warning: Missing parameter k for k-NearestNeighbor, set to be default value as k = 1")
             consAlgoArgs = {'k': 1}
         seq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, consAlgoArgs['k'])
     elif (consAlgo == 'FarthestNeighbor'):
@@ -127,7 +128,7 @@ def heuTSP(
                         farthestID = n
                         farthestDist = tau[depotID, n]
             consAlgoArgs = {'initSeq': [depotID, farthestID, depotID]}
-            msgWarning("WARNING: 'initSeq' was not provided, initial with [depotID, farthest, depotID]")
+            warnings.warn("WARNING: 'initSeq' was not provided, initial with [depotID, farthest, depotID]")
         seq = _consTSPInsertion(nodeIDs, consAlgoArgs['initSeq'], tau)
     elif (consAlgo == 'Sweep'):
         seq = _consTSPSweep(nodes, depotID, nodeIDs, tau)

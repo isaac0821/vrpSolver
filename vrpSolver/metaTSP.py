@@ -1,5 +1,6 @@
 import datetime
 import math
+import warnings
 
 from .const import *
 from .common import *
@@ -72,13 +73,13 @@ def metaTSP(
                 'coolRate': 0.995,
                 'stopCriteria': [('Executed_Time', 10)]
             }
-            msgWarning("WARNING: Missing `metaAlgoArgs`. Using default setting as follows, results may not be satisfactory.")
-            msgWarning(metaAlgoArgs)
+            warnings.warn("WARNING: Missing `metaAlgoArgs`. Using default setting as follows, results may not be satisfactory.")
+            warnings.warn(metaAlgoArgs)
         else:
             canGo = True
             warningGo = False
             if ('initAlgo' not in metaAlgoArgs):
-                msgWarning("WARNING: Missing 'initAlgo' in `metaAlgoArgs`. Initial solution set to be 'Sweep'")
+                warnings.warn("WARNING: Missing 'initAlgo' in `metaAlgoArgs`. Initial solution set to be 'Sweep'")
                 metaAlgoArgs['initAlgo'] = 'Sweep'
                 warningGo = True
             if ('initTemp' not in metaAlgoArgs):
@@ -88,21 +89,21 @@ def metaTSP(
                 msgError("ERROR: Missing 'iterTemp' in `metaAlgoArgs`. Require number of iterations per temperature")
                 canGo = False
             if ('optRatio' not in metaAlgoArgs): 
-                msgWarning("WARNING: Missing 'optRatio' in `metaAlgoArgs`. 'optRatio' is the percentage of taking (swap, exchange, 2Opt) operators")
+                warnings.warn("WARNING: Missing 'optRatio' in `metaAlgoArgs`. 'optRatio' is the percentage of taking (swap, exchange, 2Opt) operators")
                 metaAlgoArgs['optRatio'] = (0.3, 0.3, 0.4)
                 warningGo = True
             if ('coolRate' not in metaAlgoArgs):
                 msgError("ERROR: Missing 'coolRate' in `metaAlgoArgs`. Require cooling rate, e.g., 0.99")
                 canGo = False
             if ('stopCriteria' not in metaAlgoArgs):
-                msgWarning("WARNING: Missing 'stopCriteria' in `metaheuristic`. Set to be default as 'Executed_Time' for 10 seconds")
+                warnings.warn("WARNING: Missing 'stopCriteria' in `metaheuristic`. Set to be default as 'Executed_Time' for 10 seconds")
                 metaAlgoArgs['stopCriteria'] = [('Executed_Time', 10)]
                 warningGo = True
             if (not canGo):
                 return None
             if (warningGo):
-                msgWarning("WARNING: Adjusted `metaAlgoArgs` is as follows:")
-                msgWarning(metaAlgoArgs)
+                warnings.warn("WARNING: Adjusted `metaAlgoArgs` is as follows:")
+                warnings.warn(metaAlgoArgs)
 
     # Subroutines for different metaheuristic =================================
     def _metaTSPSimulatedAnnealing(initAlgo, initAlgoArgs, initTemp, iterTemp, optRatio, coolRate, stopCriteria):

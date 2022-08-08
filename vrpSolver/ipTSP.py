@@ -1,5 +1,6 @@
 import heapq
 import math
+import warnings
 
 from .common import *
 from .const import *
@@ -72,8 +73,7 @@ def ipTSP(
     elif (fml == 'QAP'):
         tsp = _ipTSPQAP(nodeIDs, tau, outputFlag, timeLimit, gapTolerance)
     else:
-        print("Error: Incorrect or not available TSP formulation option!")
-        return None
+        raise IncorrectMode("Incorrect or not available TSP formulation option!")
     if (tsp != None):
         tsp['fml'] = fml
 
