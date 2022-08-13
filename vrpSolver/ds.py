@@ -394,6 +394,13 @@ class NonOverlapIntervalTree(RedBlackTree):
         self.nil = IntervalTreeNode(None, None, None, color='B')
         self.root = self.nil
 
+    @property    
+    def isEmpty(self):
+        if (self.root == self.nil):
+            return True
+        else:
+            return False
+
     def query(self, t):
         def search(n, t):
             if (n == self.nil):
