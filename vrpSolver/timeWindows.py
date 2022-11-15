@@ -414,8 +414,3 @@ def insertAvailInTWs(
             'minAdvanceNeeded': minAdvanceNeeded,
             'minDelayNeeded': minDelayNeeded
         }
-
-def idListGivenTime(
-    ) -> "Given a interval tree with overlapped intervals, and given a timestamp, returns a list of intervals":
-
-    return idList

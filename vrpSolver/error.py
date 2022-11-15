@@ -1,7 +1,13 @@
+class UnsupportedInput(Exception):
+    pass
+
 class IncorrectNodes(Exception):
     pass
 
 class IncorrectMode(Exception):
+    pass
+
+class ZeroVectorError(Exception):
     pass
 
 class MissingParameterError(Exception):

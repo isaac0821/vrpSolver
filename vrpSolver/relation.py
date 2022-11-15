@@ -33,8 +33,7 @@ def isPtOnLine(
     ) -> "Return True if the point is on the line, with error less than CONST_EPSILON":
     # Validation ==============================================================
     if (is2PtsSame(line[0], line[1])):
-        msgError(ERROR_ZERO_VECTOR)
-        return None
+        raise ZeroVectorError(ERROR_ZERO_VECTOR)
 
     # Calculate the distance between pt and the line ==========================
     if (is3PtsClockWise(pt, line[0], line[1]) == None):
@@ -254,11 +253,9 @@ def intLine2Line(
                  2) The intersect point if two lines intersect":
     # Validation ==============================================================
     if (is2PtsSame(line1[0], line1[1])):
-        msgError(ERROR_ZERO_VECTOR)
-        return None
+        raise ZeroVectorError(ERROR_ZERO_VECTOR)
     if (is2PtsSame(line2[0], line2[1])):
-        msgError(ERROR_ZERO_VECTOR)
-        return None
+        raise ZeroVectorError(ERROR_ZERO_VECTOR)
 
     # Get Ax + By + C = 0 =====================================================
     def abc(pt1, pt2):
@@ -321,11 +318,9 @@ def intRay2Line(
                  2) The intersect point if ray and line intersect":
     # Validation ==============================================================
     if (is2PtsSame(ray[0], ray[1])):
-        msgError(ERROR_ZERO_VECTOR)
-        return None
+        raise ZeroVectorError(ERROR_ZERO_VECTOR)
     if (is2PtsSame(line[0], line[1])):
-        msgError(ERROR_ZERO_VECTOR)
-        return None
+        raise ZeroVectorError(ERROR_ZERO_VECTOR)
 
     # Calculate intersection ==================================================
     ptInt = intLine2Line(ray, line)
@@ -343,11 +338,9 @@ def intRay2Ray(
                  2) The intersect point if two rays intersect":
     # Validation ==============================================================
     if (is2PtsSame(ray1[0], ray1[1])):
-        msgError(ERROR_ZERO_VECTOR)
-        return None
+        raise ZeroVectorError(ERROR_ZERO_VECTOR)
     if (is2PtsSame(ray2[0], ray2[1])):
-        msgError(ERROR_ZERO_VECTOR)
-        return None
+        raise ZeroVectorError(ERROR_ZERO_VECTOR)
 
     # Calculate intersection ==================================================
     ptInt = intLine2Line(ray1, ray2)
@@ -364,11 +357,9 @@ def cosRay2Ray(
     ) -> "Calculate cosine between two vectors":
     # Validation ==============================================================
     if (is2PtsSame(ray1[0], ray1[1])):
-        msgError(ERROR_ZERO_VECTOR)
-        return None
+        raise ZeroVectorError(ERROR_ZERO_VECTOR)
     if (is2PtsSame(ray2[0], ray2[1])):
-        msgError(ERROR_ZERO_VECTOR)
-        return None
+        raise ZeroVectorError(ERROR_ZERO_VECTOR)
 
     # Calculate cosine ========================================================
     cosAngle = (ray1[0] * ray2[0] + ray1[1] * ray2[1]) / (math.sqrt(ray1[0] * ray1[0] + ray1[1] * ray1[1]) * math.sqrt(ray2[0] * ray2[0] + ray2[1] * ray2[1]))

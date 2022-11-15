@@ -35,6 +35,16 @@ def exchange2Arcs(
     nJ = route[j]
     nJNext = route[j + 1]
 
+    # Initialize accDist accRevDist ===========================================
+    if (accDist == None):
+        accDist = [0]
+        for i in range(len(route) - 1):
+            accDist.append(tau[route[i], route[i + 1]])
+    if (accRevDist == None):
+        accRevDist = [0]
+        for i in range(len(route) - 1):
+            accRevDist.append(tau[route[len(route) - 1 - i], route[len(route) - 2 - i]])
+
     # Check if can 2-opt
     can2OptFlag = True if (accDist[-1] != None) else False
     canRev2OptFlag = asymFlag and (True if (accRevDist[-1] != None) else False)

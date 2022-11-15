@@ -302,6 +302,17 @@ def distEuclidean2D(
     else:
         return 0
 
+def distManhattenEuclidean2D(
+    pt1:        "First coordinate, in (x, y)", 
+    pt2:        "Second coordinate, in (x, y)"
+    ) -> "Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number":
+
+    # 2-Norm ==================================================================
+    if (pt1 != None and pt2 != None):
+        return abs(pt1[0] - pt2[0]) + abs(pt1[1] - pt2[1])
+    else:
+        return 0
+
 def distLatLon(
     pt1:        "First coordinate, in (lat, lon)", 
     pt2:        "Second coordinate, in (lat, lon)",
@@ -590,6 +601,7 @@ def ptInDistLatLon(
     direction:  "Direction towards the destination, North is 0-degree, East is 90-degrees" = None, 
     distMeters: "Distance from origin location to destination location" = None
     ) -> "A location in distance with given direction, in [lat, lon] form.":
+    # Bearing in degrees: 0 – North, 90 – East, 180 – South, 270 or -90 – West.
     newLoc = list(geopy.distance.distance(meters=distMeters).destination(point=pt, bearing=direction))[:2]
     return newLoc
 
@@ -625,7 +637,6 @@ def getTau(
             if (edgeArgs == None):
                 tau = _getTauEuclidean(nodes, nodeIDs)
             elif ('scale' not in edgeArgs):
-                msgWarning("WARNING: Missing 'scale' in `edgeArgs`. Set to be default value as 1")
                 tau = _getTauEuclidean(nodes, nodeIDs)
             else:
                 tau = _getTauEuclidean(nodes, nodeIDs, edgeArgs['scale'])
@@ -633,10 +644,25 @@ def getTau(
             if (edgeArgs == None):
                 tau = _getTauLatLon(nodes, nodeIDs)
             elif ('scale' not in edgeArgs):
-                msgWarning("WARNING: Missing 'scale' in `edgeArgs`. Set to be default value as 1")
                 tau = _getTauLatLon(nodes, nodeIDs)
             else:
                 tau = _getTauLatLon(nodes, nodeIDs, edgeArgs['scale'])
+
+        elif (edges == 'ManhattenEuclidean'):
+            if (edgeArgs == None):
+                tau = _getTauManhattenEuclidean(nodes, nodeIDs)
+            elif ('scale' not in edgeArgs):
+                tau = _getTauManhattenEuclidean(nodes, nodeIDs)
+            else:
+                tau = _getTauManhattenEuclidean(nodes, nodeIDs, edgeArgs['scale'])
+        elif (edges == 'ManhattenLatLon'):
+            if (edgeArgs == None):
+                tau = _getTauManhattenLatLon(nodes, nodeIDs)
+            elif ('scale' not in edgeArgs):
+                tau = _getTauManhattenLatLon(nodes, nodeIDs)
+            else:
+                tau = _getTauManhattenLatLon(nodes, nodeIDs, edgeArgs['scale'])
+
         elif (edges == 'Grid'):
             if (edgeArgs == None or 'colRow' not in edgeArgs or 'barriers' not in edgeArgs):
                 msgError("ERROR: Need more information to define the grid.")
@@ -650,7 +676,6 @@ def getTau(
             for p in edges:
                 tau[p] = edges[p]
         elif ('scale' not in edgeArgs):
-            msgWarning("WARNING: Missing 'scale' in `edgeArgs`. Set to be default value as 1")
             for p in edges:
                 tau[p] = edges[p]
         else:
@@ -681,6 +706,27 @@ def _getTauEuclidean(nodes, nodeIDs, speed = 1):
         for j in nodeIDs:
             if (i != j):
                 t = distEuclidean2D(nodes[i]['loc'], nodes[j]['loc']) / speed
+                tau[i, j] = t
+                tau[j, i] = t
+            else:
+                tau[i, j] = CONST_EPSILON
+                tau[j, i] = CONST_EPSILON
+    return tau
+
+def _getTauManhattenEuclidean(nodes, nodeIDs, speed = 1):
+    # Define nodeIDs ==========================================================
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = []
+            for i in nodes:
+                nodeIDs.append(i)
+
+    # Get tau =================================================================
+    tau = {}
+    for i in nodeIDs:
+        for j in nodeIDs:
+            if (i != j):
+                t = distManhattenEuclidean2D(nodes[i]['loc'], nodes[j]['loc']) / speed
                 tau[i, j] = t
                 tau[j, i] = t
             else:
@@ -862,21 +908,14 @@ def getSortedNodesByDist(
             for i in nodes:
                 nodeIDs.append(i)
 
-    # Define edges ============================================================
-    if (type(edges) is not dict):
-        if (edges == 'Euclidean'):
-            edges = _getTauEuclidean(nodes, nodeIDs)
-        elif (edges == 'LatLon'):
-            edges = _getTauLatLon(nodes, nodeIDs)
-        else:
-            print("Error: Incorrect type `edges`")
-            return None
+    # Define tau ==============================================================
+    tau = getTau(nodes, edges, None, refNodeID, nodeIDs, 0)
 
     # Sort distance ===========================================================
     sortedSeq = []
     sortedSeqHeap = []
     for n in nodeIDs:
-        dist = edges[refNodeID, n]
+        dist = tau[refNodeID, n]
         heapq.heappush(sortedSeqHeap, (dist, n))
     while (len(sortedSeqHeap) > 0):
         sortedSeq.append(heapq.heappop(sortedSeqHeap)[1])  
@@ -1011,6 +1050,41 @@ def _getCentroidWeiszfeld(nodes, nodeIDs):
     centroid = (x, y)
 
     return centroid
+
+def getDiameter(
+    nodes:      "Dictionary, returns the coordinate of given nodeID, \
+                    {\
+                        nodeID1: {'loc': (x, y)}, \
+                        nodeID2: {'loc': (x, y)}, \
+                        ... \
+                    }" = None
+    ):
+
+    cov = getConvexHull(nodes)
+    
+    # FIXME: 先用最笨的O(n^2)顶上，找时间换成旋转卡壳法
+    maxD = 0
+
+    for i in range(len(cov) - 1):
+        for j in range(i + 1, len(cov)):
+            d = distEuclidean2D(nodes[cov[i]]['loc'], nodes[cov[j]]['loc'])
+            if (d >= maxD):
+                maxD = d
+
+    return maxD
+
+def getMinCircle(
+    nodes:      "Dictionary, returns the coordinate of given nodeID, \
+                    {\
+                        nodeID1: {'loc': (x, y)}, \
+                        nodeID2: {'loc': (x, y)}, \
+                        ... \
+                    }" = None
+    ):
+
+    # FIXME: 占个座
+
+    return
 
 def getScan(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \

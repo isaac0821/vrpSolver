@@ -88,7 +88,6 @@ def heuTSP(
         if (tau[i, j] != tau[j, i]):
             asymFlag = True
             break
-    msgDebug("asymFlag: ", asymFlag)
 
     # Constructive heuristics =================================================
     # NOTE: These heuristics don't need to transform into arc representation
@@ -139,7 +138,7 @@ def heuTSP(
 
     weightArcs = []
     # Create arcs =============================================================
-    if (seq == None and not asymFlag):
+    if (seq == None):
         for (i, j) in tau:
             if (i != None and j != None and i < j):
                 weightArcs.append((i, j, tau[i, j]))

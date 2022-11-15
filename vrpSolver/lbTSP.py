@@ -23,6 +23,7 @@ def lbTSP(
                         'colRow': (numCol, numRow),\
                         'barriers': [(coordX, coordY), ...], \
                     }" = None,
+    depotID:    "DepotID, default to be 0" = 0,
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All',
     serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0,
@@ -49,7 +50,20 @@ def lbTSP(
 
     # Define tau ==============================================================
     tau = getTau(nodes, edges, edgeArgs, depotID, nodeIDs, serviceTime)
-        
+
+    # Check symmetric =========================================================
+    asymFlag = False
+    for (i, j) in tau:
+        if (tau[i, j] != tau[j, i]):
+            asymFlag = True
+            break
+    
+    # Create arcs =============================================================
+    weightArcs = []
+    for (i, j) in tau:
+        if (i != None and j != None and i < j):
+            weightArcs.append((i, j, tau[i, j]))
+
     # Default configuration ===================================================
     if (algo == 'HeldKarp' and algoArgs == None):
         algoArgs = {
@@ -115,7 +129,7 @@ def _lbTSPHeldKarp(nodeIDs, tau, weightArcs, algoArgs):
             costSum += m1t[i][2]
 
         # Arcs to neighbors
-        neighbors = arcs2AdjList(m1t)
+        neighbors = graphArcs2AdjList(m1t)
         d = []
         for i in range(len(nodeIDs)):
             d.append(2 - len(neighbors[i]))

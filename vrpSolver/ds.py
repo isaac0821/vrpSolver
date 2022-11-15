@@ -460,11 +460,13 @@ class IntervalTree(RedBlackTree):
         return intervals
 
 class LinkedListNode(object):
-    def __init__(self, key, value, prev=None, succ=None):
+    def __init__(self, key, value, prev=None, succ=None, accPrev=None, accSucc=None):
         self.key = key
         self.value = value
         self.prev = prev
         self.succ = succ
+        self.accPrev = accPrev
+        self.accSucc = accSucc
 
 class LinkedList(object):
     # Linked list =============================================================

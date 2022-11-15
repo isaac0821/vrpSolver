@@ -275,7 +275,7 @@ def graphShortestPath(
     algo:       "1) String, (not available) 'Dijkstra' with list, or, \
                  2) String, (not available) 'Johnson', Dijkstra algorithm with binary heap, or, \
                  3) String, (not available) 'FredmanTarjan', Dijkstra algorithm with Fibonacci heap, or, \
-                 4) String, (not available) 'BellmanFold', or, \
+                 4) String, (not available) 'BellmanFord', or, \
                  5) String, (not available) 'FlyodWarshall'" = 'A*',
     oID:        "ID of origin vertex" = None,
     sID:        "1) Integer, ID of target vertex, or, \
@@ -299,11 +299,62 @@ def graphShortestPath(
         if (arc[2] < 0):
             allNonnegativeFlag = False
             break
-    if (not allNonnegativeFlag):
-        if (algo in ['Dijkstra', 'Johnson', 'FredmanTarjan']):
+    if (allNonnegativeFlag):
+        if (algo == 'Dijkstra'):
+            res = _graphShortestPathDijkstra(weightArcs, oID, sID)
+        elif (algo == 'BellmanFord'):
+            res = _graphShortestPathBellmanFord(weightArcs, oID, sID)
+    else:
+        if (algo in ['Johnson', 'FredmanTarjan']):
             print(ERROR_OPTS_SHORTESTPATH_ALGO)
 
     return res
+
+def _graphShortestPathBellmanFord(weightArcs, oID, sID):
+
+    # Find neighbors of each node =============================================
+    adjList = graphArcs2AdjList(weightArcs)
+
+    # Initialize ==============================================================
+    M = sum([i[2] for i in weightArcs])
+    nodes = {}
+    for n in adjList:
+        nodes[n] = {'label': M, 'from': None}
+    nodes[oID] = {'label': 0, 'from': oID}
+    queue = [oID]
+    labeled = []
+
+    # Labeling ================================================================
+    while (queue):
+        # DFS
+        curNode = queue[0]
+        labeled.append(curNode)
+        queue.extend([i for i in list(adjList[curNode].keys()) if i not in labeled])
+        # Dequeue
+        queue = queue[1:]
+        # Labeling
+        for nei in adjList[curNode]:
+            if (nodes[nei]['label'] > nodes[curNode]['label'] + adjList[curNode][nei]):
+                nodes[nei]['label'] = nodes[curNode]['label'] + adjList[curNode][nei]
+                nodes[nei]['from'] = curNode
+    return nodes[sID]['label']
+
+def _graphShortestPathDijkstra(weightArcs, oID, sID):
+    adjList = graphArcs2AdjList(weightArcs)
+
+    M = sum([i[2] for i in weightArcs])
+    nodes = {}
+    for n in adjList:
+        nodes[n] = {'dist': M, 'from': None}
+    nodes[oID] = {'dist': 0, 'from': oID}
+
+    for i in range(len(adjList)):
+        for arc in weightArcs:
+            if (nodes[arc[0]]['dist'] + adjList[arc[0]][arc[1]] < nodes[arc[1]]['dist']):
+                nodes[arc[1]]['dist'] = nodes[arc[0]]['dist'] + adjList[arc[0]][arc[1]]
+                nodes[arc[1]]['from'] = arc[0]
+
+    return nodes[sID]['dist']
 
 def graphMST(
     weightArcs: "A list of 3-tuples, (ID1, ID2, weight), indexes of vertices must start from 0" = None,

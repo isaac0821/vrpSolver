@@ -31,6 +31,24 @@ def rndPick(
             break
     return idx
 
+def binary2StartEndPair(l, trueValue = True):
+    p = []
+    start = None
+    if (l[0] == trueValue):
+        start = 0
+    for i in range(len(l)):
+        if (l[i] == trueValue):
+            if (start == None):
+                start = i
+        else:
+            if (start != None):
+                p.append([start, i - 1])
+                start = None
+    if (l[-1] == trueValue):
+        if (start != None):
+            p.append([start, len(l) - 1])
+    return p
+
 def iterSeq(seqL, i, direction):
     if (direction == 'next'):
         return i + 1 if i < seqL - 1 else 0

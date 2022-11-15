@@ -64,31 +64,16 @@ def ganttFromVRPSol(
     edges:      "1) String (default) 'Euclidean' or \
                  2) String 'LatLon' or \
                  3) Dictionary {(nodeID1, nodeID2): dist, ...}" = "Euclidean",
-    nodeIDs:    "1) String (default) 'All', or \
-                 2) A list of node IDs" = 'All',
     edgeArgs:   "If choose 'Grid' as tau option, we need to provide the following dictionary \
                 {\
                     'colRow': (numCol, numRow),\
                     'barriers': [(coordX, coordY), ...], \
                 }" = None,
-
     vrpSol:     "Dictionary, solution of VRP, by heuVRP(), heuVRPTW(), heuVRPPD(), heuVRPD(), etc." = None
     ) -> "Given a VRP result, returns the gantt dictionary for plotGantt()":
 
     # Define tau ==============================================================
-    tau = {}
-    if (type(edges) is not dict):
-        if (edges == 'Euclidean'):
-            tau = getTauEuclidean(nodes, nodeIDs)
-        elif (edges == 'LatLon'):
-            tau = getTauLatLon(nodes, nodeIDs)
-        elif (edges == 'Grid'):
-            tau = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
-        else:
-            msgError(ERROR_INCOR_TAU)
-            return None
-    else:
-        tau = dict(edges)
+    tau = getTau(nodes, edges, edgeArgs, vrpSol['route'][0][0], None, vrpSol['serviceTime'])
 
     # Create gantt ============================================================
     gantt = []
@@ -123,19 +108,7 @@ def ganttFromTSPSol(
     ) -> "Given a TSP result, returns the gantt dictionary for plotGantt()":
 
     # Define tau ==============================================================
-    tau = {}
-    if (type(edges) is not dict):
-        if (edges == 'Euclidean'):
-            tau = getTauEuclidean(nodes, nodeIDs)
-        elif (edges == 'LatLon'):
-            tau = getTauLatLon(nodes, nodeIDs)
-        elif (edges == 'Grid'):
-            tau = getTauGrid(nodes, nodeIDs, edgeArgs['colRow'], edgeArgs['barriers'])
-        else:
-            msgError(ERROR_INCOR_TAU)
-            return None
-    else:
-        tau = dict(edges)
+    tau = getTau(nodes, edges, edgeArgs, tspSol['seq'][0], None, tspSol['serviceTime'])
 
     # Create gantt ============================================================
     gantt = ganttFromVisitSeq(
@@ -163,7 +136,7 @@ def ganttFromVisitSeq(
         gantt.append({
             'entityID': entityID,
             'timeWindow': [acc, acc + dt],
-            'desc': 'cus_' + str(visitSeq[i + 1]),
+            'desc': str(visitSeq[i + 1]),
             'color': 'lightgreen',
             'style': '///'
         })

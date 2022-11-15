@@ -206,6 +206,7 @@ def rndPlainNodes(
             nodes[n] = {
                 'loc': _rndPtClusterLatLon(distrArgs['centroidLocs'], distrArgs['clusterDiameterInMeters'])
             }
+    
     else:
         msgError(ERROR_INCOR_DISTARG)
         return
@@ -357,6 +358,13 @@ def rndTimeWindowsNodes(
                         timeSpan)
 
     return nodes
+
+def rndPickupDelivery(
+    N:          "Number of pickup and delivery pairs" = None,
+    plainNodes: "Needs to provide plain nodes" = None
+    ) -> "Randomly create pickup and delivery pairs":
+    
+    return pdPair
 
 def _rndPtRoadNetworkPoly(
     N:          "Number of nodes" = 1,

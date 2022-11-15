@@ -26,6 +26,7 @@ def ipTSP(
     depotID:    "Depot ID, truck visiting sequence will start from and end with this nodeID" = 0,
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All',
+    initSeq:    "Initial sequence" = None,
     serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0,
     fml:        "1) String (default) 'DFJ_Lazy' or \
                  2) String 'DFJ_PlainLoop' or \
@@ -44,7 +45,7 @@ def ipTSP(
     try:
         import gurobipy as grb
     except(ImportError):
-        msgError("ERROR: Cannot find Gurobi")
+        print("ERROR: Cannot find Gurobi")
         return
 
     # Define nodeIDs ==========================================================

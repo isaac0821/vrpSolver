@@ -4,6 +4,7 @@ import random
 from .color import *
 from .geometry import *
 from .msg import *
+from .province import *
 
 def plotGrid(
     fig:        "Based matplotlib figure object" = None,
@@ -278,6 +279,45 @@ def plotRoadNetwork(
 
     return fig, ax
 
+def plotProvinceMap(
+    fig:        "Based matplotlib figure object" = None,
+    ax:         "Based matplotlib ax object" = None,
+    country:    "String, name of the country" = 'U.S.',
+    provinces:  "List of provinces" = [],
+    linewidth:  "Width of arcs" = 1,
+    edgeColor:  "1) String 'Random', or\
+                 2) String, color" = 'Random',
+    fillColor:  "1) (default) String 'Random', or\
+                 2) None, no fill, or\
+                 3) String, color" = None,
+    fillStyle:  "Background style, None if no style, '///' for shadow" = None,
+    opacity:    "Opacity of filled area" = 0.5,
+    ):
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+    
+    for prv in provinces:
+        prvPoly = None
+        if (country == 'U.S.'):
+            if prv in usState:
+                prvPoly = usState[prv]
+            elif prv in usStateAbbr:
+                prvPoly = usState[usStateAbbr[prv]]
+        else:
+            raise UnsupportedInput("Error: %s is not a supported input." % country) 
+        fig, ax = plotPolygon(
+            fig = fig,
+            ax = ax,
+            poly = prvPoly,
+            xyReverseFlag = True,
+            linewidth = linewidth,
+            edgeColor = edgeColor,
+            fillColor = fillColor,
+            fillStyle = fillStyle,
+            opacity = opacity)
+
+    return fig, ax
+
 def plotPolygon(
     fig:        "Based matplotlib figure object" = None,
     ax:         "Based matplotlib ax object" = None,
@@ -286,8 +326,8 @@ def plotPolygon(
     linewidth:  "Width of arcs" = 1,
     edgeColor:  "1) String 'Random', or\
                  2) String, color" = 'Random',
-    fillColor:  "1) (default) String 'Random', or\
-                 2) None, no fill, or\
+    fillColor:  "1) String 'Random', or\
+                 2) (default) None, no fill, or\
                  3) String, color" = None,
     fillStyle:  "Background style, None if no style, '///' for shadow" = None,
     opacity:    "Opacity of filled area" = 0.5,
@@ -301,7 +341,7 @@ def plotPolygon(
                  2) String, the path for exporting image" = None,
     showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
                  recommended to turn off if generate a batch of images" = True
-    ) -> "Draw a polygon, e.g., cloud":
+    ) -> "Draw a polygon":
 
     # If no based matplotlib figure, define boundary ==========================
     if (fig == None or ax == None):
@@ -361,8 +401,9 @@ def plotPolygon(
         ax.plot(x, y, color = edgeColor, linewidth = linewidth)
     else:
         if (fillColor == 'Random'):
-            fillColor = colorRandom()
-        ax.fill(x, y, facecolor=fillColor, edgecolor=edgeColor, hatch=fillStyle, linewidth=linewidth, alpha=opacity)
+            ax.fill(x, y, facecolor=colorRandom(), edgecolor=edgeColor, hatch=fillStyle, linewidth=linewidth, alpha=opacity)
+        else:
+            ax.fill(x, y, facecolor=fillColor, edgecolor=edgeColor, hatch=fillStyle, linewidth=linewidth, alpha=opacity)
     plt.close(fig)
 
     # Save figure =============================================================
@@ -377,15 +418,16 @@ def plotNodes(
     fig:        "Based matplotlib figure object" = None,
     ax:         "Based matplotlib ax object" = None,
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (x, y), 'marker': 'r', 'color': 'red', 'size': 3}, \
-                        nodeID2: {'loc': (x, y), 'marker': 'r', 'color': 'red', 'size': 3}, \
-                        ... \
-                    }" = None, 
+                {\
+                    nodeID1: {'loc': (x, y), 'marker': 'r', 'color': 'red', 'size': 3}, \
+                    nodeID2: {'loc': (x, y), 'marker': 'r', 'color': 'red', 'size': 3}, \
+                    ... \
+                }" = None, 
     xyReverseFlag: "Reverse x, y. Usually use for (lat, lon)" = False,
     color:      "Decide the color of nodes if the 'color' tag is not in `nodes` \
                  1) String 'Random', or\
                  2) String, color" = 'Random',
+    fontsize:   "font size of node" = None,
     figSize:    "Size of the figure, in (width, height)" = (5, 5), 
     xMin:       "min of x-axis" = None,
     xMax:       "max of x-axis" = None,
@@ -470,9 +512,14 @@ def plotNodes(
         else:
             ax.plot(x, y, color = nodeColor, marker = nodeMarker, markersize = nodeMarkersize)
         if ('label' not in nodes[n]):
-            ax.annotate(n, (x, y))
+            lbl = n
         else:
-            ax.annotate(nodes[n]['label'], (x, y))
+            lbl = nodes[n]['label']
+
+        if (fontsize == None):
+            ax.annotate(lbl, (x, y))
+        else:
+            ax.annotate(lbl, (x, y), fontsize=fontsize)
 
     plt.close(fig)
 
@@ -652,29 +699,35 @@ def plotGantt(
     fig:        "Based matplotlib figure object" = None, 
     ax:         "Based matplotlib ax object" = None,
     gantt:      "List of dictionaries, in the following format\
-                    [{\
-                        'entityID': entityID, \
-                        'timeWindow': [startTime, endTime], \
-                        'desc': (optional) description of the window,\
-                        'trackID': (optional, default as '0') parallel gantt chart ID, \
-                        'color': (optional, default as 'random') color, \
-                        'style': (optional, default as 'solid') 'solid' \
-                    }, ... , \
-                    {\
-                        'entityID': entityID, \
-                        'timeStamps': [timeStamp1, timeStamp2, ..., timeStampN], \
-                        'desc': (optional) [List of descriptions, correspond to `timeStamps`],\
-                        'trackID': (optional, default as '0') parallel gantt chart ID, \
-                        'color': (optional, default as 'random') color, \
-                        'style': (optional, default as 'solid') 'solid' \
-                    }, ... , ]\
+                [{\
+                    'entityID': entityID, \
+                    'timeWindow': [startTime, endTime], \
+                    'desc': (optional) description of the window,\
+                    'trackID': (optional, default as '0') parallel gantt chart ID, \
+                    'color': (optional, default as 'random') color, \
+                    'style': (optional, default as 'solid') 'solid' \
+                }, ... , \
+                {\
+                    'entityID': entityID, \
+                    'timeStamps': [timeStamp1, timeStamp2, ..., timeStampN], \
+                    'desc': (optional) [List of descriptions, correspond to `timeStamps`],\
+                    'trackID': (optional, default as '0') parallel gantt chart ID, \
+                    'color': (optional, default as 'random') color, \
+                    'style': (optional, default as 'solid') 'solid' \
+                }, ... , ]\
                 " = None,
     gridFlag:   "True if turn on the grid as background" = True,
     labelFlag:  "True if add label of entities on Gantt chart" = True,
     linewidth:  "The width of Gantt block borders" = 1,
+    xlabel:     "xlabel of the gantt" = "Time",
+    ylabel:     "ylabel of the gantt" = "",
+    groupDivider: "Line style of dividing groups of gantt" = None,
+    groupDividerColor: "Line color of dividing groups of gantt" = 'black',
+    blockwidth: "The width of Gantt block" = 0.8,
     entities:   "1) None, takes the entities in `gantt` \
                  2) List of strings, the Gantt chart will be drawn in this order, \
                  3) List of lists (strings), the Gantt chart will be drawn in groups" = None,
+    groupLabel: "List of group labels, should match with `entities`" = None,
     startTime:  "Start time of Gantt, default to be 0, if None, use the earliest time in `gantt`" = 0,
     endTime:    "End time of Gantt, default to be None, if None, use the latest time in `gantt`" = None,
     showTail:   "Show the latest time of all gantt blocks" = True,
@@ -719,13 +772,15 @@ def plotGantt(
     else:
         endTime = realEnd
 
-    # Arrange entities ========================================================              
+    # Arrange entities ========================================================
+    numGroup = None              
     if (entities != None):
         # Check inputs
         groupFlag = False
         for e in entities:
             if (type(e) == list):
                 groupFlag = True
+                numGroup = len(entities)
                 break
         # If the type of entities is List of Lists, the entities are grouped
         if (groupFlag == True):
@@ -744,8 +799,7 @@ def plotGantt(
             if (e not in entList and e != None):
                 notFound.append("\"" + str(e) + "\"")
         if (len(notFound) > 0):
-            msgError(ERROR_INCOR_GANTT_MISSENT + ": " + list2String(notFound))
-            return
+            warnings.warn(ERROR_INCOR_GANTT_MISSENT + ": " + list2String(notFound))            
     elif (entities == None):
         entities = [i for i in entList]
 
@@ -755,22 +809,31 @@ def plotGantt(
         fig.set_figheight(figSize[1])
         fig.set_figwidth(figSize[0])
         ax.set_xlim(startTime, endTime + (endTime - startTime) * 0.05)
-        ax.set_ylim(0, len(entities) + 0.2)
+        ax.set_ylim(-0.25, len(entities) + 0.5)
 
     # Set axis ================================================================
     entities.reverse()
+    if (groupDivider != None and len(groupLabel) > 0):
+        groupLabel.reverse()
     yticks = []
     pos = 0.5
+    groupIndex = 0
     for i in range(len(entities)):
         yticks.append(pos)
         if (entities[i] != None):
             pos += 1
         else:
+            if (groupDivider != None):
+                ax.plot((startTime, endTime + (endTime - startTime) * 0.05), (pos - 0.25, pos - 0.25), linestyle = groupDivider, color = groupDividerColor, linewidth=linewidth)
+                if (groupLabel != None and len(groupLabel) == numGroup):
+                    ax.annotate(groupLabel[groupIndex + 1], (endTime + (endTime - startTime) * 0.05, pos - 0.1), horizontalalignment='right')
+                    groupIndex += 1
             pos += 0.5
     ax.set_yticks(yticks)   
     ax.set_yticklabels(entities)
+    ax.set_ylabel(ylabel)
     entities.reverse()
-    ax.set_xlabel("Time")
+    ax.set_xlabel(xlabel)
 
     # Grids ===================================================================
     if (gridFlag):
@@ -779,12 +842,12 @@ def plotGantt(
     # Loop through `gantt` and draw gantt =====================================
     for g in gantt:
         if (g['entityID'] in entities):
-            bottom = yticks[len(yticks) - 1 - entities.index(g['entityID'])] + 0.4 - 0.8
+            bottom = yticks[len(yticks) - 1 - entities.index(g['entityID'])] - blockwidth / 2
             top = 0
             if (labelFlag == True):
-                top = yticks[len(yticks) - 1 - entities.index(g['entityID'])] + 0.20
+                top = yticks[len(yticks) - 1 - entities.index(g['entityID'])] + blockwidth / 4
             else:
-                top = yticks[len(yticks) - 1 - entities.index(g['entityID'])] + 0.4
+                top = yticks[len(yticks) - 1 - entities.index(g['entityID'])] + blockwidth / 2
             if ('timeWindow' in g):
                 s = g['timeWindow'][0]
                 e = g['timeWindow'][1]
@@ -797,7 +860,7 @@ def plotGantt(
                     rndColor = colorRandom()
                     ax.fill(x, y, color = rndColor, linewidth = linewidth)
                 if (labelFlag == True):
-                    ax.annotate(g['desc'], (s, top + 0.1))
+                    ax.annotate(g['desc'], (s, top + blockwidth / 8))
                 if (g['style'] != 'solid'):
                     ax.fill(x, y, hatch = g['style'], fill=False, linewidth = linewidth)
             elif ('timeStamps' in g):
@@ -807,7 +870,7 @@ def plotGantt(
                     x = [s, s, e, e, s]
                     y = [bottom, top, top, bottom, bottom]
                     ax.plot(x, y, color = 'black', linewidth = linewidth)
-                    ax.annotate(g['desc'][i], (s, top + 0.1))
+                    ax.annotate(g['desc'][i], (s, top + blockwidth / 8))
                     if (g['color'] != 'random'):
                         ax.fill(x, y, color = g['color'], linewidth = linewidth)
                     else:
@@ -816,7 +879,7 @@ def plotGantt(
                     if (g['style'] != 'solid'):
                         ax.fill(x, y, hatch = g['style'], fill=False, linewidth = linewidth)
                 if (labelFlag == True):
-                    ax.annotate(g['desc'][-1], (g['timeStamps'][-1], top + 0.1))
+                    ax.annotate(g['desc'][-1], (g['timeStamps'][-1], top + blockwidth / 8))
 
     # Show time span ==========================================================
     if (showTail):

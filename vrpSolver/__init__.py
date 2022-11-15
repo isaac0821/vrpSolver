@@ -79,6 +79,9 @@ from .const import *
 from .msg import *
 from .error import *
 
+# Data
+from .province import *
+
 # Data structure definition
 from .ds import *
 

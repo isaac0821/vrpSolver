@@ -59,7 +59,7 @@ def metaTSP(
             msgError(ERROR_INCOR_NODEIDS)
             return
             
-    # Define tau ==============================================================
+    # Define distance matrix ==================================================
     tau = getTau(nodes, edges, edgeArgs, depotID, nodeIDs, serviceTime)
 
     # Configuration ===========================================================
@@ -73,37 +73,25 @@ def metaTSP(
                 'coolRate': 0.995,
                 'stopCriteria': [('Executed_Time', 10)]
             }
-            warnings.warn("WARNING: Missing `metaAlgoArgs`. Using default setting as follows, results may not be satisfactory.")
-            warnings.warn(metaAlgoArgs)
+            warnings.warn("WARNING: Missing `metaAlgoArgs`. Using default settings, results may not be satisfactory.")
         else:
-            canGo = True
-            warningGo = False
             if ('initAlgo' not in metaAlgoArgs):
                 warnings.warn("WARNING: Missing 'initAlgo' in `metaAlgoArgs`. Initial solution set to be 'Sweep'")
                 metaAlgoArgs['initAlgo'] = 'Sweep'
-                warningGo = True
             if ('initTemp' not in metaAlgoArgs):
-                msgError("ERROR: Missing 'initTemp' in `metaAlgoArgs`. Require initial temperature")
-                canGo = False
+                raise MissingParameterError("ERROR: Missing 'initTemp' in `metaAlgoArgs`. Require initial temperature")
             if ('iterTemp' not in metaAlgoArgs):
-                msgError("ERROR: Missing 'iterTemp' in `metaAlgoArgs`. Require number of iterations per temperature")
-                canGo = False
+                raise MissingParameterError("ERROR: Missing 'iterTemp' in `metaAlgoArgs`. Require number of iterations per temperature")
             if ('optRatio' not in metaAlgoArgs): 
                 warnings.warn("WARNING: Missing 'optRatio' in `metaAlgoArgs`. 'optRatio' is the percentage of taking (swap, exchange, 2Opt) operators")
                 metaAlgoArgs['optRatio'] = (0.3, 0.3, 0.4)
-                warningGo = True
             if ('coolRate' not in metaAlgoArgs):
-                msgError("ERROR: Missing 'coolRate' in `metaAlgoArgs`. Require cooling rate, e.g., 0.99")
-                canGo = False
+                raise MissingParameterError("ERROR: Missing 'coolRate' in `metaAlgoArgs`. Require cooling rate, e.g., 0.99")
             if ('stopCriteria' not in metaAlgoArgs):
                 warnings.warn("WARNING: Missing 'stopCriteria' in `metaheuristic`. Set to be default as 'Executed_Time' for 10 seconds")
                 metaAlgoArgs['stopCriteria'] = [('Executed_Time', 10)]
-                warningGo = True
-            if (not canGo):
-                return None
-            if (warningGo):
-                warnings.warn("WARNING: Adjusted `metaAlgoArgs` is as follows:")
-                warnings.warn(metaAlgoArgs)
+    else:
+        raise UnsupportedInputError("Metaheuristic option not supported yet.")
 
     # Subroutines for different metaheuristic =================================
     def _metaTSPSimulatedAnnealing(initAlgo, initAlgoArgs, initTemp, iterTemp, optRatio, coolRate, stopCriteria):
@@ -165,11 +153,10 @@ def metaTSP(
                         i = random.randint(0, N - 1)
                         j = random.randint(0, N - 1)
                     res = exchange2Arcs(
-                        seq = curSeq, 
+                        route = curSeq, 
                         tau = tau, 
                         i = i, 
-                        j = j, 
-                        cost = ofv)
+                        j = j)
                 newSeq = res['seq']
                 deltaC = res['deltaCost']
 
