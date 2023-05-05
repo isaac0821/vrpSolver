@@ -456,3 +456,5 @@ def _lImpRouteMinMax(nodes, depotID, customerID, tau, route, asymFlag):
                             route[r]['revCost'] = calSeqCostMatrix(tau, revSeq, True)
 
     return route
+
+

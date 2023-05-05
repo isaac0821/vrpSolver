@@ -11,7 +11,7 @@ def gridPathFinding(
                 {\
                     'gridColRow': gridColRow,\
                     'barriers': barriers,\
-                    'type': 'Square' or 'Hexagon'\
+                    'type': 'Square' # or 'Hexagon'\
                 }" = None,
     startCoord: "Start coordinate" = (0, 0),
     endCoord:   "End coordinate" = (0, 0),

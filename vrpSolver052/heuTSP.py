@@ -42,7 +42,7 @@ def heuTSP(
                  7) String 'Christofides' or \
                  8) String (not available) 'CycleCover', for ATSP, also works for TSP or \
                  9) String 'Random'" = 'Insertion',
-    consAlgoArgs: "Dictionary, args for construction heuristic \
+    consAlgoArgs: "Dictionary, args for constructive heuristic \
                  1) None for unspecified `algo` options, or \
                  2) for None, which an initial route should be given\
                     {\
@@ -89,7 +89,7 @@ def heuTSP(
             asymFlag = True
             break
 
-    # Construction heuristics =================================================
+    # Constructive heuristics =================================================
     # NOTE: These heuristics don't need to transform into arc representation
     # NOTE: Output format: [depotID, xx, xx, xx, depotID]
     seq = None
@@ -143,7 +143,7 @@ def heuTSP(
             if (i != None and j != None and i < j):
                 weightArcs.append((i, j, tau[i, j]))
 
-    # Construction Heuristics for TSP =========================================
+    # Constructive Heuristics for TSP =========================================
     if (seq == None and not asymFlag):
         if (consAlgo == 'DepthFirst'):
             seq = _consTSPDepthFirst(weightArcs)
@@ -152,9 +152,9 @@ def heuTSP(
                 consAlgoArgs = {'matchingAlgo': 'IP'}
             seq = _consTSPChristofides(weightArcs, consAlgoArgs['matchingAlgo'])
 
-    # Confirm construction results ============================================
+    # Confirm constructive results ============================================
     if (seq == None):
-        msgError("ERROR: Incorrect construction algorithm")
+        msgError("ERROR: Incorrect constructive algorithm")
         return
 
     # Local improvement ======================================================= 

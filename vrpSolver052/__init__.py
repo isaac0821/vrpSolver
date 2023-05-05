@@ -113,9 +113,6 @@ from .lbTSP import *
 # from .ipVRP import *
 from .heuVRP import *
 
-from .CVRPTW import *
-from .cgCVRPTW import *
-
 # Post optimization
 from .stat import *
 

@@ -2,7 +2,10 @@ import geopy.distance
 import heapq
 import math
 import numpy as np
+
 import tripy
+
+
 
 from .common import *
 from .const import *
@@ -30,6 +33,25 @@ def ptLatLon2XYMercator(
     x = math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * CONST_EARTH_RADIUS_METERS
     ptXY = (x, y)
     return ptXY
+
+def mapLatLon2LatLon(
+    locsInAreaA:  "A list of (lat, lon) in area A" = None,
+    locAnchorA:   "The anchor point of area A" = None,
+    locAnchorB:   "The anchor point of area B" = None
+    ) -> "Given a set of lat/lon coords in area A, a relative location A of area A, and a relative \
+          location B of area B. Map the lat/lon coords to area B":
+
+    # Initialize ==============================================================
+    locsInAreaB = []
+
+    # Mapping, using directions and distance ==================================
+    for locA in locsInAreaA:
+        deg = headingLatLon(locAnchorA, locA)
+        dist = distLatLon(locAnchorA, locA)
+        locB = ptInDistLatLon(locAnchorB, deg, dist)
+        locsInAreaB.append(locB)
+
+    return locsInAreaB
 
 def htMovingPtTowardsLineSegXY(
     ptXY:       "Point that is moving" = None,
@@ -1032,7 +1054,7 @@ def _getCentroidWeiszfeld(nodes, nodeIDs):
 
     return centroid
 
-def getDiameter2D(
+def getDiameter(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
                         nodeID1: {'loc': (x, y)}, \
@@ -1054,28 +1076,6 @@ def getDiameter2D(
 
     return maxD
 
-def getDiameterLatLon(
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None
-    ):
-
-    cov = getConvexHull(nodes)
-    
-    # FIXME: 先用最笨的O(n^2)顶上，找时间换成旋转卡壳法
-    maxD = 0
-
-    for i in range(len(cov) - 1):
-        for j in range(i + 1, len(cov)):
-            d = distLatLon(nodes[cov[i]]['loc'], nodes[cov[j]]['loc'])
-            if (d >= maxD):
-                maxD = d
-
-    return maxD
-
 def getMinCircle(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
@@ -1084,7 +1084,9 @@ def getMinCircle(
                         ... \
                     }" = None
     ):
+
     # FIXME: 占个座
+
     return
 
 def getScan(

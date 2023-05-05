@@ -21,17 +21,15 @@ def rndPlainNodes(
                  4) String, 'uniformPoly', or\
                  5) String, 'uniformRoadNetwork', or\
                  6) String, 'clustered'" = 'uniformSquare',
-    distr:       "Spatial distribution of nodes, the options are \
-                 1) (default) Uniformly sample from a square\
+    distrArgs:  "Dictionary that describes the distribution of the nodes\
+                 1) for 'uniformSquare'\
                     {\
-                        'method': 'uniformSquare', \
                         'xRange': A 2-tuple with minimum/maximum range of x, default as (0, 100), \
                         'yRange': A 2-tuple with minimum/maximum range of y, default as (0, 100), \
                     }\
-                 2) Uniformly sample from a circle in Euclidean space\
+                 2) for 'uniformCircle'\
                     {\
-                        'method': 'uniformCircleXY',\
-                        'centerLoc': centering location, default as (0, 0), \
+                        'centerLoc': centering location \
                         'radius': radius of the circle \
                     }\
                  3) for 'uniformPoly'\
@@ -215,6 +213,159 @@ def rndPlainNodes(
 
     return nodes
 
+def rndTimeWindowsNodes(
+    plainNodes: "Needs to provide plain nodes" = None,
+    timeSpan:   "Time span for generating time windows, starting from 0" = None,
+    twType:     "Type of time windows\
+                 1) String 'Known', all time windows are given priorly, or \
+                 2) String 'Periodic', time windows are generated periodically, or \
+                 3) String 'Random', time windows are generated randomly " = 'Random',
+    twArgs:     "Dictionary, \
+                 1) For 'Known' twType:\
+                    {\
+                        'timeWindows': A list of 2-tuples, e.g., [(s1, e1), (s2, e2), ...]\
+                    }\
+                 2) For 'Periodic' twType:\
+                    {\
+                        'cycleTime': cycleTime, \
+                        'startTimeInCycle': startTimeInCycle, \
+                        'endTimeInCycle': endTimeInCycle \
+                    }\
+                 3) For 'Random' twType:\
+                    {\
+                        'indFlag': True if different nodes have different time windows, False otherwise,\
+                        'avgBtwDur': average interval time between time windows, exponential distributed,\
+                        'avgTWDur': average length of time windows, exponential distributed\
+                    }" = None
+    ) -> "A set of nodes with time windows":
+    # Initialize ==============================================================
+    nodes = dict(plainNodes)
+
+    # Check for required fields ===============================================
+    if (plainNodes == None):
+        msgError(ERROR_MISSING_PLAINNODES)
+        return
+    if (timeSpan == None):
+        msgError(ERROR_MISSING_TIMESPAN)
+        return
+    validTWOpts = ['Known', 'Periodic', 'Random']
+    if (twType not in validTWOpts):
+        msgError(ERROR_OPTS_TWTYPE % validTWOpts)
+        return
+    elif (twType == 'Known'):
+        if (twArgs == None):
+            msgError(ERROR_MISSING_TWKNOWNARGS)
+            return
+        elif ('timeWindows' not in twArgs):
+            print (ERROR_MISSING_TWKNOWNARGS_TW)
+            return
+    elif (twType == 'Periodic'):
+        if (twArgs == None):
+            msgError(ERROR_MISSING_TWPERIODICARGS)
+            return
+        elif ('cycleTime' not in twArgs):
+            msgError(ERROR_MISSING_TWPERIODICARGS_CT)
+            return
+        elif ('startTimeInCycle' not in twArgs):
+            msgError(ERROR_MISSING_TWPERIODICARGS_ST)
+            return
+        elif ('endTimeInCycle' not in twArgs):
+            msgError(ERROR_MISSING_TWPERIODICARGS_ET)
+            return
+    elif (twType == 'Random'):
+        if (twArgs == None):
+            msgError(ERROR_MISSING_TWRANDOMARGS)
+            return
+        elif ('indFlag' not in twArgs):
+            msgError(ERROR_MISSING_TWRANDOMARGS_FG)
+            return
+        elif ('avgBtwDur' not in twArgs):
+            msgError(ERROR_MISSING_TWRANDOMARGS_BTW)
+            return
+        elif ('avgTWDur' not in twArgs):
+            msgError(ERROR_MISSING_TWRANDOMARGS_TW)
+            return
+
+    # Generate time windows for different types ===============================
+    for n in nodes:
+        nodes[n]['timeWindows'] = []
+    if (twType == "Known"):
+        for n in nodes:
+            nodes[n]['timeWindows'] = twArgs['timeWindows']
+    elif (twType == 'Periodic'):
+        repeatNum = math.ceil(timeSpan / twArgs['cycleTime'])
+        for tw in range(repeatNum):
+            for n in nodes:
+                nodes[n]['timeWindows'].append((
+                    tw * twArgs['cycleTime'] + twArgs['startTimeInCycle'], 
+                    tw * twArgs['cycleTime'] + twArgs['endTimeInCycle']))
+    elif (twType == 'Random'):
+        avgBtwDur = twArgs['avgBtwDur']
+        avgTWDur = twArgs['avgTWDur']
+        # If all nodes have different time windows
+        if (twArgs['indFlag'] == False):
+            now = 0
+            pre = 0
+            availFlag = True if (random.random() < (avgTWDur / (avgTWDur + avgBtwDur))) else False
+            while (now < timeSpan):            
+                interval = 0
+                if (availFlag):
+                    if (avgTWDur > 0):
+                        interval = random.expovariate(1 / avgTWDur)
+                        now += interval
+                        if (interval > 0.0001):
+                            for n in nodes:
+                                nodes[n]['timeWindows'].append((pre, now))
+                else:
+                    if (avgBtwDur > 0):
+                        interval = random.expovariate(1 / avgBtwDur)
+                        now += interval
+                availFlag = not availFlag
+                pre = now
+        # If all nodes have the same time windows
+        else:
+            for n in nodes:
+                now = 0
+                pre = 0
+                availFlag = True if (random.random() < (avgTWDur / (avgTWDur + avgBtwDur))) else False
+                while (now < timeSpan):
+                    interval = 0
+                    if (availFlag):
+                        if (avgTWDur > 0):
+                            interval = random.expovariate(1 / avgTWDur)
+                            now += interval
+                            if (interval > 0.0001):
+                                nodes[n]['timeWindows'].append((pre, now))
+                    else:
+                        if (avgBtwDur > 0):
+                            interval = random.expovariate(1 / avgBtwDur)
+                            now += interval
+                    availFlag = not availFlag
+                    pre = now
+
+    # Truncate last time window to fit time span ==============================
+    for n in nodes:
+        while (len(nodes[n]['timeWindows']) > 0 and (nodes[n]['timeWindows'][-1][0] >= timeSpan or nodes[n]['timeWindows'][-1][1] > timeSpan)):
+            lastStart = nodes[n]['timeWindows'][-1][0]
+            if (lastStart >= timeSpan):
+                for n in nodes:
+                    nodes[n]['timeWindows'] = nodes[n]['timeWindows'][:-1]
+            lastEnd = nodes[n]['timeWindows'][-1][1]
+            if (lastEnd >= timeSpan):
+                for n in nodes:
+                    nodes[n]['timeWindows'][-1] = (
+                        nodes[n]['timeWindows'][-1][0], 
+                        timeSpan)
+
+    return nodes
+
+def rndPickupDelivery(
+    N:          "Number of pickup and delivery pairs" = None,
+    plainNodes: "Needs to provide plain nodes" = None
+    ) -> "Randomly create pickup and delivery pairs":
+    
+    return pdPair
+
 def _rndPtRoadNetworkPoly(
     N:          "Number of nodes" = 1,
     road:       "Dictionary of road network in the format of \
@@ -281,7 +432,7 @@ def _rndPtRoadNetworkPoly(
 
 def _rndPtRoadNetworkCircle(
     N:          "Number of nodes" = 1,
-    road:       "Dictionary of road network in the format of \
+    road: "Dictionary of road network in the format of \
                 {\
                     roadID: {\
                         'shape': [[lat, lon], [lat, lon], ...]\
