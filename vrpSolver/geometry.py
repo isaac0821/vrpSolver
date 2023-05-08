@@ -344,7 +344,7 @@ def distPt2Line(
         return 0.0
 
     # Calculate dist to line ==================================================
-    areaSAB = calTriangleAreaByCoords(ptS, ptA, ptB)
+    areaSAB = calTriangleAreaXY(ptS, ptA, ptB)
     bottom = distEuclidean2D(ptA, ptB)
     height = 2 * areaSAB / bottom
     dist = height
@@ -382,7 +382,7 @@ def distPt2Seg(
     # Calculate dist to line ==================================================
     # if both angles are sharp, the closest point will be in the line, otherwise the closest point is at the edge
     if (cosSAB >= 0 and cosSBA >= 0):
-        areaSAB = calTriangleAreaByCoords(ptS, ptA, ptB)
+        areaSAB = calTriangleAreaXY(ptS, ptA, ptB)
         bottom = distEuclidean2D(ptA, ptB)
         height = 2 * areaSAB / bottom
         dist = height
@@ -393,7 +393,7 @@ def distPt2Seg(
 
     return dist
 
-def calTriangleAreaByEdges(
+def calTriangleAreaEdge(
     a:          "Length of edge", 
     b:          "Length of edge", 
     c:          "Length of edge"
@@ -403,7 +403,7 @@ def calTriangleAreaByEdges(
     area = math.sqrt(s * (s - a) * (s - b) * (s - c))
     return area
 
-def calTriangleAreaByCoords(
+def calTriangleAreaXY(
     pt1:       "Coordinate of point", 
     pt2:       "Coordinate of point", 
     pt3:       "Coordinate of point"

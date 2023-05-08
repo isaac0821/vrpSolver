@@ -70,7 +70,7 @@ __author__ = "Lan Peng"
 #                    - Remove weather related functions: Not routing related
 #                    - Remove PMS functions: Not routing related
 #                    - Remove warehouse functions: Not directed related to VRP, the grid-based VRP remains in the package
-#                    - Last version before v0.1.0
+#                    - Docstrings for key `public` functions
 # =============================================================================
 '''
 
@@ -113,8 +113,8 @@ from .lbTSP import *
 # from .ipVRP import *
 from .heuVRP import *
 
-from .CVRPTW import *
-from .cgCVRPTW import *
+# from .CVRPTW import *
+# from .cgCVRPTW import *
 
 # Post optimization
 from .stat import *

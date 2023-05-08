@@ -12,6 +12,10 @@ from .operator import *
 from .calculate import *
 from .plot import *
 
+###############################################################################
+# TODO: This Script has not been intergrated to vrpSolver yet                 #
+###############################################################################
+
 def heuTSPPD():
     return
 

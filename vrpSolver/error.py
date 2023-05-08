@@ -10,6 +10,12 @@ class IncorrectMode(Exception):
 class ZeroVectorError(Exception):
     pass
 
+class InvalidPolygonError(Exception):
+    pass
+
+class EmptyError(Exception):
+    pass
+
 class MissingParameterError(Exception):
     pass
 

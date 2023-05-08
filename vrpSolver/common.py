@@ -1,6 +1,10 @@
 import math
 import random
-import pickle5 as pickle
+
+try:
+    import pickle5 as pickle
+except(ImportError):
+    import pickle
 
 from .const import *
 

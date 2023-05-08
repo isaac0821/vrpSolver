@@ -26,6 +26,7 @@ setuptools.setup(
 	install_requires=[
 		'numpy',  
 		'scipy',
+		'geopy',
 		'matplotlib'
 	],
 	classifiers=[
