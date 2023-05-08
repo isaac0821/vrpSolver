@@ -13,63 +13,100 @@ from .calculate import *
 from .plot import *
 
 def heuTSP(
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                 {\
-                    nodeID1: {'loc': (x, y)}, \
-                    nodeID2: {'loc': (x, y)}, \
-                    ... \
-                 }" = None, 
-    edges:      "1) String (default) 'Euclidean' or \
-                 2) String 'LatLon' or \
-                 3) Dictionary {(nodeID1, nodeID2): dist, ...} or \
-                 4) String 'Grid', will need to add arguments using `edgeArgs`" = "Euclidean",
-    edgeArgs:   "If choose 'Grid' as tau option, we need to provide the following dictionary \
-                 {\
-                    'colRow': (numCol, numRow),\
-                    'barriers': [(coordX, coordY), ...], \
-                 }" = None,
+    nodes:      "The coordinate of given nodeID" = None, 
+    edges:      "The traveling matrix" = None,
+    algo:       "Algorithm used in the heuristic" = None,
     depotID:    "DepotID, default to be 0" = 0,
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All',
-    serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0,
-    consAlgo:   "1) None, if TSP initial solution (start and end with the depot) is given, usually for local improving, or \
-                 2) String 'NearestNeighbor' (will be regarded as k-NearestNeighbor and k = 1) or \
-                 2) String 'k-NearestNeighbor' or \
-                 3) String 'FarthestNeighbor' or \
-                 4) String (default) 'Insertion' or \
-                 5) String 'Sweep' or \
-                 6) String 'DepthFirst' or \
-                 7) String 'Christofides' or \
-                 8) String (not available) 'CycleCover', for ATSP, also works for TSP or \
-                 9) String 'Random'" = 'Insertion',
-    consAlgoArgs: "Dictionary, args for construction heuristic \
-                 1) None for unspecified `algo` options, or \
-                 2) for None, which an initial route should be given\
-                    {\
-                        'initSeq': complete initial TSP route, start and end with the depotID\
-                    }\
-                 2) for 'k-NearestNeighbor' \
-                    {\
-                        'k': k-th nearest neighbor\
-                    } \
-                 3) for 'Christofides' \
-                    {\
-                        'matchingAlgo': algorithm for finding minimum matching\
-                    } \
-                 4) for 'Insertion' \
-                    {\
-                        'initSeq': complete/incomplete initial TSP route\
-                    }"= None,
-    impAlgo:    "A string or a list of strings, options are as follows \
-                 1) String (not available) 'LKH' or \
-                 2) String (default) '2Opt' or\
-                 3) String 'Reinsert'" = '2Opt',
-    impAlgoArgs: "Dictionary, args for local improvement heuristic,\
-                 1) For '2Opt'\
-                 {\
-                    'bestInFirstNMove': 5, \
-                 }" = None
+    serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0
     ) -> "Use given heuristic methods to get TSP solution":
+
+    """Use heuristic methods to find suboptimal TSP solution
+
+    Parameters
+    ----------
+
+    nodes: dictionary, required, default None
+        The coordinates of given nodes, in the following format::
+            >>> nodes = {
+            ...     nodeID1: {'loc': (x, y)},
+            ...     nodeID2: {'loc': (x, y)}, # ...
+            ... }
+    edges: dictionary, required, default as {'method': "Euclidean", 'ratio': 1}
+        The traveling matrix. The options are as follows::
+            1) (default) Euclidean space
+            >>> edge = {
+            ...     'method': 'Euclidean',
+            ...     'ratio': 1
+            ... }
+            2) By given pairs of lat/lon
+            >>> edge = {
+            ...     'method': 'LatLon',
+            ...     'unit': 'meters'
+            ... }
+            3) By a given dictionary
+            >>> edge = {
+            ...     'method': 'Dictionary',
+            ...     'dictionary': dictionary
+            ... }
+            4) On the grids
+            >>> edge = {
+            ...     'method': 'Grid',
+            ...     'grid': grid
+            ... }
+    algo: dictionary, required, default as {'cons': 'insert', 'impv': '2opt'}
+        The algorithm configuration. Includes two phases, use 'cons' to specify constructive heuristic, and 'impv' to specify local improvement heurisitc::
+            1) (default) Insertion
+            >>> algo = {
+            ...     'cons': 'Insertion',
+            ...     'initSeq': initSeq, # An initial sequence, defalt [depotID]
+            ...     'impv': '2Opt' # Options are: 'Reinsert', '2Opt'
+            ... }
+            2) Nearest neighborhood / k-nearest neighborhood
+            >>> algo = {
+            ...     'cons': 'NearestNeighbor',
+            ...     'k': 1, # 1: nearest neighbor, 2 ~ K: k-nearest neighbor, -1: farthest neighbor 
+            ... }
+            3) Sweep
+            >>> algo = {
+            ...     'cons': 'Sweep',
+            ...     'direction': 'clock-wise', # or 'counter-clock-wise', default 'clock-wise'
+            ...     'startDeg': 0, # Starting direction, 0 as north/up, default 0
+            ... }
+            4) (working) Christofides
+            >>> algo = {
+            ...     'cons': 'Christofides',
+            ... }
+            5) (planning) Cycle cover, particular for Asymmetric TSP
+            >>> algo = {
+            ...     'cons': 'CycleCover',
+            ... }
+            6) Random sequence
+            >>> algo = {
+            ...     'cons': 'Random'
+            ... }
+            7) Given sequence for further local improvements
+            >>> algo = {
+            ...     'cons': None, # or skip this
+            ...     'initSeq': initSeq, # An initial sequence, cannot be None in this case
+            ... }
+    depotID: int or string, required, default as 0
+        The ID of depot.
+    nodeIDs: string 'All' or a list of node IDs, required, default as 'All'
+        The following are two options: 1) 'All', all nodes will be visited, 2) A list of node IDs to be visited.
+    serviceTime: float, optional, default as 0
+        The service time needed at each location.
+
+    Returns
+    -------
+
+    dictionary
+        A TSP solution in the following format::
+        >>> solution = {
+        ... 
+        ... }
+    """
 
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):

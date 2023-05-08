@@ -418,14 +418,18 @@ def plotNodes(
     fig:        "Based matplotlib figure object" = None,
     ax:         "Based matplotlib ax object" = None,
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                {\
-                    nodeID1: {'loc': (x, y), 'marker': 'r', 'color': 'red', 'size': 3}, \
-                    nodeID2: {'loc': (x, y), 'marker': 'r', 'color': 'red', 'size': 3}, \
-                    ... \
-                }" = None, 
+                    {\
+                        nodeID1: {\
+                            'loc': (x, y), \
+                            'marker': 'r', \
+                            'color': 'red', \
+                            'size': 3, \
+                        }, \
+                        ... \
+                    }" = None, 
     xyReverseFlag: "Reverse x, y. Usually use for (lat, lon)" = False,
     color:      "Decide the color of nodes if the 'color' tag is not in `nodes` \
-                 1) String 'Random', or\
+                 1) String 'Random', or \
                  2) String, color" = 'Random',
     fontsize:   "font size of node" = None,
     figSize:    "Size of the figure, in (width, height)" = (5, 5), 

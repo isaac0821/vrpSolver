@@ -26,7 +26,7 @@ def rndPlainNodes(
         Number of locations/vertices/customers to be randomly created
     nodeIDs: list, optional, default None
         Alternative input parameter of `N`. A list of node IDs, `N` will be overwritten if `nodeIDs` is given
-    distr: dictionary, required, default {'method': 'uniformSquareXY', 'xRange': [0, 100], 'yRange': [0, 100]}
+    distr: dictionary, required, default None
         Spatial distribution of nodes, options are as following:
             1) (default) Uniformly sample from a square on the Euclidean space
             >>> distr = {

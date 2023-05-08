@@ -65,8 +65,6 @@ ERROR_MISSING_NODES_DISTR               =("ERROR: Missing required field `distr`
 ERROR_MISSING_NODES_DISTR_POLYXY        = "ERROR: Missing required key `polyXY` or `polyXYs` in field `distr`, which indicates a polygon / a list of polygons in the Euclidean space"
 ERROR_MISSING_NODES_DISTR_POLYLATLON    = "ERROR: Missing required key `polyLatLon` or `polyLatLons` in field `distr`, which indicates a polygon / a list of polygons in lat/lon format"
 ERROR_MISSING_NODES_DISTR_ROADNETWORK   = "ERROR: Missing required key `roadNetwork` in field `distr`. Need to provide the road network where the nodes are generated."
-
-
 ERROR_MISSING_GANTT                     =("ERROR: Missing required field `gantt`. The format of `gantt` is \n"
                                         + "    [{\n"
                                         + "        'entityID': entityID, \n"
@@ -82,7 +80,6 @@ ERROR_MISSING_GANTT                     =("ERROR: Missing required field `gantt`
                                         + "        'color': color, \n"
                                         + "        'style': 'solid' \n"
                                         + "    }]\n")
-    
 ERROR_ZERO_VECTOR                       = "ERROR: Segment or Ray should be defined using two different points"
 
 # Error message - Incorrect input contents
