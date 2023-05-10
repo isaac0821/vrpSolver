@@ -1,82 +1,123 @@
 import heapq
 import math
 import warnings
+import networkx as nx
+
 
 from .common import *
 from .const import *
+from .msg import *
+from .error import *
 from .geometry import *
-from .graph import *
 
 def ipTSP(
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None, 
-    edges:      "1) String (default) 'Euclidean' or \
-                 2) String 'LatLon' or \
-                 3) String 'Grid' or \
-                 4) Dictionary {(nodeID1, nodeID2): dist, ...}" = "Euclidean",
-    edgeArgs:   "If choose 'Grid' as tau option, we need to provide the following dictionary \
-                {\
-                    'colRow': (numCol, numRow),\
-                    'barriers': [(coordX, coordY), ...], \
-                }" = None,
-    depotID:    "Depot ID, truck visiting sequence will start from and end with this nodeID" = 0,
+    nodes:      "The coordinate of given nodeID" = None, 
+    edges:      "The traveling matrix" = None,
+    algo:       "Algorithm used in the heuristic" = None,
+    depotID:    "DepotID, default to be 0" = 0,
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All',
-    initSeq:    "Initial sequence" = None,
     serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0,
-    fml:        "1) String (default) 'DFJ_Lazy' or \
-                 2) String 'DFJ_PlainLoop' or \
-                 3) String 'MTZ' or \
-                 4) String 'MultiCommodityFlow' or \
-                 5) String 'ShortestPath' or \
-                 6) String 'QAP'" = 'DFJ_Lazy',
-    timeLimit:  "1) Double, in seconds or \
-                 2) (default) None, no time limit" = None,
-    gapTolerance: "1) Double, Stopping gap, or \
-                 2) (default) None, no gap limit" = None,
-    outputFlag: "Boolean, True if export the gurobi logs" = False
+    fml:        "TSP formulation" = 'DFJ_Lazy',
+    solver:     "Settings for solver" = {'solver': 'Gurobi', 'timeLimit': None, 'gapTolerance': None, 'outputFlag': False}
     ) -> "Exact solution for TSP":
 
-    # Check if Gurobi exists ==================================================
-    try:
-        import gurobipy as grb
-    except(ImportError):
-        print("ERROR: Cannot find Gurobi")
-        return
+    """Use IP formulation to find optimal TSP solution
 
-    # Define nodeIDs ==========================================================
+    Parameters
+    ----------
+
+    nodes: dictionary, required, default None
+        The coordinates of given nodes, in the following format::
+            >>> nodes = {
+            ...     nodeID1: {'loc': (x, y)},
+            ...     nodeID2: {'loc': (x, y)}, # ...
+            ... }
+    edges: dictionary, required, default as {'method': "Euclidean", 'ratio': 1}
+        The traveling matrix. The options are as follows::
+            1) (default) Euclidean space
+            >>> edge = {
+            ...     'method': 'Euclidean',
+            ...     'ratio': 1 # Optional, default to be 1
+            ... }
+            2) By given pairs of lat/lon
+            >>> edge = {
+            ...     'method': 'LatLon',
+            ...     'unit': 'meters' # Optional, default to be 1
+            ... }
+            3) ManhattenDistance
+            >>> edge = {
+            ...     'method': 'Manhatten',
+            ...     'ratio': 1 # Optional, default to be 1
+            ... }
+            4) By a given dictionary
+            >>> edge = {
+            ...     'method': 'Dictionary',
+            ...     'dictionary': dictionary,
+            ...     'ratio': 1 # Optional, default to be 1
+            ... }
+            5) On the grids
+            >>> edge = {
+            ...     'method': 'Grid',
+            ...     'grid': grid
+            ... }
+    fml: string, required, default as 'DFJ_Lazy'
+        The IP formulation used for solving TSP. The options are as follows:
+            1) 'DFJ_Lazy'
+            2) 'DFJ_Plainloop'
+            3) 'MTZ'
+            4) 'MultiCommodityFlow' (Only for demonstration, not practical)
+            5) 'ShortestPath' (Only for demonstration, not practical)
+            6) 'QAP' (Only for demonstration, extremely not practical)
+    solver: dictionary, required, default as {'solver': 'Gurobi', 'timeLimit': None, 'gapTolerance': None, 'outputFlag': False}
+        The settings for the MILP solver, right now it only supports Gurobi, the format is as following:
+            >>> solver = {
+            ...     'solver': 'Gurobi',
+            ...     'timeLimit': timeLimit, # Time limit in seconds, for 'DFJ_Plainloop' is the total time limit
+            ...     'gapTolerance': gapTolerance,
+            ...     'outputFlag': False # Turn off solver log output by default
+            }
+
+    Returns
+    -------
+
+    """
+
+    # Sanity check ============================================================
+    if (nodes == None or type(nodes) != dict):
+        raise MissingParameterError(ERROR_MISSING_NODES)
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
             nodeIDs = [i for i in nodes]
         else:
-            msgError(ERROR_INCOR_NODEIDS)
-            return
+            for i in nodeIDs:
+                if (i not in nodes):
+                    raise OutOfRangeError("ERROR: Node %s is not in `nodes`." % i)
+    if ((type(nodeIDs) == list and depotID not in nodeIDs)
+        or (nodeIDs == 'All' and depotID not in nodes)):
+        raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
 
     # Define tau ==============================================================
-    tau = getTau(nodes, edges, edgeArgs, depotID, nodeIDs, serviceTime)
+    tau = getTau(nodes, edges, depotID, nodeIDs, serviceTime)
 
     # Solve by different formulations =========================================
     tsp = None
     if (fml == 'DFJ_Lazy'):
-        tsp = _ipTSPLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance)
+        tsp = _ipTSPLazyCuts(nodeIDs, tau, solver['outputFlag'], solver['timeLimit'], solver['gapTolerance'])
     elif (fml == 'DFJ_PlainLoop'):
-        tsp = _ipTSPPlainLoop(nodeIDs, tau, outputFlag, timeLimit, gapTolerance)
+        tsp = _ipTSPPlainLoop(nodeIDs, tau, solver['outputFlag'], solver['timeLimit'], solver['gapTolerance'])
     elif (fml == 'MTZ'):
-        tsp = _ipTSPMTZ(nodeIDs, tau, outputFlag, timeLimit, gapTolerance)
+        tsp = _ipTSPMTZ(nodeIDs, tau, solver['outputFlag'], solver['timeLimit'], solver['gapTolerance'])
     elif (fml == 'ShortestPath'):
-        tsp = _ipTSPShortestPath(nodeIDs, tau, outputFlag, timeLimit, gapTolerance)
+        tsp = _ipTSPShortestPath(nodeIDs, tau, solver['outputFlag'], solver['timeLimit'], solver['gapTolerance'])
     elif (fml == 'MultiCommodityFlow'):
-        tsp = _ipTSPMultiCommodityFlow(nodeIDs, tau, outputFlag, timeLimit, gapTolerance)
+        tsp = _ipTSPMultiCommodityFlow(nodeIDs, tau, solver['outputFlag'], solver['timeLimit'], solver['gapTolerance'])
     elif (fml == 'QAP'):
-        tsp = _ipTSPQAP(nodeIDs, tau, outputFlag, timeLimit, gapTolerance)
+        tsp = _ipTSPQAP(nodeIDs, tau, solver['outputFlag'], solver['timeLimit'], solver['gapTolerance'])
     else:
-        raise IncorrectMode("Incorrect or not available TSP formulation option!")
-    if (tsp != None):
-        tsp['fml'] = fml
+        raise UnsupportedInputError("ERROR: Incorrect or not available TSP formulation option!")
+    
+    tsp['fml'] = fml
 
     # Fix the sequence to make it start from the depot ========================
     startIndex = None
@@ -100,6 +141,12 @@ def ipTSP(
     return tsp
 
 def _ipTSPQAP(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
+    try:
+        import gurobipy as grb
+    except(ImportError):
+        print("ERROR: Cannot find Gurobi")
+        return
+
     # Initialize
     n = len(nodeIDs)
     TSP = grb.Model('TSP')
@@ -205,6 +252,12 @@ def _ipTSPQAP(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     }
 
 def _ipTSPMultiCommodityFlow(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
+    try:
+        import gurobipy as grb
+    except(ImportError):
+        print("ERROR: Cannot find Gurobi")
+        return
+
     # Initialize
     n = len(nodeIDs)
     TSP = grb.Model('TSP')
@@ -306,6 +359,12 @@ def _ipTSPMultiCommodityFlow(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     }
 
 def _ipTSPShortestPath(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
+    try:
+        import gurobipy as grb
+    except(ImportError):
+        print("ERROR: Cannot find Gurobi")
+        return
+
     # Initialize
     n = len(nodeIDs)
     TSP = grb.Model('TSP')
@@ -393,6 +452,12 @@ def _ipTSPShortestPath(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     }
 
 def _ipTSPMTZ(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
+    try:
+        import gurobipy as grb
+    except(ImportError):
+        print("ERROR: Cannot find Gurobi")
+        return
+
     # Initialize
     n = len(nodeIDs)
     TSP = grb.Model('TSP')
@@ -486,6 +551,12 @@ def _ipTSPMTZ(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     }
 
 def _ipTSPPlainLoop(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
+    try:
+        import gurobipy as grb
+    except(ImportError):
+        print("ERROR: Cannot find Gurobi")
+        return
+
     # Initialize
     n = len(nodeIDs)
     TSP = grb.Model('TSP')
@@ -525,8 +596,11 @@ def _ipTSPPlainLoop(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
         TSP.optimize()
         if (TSP.status == grb.GRB.status.OPTIMAL):
             accRuntime += TSP.Runtime
-            arcs = grb.tuplelist((i, j) for i, j in x.keys() if x[i, j].X > 0.9)
-            components = graphComponents(arcs)
+            G = nx.Graph()
+            for i, j in x.keys():
+                if (x_sol[i, j] > 0.9):
+                    G.add_edge(i, j, weight = tau[i, j])
+            components = [list(c) for c in nx.connected_components(G)]
             if (len(components) == 1):
                 noSubtourFlag = True
                 break
@@ -582,6 +656,12 @@ def _ipTSPPlainLoop(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     }
 
 def _ipTSPLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
+    try:
+        import gurobipy as grb
+    except(ImportError):
+        print("ERROR: Cannot find Gurobi")
+        return
+
     # Initialize
     n = len(nodeIDs)
     TSP = grb.Model('TSP')
@@ -617,8 +697,11 @@ def _ipTSPLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     def subtourelim(model, where):
         if (where == grb.GRB.Callback.MIPSOL):
             x_sol = model.cbGetSolution(model._x)
-            arcs = grb.tuplelist((i, j) for i, j in model._x.keys() if x_sol[i, j] > 0.9)
-            components = graphComponents(arcs)
+            G = nx.Graph()
+            for (i, j) in x.keys():
+                if (x_sol[i, j] > 0.9):
+                    G.add_edge(i, j, weight = tau[i, j])
+            components = [list(c) for c in nx.connected_components(G)]
             for component in components:
                 if (len(component) < n):
                     model.cbLazy(grb.quicksum(x[i,j] for i in component for j in component if i != j) <= len(component) - 1)
