@@ -1,4 +1,5 @@
 import math
+import shapely
 
 from .const import *
 from .msg import *
@@ -20,7 +21,6 @@ def is2PtsSame(
     pt1:        "2-tuple of coordinate (x, y)",
     pt2:        "2-tuple of coordinate (x, y)"
     ) -> "Check if two points are the same":
-    # Check if two points are very close to each other ========================
     if (abs(pt1[0] - pt2[0]) >= CONST_EPSILON):
         return False
     if (abs(pt1[1] - pt2[1]) >= CONST_EPSILON):

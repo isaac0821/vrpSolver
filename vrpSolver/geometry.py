@@ -3,7 +3,9 @@ import heapq
 import math
 import numpy as np
 import tripy
+import shapely
 
+from .error import *
 from .common import *
 from .const import *
 from .graph import *
@@ -281,7 +283,7 @@ def distEuclidean2D(
     else:
         return 0
 
-def distManhattenEuclidean2D(
+def distManhattenXY(
     pt1:        "First coordinate, in (x, y)", 
     pt2:        "Second coordinate, in (x, y)"
     ) -> "Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number":
@@ -586,82 +588,56 @@ def ptInDistLatLon(
     newLoc = list(geopy.distance.distance(meters=distMeters).destination(point=pt, bearing=direction))[:2]
     return newLoc
 
+def intersectPolygon2Polygon(
+    poly1:      "First polygon to be intersected" = None,
+    poly2:      "Second polygon to be intersected" = None
+    ) -> "Given two polygons (no holes), returns the intersection of two polygons":
+
+    return poly
+
+def intersectPolygon2Line(
+    poly:       "Polygon to be intersected" = None,
+    line:       "Line to be intersected" = None
+    ) -> "Given a polygon and a line, returns the line segment inside the polygon":
+    
+    return seq
+
 def getTau(
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None, 
-    edges:      "1) String (default) 'Euclidean' or \
-                 2) String 'LatLon' or \
-                 3) Dictionary {(nodeID1, nodeID2): dist, ...} or \
-                 4) String 'Grid', will need to add arguments using `edgeArgs`" = "Euclidean",
-    edgeArgs:   "Dictionary, to help defining traveling cost matrix \
-                 1) for 'Euclidean', 'LatLon', and the travel cost dictionary,\
-                    {\
-                        'scale': 1, \
-                    }\
-                 2) for 'Grid'\
-                    {\
-                        'colRow': (numCol, numRow),\
-                        'barriers': [(coordX, coordY), ...], \
-                    }" = None,
+    nodes:      "The coordinate of given nodeID" = None, 
+    edges:      "The traveling matrix" = None,
     depotID:    "DepotID, default to be 0" = 0,
     nodeIDs:    "1) String (default) 'All', or \
                  2) A list of node IDs" = 'All',
-    serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0):
+    serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0
+    ) -> "Create traveling matrix":
     # Define tau ==============================================================
     tau = {}
-    if (type(edges) is not dict):
-        if (edges == 'Euclidean'):
-            if (edgeArgs == None):
-                tau = _getTauEuclidean(nodes, nodeIDs)
-            elif ('scale' not in edgeArgs):
-                tau = _getTauEuclidean(nodes, nodeIDs)
-            else:
-                tau = _getTauEuclidean(nodes, nodeIDs, edgeArgs['scale'])
-        elif (edges == 'LatLon'):
-            if (edgeArgs == None):
-                tau = _getTauLatLon(nodes, nodeIDs)
-            elif ('scale' not in edgeArgs):
-                tau = _getTauLatLon(nodes, nodeIDs)
-            else:
-                tau = _getTauLatLon(nodes, nodeIDs, edgeArgs['scale'])
+    if (type(edges) != dict or 'method' not in edges):
+        raise MissingParameterError(ERROR_MISSING_EDGES)
 
-        elif (edges == 'ManhattenEuclidean'):
-            if (edgeArgs == None):
-                tau = _getTauManhattenEuclidean(nodes, nodeIDs)
-            elif ('scale' not in edgeArgs):
-                tau = _getTauManhattenEuclidean(nodes, nodeIDs)
-            else:
-                tau = _getTauManhattenEuclidean(nodes, nodeIDs, edgeArgs['scale'])
-        elif (edges == 'ManhattenLatLon'):
-            if (edgeArgs == None):
-                tau = _getTauManhattenLatLon(nodes, nodeIDs)
-            elif ('scale' not in edgeArgs):
-                tau = _getTauManhattenLatLon(nodes, nodeIDs)
-            else:
-                tau = _getTauManhattenLatLon(nodes, nodeIDs, edgeArgs['scale'])
-
-        elif (edges == 'Grid'):
-            if (edgeArgs == None or 'colRow' not in edgeArgs or 'barriers' not in edgeArgs):
-                msgError("ERROR: Need more information to define the grid.")
-                return None
-            tau = _getTauGrid(nodes, nodeIDs, edgeArgs)
-        else:
-            msgError(ERROR_INCOR_TAU)
-            return None
+    if (edges['method'] == 'Euclidean'):
+        ratio = 1 if 'ratio' not in edges else edges['ratio']
+        tau = _getTauEuclidean(nodes, nodeIDs, ratio)
+    elif (edges['method'] == 'LatLon'):
+        ratio = 1 if 'ratio' not in edges else edges['ratio']
+        tau = _getTauLatLon(nodes, nodeIDs, ratio)
+    elif (edges['method'] == 'Manhatten'):
+        ratio = 1 if 'ratio' not in edges else edges['ratio']
+        tau = _getTauManhatten(nodes, nodeIDs, ratio)
+    elif (edges['method'] == 'Dictionary'):
+        if ('dictionary' not in edges or edges['dictionary'] == None):
+            raise MissingParameterError("'dictionary' is not specified")
+        for p in edges['dictionary']:
+            ratio = 1 if 'ratio' not in edges else edges['ratio']
+            tau[p] = edges['dictionary'][p] * ratio
+    elif (edges['method'] == 'Grid'):
+        if ('grid' not in edges or edges['grid'] == None):
+            raise MissingParameterError("'grid' is not specified")
+        if ('column' not in edges['grid'] or 'row' not in edges['grid']):
+            raise MissingParameterError("'column' and 'row' need to be specified in 'grid'")
+        tau = _getTauGrid(nodes, nodeIDs, edges['grid'])
     else:
-        if (edgeArgs == None):
-            for p in edges:
-                tau[p] = edges[p]
-        elif ('scale' not in edgeArgs):
-            for p in edges:
-                tau[p] = edges[p]
-        else:
-            for p in edges:
-                tau[p] = edges[p] * edgeArgs['scale']
+        raise UnsupportedInputError(ERROR_MISSING_EDGES)        
 
     # Service time ============================================================
     if (depotID != None and serviceTime != None and serviceTime > 0):
@@ -680,7 +656,6 @@ def _getTauEuclidean(nodes, nodeIDs, speed = 1):
             nodeIDs = []
             for i in nodes:
                 nodeIDs.append(i)
-
     # Get tau =================================================================
     tau = {}
     for i in nodeIDs:
@@ -694,7 +669,7 @@ def _getTauEuclidean(nodes, nodeIDs, speed = 1):
                 tau[j, i] = CONST_EPSILON
     return tau
 
-def _getTauManhattenEuclidean(nodes, nodeIDs, speed = 1):
+def _getTauManhatten(nodes, nodeIDs, speed = 1):
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
@@ -707,7 +682,7 @@ def _getTauManhattenEuclidean(nodes, nodeIDs, speed = 1):
     for i in nodeIDs:
         for j in nodeIDs:
             if (i != j):
-                t = distManhattenEuclidean2D(nodes[i]['loc'], nodes[j]['loc']) / speed
+                t = distManhattenXY(nodes[i]['loc'], nodes[j]['loc']) / speed
                 tau[i, j] = t
                 tau[j, i] = t
             else:
@@ -750,8 +725,7 @@ def _getTauGrid(nodes, nodeIDs, grid):
         for j in nodeIDs:
             if (i != j):
                 t = gridPathFinding(
-                    gridColRow = grid['colRow'],
-                    barriers = grid['barriers'],
+                    grid = grid,
                     startGridCoord = nodes[i]['loc'],
                     endGridCoord = nodes[j]['loc'])['dist']
                 tau[i, j] = t

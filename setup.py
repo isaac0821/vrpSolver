@@ -27,7 +27,9 @@ setuptools.setup(
 		'numpy',  
 		'scipy',
 		'geopy',
-		'matplotlib'
+		'matplotlib',
+		'shapely',
+		'networkx'
 	],
 	classifiers=[
 		"Development Status :: 2 - Pre-Alpha",

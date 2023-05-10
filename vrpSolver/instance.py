@@ -11,6 +11,13 @@ from .msg import *
 from .error import *
 from .relation import *
 
+# History =====================================================================
+# 20230510 - Cleaned up for v0.0.55, including the following available nodes 
+#            distributions: 'uniformSquareXY', 'uniformPolyXY', 'uniformCircleXY', 
+#            'uniformCircleLatLon', 'roadNetworkPolyLatLon', and 'roadNetworkCircleLatLon'
+# =============================================================================
+
+
 def rndPlainNodes(
     N:          "Number of vertices" = None,
     nodeIDs:    "(alternative of `N`) A list of node IDs, `N` will be overwritten if `nodeIDs` is given" = None,
@@ -86,6 +93,8 @@ def rndPlainNodes(
     ------
     MissingParameterError
         Missing `distr` field or values in `distr`.
+    UnsupportedInputError
+        Option is not supported for `distr['method']`
     NotAvailableError
         Functions/options that are not ready yet.
     EmptyError
@@ -111,7 +120,7 @@ def rndPlainNodes(
         if ('xRange' not in distr or 'yRange' not in distr):
             xRange = [0, 100]
             yRange = [0, 100]
-            warnings.warn("Set sampled area to be default as a (0, 100) x (0, 100) square")
+            warnings.warn("WARNING: Set sampled area to be default as a (0, 100) x (0, 100) square")
         else:
             xRange = distr['xRange']
             yRange = distr['yRange']
@@ -123,7 +132,7 @@ def rndPlainNodes(
     # Uniformly sample from a polygon/a list of polygons on the Euclidean space
     elif (distr['method'] == 'uniformPolyXY'):
         if ('polyXY' not in distr and 'polyXYs' not in distr):
-            raise MissingParameterError(ERROR_MISSING_NODES_DISTR_POLYXY)
+            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `distr`, which indicates a polygon / a list of polygons in the Euclidean space")
         if ('polyXY' in distr):
             for n in nodeIDs:
                 nodes[n] = {
@@ -140,12 +149,12 @@ def rndPlainNodes(
         centerXY = None
         radius = None
         if ('centerXY' not in distr or 'radius' not in distr):
-            centerXY = (0, 0),
+            centerXY = (0, 0)
             radius = 100
-            warnings.warn("Set sample area to be default as a circle with radius of 100")
+            warnings.warn("WARNING: Set sample area to be default as a circle with radius of 100 centering at (0, 0)")
         else:
             centerXY = distr['centerXY']
-            radius = dist['radius']
+            radius = distr['radius']
         for n in nodeIDs:
             nodes[n] = {
                 'loc': _rndPtUniformCircleXY(radius, centerXY)
@@ -154,14 +163,14 @@ def rndPlainNodes(
     # Uniformly sample from a polygon by lat/lon
     elif (distr['method'] == 'uniformPolyLatLon'):
         if ('polyLatLon' not in distr and 'polyLatLons' not in distr):
-            raise MissingParameterError(ERROR_MISSING_NODES_DISTR_POLYLATLON)
+            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `distr`, which indicates a polygon / a list of polygons in the Euclidean space")
         # TODO: Mercator projection
-        raise NotAvailableError("`uniformPolyLatLon` is not available yet, please stay tune.")
+        raise NotAvailableError("ERROR: 'uniformPolyLatLon' is not available yet, please stay tune.")
 
     # Uniformly sample from a circle by lat/lon
     elif (distr['method'] == 'uniformCircleLatLon'):
         if ('centerLatLon' not in distr or 'radiusInMeters' not in distr):
-            raise MissingParameterError(ERROR_MISSING_NODES_DISTR_CIRCLELATLON)
+            raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `distr`.")
         for n in nodeIDs:
             nodes[n] = {
                 'loc': _rndPtUniformCircleLatLon(distr['radiusInMeters'], distr['centerLatLon'])
@@ -170,11 +179,11 @@ def rndPlainNodes(
     # Uniformly sample from the roads/streets within a polygon/a list of polygons from given road networks
     elif (distr['method'] == 'roadNetworkPolyLatLon'):
         if ('polyLatLon' not in distr):
-            raise MissingParameterError(ERROR_MISSING_NODES_DISTR_POLYLATLON)
+            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `distr`, which indicates a polygon / a list of polygons in the Euclidean space")
         elif ('roadNetwork' not in distr):
-            raise MissingParameterError(ERROR_MISSING_NODES_DISTR_ROADNETWORK)
+            raise MissingParameterError("ERROR: Missing required key 'roadNetwork' in field `distr`. Need to provide the road network where the nodes are generated.")
         elif ('roadClass' not in distr):
-            warnings.warn("WARNING: Set `roadClass` to be default as ['residential']")
+            warnings.warn("WARNING: Set 'roadClass' to be default as ['residential']")
         nodeLocs = _rndPtRoadNetworkPolyLatLon(
             N if N != None else len(nodeIDs),
             distr['roadNetwork'], 
@@ -188,11 +197,11 @@ def rndPlainNodes(
     # Uniformly sample from the roads/streets within a circle from given road network
     elif (distr['method'] == 'roadNetworkCircleLatLon'):
         if ('centerLatLon' not in distr or 'radiusInMeters' not in distr):
-            raise MissingParameterError(ERROR_MISSING_NODES_DISTR_CIRCLELATLON)
+            raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `distr`.")
         elif ('roadNetwork' not in distr):
-            raise MissingParameterError(ERROR_MISSING_NODES_DISTR_ROADNETWORK)
+            raise MissingParameterError("ERROR: Missing required key 'roadNetwork' in field `distr`. Need to provide the road network where the nodes are generated.")
         elif ('roadClass' not in distr):
-            warnings.warn("WARNING: Set `roadClass` to be default as ['residential']")
+            warnings.warn("WARNING: Set 'roadClass' to be default as ['residential']")
         nodeLocs = _rndPtRoadNetworkCircleLatLon(
             N if N != None else len(nodeIDs),
             distr['roadNetwork'], 
@@ -204,7 +213,7 @@ def rndPlainNodes(
                 'loc': nodeLocs[n]
             }
     else:
-        raise MissingParameterError(ERROR_MISSING_NODES_DISTR)
+        raise UnsupportedInputError(ERROR_MISSING_NODES_DISTR)
 
     return nodes
 

@@ -62,8 +62,8 @@ __author__ = "Lan Peng"
 # v0.0.51 - 05172022 - Add a temporary VRP function `heuVRPMakespan()` which minimizes the makespan of VRP
 # v0.0.52 - 05172022 - Minor fixes
 # v0.0.53 - 07112022 - Improve solution quality of 2Opts for TSP
-# v0.0.54 - 07112022 - Minor fixes
-# v0.0.55 - (working)- Implement data structures
+# v0.0.54 - 07112022 - Water under bridge... The purpose of this package is not practicing algorithm anymore now...
+# v0.0.55 - working  - Implement data structures
 #                    - Add Error exceptions
 #                    - Reconstruct for better framework: 1. separates the seq/route operators
 #                    -                                   2. nodes related functions
@@ -71,6 +71,8 @@ __author__ = "Lan Peng"
 #                    - Remove PMS functions: Not routing related
 #                    - Remove warehouse functions: Not directed related to VRP, the grid-based VRP remains in the package
 #                    - Docstrings for key `public` functions
+#                    - Redo a lot of stuff with shapely
+#                    - Redo a lot of stuff with NetworkX
 # =============================================================================
 '''
 
@@ -111,13 +113,13 @@ from .lbTSP import *
 
 # VRP
 # from .ipVRP import *
-from .heuVRP import *
+# from .heuVRP import *
 
 # from .CVRPTW import *
 # from .cgCVRPTW import *
 
 # Post optimization
-from .stat import *
+# from .stat import *
 
 # System config
 def setGlobal(newConfig):

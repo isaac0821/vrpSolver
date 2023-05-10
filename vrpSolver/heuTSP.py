@@ -12,6 +12,9 @@ from .operator import *
 from .calculate import *
 from .plot import *
 
+# History =====================================================================
+# 20230510 - Cleaned up for v0.0.55, 
+
 def heuTSP(
     nodes:      "The coordinate of given nodeID" = None, 
     edges:      "The traveling matrix" = None,
@@ -38,19 +41,25 @@ def heuTSP(
             1) (default) Euclidean space
             >>> edge = {
             ...     'method': 'Euclidean',
-            ...     'ratio': 1
+            ...     'ratio': 1 # Optional, default to be 1
             ... }
             2) By given pairs of lat/lon
             >>> edge = {
             ...     'method': 'LatLon',
-            ...     'unit': 'meters'
+            ...     'unit': 'meters' # Optional, default to be 1
             ... }
-            3) By a given dictionary
+            3) ManhattenDistance
+            >>> edge = {
+            ...     'method': 'Manhatten',
+            ...     'ratio': 1 # Optional, default to be 1
+            ... }
+            4) By a given dictionary
             >>> edge = {
             ...     'method': 'Dictionary',
-            ...     'dictionary': dictionary
+            ...     'dictionary': dictionary,
+            ...     'ratio': 1 # Optional, default to be 1
             ... }
-            4) On the grids
+            5) On the grids
             >>> edge = {
             ...     'method': 'Grid',
             ...     'grid': grid
@@ -61,7 +70,7 @@ def heuTSP(
             >>> algo = {
             ...     'cons': 'Insertion',
             ...     'initSeq': initSeq, # An initial sequence, defalt [depotID]
-            ...     'impv': '2Opt' # Options are: 'Reinsert', '2Opt'
+            ...     'impv': '2Opt' # Options are: 'Reinsert', '2Opt', can select multiple methods by collecting them into a list, e.g. ['Reinsert', '2Opt']
             ... }
             2) Nearest neighborhood / k-nearest neighborhood
             >>> algo = {
@@ -70,17 +79,15 @@ def heuTSP(
             ... }
             3) Sweep
             >>> algo = {
-            ...     'cons': 'Sweep',
-            ...     'direction': 'clock-wise', # or 'counter-clock-wise', default 'clock-wise'
-            ...     'startDeg': 0, # Starting direction, 0 as north/up, default 0
+            ...     'cons': 'Sweep'
             ... }
-            4) (working) Christofides
+            4) (not available) Christofides
             >>> algo = {
-            ...     'cons': 'Christofides',
+            ...     'cons': 'Christofides'
             ... }
-            5) (planning) Cycle cover, particular for Asymmetric TSP
+            5) (not available) Cycle cover, particular for Asymmetric TSP
             >>> algo = {
-            ...     'cons': 'CycleCover',
+            ...     'cons': 'CycleCover'
             ... }
             6) Random sequence
             >>> algo = {
@@ -103,21 +110,30 @@ def heuTSP(
 
     dictionary
         A TSP solution in the following format::
-        >>> solution = {
-        ... 
-        ... }
+            >>> solution = {
+            ...     'ofv': ofv,
+            ...     'route': route,
+            ...     'detail': detail
+            ... }
+
     """
 
-    # Define nodeIDs ==========================================================
+    # Sanity check ============================================================
+    if (nodes == None or type(nodes) != dict):
+        raise MissingParameterError(ERROR_MISSING_NODES)
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
             nodeIDs = [i for i in nodes]
         else:
-            msgError(ERROR_INCOR_NODEIDS)
-            return
+            for i in nodeIDs:
+                if (i not in nodes):
+                    raise OutOfRangeError("ERROR: Node %s is not in `nodes`." % i)
+    if ((type(nodeIDs) == list and depotID not in nodeIDs)
+        or (nodeIDs == 'All' and depotID not in nodes)):
+        raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
 
     # Define tau ==============================================================
-    tau = getTau(nodes, edges, edgeArgs, depotID, nodeIDs, serviceTime)
+    tau = getTau(nodes, edges, depotID, nodeIDs, serviceTime)
 
     # Check symmetric =========================================================
     asymFlag = False
@@ -127,107 +143,113 @@ def heuTSP(
             break
 
     # Construction heuristics =================================================
-    # NOTE: These heuristics don't need to transform into arc representation
-    # NOTE: Output format: [depotID, xx, xx, xx, depotID]
+    # NOTE: Output format: seq = [depotID, xx, xx, xx, depotID]
+    if (algo == None or ('cons' not in algo and 'impv' not in algo)):
+        raise MissingParameterError(ERROR_MISSING_TSP_ALGO)
+
     seq = None
-    if (consAlgo == None):
-        if (consAlgoArgs == None or 'initSeq' not in consAlgoArgs):
-            msgError("ERROR: Need initial TSP solution for local improvement")
-            if (len(consAlgoArgs['initSeq']) != len(nodeIDs) + 1
-                or consAlgoArgs['initSeq'][0] != depotID
-                or consAlgoArgs['initSeq'][-1] != depotID):
-                msgError("ERROR: Incorrect initial TSP, should start and end with depotID")
-        seq = consAlgoArgs['initSeq']
-    elif (consAlgo == 'NearestNeighbor'):
-        # Nearest neighbor: k = 1
-        seq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, 1)
-    elif (consAlgo == 'k-NearestNeighbor'):
-        if (consAlgoArgs == None):
-            warnings.warn("Warning: Missing parameter k for k-NearestNeighbor, set to be default value as k = 1")
-            consAlgoArgs = {'k': 1}
-        seq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, consAlgoArgs['k'])
-    elif (consAlgo == 'FarthestNeighbor'):
-        # NOTE: "Worst" initial solution
-        seq = _consTSPFarthestNeighbor(depotID, nodeIDs, tau)
-    elif (consAlgo == 'Insertion'):
-        if (consAlgoArgs == None or 'initSeq' not in consAlgoArgs):
-            # If missing initial sequence, start with "depot -> farthest -> depot"
-            farthestDist = None
+    # Constructive phase
+    # An initial solution is given
+    if ('cons' not in algo):
+        if ('initSeq' not in algo):
+            raise MissingParameterError("ERROR: Need 'initSeq' for local improvement")
+        elif (len(algo['initSeq']) != len(nodeIDs) + 1):
+            raise InvalidInputError("ERROR: Length of 'initSeq' is incorrect, check if the sequence starts and ends with `depotID`")
+        else:
+            notInNodeIDs = [v for v in initSeq if v not in nodeIDs]
+            if (len(notInNodeIDs) > 0):
+                raise OutOfRangeError("ERROR: The following nodes in 'initSeq' is not in `nodeIDs`: %s" % list2String(notInNodeIDs))
+        seq = [i for i in algo['initSeq']]
+
+    # Insertion heuristic
+    elif (algo['cons'] == 'Insertion'):
+        initSeq = None
+        if ('initSeq' not in algo):
+            farthestDist = -1
             farthestID = None
             for n in nodeIDs:
                 if ((n, depotID) in tau):
-                    if (farthestDist == None or tau[n, depotID] > farthestDist):
+                    if (tau[n, depotID] > farthestDist):
                         farthestID = n
                         farthestDist = tau[n, depotID]
                 elif ((depotID, n) in tau):
-                    if (farthestDist == None or tau[depotID, n] > farthestDist):
+                    if (tau[depotID, n] > farthestDist):
                         farthestID = n
                         farthestDist = tau[depotID, n]
-            consAlgoArgs = {'initSeq': [depotID, farthestID, depotID]}
-            warnings.warn("WARNING: 'initSeq' was not provided, initial with [depotID, farthest, depotID]")
-        seq = _consTSPInsertion(nodeIDs, consAlgoArgs['initSeq'], tau)
-    elif (consAlgo == 'Sweep'):
-        seq = _consTSPSweep(nodes, depotID, nodeIDs, tau)
-    elif (consAlgo == 'Random'):
-        seq = _consTSPRandomSeq(depotID, nodeIDs, tau)
-    else:
-        pass
-
-    weightArcs = []
-    # Create arcs =============================================================
-    if (seq == None):
-        for (i, j) in tau:
-            if (i != None and j != None and i < j):
-                weightArcs.append((i, j, tau[i, j]))
-
-    # Construction Heuristics for TSP =========================================
-    if (seq == None and not asymFlag):
-        if (consAlgo == 'DepthFirst'):
-            seq = _consTSPDepthFirst(weightArcs)
-        elif (consAlgo == 'Christofides'):
-            if (consAlgoArgs == None or 'matchingAlgo' not in consAlgoArgs):
-                consAlgoArgs = {'matchingAlgo': 'IP'}
-            seq = _consTSPChristofides(weightArcs, consAlgoArgs['matchingAlgo'])
-
-    # Confirm construction results ============================================
-    if (seq == None):
-        msgError("ERROR: Incorrect construction algorithm")
-        return
-
-    # Local improvement ======================================================= 
-    canImproveFlag = False
+            initSeq = [depotID, farthestID, depotID]
+            seq = _consTSPInsertion(nodeIDs, initSeq, tau)
+        else:
+            notInNodeIDs = [v for v in initSeq if v not in nodeIDs]
+            if (len(notInNodeIDs) > 0):
+                raise OutOfRangeError("ERROR: The following nodes in 'initSeq' is not in `nodeIDs`: %s" % list2String(notInNodeIDs))
+            else:
+                seq = _consTSPInsertion(nodeIDs, algo['initSeq'], tau)
     
-    # NOTE: seq should starts and ends with depotID
+    # Neighborhood based heuristic, including nearest neighborhood, k-nearest neighborhood, and furthest neighborhood
+    elif (algo['cons'] == 'NearestNeighbor'):
+        if ('k' not in algo or algo['k'] == 1):
+            seq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, 1)
+        elif (algo['k'] == -1):
+            seq = _consTSPFarthestNeighbor(depotID, nodeIDs, tau)
+        elif (algo['k'] >= 1):
+            seq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, algo['k'])
+
+    # Sweep heurisitic
+    elif (algo['cons'] == 'Sweep'):
+        seq = _consTSPSweep(nodes, depotID, nodeIDs, tau)
+
+    # Christofides Algorithm, guaranteed <= 1.5 * optimal
+    elif (algo['cons'] == 'Christofides'):
+        if (not asymFlag):
+            weightArcs = []
+            for (i, j) in tau:
+                if (i != None and j != None and i < j):
+                    weightArcs.append((i, j, tau[i, j]))
+            seq = _consTSPChristofides(weightArcs)
+        else:
+            raise UnsupportedInputError("ERROR: 'Christofides' algorithm is not designed for Asymmetric TSP")
+
+    # Cycle Cover Algorithm, specially designed for Asymmetric TSP
+    elif (algo['cons'] == 'CycleCover'):
+        raise NotAvailableError("ERROR: 'CycleCover' algorithm is not available yet, please stay tune")
+        seq = _consTSPCycleCover(depotID, nodeIDs, tau)
+
+    # Randomly create a sequence
+    elif (algo['cons'] == 'Random'):
+        seq = _consTSPRandomSeq(depotID, nodeIDs, tau)
+    
+    else:
+        raise UnsupportedInputError(ERROR_MISSING_TSP_ALGO)
+
+    # Cleaning seq before local improving =================================
     ofv = calSeqCostMatrix(tau, seq, closeFlag = False)
     revOfv = None if not asymFlag else calSeqCostMatrix(tau, [seq[len(seq) - i - 1] for i in range(len(seq))], closeFlag = False)
     consOfv = ofv
 
-    if (impAlgo != None):
+    # Local improvment phase ==============================================
+    # NOTE: For the local improvement, try every local search operator provided in a greedy way
+    if ('impv' in algo and algo['impv'] != None and algo['impv'] != []):
         canImproveFlag = True
-        if (type(impAlgo) == str):
-            impAlgo = [impAlgo]        
+        while (canImproveFlag):
+            canImproveFlag = False
 
-    while (canImproveFlag):
-        canImproveFlag = False
+            # Try 2Opts
+            if (not canImproveFlag and (algo['impv'] == '2Opt' or '2Opt' in algo['impv'])):
+                imp = _impTSP2Opts(nodeIDs, tau, seq, asymFlag)
+                if (imp['improvedFlag']):
+                    canImproveFlag = True
+                    seq = imp['impSeq']
+                    ofv = imp['oriOfv']
+                    revOfv = imp['oriRevOfv']
 
-        # Try 2Opts
-        if (not canImproveFlag and '2Opt' in impAlgo):
-            imp = _impTSP2Opts(nodeIDs, tau, seq, asymFlag)
-            if (imp['improvedFlag']):
-                canImproveFlag = True
-                seq = imp['impSeq']
-                ofv = imp['oriOfv']
-                revOfv = imp['oriRevOfv']
-
-        # Try reinsert
-        if (not canImproveFlag and 'Reinsert' in impAlgo):
-            imp = _impTSPReinsert(nodeIDs, tau, seq, ofv, revOfv, asymFlag)
-            if (imp['improvedFlag']):
-                canImproveFlag = True
-                seq = imp['impSeq']
-                ofv = imp['oriOfv']
-                revOfv = imp['oriRevOfv']
-
+            # Try reinsert
+            if (not canImproveFlag and (algo['impv'] == 'Reinsert' or 'Reinsert' in algo['impv'])):
+                imp = _impTSPReinsert(nodeIDs, tau, seq, ofv, revOfv, asymFlag)
+                if (imp['improvedFlag']):
+                    canImproveFlag = True
+                    seq = imp['impSeq']
+                    ofv = imp['oriOfv']
+                    revOfv = imp['oriRevOfv']
     return {
         'ofv': ofv,
         'consOfv': consOfv,
@@ -289,7 +311,8 @@ def _consTSPSweep(nodes, depotID, nodeIDs, tau):
     # Sweep seq -----------------------------------------------------------
     sweep = getSweepSeq(
         nodes = nodes, 
-        nodeIDs = nodeIDs)
+        nodeIDs = nodeIDs,
+        centerLoc = nodes[depotID]['loc'])
 
     startIndex = None
     seq = []

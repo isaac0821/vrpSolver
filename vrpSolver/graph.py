@@ -8,7 +8,8 @@ from .geometry import *
 def gridPathFinding(
     grid:       "Dictionary, includes the grid info\
                 {\
-                    'gridColRow': gridColRow,\
+                    'column': column,\
+                    'row': row,\
                     'barriers': barriers,\
                     'type': 'Square' or 'Hexagon'\
                 }" = None,
@@ -27,7 +28,8 @@ def gridPathFinding(
     ) -> "Given two coordinates on the grid, finds the 'shortest' path to travel":
 
     # Decode ==================================================================
-    gridColRow = grid['gridColRow']
+    column = grid['column']
+    row = grid['row']
     barriers = grid['barriers']
 
     # Call path finding =======================================================
@@ -35,12 +37,12 @@ def gridPathFinding(
         if (algoArgs == None or 'distMeasure' not in algoArgs):
             warnings.warn("Warning: Missing `algoArgs` or missing 'distMeasure' in `algoArgs`. Set 'distMeasure' to be 'Manhatten'")
             algoArgs = {'distMeasure': 'Manhatten'}
-        res = _gridPathFindingAStar(gridColRow, barriers, startCoord, endCoord, algoArgs['distMeasure'])
+        res = _gridPathFindingAStar(column, row, barriers, startCoord, endCoord, algoArgs['distMeasure'])
     else:
         print("Error: Incorrect or not available grid path finding option!")
     return res
 
-def _gridPathFindingAStar(gridColRow, barriers, startCoord, endCoord, distMeasure):
+def _gridPathFindingAStar(column, row, barriers, startCoord, endCoord, distMeasure):
     # Heuristic measure ==================================================-
     def _calManhattenDist(coord1, coord2):
         return abs(coord1[0] - coord2[0]) + abs(coord1[1] - coord2[1])
@@ -50,14 +52,14 @@ def _gridPathFindingAStar(gridColRow, barriers, startCoord, endCoord, distMeasur
     # Initialize grid ====================================================-
     # Evaluate value f(n) = g(n) + h(n)
     gridStatus = {}
-    for col in range(gridColRow[0]):
-        for row in range(gridColRow[1]):
-            if ((col, row) not in barriers):
+    for col in range(column):
+        for ro in range(row):
+            if ((col, ro) not in barriers):
                 # Content in the dictionary (g(n), h(n), fromCoord)
                 # At this stage, no need to calculate h(n) 
-                gridStatus[(col, row)] = (None, None, None)
+                gridStatus[(col, ro)] = (None, None, None)
             else:
-                gridStatus[(col, row)] = 'block'
+                gridStatus[(col, ro)] = 'block'
     if (distMeasure == 'Manhatten'):
         gridStatus[startCoord] = (0, _calManhattenDist(startCoord, endCoord), None)
     elif (distMeasure == 'Euclidean'):
@@ -86,7 +88,7 @@ def _gridPathFindingAStar(gridColRow, barriers, startCoord, endCoord, distMeasur
         coord = _findSmallestFnGrid()
         # Up
         upCoord = (coord[0], coord[1] + 1)
-        if (coord[1] + 1 < gridColRow[1] and gridStatus[upCoord] != None and gridStatus[upCoord] != 'block' and upCoord not in closeList):
+        if (coord[1] + 1 < row and gridStatus[upCoord] != None and gridStatus[upCoord] != 'block' and upCoord not in closeList):
             if (gridStatus[upCoord][0] == None or gridStatus[upCoord][0] > gridStatus[coord][0] + 1):
                 if (distMeasure == 'Manhatten'):
                     gridStatus[upCoord] = (gridStatus[coord][0] + 1, _calManhattenDist(upCoord, endCoord), coord)
@@ -122,7 +124,7 @@ def _gridPathFindingAStar(gridColRow, barriers, startCoord, endCoord, distMeasur
                     tmpOpenList.append(leftCoord)
         # Right
         rightCoord = (coord[0] + 1, coord[1])
-        if (coord[0] + 1 < gridColRow[0] and gridStatus[rightCoord] != None and gridStatus[rightCoord] != 'block' and rightCoord not in closeList):
+        if (coord[0] + 1 < column and gridStatus[rightCoord] != None and gridStatus[rightCoord] != 'block' and rightCoord not in closeList):
             if (gridStatus[rightCoord][0] == None or gridStatus[rightCoord][0] > gridStatus[coord][0] + 1):
                 if (distMeasure == 'Manhatten'):
                     gridStatus[rightCoord] = (gridStatus[coord][0] + 1, _calManhattenDist(rightCoord, endCoord), coord)
@@ -460,42 +462,44 @@ def graphCheckBipartite(
                  2) A list of 2-tuple (nodeID1, nodeID2)" = None
     ) -> "Given a graph, check if the graph is bipartite":
     
-    # FIXME: This function can be simplified, but not urgent
     adjList = graphArcs2AdjList(arcs = arcs)
 
-    # Initialize setA and setB
-    minID = min(adjList)
-    setA = [minID]
-    setB = [i for i in adjList[minID]]
+    # Check components
+    components = graphComponents(arcs)
+
+    # Initialize setX and setY for each component
+    minID = min(adjList) # Start with any vertex
+    setX = [minID]
+    setY = [i for i in adjList[minID]]
 
     # Use BFS to color the graph
     tvs = graphTraversal(arcs = arcs, oID = minID, algo = 'BreadthFirst')['seq']
     for v in tvs:
         childrenV = [i for i in adjList[v]]
-        if (v in setA):
+        if (v in setX):
             for c in childrenV:
-                if (c in setA):
+                if (c in setX):
                     return {
                         'bipartiteFlag': False,
-                        'setA': None,
-                        'setB': None
+                        'setX': None,
+                        'setY': None
                     }
-                elif (c not in setA and c not in setB):
-                    setB.append(c)
-        elif (v in setB):
+                elif (c not in setX and c not in setY):
+                    setY.append(c)
+        elif (v in setY):
             for c in childrenV:
-                if (c in setB):
+                if (c in setY):
                     return {
                         'bipartiteFlag': False,
-                        'setA': None,
-                        'setB': None
+                        'setX': None,
+                        'setY': None
                     }
-                elif (c not in setA and c not in setB):
-                    setA.append(c)
+                elif (c not in setX and c not in setY):
+                    setX.append(c)
     return {
         'bipartiteFlag': True,
-        'setA': setA,
-        'setB': setB
+        'setX': setX,
+        'setY': setY
     }
 
 # [Constructing]
@@ -506,15 +510,15 @@ def graphMaximumFlow():
 def graphMatching(
     weightArcs: "A list of 3-tuples, (ID1, ID2, weight), indexes of vertices must start from 0" = None,
     bipartiteFlag: "Bypass bipartite graph checking, leave it as None if we do not know, preferably set it to be True/False if we know" = None,
-    mType:      "1) String, 'Minimum' or 'Min' if to find minimum matching, or\
+    objType:    "1) String, 'Minimum' or 'Min' if to find minimum matching, or\
                  2) String, 'Maximum' or 'Max' if to find maximum matching" = 'Minimum',
     algo:       "1) String, (not available) 'Blossom' or, \
                  2) String, (default if bipartite) 'Hungarian' or 'Kuhn_Munkres', O(|V|^3), for bipartite graph or, \
                  3) String, (default if not bipartite) 'IP', NPC" = None,
     algoArgs:   "1) If `algo` == 'Hungarian' or 'Kuhn_Munkres'\
                 {\
-                    'setA': setA, \
-                    'setB': setB\
+                    'setX': setX, \
+                    'setY': setY\
                 }" = None
     ) -> "Return a set of vertices that forms a Minimum/Maximum Matching": 
 
@@ -523,23 +527,23 @@ def graphMatching(
     # Case 1: algo is not designated, bipartiteFlag is None, check bipartite to determine default
     if (algo == None and bipartiteFlag == None):
         checkBipartiteFlag = True
-    # Case 2: algo is not designated, bipartiteFlag is True, but missing setA and/or setB info
+    # Case 2: algo is not designated, bipartiteFlag is True, but missing setX and/or setY info
     elif (algo == None and bipartiteFlag == True 
-        and (algoArgs == None or 'setA' not in algoArgs or 'setB' not in algoArgs)):
+        and (algoArgs == None or 'setX' not in algoArgs or 'setY' not in algoArgs)):
         checkBipartiteFlag = True
     # Case 3: algo is designated as bipartite method, bipartiteFlag is None
     elif (algo in ['Hungarian', 'Kuhn_Munkres'] and bipartiteFlag == None):
         checkBipartiteFlag = True
-    # Case 4: algo is designated as bipartite method, bipartiteFlag is True, but missing setA and/or setB info
+    # Case 4: algo is designated as bipartite method, bipartiteFlag is True, but missing setX and/or setY info
     elif (algo in ['Hungarian', 'Kuhn_Munkres'] and bipartiteFlag == True 
-        and (algoArgs == None or 'setA' not in algoArgs or 'setB' not in algoArgs)):
+        and (algoArgs == None or 'setX' not in algoArgs or 'setY' not in algoArgs)):
         checkBipartiteFlag = True
 
     if (checkBipartiteFlag):
         bpt = graphCheckBipartite(arcs = weightArcs)
         bipartiteFlag = bpt['bipartiteFlag']
-        algoArgs['setA'] = bpt['setA']
-        algoArgs['setB'] = bpt['setB']
+        algoArgs['setX'] = bpt['setX']
+        algoArgs['setY'] = bpt['setY']
 
     if (algo == None):
         if (bipartiteFlag):
@@ -547,15 +551,15 @@ def graphMatching(
         else:
             algo = 'IP'
 
-    # Convert arcs based on mType =============================================
+    # Convert arcs based on objType ===========================================
     convertedArcs = []
-    if (mType == 'Maximum' or 'Max'):
+    if (objType == 'Maximum' or 'Max'):
         convertedArcs = [i for i in weightArcs]
-    elif (mType == 'Minimum' or 'Min'):
+    elif (objType == 'Minimum' or 'Min'):
         maxWeight = max([arc[2] for arc in weightArcs]) + 1
         convertedArcs = [(i[0], i[1], maxWeight - i[2]) for i in weightArcs]
     else:
-        msgError("ERROR: Please select `mType` from ['Maximum', 'Minimum']")
+        msgError("ERROR: Please select `objType` from ['Maximum', 'Minimum']")
 
     # Calculate matching using different algorithms ===========================
     res = None
@@ -565,7 +569,7 @@ def graphMatching(
         if (bipartiteFlag != True):
             msgError("ERROR: 'Hungarian' and 'Kuhn_Munkres' option only applies for bipartite graph")
             return
-        res = _graphMaxMatchingHungarian(convertedArcs, algoArgs['setA'], algoArgs['setB'])
+        res = _graphMaxMatchingHungarian(convertedArcs, algoArgs['setX'], algoArgs['setY'])
 
     return res
 
@@ -619,64 +623,35 @@ def _graphMaxMatchingIP(weightArcs):
     }
 
 # [Constructing]
-def _graphMaxMatchingHungarian(weightArcs, setA, setB):
+def _graphMaxMatchingHungarian(weightArcs, setX, setY):
     # Ref: https://cse.hkust.edu.hk/~golin/COMP572/Notes/Matching.pdf
 
     # Initialize ==============================================================
     adjList = graphArcs2AdjList(arcs = weightArcs)
-    # Initialize labeling, E_l and M
-    # NOTE: Assume all arcs in E_l is from B -> A
-    labelA = {}
-    labelB = {}
-    curE = []
-    for v in setA:
-        labelA[v] = 0
-    for v in setB:
-        labelB[v] = max(adjList[v].values())
-        curE.append((v, max(adjList[v]), max(adjList[v].values())))
-    # Find initial match
-    curE = sorted(curE, key = lambda x: x[2], reverse = True)
-    coveredA = []
-    coveredB = []
-    curM = []
-    for arc in curE:
-        if (arc[0] not in coveredB and arc[1] not in coveredA):
-            curM.append(arc)
-            coveredA.append(arc[1])
-            coveredB.append(arc[0])
-            
-    # Find initial set S and set T
-    S = [v for v in setB if v not in coveredB]  # S \subseteq B
-    T = []                                      # T <= N_l(S) \neq A
+    
+    # Initialize labeling
+    # NOTE: M is a matching
+    # NOTE: E_l is the set of edges where label[x] + label[y] = weight[x, y]
+    labelX = {}
+    labelY = {}
+    for v in setX:
+        labelX[v] = max(adjList[v].values())
+    for v in setY:
+        labelY[v] = 0
 
-    # Subroutine ==============================================================
-    def getNlS(Sl, curEl):
-        Tl = []
-        for arc in curEl:
-            if (arc[0] in Sl and arc[1] not in Tl):
-                Tl.append(arc[1])
-        return Tl
+    def getEqualityGraph(labelX, labelY):
+        El = []
+        for v in setX:
+            for w in adjList[v]:
+                if (labelX[v] + labelY[w] == adjList[v][w]):
+                    El.append((v, w))
+        return El
+    El = getEqualityGraph(labelX, labelY)
 
-    # Improve matching ========================================================
-    canImproveFlag = True
-    while (canImproveFlag):
-        canImproveFlag = False
+    # Improve labeling
 
-        # Get N_l(S)
-        NlS = getNls(S, curE)
 
-        # If N_l(S) = T update labels
-        if (Nls == T):
-            # Find alpha_l = \min_{x \in S, y \notin T} \{l(x) + l(y) - w(x, y)\}
-            alphal = None
-            for x in S:
-                for y in setB:
-                    if (y not in T):
-                        if (alphal == None or labelB[x] + label[y] - adjList[x][y] < alphal):
-                            alphal = labelB[x] + label[y] - adjList[x][y]
 
-        else:
-            pass
 
     return {
         'ofv': ofv,
