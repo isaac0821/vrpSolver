@@ -10,20 +10,19 @@ from .geometry import *
 from .msg import *
 from .operator import *
 from .calculate import *
-from .plot import *
 
 # History =====================================================================
-# 20230510 - Cleaned up for v0.0.55, 
+# 20230510 - Cleaned up for v0.0.55
+# =============================================================================
 
 def heuTSP(
-    nodes:      "The coordinate of given nodeID" = None, 
-    edges:      "The traveling matrix" = None,
-    algo:       "Algorithm used in the heuristic" = None,
-    depotID:    "DepotID, default to be 0" = 0,
-    nodeIDs:    "1) String (default) 'All', or \
-                 2) A list of node IDs" = 'All',
-    serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0
-    ) -> "Use given heuristic methods to get TSP solution":
+    nodes: dict, 
+    edges: dict, 
+    algo: dict, 
+    depotID: int | str = 0, 
+    nodeIDs: list[int | str] | str = 'All', 
+    serviceTime: float = 0
+    ) -> dict | None:
 
     """Use heuristic methods to find suboptimal TSP solution
 
@@ -154,9 +153,9 @@ def heuTSP(
         if ('initSeq' not in algo):
             raise MissingParameterError("ERROR: Need 'initSeq' for local improvement")
         elif (len(algo['initSeq']) != len(nodeIDs) + 1):
-            raise InvalidInputError("ERROR: Length of 'initSeq' is incorrect, check if the sequence starts and ends with `depotID`")
+            raise UnsupportedInputError("ERROR: Length of 'initSeq' is incorrect, check if the sequence starts and ends with `depotID`")
         else:
-            notInNodeIDs = [v for v in initSeq if v not in nodeIDs]
+            notInNodeIDs = [v for v in algo['initSeq'] if v not in nodeIDs]
             if (len(notInNodeIDs) > 0):
                 raise OutOfRangeError("ERROR: The following nodes in 'initSeq' is not in `nodeIDs`: %s" % list2String(notInNodeIDs))
         seq = [i for i in algo['initSeq']]
@@ -179,7 +178,7 @@ def heuTSP(
             initSeq = [depotID, farthestID, depotID]
             seq = _consTSPInsertion(nodeIDs, initSeq, tau)
         else:
-            notInNodeIDs = [v for v in initSeq if v not in nodeIDs]
+            notInNodeIDs = [v for v in algo['initSeq'] if v not in nodeIDs]
             if (len(notInNodeIDs) > 0):
                 raise OutOfRangeError("ERROR: The following nodes in 'initSeq' is not in `nodeIDs`: %s" % list2String(notInNodeIDs))
             else:
@@ -211,7 +210,7 @@ def heuTSP(
 
     # Cycle Cover Algorithm, specially designed for Asymmetric TSP
     elif (algo['cons'] == 'CycleCover'):
-        raise NotAvailableError("ERROR: 'CycleCover' algorithm is not available yet, please stay tune")
+        raise VrpSolverNotAvailableError("ERROR: 'CycleCover' algorithm is not available yet, please stay tune")
         seq = _consTSPCycleCover(depotID, nodeIDs, tau)
 
     # Randomly create a sequence
@@ -266,7 +265,6 @@ def _consTSPkNearestNeighbor(depotID, nodeIDs, tau, k = 1):
         currentNodeID = seq[-1]
 
         # Sort the distance from current node to the rest of nodes
-        sortedSeq = []
         sortedSeqHeap = []
         for n in remain:
             if ((currentNodeID, n) in tau):
@@ -314,7 +312,7 @@ def _consTSPSweep(nodes, depotID, nodeIDs, tau):
         nodeIDs = nodeIDs,
         centerLoc = nodes[depotID]['loc'])
 
-    startIndex = None
+    startIndex = 0
     seq = []
     for k in range(len(sweep)):
         if (sweep[k] == depotID):
@@ -348,7 +346,7 @@ def _consTSPInsertion(nodeIDs, initSeq, tau):
     while (len(unInserted) > 0):
         bestCus = None
         bestCost = None
-        bestInsertionIndex = None
+        bestInsertionIndex = 0
         for cus in unInserted:
             for i in range(1, len(seq)):
                 if ((seq[i - 1], cus, seq[i]) not in insertDict):
@@ -365,20 +363,7 @@ def _consTSPInsertion(nodeIDs, initSeq, tau):
             seq.insert(bestInsertionIndex, bestCus)
             unInserted.remove(bestCus)
     return seq
-
-def _consTSPDepthFirst(depotID, weightArcs):
-    # Create MST ----------------------------------------------------------
-    mst = graphMST(
-        weightArcs = weightArcs,
-        exportAs = 'Arcs')['mst']
-
-    # Seq of visit is the seq of Depth first search on the MST ------------
-    seq = graphTraversal(
-        arcs = mst,
-        oID = depotID)['seq']
-    seq.append(depotID)
-    return seq
-
+    
 def _consTSPChristofides(depotID, weightArcs, matchingAlgo):
     # Create MST ----------------------------------------------------------
     mst = graphMST(

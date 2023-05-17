@@ -11,7 +11,6 @@ from .const import *
 from .graph import *
 from .msg import *
 from .relation import *
-from .vector import *
 
 def ptXY2LatLonMercator(
     ptXY:       "Point in (x, y) coordinates"

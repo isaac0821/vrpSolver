@@ -13,69 +13,69 @@ from .relation import *
 
 # History =====================================================================
 # 20230510 - Cleaned up for v0.0.55, including the following available nodes 
-#            distributions: 'uniformSquareXY', 'uniformPolyXY', 'uniformCircleXY', 
-#            'uniformCircleLatLon', 'roadNetworkPolyLatLon', and 'roadNetworkCircleLatLon'
+#            distributions: 'UniformSquareXY', 'UniformPolyXY', 'UniformCircleXY', 
+#            'UniformCircleLatLon', 'RoadNetworkPolyLatLon', and 'RoadNetworkCircleLatLon'
+# 20230515 - Revise the parameter annotation according to PEP 3107
 # =============================================================================
 
-
 def rndPlainNodes(
-    N:          "Number of vertices" = None,
-    nodeIDs:    "(alternative of `N`) A list of node IDs, `N` will be overwritten if `nodeIDs` is given" = None,
-    distr:      "Spatial distribution of nodes" = None
-    ) -> "Randomly create a set of locations":
+    N: int | None, 
+    nodeIDs: list[int | str], 
+    distr: dict
+    ) -> dict:
 
     """Randomly create a set of locations
 
     Parameters
     ----------
 
-    N: integer, optional, default None
+    N: integer, optional
         Number of locations/vertices/customers to be randomly created
-    nodeIDs: list, optional, default None
+    nodeIDs: list, optional
         Alternative input parameter of `N`. A list of node IDs, `N` will be overwritten if `nodeIDs` is given
-    distr: dictionary, required, default None
+    distr: dictionary, required
         Spatial distribution of nodes, options are as following:
             1) (default) Uniformly sample from a square on the Euclidean space
             >>> distr = {
-            ...     'method': 'uniformSquareXY', 
+            ...     'method': 'UniformSquareXY', 
             ...     'xRange': (0, 100), # A 2-tuple with minimum/maximum range of x, default as (0, 100), 
             ...     'yRange': (0, 100), # A 2-tuple with minimum/maximum range of y, default as (0, 100), 
             ... }
             2) Uniformly sample from a given polygon on the Euclidean space
             >>> distr = {
-            ...     'method': 'uniformPolyXY', 
+            ...     'method': 'UniformPolyXY', 
             ...     'polyXY': poly, # polygon of the area, (no holes)
             ...     'polyXYs': polys, # alternative option for 'polyXY', as a list of polygons 
             ... }
             3) Uniformly sample from a circle on the Euclidean space
             >>> distr = {
-            ...     'method': 'uniformCircleXY',
+            ...     'method': 'UniformCircleXY',
             ...     'centerXY': (0, 0), # centering location, default as (0, 0), 
             ...     'radius': 100, # radius of the circle , default as 100
             ... }
             4) Uniformly sample from a given polygon by lat/lon
             >>> distr = {
-            ...     'method': 'uniformPolyLatLon', 
+            ...     'method': 'UniformPolyLatLon', 
             ...     'polyLatLon': polygon of the area, (no holes)
             ...     'polyLatLons': alternative option for 'polyLatLon', as a list of polygons 
             ... }
             5) Uniformly sample from a given circle by lat/lon,
             >>> distr = {
-            ...     'method': 'uniformCircleLatLon', 
+            ...     'method': 'UniformCircleLatLon', 
             ...     'centerLatLon': required, centering location in lat/lon, 
             ...     'radiusInMeters': radius of the circle in meters 
             ... }
             6) Uniformly generate from a given polygon on a road network
             >>> distr = {
-            ...     'method': 'roadNetworkPolyLatLon'
-            ...     'roadNetwork': list of arcs that can be sampled 
+            ...     'method': 'RoadNetworkPolyLatLon'
+            ...     'RoadNetwork': list of arcs that can be sampled 
             ...     'polyLatLon': nodes should generated within the polygon, if not provided, will consider the entire network, 
             ...     'roadClass': list of classes that can be sampled 
             ... }
             7) Uniformly generate from a given circle on a road network
             >>> distr = {
-            ...     'method': 'roadNetworkCircleLatLon', 
-            ...     'roadNetwork': list of arcs that can be sampled 
+            ...     'method': 'RoadNetworkCircleLatLon', 
+            ...     'RoadNetwork': list of arcs that can be sampled 
             ...     'centerLatLon': [lat, lon], 
             ...     'radiusInMeters': radius in [m] 
             ...     'roadClass': list of classes that can be sampled
@@ -102,19 +102,18 @@ def rndPlainNodes(
     """
 
     # Sanity checks ===========================================================
-    if (N == None and nodeIDs == None):
-        raise MissingParameterError(ERROR_MISSING_N)
     if (distr == None or 'method' not in distr):
         raise MissingParameterError(ERROR_MISSING_NODES_DISTR)
 
-    # Initialize ==============================================================
     nodes = {}
-    if (nodeIDs == None):
+    if (nodeIDs == None and N == None):
+        raise MissingParameterError(ERROR_MISSING_N)
+    elif (nodeIDs == None and N != None):
         nodeIDs = [i for i in range(N)]
 
     # Generate instance =======================================================
     # Uniformly sample from a square on the Euclidean space
-    if (distr['method'] == 'uniformSquareXY'):
+    if (distr['method'] == 'UniformSquareXY'):
         xRange = None
         yRange = None
         if ('xRange' not in distr or 'yRange' not in distr):
@@ -122,15 +121,15 @@ def rndPlainNodes(
             yRange = [0, 100]
             warnings.warn("WARNING: Set sampled area to be default as a (0, 100) x (0, 100) square")
         else:
-            xRange = distr['xRange']
-            yRange = distr['yRange']
+            xRange = [float(distr['xRange'][0]), float(distr['xRange'][1])]
+            yRange = [float(distr['yRange'][0]), float(distr['yRange'][1])]
         for n in nodeIDs:
             nodes[n] = {
                 'loc': _rndPtUniformSquareXY(xRange, yRange)
             }
 
     # Uniformly sample from a polygon/a list of polygons on the Euclidean space
-    elif (distr['method'] == 'uniformPolyXY'):
+    elif (distr['method'] == 'UniformPolyXY'):
         if ('polyXY' not in distr and 'polyXYs' not in distr):
             raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `distr`, which indicates a polygon / a list of polygons in the Euclidean space")
         if ('polyXY' in distr):
@@ -145,7 +144,7 @@ def rndPlainNodes(
                 }
 
     # Uniformly sample from a circle on the Euclidean space
-    elif (distr['method'] == 'uniformCircleXY'):
+    elif (distr['method'] == 'UniformCircleXY'):
         centerXY = None
         radius = None
         if ('centerXY' not in distr or 'radius' not in distr):
@@ -161,14 +160,14 @@ def rndPlainNodes(
             }
 
     # Uniformly sample from a polygon by lat/lon
-    elif (distr['method'] == 'uniformPolyLatLon'):
+    elif (distr['method'] == 'UniformPolyLatLon'):
         if ('polyLatLon' not in distr and 'polyLatLons' not in distr):
             raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `distr`, which indicates a polygon / a list of polygons in the Euclidean space")
         # TODO: Mercator projection
-        raise NotAvailableError("ERROR: 'uniformPolyLatLon' is not available yet, please stay tune.")
+        raise VrpSolverNotAvailableError("ERROR: 'UniformPolyLatLon' is not available yet, please stay tune.")
 
     # Uniformly sample from a circle by lat/lon
-    elif (distr['method'] == 'uniformCircleLatLon'):
+    elif (distr['method'] == 'UniformCircleLatLon'):
         if ('centerLatLon' not in distr or 'radiusInMeters' not in distr):
             raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `distr`.")
         for n in nodeIDs:
@@ -177,17 +176,17 @@ def rndPlainNodes(
             }
 
     # Uniformly sample from the roads/streets within a polygon/a list of polygons from given road networks
-    elif (distr['method'] == 'roadNetworkPolyLatLon'):
+    elif (distr['method'] == 'RoadNetworkPolyLatLon'):
         if ('polyLatLon' not in distr):
             raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `distr`, which indicates a polygon / a list of polygons in the Euclidean space")
-        elif ('roadNetwork' not in distr):
-            raise MissingParameterError("ERROR: Missing required key 'roadNetwork' in field `distr`. Need to provide the road network where the nodes are generated.")
+        elif ('RoadNetwork' not in distr):
+            raise MissingParameterError("ERROR: Missing required key 'RoadNetwork' in field `distr`. Need to provide the road network where the nodes are generated.")
         elif ('roadClass' not in distr):
             warnings.warn("WARNING: Set 'roadClass' to be default as ['residential']")
         nodeLocs = _rndPtRoadNetworkPolyLatLon(
             N if N != None else len(nodeIDs),
-            distr['roadNetwork'], 
-            distr['polyLatLon'] if 'polyLatLon' in distr else None,
+            distr['RoadNetwork'], 
+            distr['polyLatLon'],
             distr['roadClass'] if 'roadClass' in distr else ['residential'])
         for n in range(len(nodeIDs)):
             nodes[nodeIDs[n]] = {
@@ -195,18 +194,18 @@ def rndPlainNodes(
             }
 
     # Uniformly sample from the roads/streets within a circle from given road network
-    elif (distr['method'] == 'roadNetworkCircleLatLon'):
+    elif (distr['method'] == 'RoadNetworkCircleLatLon'):
         if ('centerLatLon' not in distr or 'radiusInMeters' not in distr):
             raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `distr`.")
-        elif ('roadNetwork' not in distr):
-            raise MissingParameterError("ERROR: Missing required key 'roadNetwork' in field `distr`. Need to provide the road network where the nodes are generated.")
+        elif ('RoadNetwork' not in distr):
+            raise MissingParameterError("ERROR: Missing required key 'RoadNetwork' in field `distr`. Need to provide the road network where the nodes are generated.")
         elif ('roadClass' not in distr):
             warnings.warn("WARNING: Set 'roadClass' to be default as ['residential']")
         nodeLocs = _rndPtRoadNetworkCircleLatLon(
             N if N != None else len(nodeIDs),
-            distr['roadNetwork'], 
-            distr['centerLatLon'],
+            distr['RoadNetwork'], 
             distr['radiusInMeters'],
+            distr['centerLatLon'],
             distr['roadClass'] if 'roadClass' in distr else ['residential'])
         for n in range(len(nodeIDs)):
             nodes[nodeIDs[n]] = {
@@ -217,17 +216,12 @@ def rndPlainNodes(
 
     return nodes
 
-def _rndPtUniformSquareXY(
-    xRange:    "The range of x coordinates",
-    yRange:    "The range of y coordinates"
-    ) -> "Given the range of x, y, returns a random point in the square defined by the ranges":
-    x = random.randrange(xRange[0], xRange[1])
-    y = random.randrange(yRange[0], yRange[1])
+def _rndPtUniformSquareXY(xRange: list[int] | list[float], yRange: list[int] | list[float]) -> pt:
+    x = random.uniform(xRange[0], xRange[1])
+    y = random.uniform(yRange[0], yRange[1])
     return (x, y)
 
-def _rndPtUniformTriangleXY(
-    triangle:   "The triangle for generating random points"
-    ) -> "Given a triangle, generate a random point in the triangle uniformly":
+def _rndPtUniformTriangleXY(triangle: poly) -> pt:
     
     # Get three extreme points ================================================
     [x1, y1] = triangle[0]
@@ -242,10 +236,7 @@ def _rndPtUniformTriangleXY(
 
     return (x, y)
 
-def _rndPtUniformPolyXY(
-    poly:       "The polygon for generating random points"
-    ) -> "Given a polygon, generate a random point in the polygons uniformly":
-
+def _rndPtUniformPolyXY(poly: poly) -> pt:
     # Get list of triangles ===================================================
     # TODO: tripy.earclip() to be replaced
     lstTriangle = tripy.earclip(poly)
@@ -261,10 +252,7 @@ def _rndPtUniformPolyXY(
 
     return (x, y)
 
-def _rndPtUniformPolyXYs(
-    polys:       "A list of polygons for generating random points"
-    ) -> "Given a list of polygons, generate a random point in the polygons uniformly":
-
+def _rndPtUniformPolyXYs(polys: polys) -> pt:
     # Get all triangulated triangles ==========================================
     # TODO: tripy.earclip() to be replaced
     lstTriangle = []
@@ -282,38 +270,22 @@ def _rndPtUniformPolyXYs(
 
     return (x, y)
 
-def _rndPtUniformCircleXY(
-    radius:     "Radius of the circle",
-    center:  "Center location of the circle"
-    ):
+def _rndPtUniformCircleXY(radius: float, center: pt) -> pt:
     theta = random.uniform(0, 2 * math.pi)
     r = math.sqrt(random.uniform(0, radius ** 2))
     x = center[0] + r * math.cos(theta)
     y = center[1] + r * math.sin(theta)
+
     return (x, y)
 
-def _rndPtUniformCircleLatLon(
-    radius:     "Radius of the circle",
-    center:  "Center location of the circle"
-    ):
+def _rndPtUniformCircleLatLon(radius: float, center: pt) -> pt:
     theta = random.uniform(0, 2 * math.pi)
     r = math.sqrt(random.uniform(0, radius ** 2))
     (lat, lon) = ptInDistLatLon(center, theta, r)
+
     return (lat, lon)
 
-def _rndPtRoadNetworkPolyLatLon(
-    N:          "Number of nodes",
-    road:       "Dictionary of road network in the format of \
-                {\
-                    roadID: {\
-                        'shape': [[lat, lon], [lat, lon], ...],\
-                        'class': 'residential', etc. as categorized in OpenStreetMap,\
-                    }\
-                }",
-    poly:       "Nodes should also within this polygon",
-    roadClass:  "List of classes that can be sampled"
-    ) -> "Given a road network, generate customers that locates on the road network":
-    
+def _rndPtRoadNetworkPolyLatLon(N: int, road: dict, poly: poly, roadClass: str | list[str]) -> list[pt]:
     # Calculate the length of each edge =======================================
     lengths = []
     roadIDs = []
@@ -364,21 +336,10 @@ def _rndPtRoadNetworkPolyLatLon(
                 if (isPtOnPoly([lat, lon], poly)):
                     insideFlag = True
         nodeLocs.append((lat, lon))
+
     return nodeLocs
 
-def _rndPtRoadNetworkCircleLatLon(
-    N:          "Number of nodes",
-    road:       "Dictionary of road network in the format of \
-                {\
-                    roadID: {\
-                        'shape': [[lat, lon], [lat, lon], ...]\
-                    }\
-                }",\
-    center:  "Center location",
-    radius:     "Radius in [m]",
-    roadClass:  "List of classes that can be sampled"
-    ) -> "Given a road network, generate customers that locates on the road network":
-    
+def _rndPtRoadNetworkCircleLatLon(N: int, road: dict, radius: float, center: pt, roadClass: str | list[str]) -> list[pt]:
     # Calculate the length of each edge =======================================
     lengths = []
     roadIDs = []
@@ -403,7 +364,7 @@ def _rndPtRoadNetworkCircleLatLon(
 
     # Check if there are roads included =======================================
     if (sum(lengths) == 0):
-        return None
+        return []
 
     # Use accept-denial to test if the node is within poly ====================
     # FIXME: Inefficient approach, will need to be rewritten
@@ -420,5 +381,6 @@ def _rndPtRoadNetworkCircleLatLon(
             if (distLatLon([lat, lon], center) <= radius):
                 insideFlag = True
         nodeLocs.append((lat, lon))
+
     return nodeLocs
 

@@ -1,7 +1,7 @@
 import random
 import numpy as np
 
-def colorScale(val, baseColor = 'R'):
+def colorScale(baseColor = 'R'):
     color = ""
     if (baseColor == 'R'):
         color = "#FFFF00"

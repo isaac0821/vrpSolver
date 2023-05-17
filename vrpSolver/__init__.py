@@ -62,7 +62,7 @@ __author__ = "Lan Peng"
 # v0.0.51 - 05172022 - Add a temporary VRP function `heuVRPMakespan()` which minimizes the makespan of VRP
 # v0.0.52 - 05172022 - Minor fixes
 # v0.0.53 - 07112022 - Improve solution quality of 2Opts for TSP
-# v0.0.54 - 07112022 - Water under bridge... The purpose of this package is not practicing algorithm anymore now...
+# v0.0.54 - 07112022 - Minor fixes
 # v0.0.55 - working  - Implement data structures
 #                    - Add Error exceptions
 #                    - Reconstruct for better framework: 1. separates the seq/route operators
@@ -73,6 +73,7 @@ __author__ = "Lan Peng"
 #                    - Docstrings for key `public` functions
 #                    - Redo a lot of stuff with shapely
 #                    - Redo a lot of stuff with NetworkX
+#                    - Implementing CETSP/CEVRP
 # =============================================================================
 '''
 
@@ -91,9 +92,7 @@ from .ds import *
 from .common import *
 from .plot import *
 from .instance import *
-from .timeWindows import *
 from .color import *
-from .vector import *
 from .calculate import *
 
 # Geometry
@@ -108,8 +107,6 @@ from .graph import *
 from .operator import *
 from .ipTSP import *
 from .heuTSP import *
-from .metaTSP import *
-from .lbTSP import *
 
 # VRP
 # from .ipVRP import *

@@ -6,38 +6,59 @@ from .common import *
 from .geometry import *
 
 def gridPathFinding(
-    grid:       "Dictionary, includes the grid info\
-                {\
-                    'column': column,\
-                    'row': row,\
-                    'barriers': barriers,\
-                    'type': 'Square' or 'Hexagon'\
-                }" = None,
-    startCoord: "Start coordinate" = (0, 0),
-    endCoord:   "End coordinate" = (0, 0),
-    algo:       "1) String, (default) 'A*', or\
-                 2) String, (not available) 'Dijkstra', or\
-                 3) String, (not available) 'BFS', or\
-                 4) String, (not available) 'Greed-BFS', or\
-                 5) String, (not available) 'B*'" = 'A*',
-    algoArgs:   "Dictionary, args for path finding algorithm \
-                 1) For 'A*', \
-                    {\
-                        'distMeasure': (default) 'Manhatten', other options are 'Euclidean';\
-                    }" = None
-    ) -> "Given two coordinates on the grid, finds the 'shortest' path to travel":
+    grid: dict,
+    startCoord: pt,
+    endCoord: pt,
+    algo: dict = {'method': 'A*', 'measure': 'Manhatten'}
+    ) -> dict | None:
+
+    """Given two coordinates on the grid, finds the 'shortest' path to travel
+
+    Parameters
+    ----------
+
+    grid: dictionary, required, default as None
+        The environment of a grid area, in the following format:
+            >>> grid = {
+            ...     'column': col, # Number of columns,
+            ...     'row': row, # Number of rows,
+            ...     'barriers': barriers, # A list of coordinates,
+            ... }
+    startCoord: 2-tuple|2-list, required
+        Starting location on the grid
+    endCoord: 2-tuple|2-list, required
+        Ending location on the grid 
+    algo: dictionary, required, default as {'method': 'A*', 'distMeasure': 'Manhatten'}
+        The algorithm configuration. For example
+        1) A*
+            >>> algo = {
+            ...     'method': A*,
+            ...     'measure': 'Manhatten', # Options: 'Manhatten', 'Euclidean'
+            ... }
+
+    Returns
+    -------
+
+    dictionary
+        A path on the given grid, in the following formatt::
+            >>> res = {
+            ...     'dist': dist,
+            ...     'path': path,
+            ... }
+
+    """
 
     # Decode ==================================================================
     column = grid['column']
     row = grid['row']
     barriers = grid['barriers']
+    res = None
 
     # Call path finding =======================================================
-    if (algo == 'A*'):
-        if (algoArgs == None or 'distMeasure' not in algoArgs):
-            warnings.warn("Warning: Missing `algoArgs` or missing 'distMeasure' in `algoArgs`. Set 'distMeasure' to be 'Manhatten'")
-            algoArgs = {'distMeasure': 'Manhatten'}
-        res = _gridPathFindingAStar(column, row, barriers, startCoord, endCoord, algoArgs['distMeasure'])
+    if (algo['method'] == 'A*'):
+        if ('measure' not in algo or algo['measure'] not in ['Manhatten', 'Euclidean']):
+            warnings.warn("WARNING: Set distance measurement to be default as 'Manhatten")
+        res = _gridPathFindingAStar(column, row, barriers, startCoord, endCoord, algo['measure'])
     else:
         print("Error: Incorrect or not available grid path finding option!")
     return res
@@ -80,7 +101,10 @@ def _gridPathFindingAStar(column, row, barriers, startCoord, endCoord, distMeasu
                 and (bestFn == None or gridStatus[coord][0] + gridStatus[coord][1] < bestFn)):
                 bestFn = gridStatus[coord][0] + gridStatus[coord][1]
                 bestCoord = coord
-        return bestCoord
+        if (bestCoord != None):
+            return bestCoord
+        else:
+            raise
 
     # For each grid in open set, update g(n) ==============================
     while (len(openList) > 0):

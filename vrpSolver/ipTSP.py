@@ -3,24 +3,26 @@ import math
 import warnings
 import networkx as nx
 
-
 from .common import *
 from .const import *
 from .msg import *
 from .error import *
 from .geometry import *
 
+# History =====================================================================
+# 20230510 - use networkx to replace .graph
+# 20230517 - Implementing PEP 3107
+# =============================================================================
+
 def ipTSP(
-    nodes:      "The coordinate of given nodeID" = None, 
-    edges:      "The traveling matrix" = None,
-    algo:       "Algorithm used in the heuristic" = None,
-    depotID:    "DepotID, default to be 0" = 0,
-    nodeIDs:    "1) String (default) 'All', or \
-                 2) A list of node IDs" = 'All',
-    serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0,
-    fml:        "TSP formulation" = 'DFJ_Lazy',
-    solver:     "Settings for solver" = {'solver': 'Gurobi', 'timeLimit': None, 'gapTolerance': None, 'outputFlag': False}
-    ) -> "Exact solution for TSP":
+    nodes: dict, 
+    edges: dict,
+    fml: str, 
+    solver: dict,
+    depotID: int | str,
+    nodeIDs: list[int | str] | str = 'All',
+    serviceTime: float = 0,
+    ) -> dict | None:
 
     """Use IP formulation to find optimal TSP solution
 
@@ -77,9 +79,27 @@ def ipTSP(
             ...     'gapTolerance': gapTolerance,
             ...     'outputFlag': False # Turn off solver log output by default
             }
+    depotID: int or string, required, default as 0
+        The ID of depot.
+    nodeIDs: string 'All' or a list of node IDs, required, default as 'All'
+        The following are two options: 1) 'All', all nodes will be visited, 2) A list of node IDs to be visited.
+    serviceTime: float, optional, default as 0
+        The service time needed at each location.
 
     Returns
     -------
+
+    dictionary
+        A TSP solution in the following format::
+            >>> solution = {
+            ...     'ofv': ofv,
+            ...     'seq': seq,
+            ...     'gap': gap,
+            ...     'solType': solType,
+            ...     'lowerBound': lb,
+            ...     'upperBound': ub,
+            ...     'runtime': runtime
+            ... }
 
     """
 
@@ -113,14 +133,14 @@ def ipTSP(
     elif (fml == 'MultiCommodityFlow'):
         tsp = _ipTSPMultiCommodityFlow(nodeIDs, tau, solver['outputFlag'], solver['timeLimit'], solver['gapTolerance'])
     elif (fml == 'QAP'):
-        tsp = _ipTSPQAP(nodeIDs, tau, solver['outputFlag'], solver['timeLimit'], solver['gapTolerance'])
-    else:
+        tsp = _ipTSPQAP(nodeIDs, tau, solver['outputFlag'], solver['timeLimit'], solver['gapTolerance'])    
+    if (tsp == None):
         raise UnsupportedInputError("ERROR: Incorrect or not available TSP formulation option!")
     
     tsp['fml'] = fml
 
     # Fix the sequence to make it start from the depot ========================
-    startIndex = None
+    startIndex = 0
     seq = [i for i in tsp['seq']]
     truckSeq = []
     for k in range(len(seq)):

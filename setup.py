@@ -1,4 +1,3 @@
-  
 import setuptools
 from vrpSolver import __version__
 

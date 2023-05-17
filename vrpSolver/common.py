@@ -1,5 +1,6 @@
 import math
 import random
+# import typing
 
 try:
     import pickle5 as pickle
@@ -8,22 +9,21 @@ except(ImportError):
 
 from .const import *
 
-def saveDictionary(
-    obj:        "The dictionary to be saved", 
-    name:       "Local file name"
-    ) -> "Save a dictionary data to a local .pkl file":
+# Type alias
+pt = list[float] | tuple[float, float]
+poly = list[pt]
+polys = list[poly]
+line = list[pt]
+
+def saveDictionary(obj, name: str) -> None:
     with open(name + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
-def loadDictionary(
-    name:       "Local file name"
-    ) -> "Read a dictionary data from local .pkl file":
+def loadDictionary(name: str) -> None:
     with open(name + '.pkl', 'rb') as f:
         return pickle.load(f)
 
-def rndPick(
-    coefficients: "A list of float numbers as the weight"
-    ) -> "Given a list of coefficients, randomly return an index according to that coefficient.":
+def rndPick(coefficients: list[int | float]) -> int:
     totalSum = sum(coefficients)
     tmpSum = 0
     rnd = random.uniform(0, totalSum)
@@ -61,10 +61,7 @@ def iterSeq(seqL, i, direction):
     else:
         return None
 
-def insideInterval(
-    val:        "The value to be compared with the interval" = None,
-    interval:   "List, in the format of [start, end], None if no constraint on that side" = [None, None]    
-    ) -> "Given a value `val`, returns true if `val` is inside the interval (or on the edge), false else wise.":
+def insideInterval(val: float, interval: list[float | None]) -> bool:
     [s, e] = interval
     if (s != None and val < s):
         return False

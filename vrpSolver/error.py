@@ -25,3 +25,6 @@ class OutOfRangeError(Exception):
 
 class NonOverlapIntervalTreeError(Exception):
     pass
+
+class VrpSolverNotAvailableError(Exception):
+    pass
