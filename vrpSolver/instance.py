@@ -1,4 +1,3 @@
-import geopy
 import math
 import random
 import tripy
@@ -19,9 +18,9 @@ from .relation import *
 # =============================================================================
 
 def rndPlainNodes(
-    N: int | None, 
-    nodeIDs: list[int | str], 
-    distr: dict
+    N: int|None = None, 
+    nodeIDs: list[int | str] = [], 
+    distr: dict = {'method': 'UniformSquareXY', 'xRange': (0, 100), 'yRange': (0, 100)}
     ) -> dict:
 
     """Randomly create a set of locations
@@ -29,11 +28,11 @@ def rndPlainNodes(
     Parameters
     ----------
 
-    N: integer, optional
+    N: integer, optional, default None
         Number of locations/vertices/customers to be randomly created
-    nodeIDs: list, optional
+    nodeIDs: list, optional, default None
         Alternative input parameter of `N`. A list of node IDs, `N` will be overwritten if `nodeIDs` is given
-    distr: dictionary, required
+    distr: dictionary, optional, default {'method': 'UniformSquareXY', 'xRange': (0, 100), 'yRange': (0, 100)}
         Spatial distribution of nodes, options are as following:
             1) (default) Uniformly sample from a square on the Euclidean space
             >>> distr = {
@@ -106,9 +105,9 @@ def rndPlainNodes(
         raise MissingParameterError(ERROR_MISSING_NODES_DISTR)
 
     nodes = {}
-    if (nodeIDs == None and N == None):
+    if (nodeIDs == [] and N == None):
         raise MissingParameterError(ERROR_MISSING_N)
-    elif (nodeIDs == None and N != None):
+    elif (nodeIDs == [] and N != None):
         nodeIDs = [i for i in range(N)]
 
     # Generate instance =======================================================

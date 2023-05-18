@@ -339,6 +339,10 @@ def _ipTSPMultiCommodityFlow(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     seq = []
     arcs = []
     solType = None
+    gap = None
+    lb = None
+    ub = None
+    runtime = None
     if (TSP.status == grb.GRB.status.OPTIMAL):
         solType = 'IP_Optimal'
         ofv = TSP.getObjective().getValue()
@@ -346,7 +350,6 @@ def _ipTSPMultiCommodityFlow(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
             if (x[i, j].x > 0.5):
                 arcs.append([i, j])
         currentNode = 0
-        currentTime = 0
         seq.append(nodeIDs[currentNode])
         while (len(arcs) > 0):
             for i in range(len(arcs)):
@@ -432,6 +435,10 @@ def _ipTSPShortestPath(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     seq = []
     arcs = []
     solType = None
+    gap = None
+    lb = None
+    ub = None
+    runtime = None
     if (TSP.status == grb.GRB.status.OPTIMAL):
         solType = 'IP_Optimal'
         ofv = TSP.getObjective().getValue()
@@ -439,7 +446,6 @@ def _ipTSPShortestPath(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
             if (x[i, j, t].x > 0.5):
                 arcs.append([i, j])
         currentNode = 0
-        currentTime = 0
         seq.append(nodeIDs[currentNode])
         while (len(arcs) > 0):
             for i in range(len(arcs)):
@@ -530,6 +536,10 @@ def _ipTSPMTZ(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     seq = []
     arcs = []
     solType = None
+    gap = None
+    lb = None
+    ub = None
+    runtime = None
     if (TSP.status == grb.GRB.status.OPTIMAL):
         solType = 'IP_Optimal'
         ofv = TSP.getObjective().getValue()
@@ -538,7 +548,6 @@ def _ipTSPMTZ(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
             if (x[i, j].x > 0.5):
                 arcs.append([i, j])
         currentNode = 0
-        currentTime = 0
         seq.append(nodeIDs[currentNode])
         while (len(arcs) > 0):
             for i in range(len(arcs)):
@@ -618,7 +627,7 @@ def _ipTSPPlainLoop(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
             accRuntime += TSP.Runtime
             G = nx.Graph()
             for i, j in x.keys():
-                if (x_sol[i, j] > 0.9):
+                if (x[i, j].x > 0.9):
                     G.add_edge(i, j, weight = tau[i, j])
             components = [list(c) for c in nx.connected_components(G)]
             if (len(components) == 1):
@@ -636,6 +645,10 @@ def _ipTSPPlainLoop(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     seq = []
     arcs = []
     solType = None
+    gap = None
+    lb = None
+    ub = None
+    runtime = None
     if (TSP.status == grb.GRB.status.OPTIMAL):
         solType = 'IP_Optimal'
         ofv = TSP.getObjective().getValue()
@@ -643,7 +656,6 @@ def _ipTSPPlainLoop(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
             if (x[i, j].x > 0.5):
                 arcs.append([i, j])
         currentNode = 0
-        currentTime = 0
         seq.append(nodeIDs[currentNode])
         while (len(arcs) > 0):
             for i in range(len(arcs)):
@@ -734,6 +746,10 @@ def _ipTSPLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     seq = []
     arcs = []
     solType = None
+    gap = None
+    lb = None
+    ub = None
+    runtime = None
     if (TSP.status == grb.GRB.status.OPTIMAL):
         solType = 'IP_Optimal'
         ofv = TSP.getObjective().getValue()
@@ -741,7 +757,6 @@ def _ipTSPLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
             if (x[i, j].x > 0.5):
                 arcs.append([i, j])
         currentNode = 0
-        currentTime = 0
         seq.append(nodeIDs[currentNode])
         while (len(arcs) > 0):
             for i in range(len(arcs)):

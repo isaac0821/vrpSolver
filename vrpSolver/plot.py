@@ -1,155 +1,10 @@
 import matplotlib.pyplot as plt
-import random
 
+from .common import *
 from .color import *
 from .geometry import *
 from .msg import *
 from .province import *
-
-def plotGrid(
-    fig:        "Based matplotlib figure object" = None,
-    ax:         "Based matplotlib ax object" = None,
-    gridColRow: "Number of columns, and number of rows" = (None, None),
-    barriers:   "List of blocking grids" = [],
-    labeling:   "Additional labeling of grids to support different color or annotation, in format of \
-                    {\
-                        (coordX, coordY): { \
-                            'color': color, \
-                            'annotation': annotation \
-                        }\
-                    }" = None,
-    gridSize:   "Size of the grid" = 1,
-    gridBackColor: "Background color of grids" = None,
-    gridEdgeColor: "Edge color of grids" = 'black',
-    gridOpacity: "Opacity of grids background colors" = 1,
-    barrierBackColor: "Background color of barriers" = 'gray',
-    barrierEdgeColor: "Edge color of barriers" = 'black',
-    barrierOpacity: "Opacity of barriers" = 0.5,
-    barrierBackStyle: "Background style of barriers" = '///',
-    saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None,
-    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
-                 recommended to turn off if generate a batch of images" = True
-    ) -> "Plot a grid with barriers":
-
-    # If no based matplotlib figure, define boundary ==========================
-    if (fig == None or ax == None):
-        fig, ax = plt.subplots()
-        xMin = (0 - 0.5) * gridSize
-        yMin = (0 - 0.5) * gridSize
-        xMax = (gridColRow[0] + 0.5) * gridSize
-        yMax = (gridColRow[1] + 0.5) * gridSize
-        fig.set_figwidth(xMax)
-        fig.set_figheight(yMax)
-        ax.set_xlim(xMin, xMax)
-        ax.set_ylim(yMin, yMax)
-        plt.axis('off')
-
-    for col in range(gridColRow[0]):
-        for row in range(gridColRow[1]):
-            poly = [
-                [col * gridSize, row * gridSize], 
-                [col * gridSize + gridSize, row * gridSize],
-                [col * gridSize + gridSize, row * gridSize + gridSize],
-                [col * gridSize, row * gridSize + gridSize],
-                [col * gridSize, row * gridSize]
-            ]
-            if ((col, row) not in barriers):
-                plotPolygon(
-                    fig = fig,
-                    ax = ax,
-                    poly = poly,
-                    edgeColor = gridEdgeColor,
-                    fillColor = gridBackColor,
-                    opacity = gridOpacity)
-            else:
-                plotPolygon(
-                    fig = fig,
-                    ax = ax,
-                    poly = poly,
-                    edgeColor = barrierEdgeColor,
-                    fillColor = barrierBackColor,
-                    opacity = barrierOpacity,
-                    fillStyle = barrierBackStyle)
-
-    # Add labels ==============================================================
-    if (labeling != None):
-        for (col, row) in labeling:
-            if ('color' in labeling[(col, row)]):
-                plotPolygon(
-                    fig = fig,
-                    ax = ax,
-                    poly = poly,
-                    edgeColor = gridEdgeColor,
-                    fillColor = labeling[(col, row)]['color'],
-                    opacity = gridOpacity)
-
-    # Save figure =============================================================
-    if (saveFigPath != None):
-        fig.savefig(saveFigPath)
-    if (not showFig):
-        plt.close(fig)
-
-    return fig, ax
-
-def plotGridPath(
-    fig:        "Based matplotlib figure object" = None,
-    ax:         "Based matplotlib ax object" = None,
-    gridColRow: "Number of columns, and number of rows" = (None, None),
-    barriers:   "List of blocking grids, needed if plotGridFlag is True" = [],
-    gridSize:   "Size of the grid" = 1,
-    plotGridFlag: "True if plot the grid as background, false otherwise" = True,
-    path:       "The sequences of visiting grids, a list of coordinates" = None,
-    pathColor:  "The color of path" = 'Random',
-    pathWidth:  "The width of path" = 3,
-    markerSize: "Size of starting/ending points" = 15,
-    saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None,
-    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
-                 recommended to turn off if generate a batch of images" = True
-    ) -> "Plot the path on the grid":
-
-    # If no based matplotlib figure, define boundary ==========================
-    if (fig == None or ax == None):
-        fig, ax = plt.subplots()
-        xMin = (0 - 0.5) * gridSize
-        yMin = (0 - 0.5) * gridSize
-        xMax = (gridColRow[0] + 0.5) * gridSize
-        yMax = (gridColRow[1] + 0.5) * gridSize
-        fig.set_figwidth(xMax)
-        fig.set_figheight(yMax)
-        ax.set_xlim(xMin, xMax)
-        ax.set_ylim(yMin, yMax)
-        plt.axis('off')
-
-    # Plot grid background ====================================================
-    if (plotGridFlag):
-        fig, ax = plotGrid(
-            fig = fig,
-            ax = ax,
-            gridColRow = gridColRow,
-            barriers = barriers,
-            gridSize = gridSize)
-
-    # Path color ==============================================================
-    if (pathColor == 'Random'):
-        pathColor = colorRandom()
-
-    # Plot the origin/destination =============================================
-    ax.plot(path[0][0] * gridSize + gridSize / 2, path[0][1] * gridSize + gridSize / 2, marker = 'o', markersize= markerSize, color = pathColor)
-    ax.plot(path[-1][0] * gridSize + gridSize / 2, path[-1][1] * gridSize + gridSize / 2, marker = 's', markersize= markerSize, color = pathColor)
-    for i in range(len(path) - 1):
-        x = [path[i][0] * gridSize + gridSize / 2, path[i + 1][0] * gridSize + gridSize / 2]
-        y = [path[i][1] * gridSize + gridSize / 2, path[i + 1][1] * gridSize + gridSize / 2]
-        ax.plot(x, y, color = pathColor, linewidth = pathWidth)
-
-    # Save figure =============================================================
-    if (saveFigPath != None):
-        fig.savefig(saveFigPath)
-    if (not showFig):
-        plt.close(fig)
-
-    return fig, ax
 
 def plotRoadNetwork(
     fig:        "Based matplotlib figure object" = None,
@@ -280,23 +135,66 @@ def plotRoadNetwork(
     return fig, ax
 
 def plotProvinceMap(
-    fig:        "Based matplotlib figure object" = None,
-    ax:         "Based matplotlib ax object" = None,
-    country:    "String, name of the country" = 'U.S.',
-    provinces:  "List of provinces" = [],
-    linewidth:  "Width of arcs" = 1,
-    edgeColor:  "1) String 'Random', or\
-                 2) String, color" = 'Random',
-    fillColor:  "1) (default) String 'Random', or\
-                 2) None, no fill, or\
-                 3) String, color" = None,
-    fillStyle:  "Background style, None if no style, '///' for shadow" = None,
-    opacity:    "Opacity of filled area" = 0.5,
+    fig = None,
+    ax = None,
+    country: str = 'U.S.',
+    province: list[str]|str = [],
+    edgeWidth: float = 0.5,
+    edgeColor: str = 'Random',
+    fillColor: str|None = None,
+    fillStyle: str = "///",
+    opacity: float = 0.5,   
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    saveFigPath: str|None = None,
+    showFig: bool = True
     ):
+
+
+    """Draw arcs
+
+    Parameters
+    ----------
+
+    fig: matplotlib object, optional, defaut None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
+    country: string, required, default 'U.S.'
+        Country of the province
+    province: string | list[string], required, default ['New York']
+        A province or a list of provinces to be plotted.
+    edgeWidth: float, optional, default 0.5
+        Width of the edge
+    edgeColor: string, optional, default 'Random'
+        Color of the edge
+    fillColor: string, optional, default None
+        Color filled in the polygon
+    fillStyle: string, optional, default "///"
+        Style filled in the polygon
+    opacity: float, optional, default 0.5
+        Opacity of the polygon
+    xyReverseFlag: bool, optional, default False
+        True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
+    figSize: 2-tuple, optional, default as (None, 5)
+        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
+    boundingBox: 4-tuple, optional, default as (None, None, None, None)
+        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
+    saveFigPath: string, optional, default as None
+        The path for exporting image if provided
+    showFig: bool, optional, default as True
+        True if show the figure in Juypter Notebook environment
+
+    Returns
+    -------
+    fig, ax: matplotlib.pyplot object
+    """
+
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
     
-    for prv in provinces:
+    if (type(province) == str):
+        province = [province]
+    for prv in province:
         prvPoly = None
         if (country == 'U.S.'):
             if prv in usState:
@@ -304,46 +202,81 @@ def plotProvinceMap(
             elif prv in usStateAbbr:
                 prvPoly = usState[usStateAbbr[prv]]
         else:
-            raise UnsupportedInput("Error: %s is not a supported input." % country) 
+            raise VrpSolverNotAvailableError("Error: %s is not included yet, please stay tune." % country) 
         fig, ax = plotPolygon(
             fig = fig,
             ax = ax,
             poly = prvPoly,
-            xyReverseFlag = True,
-            linewidth = linewidth,
+            edgeWidth = edgeWidth,
             edgeColor = edgeColor,
             fillColor = fillColor,
             fillStyle = fillStyle,
-            opacity = opacity)
+            opacity = opacity,
+            xyReverseFlag = True,
+            figSize=figSize,
+            saveFigPath=saveFigPath,
+            showFig=showFig)
 
     return fig, ax
 
 def plotPolygon(
-    fig:        "Based matplotlib figure object" = None,
-    ax:         "Based matplotlib ax object" = None,
-    poly:       "Polygon to be plot" = None,
-    xyReverseFlag: "Reverse x, y. Usually use for (lat, lon)" = False,
-    linewidth:  "Width of arcs" = 1,
-    edgeColor:  "1) String 'Random', or\
-                 2) String, color" = 'Random',
-    fillColor:  "1) String 'Random', or\
-                 2) (default) None, no fill, or\
-                 3) String, color" = None,
-    fillStyle:  "Background style, None if no style, '///' for shadow" = None,
-    opacity:    "Opacity of filled area" = 0.5,
-    figSize:    "Size of the figure, in (width, height)" = (5, 5), 
-    xMin:       "min of x-axis" = None,
-    xMax:       "max of x-axis" = None,
-    yMin:       "min of y-axis" = None,
-    yMax:       "max of y-axis" = None,
-    edgeWidth:  "Width on the edge" = 0.5,
-    saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None,
-    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
-                 recommended to turn off if generate a batch of images" = True
-    ) -> "Draw a polygon":
+    fig = None,
+    ax = None,
+    poly: poly | None = None, 
+    edgeWidth: float = 0.5,
+    edgeColor: str = 'Random',
+    fillColor: str|None = None,
+    fillStyle: str = "///",
+    opacity: float = 0.5,
+    xyReverseFlag: bool = False,    
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ):
 
-    # If no based matplotlib figure, define boundary ==========================
+    """Draw arcs
+
+    Parameters
+    ----------
+
+    fig: matplotlib object, optional, defaut None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
+    poly: poly, required, default None
+        A polygon to be plotted
+    edgeWidth: float, optional, default 0.5
+        Width of the edge
+    edgeColor: string, optional, default 'Random'
+        Color of the edge
+    fillColor: string, optional, default None
+        Color filled in the polygon
+    fillStyle: string, optional, default "///"
+        Style filled in the polygon
+    opacity: float, optional, default 0.5
+        Opacity of the polygon
+    xyReverseFlag: bool, optional, default False
+        True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
+    figSize: 2-tuple, optional, default as (None, 5)
+        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
+    boundingBox: 4-tuple, optional, default as (None, None, None, None)
+        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
+    saveFigPath: string, optional, default as None
+        The path for exporting image if provided
+    showFig: bool, optional, default as True
+        True if show the figure in Juypter Notebook environment
+
+    Returns
+    -------
+    fig, ax: matplotlib.pyplot object
+    """
+
+    # Check for required fields ===============================================
+    if (poly == None):
+        raise MissingParameterError("ERROR: Missing required field `poly`.")
+
+    # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
         allX = []
@@ -355,27 +288,38 @@ def plotPolygon(
             else:
                 allX.append(pt[1])
                 allY.append(pt[0])
+        (xMin, xMax, yMin, yMax) = boundingBox
         if (xMin == None):
-            xMin = min(allX) - edgeWidth
+            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
         if (xMax == None):
-            xMax = max(allX) + edgeWidth
+            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
         if (yMin == None):
-            yMin = min(allY) - edgeWidth
+            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
         if (yMax == None):
-            yMax = max(allY) + edgeWidth
-        if (figSize == None):
+            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+        width = 0
+        height = 0
+        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
             if (xMax - xMin > yMax - yMin):
                 width = 5
                 height = 5 * ((yMax - yMin) / (xMax - xMin))
             else:
                 width = 5 * ((xMax - xMin) / (yMax - yMin))
                 height = 5
+        elif (figSize != None and figSize[0] != None and figSize[1] == None):
+            width = figSize[0]
+            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
+        elif (figSize != None and figSize[0] == None and figSize[1] != None):
+            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
+            height = figSize[1]
         else:
             (width, height) = figSize
-        fig.set_figwidth(width)
-        fig.set_figheight(height)
-        ax.set_xlim(xMin, xMax)
-        ax.set_ylim(yMin, yMax)
+
+        if (isinstance(fig, plt.Figure)):
+            fig.set_figwidth(width)
+            fig.set_figheight(height)
+            ax.set_xlim(xMin, xMax)
+            ax.set_ylim(yMin, yMax)
 
     # Get the x, y list =======================================================
     x = []
@@ -398,16 +342,16 @@ def plotPolygon(
     if (edgeColor == 'Random'):
         edgeColor = colorRandom()
     if (fillColor == None):
-        ax.plot(x, y, color = edgeColor, linewidth = linewidth)
+        ax.plot(x, y, color = edgeColor, linewidth = edgeWidth)
     else:
         if (fillColor == 'Random'):
-            ax.fill(x, y, facecolor=colorRandom(), edgecolor=edgeColor, hatch=fillStyle, linewidth=linewidth, alpha=opacity)
+            ax.fill(x, y, facecolor=colorRandom(), edgecolor=edgeColor, hatch=fillStyle, linewidth=edgeWidth, alpha=opacity)
         else:
-            ax.fill(x, y, facecolor=fillColor, edgecolor=edgeColor, hatch=fillStyle, linewidth=linewidth, alpha=opacity)
+            ax.fill(x, y, facecolor=fillColor, edgecolor=edgeColor, hatch=fillStyle, linewidth=edgeWidth, alpha=opacity)
     plt.close(fig)
 
     # Save figure =============================================================
-    if (saveFigPath != None):
+    if (saveFigPath != None and isinstance(fig, plt.Figure)):
         fig.savefig(saveFigPath)
     if (not showFig):
         plt.close(fig)
@@ -415,39 +359,63 @@ def plotPolygon(
     return fig, ax
 
 def plotNodes(
-    fig:        "Based matplotlib figure object" = None,
-    ax:         "Based matplotlib ax object" = None,
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {\
-                            'loc': (x, y), \
-                            'marker': 'r', \
-                            'color': 'red', \
-                            'size': 3, \
-                        }, \
-                        ... \
-                    }" = None, 
-    xyReverseFlag: "Reverse x, y. Usually use for (lat, lon)" = False,
-    color:      "Decide the color of nodes if the 'color' tag is not in `nodes` \
-                 1) String 'Random', or \
-                 2) String, color" = 'Random',
-    fontsize:   "font size of node" = None,
-    figSize:    "Size of the figure, in (width, height)" = (5, 5), 
-    xMin:       "min of x-axis" = None,
-    xMax:       "max of x-axis" = None,
-    yMin:       "min of y-axis" = None,
-    yMax:       "max of y-axis" = None,
-    edgeWidth:  "Width on the edge" = 0.5,
-    saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None,
-    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
-                 recommended to turn off if generate a batch of images" = True
-    ) -> "Draw nodes":
+    fig = None,
+    ax = None,
+    nodes: dict | None = None, 
+    nodeColor: str = 'Random',
+    neighborColor: str = 'gray',
+    xyReverseFlag: bool = False,    
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ):
+
+    """Draw nodes
+
+    Parameters
+    ----------
+
+    fig: matplotlib object, optional, defaut None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
+    nodes: dictionary, required
+        The coordinates and other attributions of the nodes to be plotted, in the following format::
+            >>> nodes = {
+            ...     nodeID1: {
+            ...         'loc': (x, y),
+            ...         'marker': 'r',    # Optional, default as 'o'
+            ...         'markersize': 2,  # Optional, default as None
+            ...         'color': 'red',   # Optional, default as 'Random'
+            ...         'size': 3,        # Optional, default as 3
+            ...         'fontsize': 3,    # Optional, default as 3
+            ...         'neighbor': poly, # Optional, indicate if need to display the neighborhood
+            ...     }, # ...
+            ... }
+    nodeColor: str, optional, default 'Random'
+        Alternative option. If 'color' is provided in `node`, this will be ignored.
+    neighborhoodColor: str, optional, default 'gray'
+        If nodes have 'neighbor' label, will plot the neighbor area in this color
+    xyReverseFlag: bool, optional, default False
+        True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
+    figSize: 2-tuple, optional, default as (None, 5)
+        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
+    boundingBox: 4-tuple, optional, default as (None, None, None, None)
+        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
+    saveFigPath: string, optional, default as None
+        The path for exporting image if provided
+    showFig: bool, optional, default as True
+        True if show the figure in Juypter Notebook environment
+
+    Returns
+    -------
+    fig, ax: matplotlib.pyplot object
+    """
 
     # Check for required fields ===============================================
     if (nodes == None):
-        msgError(ERROR_MISSING_NODES)
-        return
+        raise MissingParameterError(ERROR_MISSING_NODES)
 
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
@@ -461,38 +429,60 @@ def plotNodes(
             else:
                 allX.append(nodes[i]['loc'][1])
                 allY.append(nodes[i]['loc'][0])
+        (xMin, xMax, yMin, yMax) = boundingBox
         if (xMin == None):
-            xMin = min(allX) - edgeWidth
+            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
         if (xMax == None):
-            xMax = max(allX) + edgeWidth
+            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
         if (yMin == None):
-            yMin = min(allY) - edgeWidth
+            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
         if (yMax == None):
-            yMax = max(allY) + edgeWidth
-        if (figSize == None):
+            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+        width = 0
+        height = 0
+        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
             if (xMax - xMin > yMax - yMin):
                 width = 5
                 height = 5 * ((yMax - yMin) / (xMax - xMin))
             else:
                 width = 5 * ((xMax - xMin) / (yMax - yMin))
                 height = 5
+        elif (figSize != None and figSize[0] != None and figSize[1] == None):
+            width = figSize[0]
+            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
+        elif (figSize != None and figSize[0] == None and figSize[1] != None):
+            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
+            height = figSize[1]
         else:
             (width, height) = figSize
-        fig.set_figwidth(width)
-        fig.set_figheight(height)
-        ax.set_xlim(xMin, xMax)
-        ax.set_ylim(yMin, yMax)
+
+        if (isinstance(fig, plt.Figure)):
+            fig.set_figwidth(width)
+            fig.set_figheight(height)
+            ax.set_xlim(xMin, xMax)
+            ax.set_ylim(yMin, yMax)
 
     # Draw nodes ==============================================================
     for n in nodes:
+        # If node has neighbor, plot the neighbor color first -----------------
+        if ('neighbor' in nodes[n]):
+            fig, ax = plotPolygon(
+                fig = fig,
+                ax = ax,
+                poly = nodes[n]['neighbor'],
+                edgeWidth = 1,
+                edgeColor = 'black',
+                fillColor = neighborColor,
+                fillStyle = '///')
+
         # Define color --------------------------------------------------------
-        nodeColor = None
+        color = None
         if ('color' in nodes[n]):
-            nodeColor = nodes[n]['color']
-        elif (color == 'Random'):
-            nodeColor = colorRandom()
+            color = nodes[n]['color']
+        elif (nodeColor == 'Random'):
+            color = colorRandom()
         else:
-            nodeColor = color
+            color = nodeColor
 
         # Define marker and marker size ---------------------------------------
         nodeMarker = 'o'
@@ -512,23 +502,20 @@ def plotNodes(
             x = nodes[n]['loc'][1]
             y = nodes[n]['loc'][0]
         if (nodeMarker == None):
-            ax.plot(x, y, color = nodeColor, marker = nodeMarker)
+            ax.plot(x, y, color = color, marker = nodeMarker)
         else:
-            ax.plot(x, y, color = nodeColor, marker = nodeMarker, markersize = nodeMarkersize)
+            ax.plot(x, y, color = color, marker = nodeMarker, markersize = nodeMarkersize)
         if ('label' not in nodes[n]):
             lbl = n
         else:
             lbl = nodes[n]['label']
 
-        if (fontsize == None):
-            ax.annotate(lbl, (x, y))
-        else:
-            ax.annotate(lbl, (x, y), fontsize=fontsize)
-
+        ax.annotate(lbl, (x, y))
+        
     plt.close(fig)
 
     # Save figure =============================================================
-    if (saveFigPath != None):
+    if (saveFigPath != None and isinstance(fig, plt.Figure)):
         fig.savefig(saveFigPath)
     if (not showFig):
         plt.close(fig)
@@ -536,40 +523,79 @@ def plotNodes(
     return fig, ax
 
 def plotArcs(
-    fig:        "Based matplotlib figure object" = None,
-    ax:         "Based matplotlib ax object" = None,
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None, 
-    xyReverseFlag: "Reverse x, y. Usually use for (lat, lon)" = False,
-    arcs:       "List of 2-tuples, arcs in format of [(nodeID1, nodeID2), ...]" = None,
-    linewidth:  "Width of arcs" = 1,
-    arrowFlag:  "Boolean, whether or not add arrows to route" = True,
-    arrowHeadwidth: "Arrow head width" = 0.1,
-    arrowHeadlength: "Arrow head length" = 0.2,
-    color:      "1) String 'Random', or\
-                 2) String, color" = 'Random',
-    figSize:    "Size of the figure, in (width, height)" = (5, 5), 
-    xMin:       "min of x-axis" = None,
-    xMax:       "max of x-axis" = None,
-    yMin:       "min of y-axis" = None,
-    yMax:       "max of y-axis" = None,
-    edgeWidth:  "Width on the edge" = 0.5,
-    saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None,
-    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
-                 recommended to turn off if generate a batch of images" = True
-    ) -> "Draw arcs":
+    fig = None,
+    ax = None,
+    nodes: dict | None = None, 
+    arcs: list[line] | None = None,
+    arcColor: str = 'Random',
+    arcWidth: float = 1,
+    arrowFlag: bool = True,
+    arrowHeadWidth: float = 0.1,
+    arrowHeadLength: float = 0.2,
+    xyReverseFlag: bool = False,
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ):
+    
+    """Draw arcs
+
+    Parameters
+    ----------
+
+    fig: matplotlib object, optional, defaut None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
+    nodes: dictionary, required
+        The coordinates and other attributions of the nodes to be plotted, in the following format::
+            >>> nodes = {
+            ...     nodeID1: {
+            ...         'loc': (x, y),
+            ...         'marker': 'r',    # Optional, default as 'o'
+            ...         'markersize': 2,  # Optional, default as None
+            ...         'color': 'red',   # Optional, default as 'Random'
+            ...         'size': 3,        # Optional, default as 3
+            ...         'fontsize': 3,    # Optional, default as 3
+            ...         'neighbor': poly, # Optional, indicate if need to display the neighborhood
+            ...     }, # ...
+            ... }
+    arcs: list[line], optional, default None
+        A set of arcs, each arc is defined by two points
+    arcColor: string, optional, default 'Random'
+        Color of arcs
+    arcWidth: float, optional, default 1
+        Width of arcs
+    arrowFlag: bool, optional, default True
+        True if plot arrows
+    arrowHeadWidth: float, optional, default 0.1
+        Width of arrow head
+    arrowHeadLength: float, optional, default 0.2
+        Lengtho of arrow head
+    xyReverseFlag: bool, optional, default False
+        True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
+    figSize: 2-tuple, optional, default as (None, 5)
+        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
+    boundingBox: 4-tuple, optional, default as (None, None, None, None)
+        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
+    saveFigPath: string, optional, default as None
+        The path for exporting image if provided
+    showFig: bool, optional, default as True
+        True if show the figure in Juypter Notebook environment
+
+    Returns
+    -------
+    fig, ax: matplotlib.pyplot object
+    """
 
     # Check for required fields ===============================================
     if (nodes == None):
-        msgError(ERROR_MISSING_NODES)
-        return
+        raise MissingParameterError(ERROR_MISSING_NODES)
+    if (arcs == None):
+        raise MissingParameterError("ERROR: Missing required field `arcs`.")
 
-    # If no based matplotlib figure, define boundary ==========================
+    # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
         allX = []
@@ -585,27 +611,38 @@ def plotArcs(
                 allY.append(nodes[i[0]]['loc'][0])
                 allX.append(nodes[i[1]]['loc'][1])
                 allY.append(nodes[i[1]]['loc'][0])
+        (xMin, xMax, yMin, yMax) = boundingBox
         if (xMin == None):
-            xMin = min(allX) - edgeWidth
+            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
         if (xMax == None):
-            xMax = max(allX) + edgeWidth
+            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
         if (yMin == None):
-            yMin = min(allY) - edgeWidth
+            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
         if (yMax == None):
-            yMax = max(allY) + edgeWidth
-        if (figSize == None):
+            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+        width = 0
+        height = 0
+        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
             if (xMax - xMin > yMax - yMin):
                 width = 5
                 height = 5 * ((yMax - yMin) / (xMax - xMin))
             else:
                 width = 5 * ((xMax - xMin) / (yMax - yMin))
                 height = 5
+        elif (figSize != None and figSize[0] != None and figSize[1] == None):
+            width = figSize[0]
+            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
+        elif (figSize != None and figSize[0] == None and figSize[1] != None):
+            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
+            height = figSize[1]
         else:
             (width, height) = figSize
-        fig.set_figwidth(width)
-        fig.set_figheight(height)
-        ax.set_xlim(xMin, xMax)
-        ax.set_ylim(yMin, yMax)
+
+        if (isinstance(fig, plt.Figure)):
+            fig.set_figwidth(width)
+            fig.set_figheight(height)
+            ax.set_xlim(xMin, xMax)
+            ax.set_ylim(yMin, yMax)
 
     # Draw arcs ===============================================================
     for arc in arcs:
@@ -621,81 +658,119 @@ def plotArcs(
             y2 = nodes[arc[1]]['loc'][0]
         dx = x2 - x1
         dy = y2 - y1
-        if (color == 'Random'):
+        if (arcColor == 'Random'):
             rndColor = colorRandom()
             ax.plot([x1, x2], [y1, y2], color = rndColor)
             if (arrowFlag):
-                ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=linewidth, head_width=arrowHeadwidth, head_length=arrowHeadlength, color=rndColor)
+                ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=rndColor)
         else:
-            ax.plot([x1, x2], [y1, y2], color = color)
+            ax.plot([x1, x2], [y1, y2], color = arcColor)
             if (arrowFlag):
-                ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=linewidth, head_width=arrowHeadwidth, head_length=arrowHeadlength, color=color)
+                ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=arcColor)
     plt.close(fig)
 
     # Save figure =============================================================
-    if (saveFigPath != None):
+    if (saveFigPath != None and isinstance(fig, plt.Figure)):
         fig.savefig(saveFigPath)
     if (not showFig):
         plt.close(fig)
 
     return fig, ax
 
-def plotSeq(
-    fig:        "Based matplotlib figure object" = None,
-    ax:         "Based matplotlib ax object" = None,
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None, 
-    xyReverseFlag: "Reverse x, y. Usually use for (lat, lon)" = False,
-    seq:        "List of nodeIDs" = None,
-    linewidth:  "Width of arcs" = 1,
-    arrowFlag:  "Boolean, whether or not add arrows to route" = True,
-    arrowHeadwidth: "Arrow head width" = 0.1,
-    arrowHeadlength: "Arrow head length" = 0.2,
-    color:      "1) String 'Random', or\
-                 2) String, color" = 'Random',
-    figSize:    "Size of the figure, in (width, height)" = (5, 5), 
-    xMin:       "min of x-axis" = None,
-    xMax:       "max of x-axis" = None,
-    yMin:       "min of y-axis" = None,
-    yMax:       "max of y-axis" = None,
-    edgeWidth:  "Width on the edge" = 0.5,
-    saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None,
-    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
-                 recommended to turn off if generate a batch of images" = True
-    ) -> "Draw a route, e.g., TSP solution":    
+def plotRoute(
+    fig = None,
+    ax = None,
+    nodes: dict | None = None, 
+    route: list[int|str] | None = None,
+    lineColor: str = 'Random',
+    lineWidth: float = 1,
+    arrowFlag: bool = True,
+    arrowHeadWidth: float = 0.1,
+    arrowHeadLength: float = 0.2,
+    xyReverseFlag: bool = False,
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ):
+
+    """Draw arcs
+
+    Parameters
+    ----------
+
+    fig: matplotlib object, optional, defaut None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
+    nodes: dictionary, required
+        The coordinates and other attributions of the nodes to be plotted, in the following format::
+            >>> nodes = {
+            ...     nodeID1: {
+            ...         'loc': (x, y),
+            ...         'marker': 'r',    # Optional, default as 'o'
+            ...         'markersize': 2,  # Optional, default as None
+            ...         'color': 'red',   # Optional, default as 'Random'
+            ...         'size': 3,        # Optional, default as 3
+            ...         'fontsize': 3,    # Optional, default as 3
+            ...         'neighbor': poly, # Optional, indicate if need to display the neighborhood
+            ...     }, # ...
+            ... }
+    arcs: list[line], optional, default None
+        A set of arcs, each arc is defined by two points
+    arcColor: string, optional, default 'Random'
+        Color of arcs
+    arcWidth: float, optional, default 1
+        Width of arcs
+    arrowFlag: bool, optional, default True
+        True if plot arrows
+    arrowHeadWidth: float, optional, default 0.1
+        Width of arrow head
+    arrowHeadLength: float, optional, default 0.2
+        Lengtho of arrow head
+    xyReverseFlag: bool, optional, default False
+        True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
+    figSize: 2-tuple, optional, default as (None, 5)
+        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
+    boundingBox: 4-tuple, optional, default as (None, None, None, None)
+        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
+    saveFigPath: string, optional, default as None
+        The path for exporting image if provided
+    showFig: bool, optional, default as True
+        True if show the figure in Juypter Notebook environment
+
+    Returns
+    -------
+    fig, ax: matplotlib.pyplot object
+    """
+
     # Create arcs =============================================================
+    if (route == None):
+        raise MissingParameterError("ERROR: Missing required field `route`.")
     arcs = []
-    for i in range(len(seq) - 1):
-        arcs.append([seq[i], seq[i + 1]])
+    for i in range(len(route) - 1):
+        arcs.append([route[i], route[i + 1]])
 
     # Color ===================================================================
-    if (color == 'Random'):
-        color = colorRandom()
+    if (lineColor == 'Random'):
+        lineColor = colorRandom()
 
     # Call plotArcs ===========================================================
     fig, ax = plotArcs(
         fig = fig,
         ax = ax,
         nodes = nodes,
-        xyReverseFlag = xyReverseFlag,
         arcs = arcs,
-        linewidth = linewidth,
+        arcColor = lineColor,
+        arcWidth = lineWidth,
         arrowFlag = arrowFlag,
-        arrowHeadwidth = arrowHeadwidth,
-        arrowHeadlength = arrowHeadlength,
-        color = color,
+        arrowHeadWidth = arrowHeadWidth,
+        arrowHeadLength = arrowHeadLength,
+        xyReverseFlag = xyReverseFlag,
         figSize = figSize,
-        xMin = xMin,
-        xMax = xMax,
-        yMin = yMin,
-        yMax = yMax,
-        edgeWidth = edgeWidth,
-        saveFigPath = saveFigPath)
+        boundingBox = boundingBox,
+        saveFigPath = saveFigPath,
+        showFig = showFig)
 
     return fig, ax
 

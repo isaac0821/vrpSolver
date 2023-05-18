@@ -427,33 +427,45 @@ class NonOverlapIntervalTree(RedBlackTree):
             return visited[-1].lower, visited[-1]
 
 class VisitNode(object):
-    def __init__(self):
+    def __init__(self, key, serviceTime=0):
         self.key = key
-        self.arr = arr        # Arrival time to this node
-        self.dep = dep        # Departure time from this node
-        self.distFromPrev = distFromPrev
-        self.distToSucc = distToSucc
-        self.prev = prev
-        self.succ = succ
+        self.serviceTime = serviceTime
+        self.arr = 0
+        self.dep = serviceTime
+        self.prev = None
+        self.succ = None
 
-class VehicleRoute(object):
+class RoundTripSym(object):
     # Linked list =============================================================
-    # NOTE: used in TSP/VRP, representing routes
-    def __init__(self):
-        self.nil = None
-        self.head = self.nil
-        self.tail = self.nil
+    # NOTE: Symmetric round trip for TSP/VRP, starts from and returns to the depot
+    def __init__(self, tau, depotID, serviceTime = 0):
+        # Initialize the round trip with a depot
+        depot = VisitNode(depotID)
+        depot.arr = 0
+        depot.dep = depot.arr + depot.serviceTime
+        self.head = depot
+        self.tail = depot
+        # Given (key, key) returns a distance
+        self.tau = {}
+
+    @property
+    def length(self):
+        return self.tail.dep
+
+    @property
+    def stops(self):
+        return len([i for i in self.traverse()])
 
     def prepend(self, n):
         n.succ = self.head
-        n.prev = self.nil
-        if (self.head != self.nil):
+        n.prev = None
+        if (self.head != None):
             self.head.prev = n
         self.head = n
         return
 
     def append(self, n):
-        if (self.head == self.nil):
+        if (self.head == None):
             self.head = n
             self.tail = n
         else:
@@ -470,7 +482,7 @@ class VehicleRoute(object):
         # Insert node n after x
         n.succ = x.succ
         n.prev = x
-        if (x.succ != self.nil):
+        if (x.succ != None):
             x.succ.prev = n
         x.succ = n
         return
@@ -480,35 +492,30 @@ class VehicleRoute(object):
         self.delete(n)
         return
     def delete(self, n):
-        if (n.prev != self.nil):
+        if (n.prev != None):
             n.prev.succ = n.succ
         else:
             self.head = n.succ
-        if (n.succ != self.nil):
+        if (n.succ != None):
             n.succ.prev = n.prev
         return
 
     def query(self, key):
         n = self.head
-        while (n != self.nil and n.key != key):
+        while (n != None and n.key != key):
             n = n.succ
         return n
 
-    def traverse(self, mode="Left"):
+    def traverse(self):
         traverse = []
-        if (mode == "Left"):
-            n = self.head
-            while (n.succ != self.nil):
-                traverse.append(n)
-                n = n.succ
+        n = self.head
+        while (n.succ != None):
             traverse.append(n)
-        elif (mode == "Right"):
-            n = self.tail
-            while (n.prev != self.nil):
-                traverse.append(n)
-                n = n.prev
-            traverse.append(n)
+            n = n.succ
+        traverse.append(n)
         return traverse
+
+
 
 class JobNode(object):
     def __init__(self, key, value=None, ts=None, te=None, prev=None, succ=None):

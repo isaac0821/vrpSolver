@@ -734,24 +734,6 @@ def _getTauGrid(nodes, nodeIDs, grid):
                 tau[j, i] = 0
     return tau
 
-def _getTauRoadNetwork(
-    nodes:      "Dictionary, returns the coordinate of given nodeIDs, \
-                    {\
-                        nodeIDs1: {'loc': (x, y)}, \
-                        nodeIDs2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None,
-    nodeIDs:    "1) String (default) 'All', or \
-                 2) A list of node IDs" = 'All', 
-    network:    "List of dictionary of networks in the format of \
-                    {\
-                        'start': (lat, lon),\
-                        'end': (lat, lon),\
-                    }" = None,
-    ) -> "Given a network, e.g., road network, and a set of locations on network (could be on arc), returns distance matrix":
-
-    return tau
-
 def getNeighborCluster(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
                     {\
@@ -1161,4 +1143,3 @@ def _getConvexHullJavis(nodes):
         curDirection = headingXY(nodes[curNodeID]['loc'], nodes[sweepSeq[0]]['loc'])    
         curNodeID = sweepSeq[0]
     return chSeq
-

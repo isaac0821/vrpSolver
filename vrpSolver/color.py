@@ -39,8 +39,7 @@ def getBWText(hexColor):
 def RGB2Hex(colorRGB):
     return '#%02x%02x%02x' % colorRGB
 
-def colorRandom(
-    ) -> "Returns a random color code":
+def colorRandom() -> str:
     color = "#%06x" % random.randint(0, 0xFFFFFF)
     return color
 

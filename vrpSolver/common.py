@@ -1,6 +1,4 @@
-import math
 import random
-# import typing
 
 try:
     import pickle5 as pickle

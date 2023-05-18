@@ -12,7 +12,7 @@ from .operator import *
 from .calculate import *
 
 # History =====================================================================
-# 20230510 - Cleaned up for v0.0.55
+# 20230510 - Cleaning
 # =============================================================================
 
 def heuTSP(
@@ -204,7 +204,7 @@ def heuTSP(
             for (i, j) in tau:
                 if (i != None and j != None and i < j):
                     weightArcs.append((i, j, tau[i, j]))
-            seq = _consTSPChristofides(weightArcs)
+            seq = _consTSPChristofides(depotID, weightArcs, 'IP')
         else:
             raise UnsupportedInputError("ERROR: 'Christofides' algorithm is not designed for Asymmetric TSP")
 
@@ -273,7 +273,7 @@ def _consTSPkNearestNeighbor(depotID, nodeIDs, tau, k = 1):
 
         # Get the kth of sorted node and append it to seq
         nextNodeID = None
-        for i in range(k):
+        for _ in range(k):
             if (len(sortedSeqHeap) > 0):
                 nextNodeID = heapq.heappop(sortedSeqHeap)[1]
         seq.append(nextNodeID)
@@ -489,46 +489,3 @@ def _impTSP2Opts(nodeIDs, tau, initSeq, asymFlag):
         'oriRevOfv': oriRevOfv,
     }
 
-def _impTSPReinsert(nodeIDs, tau, initSeq, oriOfv, oriRevOfv, asymFlag):
-    # Initialize ==============================================================
-    improvedFlag = False
-    impSeq = [i for i in initSeq]
-    
-    # Main iteration ==========================================================
-    # Needs rewrite, when calculating dist, avoid repeated calculation
-    if (len(impSeq) >= 4):
-        # Try reinsert
-        canReinsertFlag = True
-        while (canReinsertFlag):
-            canReinsertFlag = False
-            # Does not consider the "reinsert" of the depot
-            for i in range(1, len(impSeq) - 1):
-                # First remove
-                nI = impSeq[i]
-                removed = calRemovalSaving(
-                    route = impSeq,
-                    tau = tau,
-                    nI = nI,
-                    cost = oriOfv,
-                    revCost = oriRevOfv,
-                    asymFlag = asymFlag)
-                if (removed != None):
-                    inserted = calInsertionCost(
-                        route = removed['newSeq'],
-                        tau = tau,
-                        nJ = nI,
-                        cost = removed['newCost'],
-                        revCost = removed['newRevCost'],
-                        asymFlag = asymFlag)
-                    if (inserted != None and inserted['newCost'] + CONST_EPSILON < oriOfv):
-                        canReinsertFlag = True
-                        improvedFlag = True
-                        impSeq = inserted['newSeq']
-                        oriOfv = inserted['newCost']
-                        oriRevOfv = inserted['newRevCost']
-    return {
-        'impSeq': impSeq,
-        'improvedFlag': improvedFlag,
-        'oriOfv': oriOfv,
-        'oriRevOfv': oriRevOfv
-    }

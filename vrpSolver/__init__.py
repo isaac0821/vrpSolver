@@ -108,6 +108,10 @@ from .operator import *
 from .ipTSP import *
 from .heuTSP import *
 
+# Close Enough
+from .neighbor import *
+
+
 # VRP
 # from .ipVRP import *
 # from .heuVRP import *
@@ -118,13 +122,3 @@ from .heuTSP import *
 # Post optimization
 # from .stat import *
 
-# System config
-def setGlobal(newConfig):
-    global config
-    if ('MESSAGE_SHOW_WARNING' in newConfig):
-        config['MESSAGE_SHOW_WARNING'] = newConfig['MESSAGE_SHOW_WARNING']
-    if ('MESSAGE_SHOW_ERROR' in newConfig):
-        config['MESSAGE_SHOW_ERROR'] = newConfig['MESSAGE_SHOW_ERROR']
-    if ('MESSAGE_SHOW_DEBUG' in newConfig):
-        config['MESSAGE_SHOW_DEBUG'] = newConfig['MESSAGE_SHOW_DEBUG']
-    return
