@@ -17,9 +17,9 @@ from .geometry import *
 def ipTSP(
     nodes: dict, 
     edges: dict,
-    fml: str, 
-    solver: dict,
-    depotID: int | str,
+    fml: str = 'DFJ_Lazy', 
+    solver: dict = {'solver': 'Gurobi'},
+    depotID: int | str = 0,
     nodeIDs: list[int | str] | str = 'All',
     serviceTime: float = 0,
     ) -> dict | None:

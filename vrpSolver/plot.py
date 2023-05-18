@@ -6,357 +6,9 @@ from .geometry import *
 from .msg import *
 from .province import *
 
-def plotRoadNetwork(
-    fig:        "Based matplotlib figure object" = None,
-    ax:         "Based matplotlib ax object" = None,
-    roadNetwork: "A road network dictionary" = None,
-    linewidth:  "Width of arcs" = 1,
-    roadColor:  "1) String 'Random', random color for each class of road, or\
-                 2) String, one color for all, or\
-                 3) (Default) Dictionary, designated color for each class of road, " = None,
-    roadClass:  "1) String 'All', show all classes, or\
-                 2) List of strings, a list of classes to be shown" = 'All',
-    buildingColor: "1) String 'Random', random color for each class of road, or\
-                 2) String, one color for all, or\
-                 3) (Default) Dictionary, designated color for each class of road, " = None,
-    showBuildingFlag: "True if include buildings, False otherwise" = False,
-    figSize:    "Size of the figure, in (width, height)" = None, 
-    xMin:       "min of x-axis" = None,
-    xMax:       "max of x-axis" = None,
-    yMin:       "min of y-axis" = None,
-    yMax:       "max of y-axis" = None,
-    edgeWidth:  "Width on the edge" = 0.005,
-    saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None,
-    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
-                 recommended to turn off if generate a batch of images" = True
-    ) -> "Draw a set of polylines, usually for plotting road network": 
-
-    # Default color for different classes of the road =========================
-    if (roadColor == None):
-        roadColor = {
-            'motorway': 'red',
-            'truck': 'orange',
-            'primary': 'orange',
-            'secondary': 'orange',
-            'tertiary': 'orange',
-            'residential': 'green',
-            'others': 'gray'
-        }
-    if (buildingColor == None):
-        buildingColor = {
-            'building': 'yellow',
-            'commercial': 'yellow',
-            'residential': 'green',
-            'house': 'green',
-            'static_caravan': 'green',
-            'industrial': 'orange',
-            'manufacture': 'orange'
-        }
-
-    # FIXME: In future, we might want to distinguish roads by max speed or show the names of roads
-    # If no based matplotlib figure, define boundary ==========================
-    if (fig == None or ax == None):
-        fig, ax = plt.subplots()
-        allX = []
-        allY = []
-        for pt in roadNetwork['boundary']:
-            allX.append(pt[1])
-            allY.append(pt[0])
-        if (xMin == None):
-            xMin = min(allX) - edgeWidth
-        if (xMax == None):
-            xMax = max(allX) + edgeWidth
-        if (yMin == None):
-            yMin = min(allY) - edgeWidth
-        if (yMax == None):
-            yMax = max(allY) + edgeWidth
-        if (figSize == None):
-            if (xMax - xMin > yMax - yMin):
-                width = 15
-                height = 15 * ((yMax - yMin) / (xMax - xMin))
-            else:
-                width = 15 * ((xMax - xMin) / (yMax - yMin))
-                height = 15
-        else:
-            (width, height) = figSize
-        fig.set_figwidth(width)
-        fig.set_figheight(height)
-        ax.set_xlim(xMin, xMax)
-        ax.set_ylim(yMin, yMax)
-
-    # Plot roads ==============================================================
-    for road in roadNetwork['road']:
-        if (roadClass == 'All' or type(roadClass) == list and roadNetwork['road'][road]['class'] in roadClass):
-            x = []
-            y = []
-            for pt in roadNetwork['road'][road]['shape']:
-                x.append(pt[1])
-                y.append(pt[0])
-            color = None
-            if (roadColor == 'Random'):
-                color = colorRandom()
-            elif (type(roadColor) == str):
-                color = roadColor
-            elif (type(roadColor) == dict):
-                if (roadNetwork['road'][road]['class'] in roadColor):
-                    color = roadColor[roadNetwork['road'][road]['class']]
-                else:
-                    color = 'gray'
-            ax.plot(x, y, color = color, linewidth = linewidth)
-
-    # Plot buildings ==========================================================
-    if (showBuildingFlag):
-        for building in roadNetwork['building']:
-            x = []
-            y = []
-            for pt in roadNetwork['building'][building]['shape']:
-                x.append(pt[1])
-                y.append(pt[0])
-            if (buildingColor == 'Random'):
-                color = colorRandom()
-            elif (type(buildingColor) == str):
-                color = buildingColor
-            elif (type(buildingColor) == dict):
-                if (roadNetwork['building'][building]['type'] in buildingColor):
-                    color = buildingColor[roadNetwork['building'][building]['type']]
-                else:
-                    color = 'gray'
-            ax.fill(x, y, facecolor=color)
-
-    plt.close(fig)
-
-    # Save figure =============================================================
-    if (saveFigPath != None):
-        fig.savefig(saveFigPath)
-    if (not showFig):
-        plt.close(fig)
-
-    return fig, ax
-
-def plotProvinceMap(
-    fig = None,
-    ax = None,
-    country: str = 'U.S.',
-    province: list[str]|str = [],
-    edgeWidth: float = 0.5,
-    edgeColor: str = 'Random',
-    fillColor: str|None = None,
-    fillStyle: str = "///",
-    opacity: float = 0.5,   
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    saveFigPath: str|None = None,
-    showFig: bool = True
-    ):
-
-
-    """Draw arcs
-
-    Parameters
-    ----------
-
-    fig: matplotlib object, optional, defaut None
-        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
-    ax: matplotlib object, optional, default None
-        See `fig`
-    country: string, required, default 'U.S.'
-        Country of the province
-    province: string | list[string], required, default ['New York']
-        A province or a list of provinces to be plotted.
-    edgeWidth: float, optional, default 0.5
-        Width of the edge
-    edgeColor: string, optional, default 'Random'
-        Color of the edge
-    fillColor: string, optional, default None
-        Color filled in the polygon
-    fillStyle: string, optional, default "///"
-        Style filled in the polygon
-    opacity: float, optional, default 0.5
-        Opacity of the polygon
-    xyReverseFlag: bool, optional, default False
-        True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
-    figSize: 2-tuple, optional, default as (None, 5)
-        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
-    boundingBox: 4-tuple, optional, default as (None, None, None, None)
-        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
-    saveFigPath: string, optional, default as None
-        The path for exporting image if provided
-    showFig: bool, optional, default as True
-        True if show the figure in Juypter Notebook environment
-
-    Returns
-    -------
-    fig, ax: matplotlib.pyplot object
-    """
-
-    if (fig == None or ax == None):
-        fig, ax = plt.subplots()
-    
-    if (type(province) == str):
-        province = [province]
-    for prv in province:
-        prvPoly = None
-        if (country == 'U.S.'):
-            if prv in usState:
-                prvPoly = usState[prv]
-            elif prv in usStateAbbr:
-                prvPoly = usState[usStateAbbr[prv]]
-        else:
-            raise VrpSolverNotAvailableError("Error: %s is not included yet, please stay tune." % country) 
-        fig, ax = plotPolygon(
-            fig = fig,
-            ax = ax,
-            poly = prvPoly,
-            edgeWidth = edgeWidth,
-            edgeColor = edgeColor,
-            fillColor = fillColor,
-            fillStyle = fillStyle,
-            opacity = opacity,
-            xyReverseFlag = True,
-            figSize=figSize,
-            saveFigPath=saveFigPath,
-            showFig=showFig)
-
-    return fig, ax
-
-def plotPolygon(
-    fig = None,
-    ax = None,
-    poly: poly | None = None, 
-    edgeWidth: float = 0.5,
-    edgeColor: str = 'Random',
-    fillColor: str|None = None,
-    fillStyle: str = "///",
-    opacity: float = 0.5,
-    xyReverseFlag: bool = False,    
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
-    saveFigPath: str|None = None,
-    showFig: bool = True
-    ):
-
-    """Draw arcs
-
-    Parameters
-    ----------
-
-    fig: matplotlib object, optional, defaut None
-        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
-    ax: matplotlib object, optional, default None
-        See `fig`
-    poly: poly, required, default None
-        A polygon to be plotted
-    edgeWidth: float, optional, default 0.5
-        Width of the edge
-    edgeColor: string, optional, default 'Random'
-        Color of the edge
-    fillColor: string, optional, default None
-        Color filled in the polygon
-    fillStyle: string, optional, default "///"
-        Style filled in the polygon
-    opacity: float, optional, default 0.5
-        Opacity of the polygon
-    xyReverseFlag: bool, optional, default False
-        True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
-    figSize: 2-tuple, optional, default as (None, 5)
-        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
-    boundingBox: 4-tuple, optional, default as (None, None, None, None)
-        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
-    saveFigPath: string, optional, default as None
-        The path for exporting image if provided
-    showFig: bool, optional, default as True
-        True if show the figure in Juypter Notebook environment
-
-    Returns
-    -------
-    fig, ax: matplotlib.pyplot object
-    """
-
-    # Check for required fields ===============================================
-    if (poly == None):
-        raise MissingParameterError("ERROR: Missing required field `poly`.")
-
-    # If no based matplotlib figure provided, define boundary =================
-    if (fig == None or ax == None):
-        fig, ax = plt.subplots()
-        allX = []
-        allY = []
-        for pt in poly:
-            if (not xyReverseFlag):
-                allX.append(pt[0])
-                allY.append(pt[1])
-            else:
-                allX.append(pt[1])
-                allY.append(pt[0])
-        (xMin, xMax, yMin, yMax) = boundingBox
-        if (xMin == None):
-            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
-        if (xMax == None):
-            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
-        if (yMin == None):
-            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
-        if (yMax == None):
-            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
-        width = 0
-        height = 0
-        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
-            if (xMax - xMin > yMax - yMin):
-                width = 5
-                height = 5 * ((yMax - yMin) / (xMax - xMin))
-            else:
-                width = 5 * ((xMax - xMin) / (yMax - yMin))
-                height = 5
-        elif (figSize != None and figSize[0] != None and figSize[1] == None):
-            width = figSize[0]
-            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
-        elif (figSize != None and figSize[0] == None and figSize[1] != None):
-            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
-            height = figSize[1]
-        else:
-            (width, height) = figSize
-
-        if (isinstance(fig, plt.Figure)):
-            fig.set_figwidth(width)
-            fig.set_figheight(height)
-            ax.set_xlim(xMin, xMax)
-            ax.set_ylim(yMin, yMax)
-
-    # Get the x, y list =======================================================
-    x = []
-    y = []
-    for pt in poly:
-        if (not xyReverseFlag):
-            x.append(pt[0])
-            y.append(pt[1])
-        else:
-            x.append(pt[1])
-            y.append(pt[0])
-    if (not xyReverseFlag):
-        x.append(poly[0][0])
-        y.append(poly[0][1])
-    else:
-        x.append(poly[0][1])
-        y.append(poly[0][0])        
-
-    # Plot ====================================================================
-    if (edgeColor == 'Random'):
-        edgeColor = colorRandom()
-    if (fillColor == None):
-        ax.plot(x, y, color = edgeColor, linewidth = edgeWidth)
-    else:
-        if (fillColor == 'Random'):
-            ax.fill(x, y, facecolor=colorRandom(), edgecolor=edgeColor, hatch=fillStyle, linewidth=edgeWidth, alpha=opacity)
-        else:
-            ax.fill(x, y, facecolor=fillColor, edgecolor=edgeColor, hatch=fillStyle, linewidth=edgeWidth, alpha=opacity)
-    plt.close(fig)
-
-    # Save figure =============================================================
-    if (saveFigPath != None and isinstance(fig, plt.Figure)):
-        fig.savefig(saveFigPath)
-    if (not showFig):
-        plt.close(fig)
-
-    return fig, ax
+# History =====================================================================
+# 20230518 - `plotNodes()` now will plot the neighborhood of nodes
+# =============================================================================
 
 def plotNodes(
     fig = None,
@@ -473,6 +125,7 @@ def plotNodes(
                 edgeWidth = 1,
                 edgeColor = 'black',
                 fillColor = neighborColor,
+                opacity = 0.5,
                 fillStyle = '///')
 
         # Define color --------------------------------------------------------
@@ -774,6 +427,230 @@ def plotRoute(
 
     return fig, ax
 
+def plotPolygon(
+    fig = None,
+    ax = None,
+    poly: poly | None = None, 
+    edgeWidth: float = 0.5,
+    edgeColor: str = 'Random',
+    fillColor: str|None = None,
+    fillStyle: str = "///",
+    opacity: float = 0.5,
+    xyReverseFlag: bool = False,    
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ):
+
+    """Draw arcs
+
+    Parameters
+    ----------
+
+    fig: matplotlib object, optional, defaut None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
+    poly: poly, required, default None
+        A polygon to be plotted
+    edgeWidth: float, optional, default 0.5
+        Width of the edge
+    edgeColor: string, optional, default 'Random'
+        Color of the edge
+    fillColor: string, optional, default None
+        Color filled in the polygon
+    fillStyle: string, optional, default "///"
+        Style filled in the polygon
+    opacity: float, optional, default 0.5
+        Opacity of the polygon
+    xyReverseFlag: bool, optional, default False
+        True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
+    figSize: 2-tuple, optional, default as (None, 5)
+        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
+    boundingBox: 4-tuple, optional, default as (None, None, None, None)
+        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
+    saveFigPath: string, optional, default as None
+        The path for exporting image if provided
+    showFig: bool, optional, default as True
+        True if show the figure in Juypter Notebook environment
+
+    Returns
+    -------
+    fig, ax: matplotlib.pyplot object
+    """
+
+    # Check for required fields ===============================================
+    if (poly == None):
+        raise MissingParameterError("ERROR: Missing required field `poly`.")
+
+    # If no based matplotlib figure provided, define boundary =================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        allX = []
+        allY = []
+        for pt in poly:
+            if (not xyReverseFlag):
+                allX.append(pt[0])
+                allY.append(pt[1])
+            else:
+                allX.append(pt[1])
+                allY.append(pt[0])
+        (xMin, xMax, yMin, yMax) = boundingBox
+        if (xMin == None):
+            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
+        if (xMax == None):
+            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
+        if (yMin == None):
+            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
+        if (yMax == None):
+            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+        width = 0
+        height = 0
+        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
+            if (xMax - xMin > yMax - yMin):
+                width = 5
+                height = 5 * ((yMax - yMin) / (xMax - xMin))
+            else:
+                width = 5 * ((xMax - xMin) / (yMax - yMin))
+                height = 5
+        elif (figSize != None and figSize[0] != None and figSize[1] == None):
+            width = figSize[0]
+            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
+        elif (figSize != None and figSize[0] == None and figSize[1] != None):
+            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
+            height = figSize[1]
+        else:
+            (width, height) = figSize
+
+        if (isinstance(fig, plt.Figure)):
+            fig.set_figwidth(width)
+            fig.set_figheight(height)
+            ax.set_xlim(xMin, xMax)
+            ax.set_ylim(yMin, yMax)
+
+    # Get the x, y list =======================================================
+    x = []
+    y = []
+    for pt in poly:
+        if (not xyReverseFlag):
+            x.append(pt[0])
+            y.append(pt[1])
+        else:
+            x.append(pt[1])
+            y.append(pt[0])
+    if (not xyReverseFlag):
+        x.append(poly[0][0])
+        y.append(poly[0][1])
+    else:
+        x.append(poly[0][1])
+        y.append(poly[0][0])        
+
+    # Plot ====================================================================
+    if (edgeColor == 'Random'):
+        edgeColor = colorRandom()
+    if (fillColor == None):
+        ax.plot(x, y, color = edgeColor, linewidth = edgeWidth)
+    else:
+        if (fillColor == 'Random'):
+            ax.fill(x, y, facecolor=colorRandom(), edgecolor=edgeColor, hatch=fillStyle, linewidth=edgeWidth, alpha=opacity)
+        else:
+            ax.fill(x, y, facecolor=fillColor, edgecolor=edgeColor, hatch=fillStyle, linewidth=edgeWidth, alpha=opacity)
+    plt.close(fig)
+
+    # Save figure =============================================================
+    if (saveFigPath != None and isinstance(fig, plt.Figure)):
+        fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
+
+    return fig, ax
+
+def plotProvinceMap(
+    fig = None,
+    ax = None,
+    country: str = 'U.S.',
+    province: list[str]|str = [],
+    edgeWidth: float = 0.5,
+    edgeColor: str = 'Random',
+    fillColor: str|None = None,
+    fillStyle: str = "///",
+    opacity: float = 0.5,   
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ):
+
+
+    """Draw arcs
+
+    Parameters
+    ----------
+
+    fig: matplotlib object, optional, defaut None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
+    country: string, required, default 'U.S.'
+        Country of the province
+    province: string | list[string], required, default ['New York']
+        A province or a list of provinces to be plotted.
+    edgeWidth: float, optional, default 0.5
+        Width of the edge
+    edgeColor: string, optional, default 'Random'
+        Color of the edge
+    fillColor: string, optional, default None
+        Color filled in the polygon
+    fillStyle: string, optional, default "///"
+        Style filled in the polygon
+    opacity: float, optional, default 0.5
+        Opacity of the polygon
+    xyReverseFlag: bool, optional, default False
+        True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
+    figSize: 2-tuple, optional, default as (None, 5)
+        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
+    boundingBox: 4-tuple, optional, default as (None, None, None, None)
+        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
+    saveFigPath: string, optional, default as None
+        The path for exporting image if provided
+    showFig: bool, optional, default as True
+        True if show the figure in Juypter Notebook environment
+
+    Returns
+    -------
+    fig, ax: matplotlib.pyplot object
+    """
+
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+    
+    if (type(province) == str):
+        province = [province]
+    for prv in province:
+        prvPoly = []
+        if (country == 'U.S.'):
+            if prv in usState:
+                prvPoly = usState[prv]
+            elif prv in usStateAbbr:
+                prvPoly = usState[usStateAbbr[prv]]
+        else:
+            raise VrpSolverNotAvailableError("Error: %s is not included yet, please stay tune." % country) 
+        fig, ax = plotPolygon(
+            fig = fig,
+            ax = ax,
+            poly = prvPoly,
+            edgeWidth = edgeWidth,
+            edgeColor = edgeColor,
+            fillColor = fillColor,
+            fillStyle = fillStyle,
+            opacity = opacity,
+            xyReverseFlag = True,
+            figSize=figSize,
+            saveFigPath=saveFigPath,
+            showFig=showFig)
+
+    return fig, ax
+
 def plotGantt(
     fig:        "Based matplotlib figure object" = None, 
     ax:         "Based matplotlib ax object" = None,
@@ -981,4 +858,132 @@ def plotGantt(
         fig.savefig(saveFigPath)
     if (not showFig):
         plt.close(fig)
+    return fig, ax
+
+def plotRoadNetwork(
+    fig:        "Based matplotlib figure object" = None,
+    ax:         "Based matplotlib ax object" = None,
+    roadNetwork: "A road network dictionary" = None,
+    linewidth:  "Width of arcs" = 1,
+    roadColor:  "1) String 'Random', random color for each class of road, or\
+                 2) String, one color for all, or\
+                 3) (Default) Dictionary, designated color for each class of road, " = None,
+    roadClass:  "1) String 'All', show all classes, or\
+                 2) List of strings, a list of classes to be shown" = 'All',
+    buildingColor: "1) String 'Random', random color for each class of road, or\
+                 2) String, one color for all, or\
+                 3) (Default) Dictionary, designated color for each class of road, " = None,
+    showBuildingFlag: "True if include buildings, False otherwise" = False,
+    figSize:    "Size of the figure, in (width, height)" = None, 
+    xMin:       "min of x-axis" = None,
+    xMax:       "max of x-axis" = None,
+    yMin:       "min of y-axis" = None,
+    yMax:       "max of y-axis" = None,
+    edgeWidth:  "Width on the edge" = 0.005,
+    saveFigPath:"1) None, if not exporting image, or \
+                 2) String, the path for exporting image" = None,
+    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
+                 recommended to turn off if generate a batch of images" = True
+    ) -> "Draw a set of polylines, usually for plotting road network": 
+
+    # Default color for different classes of the road =========================
+    if (roadColor == None):
+        roadColor = {
+            'motorway': 'red',
+            'truck': 'orange',
+            'primary': 'orange',
+            'secondary': 'orange',
+            'tertiary': 'orange',
+            'residential': 'green',
+            'others': 'gray'
+        }
+    if (buildingColor == None):
+        buildingColor = {
+            'building': 'yellow',
+            'commercial': 'yellow',
+            'residential': 'green',
+            'house': 'green',
+            'static_caravan': 'green',
+            'industrial': 'orange',
+            'manufacture': 'orange'
+        }
+
+    # FIXME: In future, we might want to distinguish roads by max speed or show the names of roads
+    # If no based matplotlib figure, define boundary ==========================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        allX = []
+        allY = []
+        for pt in roadNetwork['boundary']:
+            allX.append(pt[1])
+            allY.append(pt[0])
+        if (xMin == None):
+            xMin = min(allX) - edgeWidth
+        if (xMax == None):
+            xMax = max(allX) + edgeWidth
+        if (yMin == None):
+            yMin = min(allY) - edgeWidth
+        if (yMax == None):
+            yMax = max(allY) + edgeWidth
+        if (figSize == None):
+            if (xMax - xMin > yMax - yMin):
+                width = 15
+                height = 15 * ((yMax - yMin) / (xMax - xMin))
+            else:
+                width = 15 * ((xMax - xMin) / (yMax - yMin))
+                height = 15
+        else:
+            (width, height) = figSize
+        fig.set_figwidth(width)
+        fig.set_figheight(height)
+        ax.set_xlim(xMin, xMax)
+        ax.set_ylim(yMin, yMax)
+
+    # Plot roads ==============================================================
+    for road in roadNetwork['road']:
+        if (roadClass == 'All' or type(roadClass) == list and roadNetwork['road'][road]['class'] in roadClass):
+            x = []
+            y = []
+            for pt in roadNetwork['road'][road]['shape']:
+                x.append(pt[1])
+                y.append(pt[0])
+            color = None
+            if (roadColor == 'Random'):
+                color = colorRandom()
+            elif (type(roadColor) == str):
+                color = roadColor
+            elif (type(roadColor) == dict):
+                if (roadNetwork['road'][road]['class'] in roadColor):
+                    color = roadColor[roadNetwork['road'][road]['class']]
+                else:
+                    color = 'gray'
+            ax.plot(x, y, color = color, linewidth = linewidth)
+
+    # Plot buildings ==========================================================
+    if (showBuildingFlag):
+        for building in roadNetwork['building']:
+            x = []
+            y = []
+            for pt in roadNetwork['building'][building]['shape']:
+                x.append(pt[1])
+                y.append(pt[0])
+            if (buildingColor == 'Random'):
+                color = colorRandom()
+            elif (type(buildingColor) == str):
+                color = buildingColor
+            elif (type(buildingColor) == dict):
+                if (roadNetwork['building'][building]['type'] in buildingColor):
+                    color = buildingColor[roadNetwork['building'][building]['type']]
+                else:
+                    color = 'gray'
+            ax.fill(x, y, facecolor=color)
+
+    plt.close(fig)
+
+    # Save figure =============================================================
+    if (saveFigPath != None):
+        fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
+
     return fig, ax

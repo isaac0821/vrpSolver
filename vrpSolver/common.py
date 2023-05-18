@@ -9,8 +9,8 @@ from .const import *
 
 # Type alias
 pt = list[float] | tuple[float, float]
-poly = list[pt]
-polys = list[poly]
+poly = list[list[float]] | list[tuple[float, float]]
+polys = list[list[list[float]]] | list[list[tuple[float, float]]]
 line = list[pt]
 
 def saveDictionary(obj, name: str) -> None:
