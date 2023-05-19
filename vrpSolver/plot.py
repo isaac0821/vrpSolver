@@ -427,6 +427,141 @@ def plotRoute(
 
     return fig, ax
 
+def plotSeq(
+    fig = None,
+    ax = None,
+    seq: list[pt] | None = None,
+    arcColor: str = 'Random',
+    arcWidth: float = 1,
+    arrowFlag: bool = True,
+    arrowHeadWidth: float = 0.1,
+    arrowHeadLength: float = 0.2,
+    xyReverseFlag: bool = False,
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ):
+    
+    """Draw arcs
+
+    Parameters
+    ----------
+
+    fig: matplotlib object, optional, defaut None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
+    seq: list[pt], optional, default None
+        A list of points to form a sequence
+    arcColor: string, optional, default 'Random'
+        Color of arcs
+    arcWidth: float, optional, default 1
+        Width of arcs
+    arrowFlag: bool, optional, default True
+        True if plot arrows
+    arrowHeadWidth: float, optional, default 0.1
+        Width of arrow head
+    arrowHeadLength: float, optional, default 0.2
+        Lengtho of arrow head
+    xyReverseFlag: bool, optional, default False
+        True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
+    figSize: 2-tuple, optional, default as (None, 5)
+        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
+    boundingBox: 4-tuple, optional, default as (None, None, None, None)
+        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
+    saveFigPath: string, optional, default as None
+        The path for exporting image if provided
+    showFig: bool, optional, default as True
+        True if show the figure in Juypter Notebook environment
+
+    Returns
+    -------
+    fig, ax: matplotlib.pyplot object
+    """
+
+    # Check for required fields ===============================================
+    if (seq == None):
+        raise MissingParameterError("ERROR: Missing required field `seq`.")
+
+    # If no based matplotlib figure provided, define boundary =================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        allX = []
+        allY = []
+        for i in seq:
+            if (not xyReverseFlag):
+                allX.append(i[0])
+                allY.append(i[1])
+            else:
+                allX.append(i[1])
+                allY.append(i[0])
+        (xMin, xMax, yMin, yMax) = boundingBox
+        if (xMin == None):
+            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
+        if (xMax == None):
+            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
+        if (yMin == None):
+            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
+        if (yMax == None):
+            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+        width = 0
+        height = 0
+        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
+            if (xMax - xMin > yMax - yMin):
+                width = 5
+                height = 5 * ((yMax - yMin) / (xMax - xMin))
+            else:
+                width = 5 * ((xMax - xMin) / (yMax - yMin))
+                height = 5
+        elif (figSize != None and figSize[0] != None and figSize[1] == None):
+            width = figSize[0]
+            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
+        elif (figSize != None and figSize[0] == None and figSize[1] != None):
+            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
+            height = figSize[1]
+        else:
+            (width, height) = figSize
+
+        if (isinstance(fig, plt.Figure)):
+            fig.set_figwidth(width)
+            fig.set_figheight(height)
+            ax.set_xlim(xMin, xMax)
+            ax.set_ylim(yMin, yMax)
+
+    # Draw arcs ===============================================================
+    for arc in arcs:
+        if (not xyReverseFlag):
+            x1 = nodes[arc[0]]['loc'][0]
+            y1 = nodes[arc[0]]['loc'][1]
+            x2 = nodes[arc[1]]['loc'][0]
+            y2 = nodes[arc[1]]['loc'][1]
+        else:
+            x1 = nodes[arc[0]]['loc'][1]
+            y1 = nodes[arc[0]]['loc'][0]
+            x2 = nodes[arc[1]]['loc'][1]
+            y2 = nodes[arc[1]]['loc'][0]
+        dx = x2 - x1
+        dy = y2 - y1
+        if (arcColor == 'Random'):
+            rndColor = colorRandom()
+            ax.plot([x1, x2], [y1, y2], color = rndColor)
+            if (arrowFlag):
+                ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=rndColor)
+        else:
+            ax.plot([x1, x2], [y1, y2], color = arcColor)
+            if (arrowFlag):
+                ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=arcColor)
+    plt.close(fig)
+
+    # Save figure =============================================================
+    if (saveFigPath != None and isinstance(fig, plt.Figure)):
+        fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
+
+    return fig, ax
+
 def plotPolygon(
     fig = None,
     ax = None,

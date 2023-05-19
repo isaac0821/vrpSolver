@@ -11,7 +11,8 @@ from .geometry import *
 
 # History =====================================================================
 # 20230510 - use networkx to replace .graph
-# 20230517 - Implementing PEP 3107
+# 20230517 - Implement PEP 3107
+# 20230519 - Now support COPT solver for 'DFJ_Lazy' formulation
 # =============================================================================
 
 def ipTSP(
@@ -72,13 +73,13 @@ def ipTSP(
             5) 'ShortestPath' (Only for demonstration, not practical)
             6) 'QAP' (Only for demonstration, extremely not practical)
     solver: dictionary, required, default as {'solver': 'Gurobi', 'timeLimit': None, 'gapTolerance': None, 'outputFlag': False}
-        The settings for the MILP solver, right now it only supports Gurobi, the format is as following:
+        The settings for the MILP solver, right now Gurobi supports all formulation and COPT supports 'DFJ_Lazy', the format is as following:
             >>> solver = {
             ...     'solver': 'Gurobi',
             ...     'timeLimit': timeLimit, # Time limit in seconds, for 'DFJ_Plainloop' is the total time limit
             ...     'gapTolerance': gapTolerance,
             ...     'outputFlag': False # Turn off solver log output by default
-            }
+            ... }
     depotID: int or string, required, default as 0
         The ID of depot.
     nodeIDs: string 'All' or a list of node IDs, required, default as 'All'
@@ -116,24 +117,68 @@ def ipTSP(
     if ((type(nodeIDs) == list and depotID not in nodeIDs)
         or (nodeIDs == 'All' and depotID not in nodes)):
         raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
+    if (solver == None or 'solver' not in solver):
+        raise MissingParameterError("ERROR: Missing required field `solver`.")
+    elif (solver['solver'] == 'Gurobi' and fml not in ['DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', 'QAP']):
+        raise OutOfRangeError("ERROR: Gurobi option supports 'DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', and 'QAP' formulations", )
+    elif (solver['solver'] == 'COPT' and fml not in ['DFJ_Lazy']):
+        raise OutOfRangeError("ERROR: COPT option supports 'DFJ_Lazy' formulations", )
 
     # Define tau ==============================================================
     tau = getTau(nodes, edges, depotID, nodeIDs, serviceTime)
 
     # Solve by different formulations =========================================
     tsp = None
-    if (fml == 'DFJ_Lazy'):
-        tsp = _ipTSPLazyCuts(nodeIDs, tau, solver['outputFlag'], solver['timeLimit'], solver['gapTolerance'])
-    elif (fml == 'DFJ_PlainLoop'):
-        tsp = _ipTSPPlainLoop(nodeIDs, tau, solver['outputFlag'], solver['timeLimit'], solver['gapTolerance'])
-    elif (fml == 'MTZ'):
-        tsp = _ipTSPMTZ(nodeIDs, tau, solver['outputFlag'], solver['timeLimit'], solver['gapTolerance'])
-    elif (fml == 'ShortestPath'):
-        tsp = _ipTSPShortestPath(nodeIDs, tau, solver['outputFlag'], solver['timeLimit'], solver['gapTolerance'])
-    elif (fml == 'MultiCommodityFlow'):
-        tsp = _ipTSPMultiCommodityFlow(nodeIDs, tau, solver['outputFlag'], solver['timeLimit'], solver['gapTolerance'])
-    elif (fml == 'QAP'):
-        tsp = _ipTSPQAP(nodeIDs, tau, solver['outputFlag'], solver['timeLimit'], solver['gapTolerance'])    
+    if (solver['solver'] == 'Gurobi'):
+        if (fml == 'DFJ_Lazy'):
+            tsp = _ipTSPGurobiLazyCuts(
+                nodeIDs, 
+                tau, 
+                solver['outputFlag'] if 'outputFlag' in solver else None, 
+                solver['timeLimit'] if 'timeLimit' in solver else None, 
+                solver['gapTolerance'] if 'gapTolerance' in solver else None)
+        elif (fml == 'DFJ_Plainloop'):
+            tsp = _ipTSPGurobiPlainLoop(
+                nodeIDs, 
+                tau, 
+                solver['outputFlag'] if 'outputFlag' in solver else None, 
+                solver['timeLimit'] if 'timeLimit' in solver else None, 
+                solver['gapTolerance'] if 'gapTolerance' in solver else None)
+        elif (fml == 'MTZ'):
+            tsp = _ipTSPGurobiMTZ(
+                nodeIDs, 
+                tau, 
+                solver['outputFlag'] if 'outputFlag' in solver else None, 
+                solver['timeLimit'] if 'timeLimit' in solver else None, 
+                solver['gapTolerance'] if 'gapTolerance' in solver else None)
+        elif (fml == 'ShortestPath'):
+            tsp = _ipTSPGurobiShortestPath(
+                nodeIDs, 
+                tau, 
+                solver['outputFlag'] if 'outputFlag' in solver else None, 
+                solver['timeLimit'] if 'timeLimit' in solver else None, 
+                solver['gapTolerance'] if 'gapTolerance' in solver else None)
+        elif (fml == 'MultiCommodityFlow'):
+            tsp = _ipTSPGurobiMultiCommodityFlow(
+                nodeIDs, 
+                tau, 
+                solver['outputFlag'] if 'outputFlag' in solver else None, 
+                solver['timeLimit'] if 'timeLimit' in solver else None, 
+                solver['gapTolerance'] if 'gapTolerance' in solver else None)
+        elif (fml == 'QAP'):
+            tsp = _ipTSPGurobiQAP(
+                nodeIDs, 
+                tau, 
+                solver['outputFlag'] if 'outputFlag' in solver else None, 
+                solver['timeLimit'] if 'timeLimit' in solver else None, 
+                solver['gapTolerance'] if 'gapTolerance' in solver else None)    
+    elif (solver['solver'] == 'COPT'):
+        if (fml == 'DFJ_Lazy'):
+            tsp = _ipTSPCOPTLazyCuts(
+                nodeIDs, 
+                tau, 
+                solver['outputFlag'] if 'outputFlag' in solver else None, 
+                solver['timeLimit'] if 'timeLimit' in solver else None,)
     if (tsp == None):
         raise UnsupportedInputError("ERROR: Incorrect or not available TSP formulation option!")
     
@@ -160,7 +205,524 @@ def ipTSP(
 
     return tsp
 
-def _ipTSPQAP(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
+def _ipTSPGurobiLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
+    try:
+        import gurobipy as grb
+    except(ImportError):
+        print("ERROR: Cannot find Gurobi")
+        return
+
+    # Initialize
+    n = len(nodeIDs)
+    TSP = grb.Model('TSP')
+    if (outputFlag == False):
+        TSP.setParam('OutputFlag', 0)
+    if (timeLimit != None):
+        TSP.setParam(grb.GRB.Param.TimeLimit, timeLimit)
+    if (gapTolerance != None):
+        TSP.setParam(grb.GRB.Param.MIPGap, gapTolerance)
+
+    # Decision variables ======================================================
+    x = {}
+    for i in range(n):
+        for j in range(n):
+            if (i != j):
+                x[i, j] = TSP.addVar(
+                    vtype = grb.GRB.BINARY, 
+                    obj = tau[nodeIDs[i], nodeIDs[j]], 
+                    name = 'x_%s_%s' % (i, j))
+                
+    # TSP objective function ==================================================
+    TSP.modelSense = grb.GRB.MINIMIZE
+    TSP.Params.lazyConstraints = 1
+    TSP.update()
+
+    # Degree constraints ======================================================
+    for i in range(n):
+        TSP.addConstr(grb.quicksum(x[i, j] for j in range(n) if i != j) == 1, name = 'leave_%s' % i)
+        TSP.addConstr(grb.quicksum(x[j, i] for j in range(n) if i != j) == 1, name = 'enter_%s' % i)
+
+    # Sub-tour elimination ====================================================
+    TSP._x = x
+    def subtourelim(model, where):
+        if (where == grb.GRB.Callback.MIPSOL):
+            x_sol = model.cbGetSolution(model._x)
+            G = nx.Graph()
+            for (i, j) in x.keys():
+                if (x_sol[i, j] > 0.9):
+                    G.add_edge(i, j, weight = tau[i, j])
+            components = [list(c) for c in nx.connected_components(G)]
+            for component in components:
+                if (len(component) < n):
+                    model.cbLazy(grb.quicksum(x[i,j] for i in component for j in component if i != j) <= len(component) - 1)
+
+    # TSP with callback =======================================================
+    TSP.optimize(subtourelim)
+
+    # Reconstruct solution ====================================================
+    ofv = None
+    seq = []
+    arcs = []
+    solType = None
+    gap = None
+    lb = None
+    ub = None
+    runtime = None
+    if (TSP.status == grb.GRB.status.OPTIMAL):
+        solType = 'IP_Optimal'
+        ofv = TSP.getObjective().getValue()
+        for i, j in x:
+            if (x[i, j].x > 0.5):
+                arcs.append([i, j])
+        currentNode = 0
+        seq.append(nodeIDs[currentNode])
+        while (len(arcs) > 0):
+            for i in range(len(arcs)):
+                if (arcs[i][0] == currentNode):
+                    currentNode = arcs[i][1]
+                    seq.append(nodeIDs[currentNode])
+                    arcs.pop(i)
+                    break
+        gap = 0
+        lb = ofv
+        ub = ofv
+        runtime = TSP.Runtime
+    elif (TSP.status == grb.GRB.status.TIME_LIMIT):
+        solType = 'IP_TimeLimit'
+        ofv = None
+        seq = []
+        gap = TSP.MIPGap
+        lb = TSP.ObjBoundC
+        ub = TSP.ObjVal
+        runtime = TSP.Runtime
+
+    return {
+        'ofv': ofv,
+        'seq': seq,
+        'gap': gap,
+        'solType': solType,
+        'lowerBound': lb,
+        'upperBound': ub,
+        'runtime': runtime
+    }
+
+def _ipTSPGurobiPlainLoop(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
+    try:
+        import gurobipy as grb
+    except(ImportError):
+        print("ERROR: Cannot find Gurobi")
+        return
+
+    # Initialize
+    n = len(nodeIDs)
+    TSP = grb.Model('TSP')
+    if (outputFlag == False):
+        TSP.setParam('OutputFlag', 0)
+    if (timeLimit != None):
+        TSP.setParam(grb.GRB.Param.TimeLimit, timeLimit)
+    if (gapTolerance != None):
+        TSP.setParam(grb.GRB.Param.MIPGap, gapTolerance)
+
+    # Decision variables ======================================================
+    x = {}
+    for i in range(n):
+        for j in range(n):
+            if (i != j):
+                x[i, j] = TSP.addVar(
+                    vtype = grb.GRB.BINARY, 
+                    obj = tau[nodeIDs[i], nodeIDs[j]], 
+                    name = 'x_%s_%s' % (i, j))
+                
+    # TSP =====================================================================
+    TSP.modelSense = grb.GRB.MINIMIZE
+    TSP.Params.lazyConstraints = 1
+    TSP.update()
+
+    # Degree constraints ======================================================
+    for i in range(n):
+        TSP.addConstr(grb.quicksum(x[i, j] for j in range(n) if i != j) == 1, name = 'leave_%s' % i)
+        TSP.addConstr(grb.quicksum(x[j, i] for j in range(n) if i != j) == 1, name = 'enter_%s' % i)
+
+    # Resolve to optimality and try to find sub-tours =========================
+    noSubtourFlag = False
+    accRuntime = 0
+    while (not noSubtourFlag):
+        if (timeLimit != None):
+            TSP.setParam(grb.GRB.Param.TimeLimit, timeLimit - accRuntime)
+        TSP.optimize()
+        if (TSP.status == grb.GRB.status.OPTIMAL):
+            accRuntime += TSP.Runtime
+            G = nx.Graph()
+            for i, j in x.keys():
+                if (x[i, j].x > 0.9):
+                    G.add_edge(i, j, weight = tau[i, j])
+            components = [list(c) for c in nx.connected_components(G)]
+            if (len(components) == 1):
+                noSubtourFlag = True
+                break
+            else:
+                for comp in components:
+                    TSP.addConstr(grb.quicksum(x[i, j] for i in comp for j in comp if i != j) <= len(comp) - 1)
+        elif (TSP.status == grb.GRB.status.TIME_LIMIT):
+            accRuntime += TSP.Runtime
+            break
+
+    # Reconstruct solution ====================================================
+    ofv = None
+    seq = []
+    arcs = []
+    solType = None
+    gap = None
+    lb = None
+    ub = None
+    runtime = None
+    if (TSP.status == grb.GRB.status.OPTIMAL):
+        solType = 'IP_Optimal'
+        ofv = TSP.getObjective().getValue()
+        for i, j in x:
+            if (x[i, j].x > 0.5):
+                arcs.append([i, j])
+        currentNode = 0
+        seq.append(nodeIDs[currentNode])
+        while (len(arcs) > 0):
+            for i in range(len(arcs)):
+                if (arcs[i][0] == currentNode):
+                    currentNode = arcs[i][1]
+                    seq.append(nodeIDs[currentNode])
+                    arcs.pop(i)
+                    break
+        gap = 0
+        lb = ofv
+        ub = ofv
+        runtime = accRuntime
+    elif (TSP.status == grb.GRB.status.TIME_LIMIT):
+        solType = 'IP_TimeLimit'
+        ofv = None
+        seq = []
+        gap = TSP.MIPGap
+        lb = TSP.ObjBoundC
+        ub = TSP.ObjVal
+        runtime = accRuntime
+
+    return {
+        'ofv': ofv,
+        'seq': seq,
+        'gap': gap,
+        'solType': solType,
+        'lowerBound': lb,
+        'upperBound': ub,
+        'runtime': runtime
+    }
+
+def _ipTSPGurobiMTZ(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
+    try:
+        import gurobipy as grb
+    except(ImportError):
+        print("ERROR: Cannot find Gurobi")
+        return
+
+    # Initialize
+    n = len(nodeIDs)
+    TSP = grb.Model('TSP')
+    if (outputFlag == False):
+        TSP.setParam('OutputFlag', 0)
+    if (timeLimit != None):
+        TSP.setParam(grb.GRB.Param.TimeLimit, timeLimit)
+    if (gapTolerance != None):
+        TSP.setParam(grb.GRB.Param.MIPGap, gapTolerance)
+
+    # Decision variables ======================================================
+    x = {}
+    for i in range(n):
+        for j in range(n):
+            if i != j:
+                x[i, j] = TSP.addVar(
+                    vtype = grb.GRB.BINARY, 
+                    obj = tau[nodeIDs[i], nodeIDs[j]], 
+                    name = 'x_%s_%s' % (i, j))
+    u = {}
+    for i in range(n):
+        u[i] = TSP.addVar(
+            vtype = grb.GRB.CONTINUOUS,
+            name = 'u_%s' % (i))
+
+    # TSP objective function ==================================================
+    TSP.modelSense = grb.GRB.MINIMIZE
+    TSP.update()
+
+    # Degree constraints ======================================================
+    for i in range(n):
+        TSP.addConstr(grb.quicksum(x[i, j] for j in range(n) if i != j) == 1, name = 'leave_%s' % i)
+        TSP.addConstr(grb.quicksum(x[j, i] for j in range(n) if i != j) == 1, name = 'enter_%s' % i)
+
+    # Sequence constraints ====================================================
+    for i in range(1, n):
+        for j in range(1, n):
+            if (i != j):
+                TSP.addConstr(u[i] - u[j] + (n - 1) * x[i, j] <= n - 2, name = 'seq_%s_%s' % (i, j))
+    for i in range(1, n):
+        TSP.addConstr(1 <= u[i])
+        TSP.addConstr(u[i] <= n - 1)
+
+    # TSP =====================================================================
+    TSP.optimize()
+
+    # Reconstruct solution ====================================================
+    ofv = None
+    gap = None
+    seq = []
+    arcs = []
+    solType = None
+    gap = None
+    lb = None
+    ub = None
+    runtime = None
+    if (TSP.status == grb.GRB.status.OPTIMAL):
+        solType = 'IP_Optimal'
+        ofv = TSP.getObjective().getValue()
+        gap = TSP.Params.MIPGapAbs
+        for i, j in x:
+            if (x[i, j].x > 0.5):
+                arcs.append([i, j])
+        currentNode = 0
+        seq.append(nodeIDs[currentNode])
+        while (len(arcs) > 0):
+            for i in range(len(arcs)):
+                if (arcs[i][0] == currentNode):
+                    currentNode = arcs[i][1]
+                    seq.append(nodeIDs[currentNode])
+                    arcs.pop(i)
+                    break
+        gap = 0
+        lb = ofv
+        ub = ofv
+        runtime = TSP.Runtime
+    elif (TSP.status == grb.GRB.status.TIME_LIMIT):
+        solType = 'IP_TimeLimit'
+        ofv = None
+        seq = []
+        gap = TSP.MIPGap
+        lb = TSP.ObjBoundC
+        ub = TSP.ObjVal
+        runtime = TSP.Runtime
+
+    return {
+        'ofv': ofv,
+        'seq': seq,
+        'gap': gap,
+        'solType': solType,
+        'lowerBound': lb,
+        'upperBound': ub,
+        'runtime': runtime
+    }
+
+def _ipTSPGurobiShortestPath(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
+    try:
+        import gurobipy as grb
+    except(ImportError):
+        print("ERROR: Cannot find Gurobi")
+        return
+
+    # Initialize
+    n = len(nodeIDs)
+    TSP = grb.Model('TSP')
+    if (outputFlag == False):
+        TSP.setParam('OutputFlag', 0)
+    if (timeLimit != None):
+        TSP.setParam(grb.GRB.Param.TimeLimit, timeLimit)
+    if (gapTolerance != None):
+        TSP.setParam(grb.GRB.Param.MIPGap, gapTolerance)
+
+    # Decision variables ======================================================
+    x = {}
+    for i in range(n):
+        for j in range(n):
+            if (j != i):
+                for t in range(n):
+                    x[i, j, t] = TSP.addVar(
+                        obj = tau[nodeIDs[i], nodeIDs[j]],
+                        vtype = grb.GRB.BINARY)
+
+    # Stage constraints =======================================================
+    # Start from depot 
+    TSP.addConstr(grb.quicksum(x[0, j, 0] for j in range(1, n)) == 1)
+    # First stage
+    for i in range(1, n):
+        TSP.addConstr(grb.quicksum(x[i, j, 1] for j in range(1, n) if i != j) - x[0, i, 0] == 0)
+    # In between
+    for i in range(1, n):
+        for t in range(2, n - 1):
+            TSP.addConstr(grb.quicksum(x[i, j, t] for j in range(1, n) if i != j) - grb.quicksum(x[j, i, t - 1] for j in range(1, n) if i != j) == 0)
+    # Last stage
+    for i in range(1, n):
+        TSP.addConstr(x[i, 0, n - 1] - grb.quicksum(x[j, i, n - 2] for j in range(1, n) if i != j) == 0)
+    # Return to depot
+    TSP.addConstr(grb.quicksum(x[i, 0, n - 1] for i in range(1, n)) == 1)
+    # Consequent
+    for i in range(1, n):
+        TSP.addConstr(grb.quicksum(grb.quicksum(x[i, j, t] for j in range(1, n) if i != j) for t in range(1, n - 1)) + x[i, 0, n - 1] <= 1)
+
+    # TSP =====================================================================
+    TSP.optimize()
+
+    # Reconstruct solution ====================================================
+    ofv = None
+    seq = []
+    arcs = []
+    solType = None
+    gap = None
+    lb = None
+    ub = None
+    runtime = None
+    if (TSP.status == grb.GRB.status.OPTIMAL):
+        solType = 'IP_Optimal'
+        ofv = TSP.getObjective().getValue()
+        for i, j, t in x:
+            if (x[i, j, t].x > 0.5):
+                arcs.append([i, j])
+        currentNode = 0
+        seq.append(nodeIDs[currentNode])
+        while (len(arcs) > 0):
+            for i in range(len(arcs)):
+                if (arcs[i][0] == currentNode):
+                    currentNode = arcs[i][1]
+                    seq.append(nodeIDs[currentNode])
+                    arcs.pop(i)
+                    break
+        gap = 0
+        lb = ofv
+        ub = ofv
+        runtime = TSP.Runtime
+    elif (TSP.status == grb.GRB.status.TIME_LIMIT):
+        solType = 'IP_TimeLimit'
+        ofv = None
+        seq = []
+        gap = TSP.MIPGap
+        lb = TSP.ObjBoundC
+        ub = TSP.ObjVal
+        runtime = TSP.Runtime
+
+    return {
+        'ofv': ofv,
+        'seq': seq,
+        'gap': gap,
+        'solType': solType,
+        'lowerBound': lb,
+        'upperBound': ub,
+        'runtime': runtime
+    }
+
+def _ipTSPGurobiMultiCommodityFlow(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
+    try:
+        import gurobipy as grb
+    except(ImportError):
+        print("ERROR: Cannot find Gurobi")
+        return
+
+    # Initialize
+    n = len(nodeIDs)
+    TSP = grb.Model('TSP')
+    if (outputFlag == False):
+        TSP.setParam('OutputFlag', 0)
+    if (timeLimit != None):
+        TSP.setParam(grb.GRB.Param.TimeLimit, timeLimit)
+    if (gapTolerance != None):
+        TSP.setParam(grb.GRB.Param.MIPGap, gapTolerance)
+
+    # Decision variables ======================================================
+    x = {}
+    for i in range(n):
+        for j in range(n):
+            if i != j:
+                x[i, j] = TSP.addVar(
+                    vtype = grb.GRB.BINARY, 
+                    obj = tau[nodeIDs[i], nodeIDs[j]], 
+                    name = 'x_%s_%s' % (i, j))
+    y = {}
+    for i in range(n):
+        for j in range(n):
+            if (i != j):
+                for k in range(1, n):
+                    y[i, j, k] = TSP.addVar(
+                        vtype = grb.GRB.CONTINUOUS)
+
+    # TSP objective function ==================================================
+    TSP.modelSense = grb.GRB.MINIMIZE
+    TSP.update()
+
+    # Degree constraints ======================================================
+    for i in range(n):
+        TSP.addConstr(grb.quicksum(x[i, j] for j in range(n) if i != j) == 1, name = 'leave_%s' % i)
+        TSP.addConstr(grb.quicksum(x[j, i] for j in range(n) if i != j) == 1, name = 'enter_%s' % i)
+
+    # MCF ====================================================================
+    for i in range(n):
+        for j in range(n):
+            if (i != j):
+                for k in range(1, n):
+                    TSP.addConstr(y[i, j, k] <= x[i, j])
+
+    for k in range(1, n):
+        TSP.addConstr(grb.quicksum(y[0, i, k] for i in range(1, n)) == 1)
+        TSP.addConstr(grb.quicksum(y[i, 0, k] for i in range(1, n)) == 0)
+        TSP.addConstr(grb.quicksum(y[i, k, k] for i in range(n) if i != k) == 1)
+        TSP.addConstr(grb.quicksum(y[k, j, k] for j in range(n) if j != k) == 0)
+        for j in range(1, n):
+            if (j != k):
+                TSP.addConstr(grb.quicksum(y[i, j, k] for i in range(n) if i != j) 
+                    - grb.quicksum(y[j, i, k] for i in range(n) if i != j) == 0)
+
+    # TSP =====================================================================
+    TSP.optimize()
+
+    # Reconstruct solution ====================================================
+    ofv = None
+    seq = []
+    arcs = []
+    solType = None
+    gap = None
+    lb = None
+    ub = None
+    runtime = None
+    if (TSP.status == grb.GRB.status.OPTIMAL):
+        solType = 'IP_Optimal'
+        ofv = TSP.getObjective().getValue()
+        for i, j in x:
+            if (x[i, j].x > 0.5):
+                arcs.append([i, j])
+        currentNode = 0
+        seq.append(nodeIDs[currentNode])
+        while (len(arcs) > 0):
+            for i in range(len(arcs)):
+                if (arcs[i][0] == currentNode):
+                    currentNode = arcs[i][1]
+                    seq.append(nodeIDs[currentNode])
+                    arcs.pop(i)
+                    break
+        gap = 0
+        lb = ofv
+        ub = ofv
+        runtime = TSP.Runtime
+    elif (TSP.status == grb.GRB.status.TIME_LIMIT):
+        solType = 'IP_TimeLimit'
+        ofv = None
+        seq = []
+        gap = TSP.MIPGap
+        lb = TSP.ObjBoundC
+        ub = TSP.ObjVal
+        runtime = TSP.Runtime
+
+    return {
+        'ofv': ofv,
+        'seq': seq,
+        'gap': gap,
+        'solType': solType,
+        'lowerBound': lb,
+        'upperBound': ub,
+        'runtime': runtime
+    }
+
+def _ipTSPGurobiQAP(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     try:
         import gurobipy as grb
     except(ImportError):
@@ -271,475 +833,64 @@ def _ipTSPQAP(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
         'runtime': runtime
     }
 
-def _ipTSPMultiCommodityFlow(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
+def _ipTSPCOPTLazyCuts(nodeIDs, tau, outputFlag, timeLimit):
     try:
-        import gurobipy as grb
+        import coptpy as cp
     except(ImportError):
-        print("ERROR: Cannot find Gurobi")
+        print("ERROR: Cannot find COPT")
         return
+
+    env = cp.Envr()
+    TSP = env.createModel("TSP")
 
     # Initialize
     n = len(nodeIDs)
-    TSP = grb.Model('TSP')
-    if (outputFlag == False):
-        TSP.setParam('OutputFlag', 0)
+    if (outputFlag != None):
+        TSP.setParam(cp.COPT.Param.Logging, outputFlag)
+        TSP.setParam(cp.COPT.Param.LogToConsole, outputFlag)
     if (timeLimit != None):
-        TSP.setParam(grb.GRB.Param.TimeLimit, timeLimit)
-    if (gapTolerance != None):
-        TSP.setParam(grb.GRB.Param.MIPGap, gapTolerance)
+        TSP.setParam(cp.COPT.Param.TimeLimit, timeLimit)
 
     # Decision variables ======================================================
     x = {}
-    for i in range(n):
-        for j in range(n):
-            if i != j:
-                x[i, j] = TSP.addVar(
-                    vtype = grb.GRB.BINARY, 
-                    obj = tau[nodeIDs[i], nodeIDs[j]], 
-                    name = 'x_%s_%s' % (i, j))
-    y = {}
-    for i in range(n):
-        for j in range(n):
-            if (i != j):
-                for k in range(1, n):
-                    y[i, j, k] = TSP.addVar(
-                        vtype = grb.GRB.CONTINUOUS)
-
-    # TSP objective function ==================================================
-    TSP.modelSense = grb.GRB.MINIMIZE
-    TSP.update()
-
-    # Degree constraints ======================================================
-    for i in range(n):
-        TSP.addConstr(grb.quicksum(x[i, j] for j in range(n) if i != j) == 1, name = 'leave_%s' % i)
-        TSP.addConstr(grb.quicksum(x[j, i] for j in range(n) if i != j) == 1, name = 'enter_%s' % i)
-
-    # MCF ====================================================================
-    for i in range(n):
-        for j in range(n):
-            if (i != j):
-                for k in range(1, n):
-                    TSP.addConstr(y[i, j, k] <= x[i, j])
-
-    for k in range(1, n):
-        TSP.addConstr(grb.quicksum(y[0, i, k] for i in range(1, n)) == 1)
-        TSP.addConstr(grb.quicksum(y[i, 0, k] for i in range(1, n)) == 0)
-        TSP.addConstr(grb.quicksum(y[i, k, k] for i in range(n) if i != k) == 1)
-        TSP.addConstr(grb.quicksum(y[k, j, k] for j in range(n) if j != k) == 0)
-        for j in range(1, n):
-            if (j != k):
-                TSP.addConstr(grb.quicksum(y[i, j, k] for i in range(n) if i != j) 
-                    - grb.quicksum(y[j, i, k] for i in range(n) if i != j) == 0)
-
-    # TSP =====================================================================
-    TSP.optimize()
-
-    # Reconstruct solution ====================================================
-    ofv = None
-    seq = []
-    arcs = []
-    solType = None
-    gap = None
-    lb = None
-    ub = None
-    runtime = None
-    if (TSP.status == grb.GRB.status.OPTIMAL):
-        solType = 'IP_Optimal'
-        ofv = TSP.getObjective().getValue()
-        for i, j in x:
-            if (x[i, j].x > 0.5):
-                arcs.append([i, j])
-        currentNode = 0
-        seq.append(nodeIDs[currentNode])
-        while (len(arcs) > 0):
-            for i in range(len(arcs)):
-                if (arcs[i][0] == currentNode):
-                    currentNode = arcs[i][1]
-                    seq.append(nodeIDs[currentNode])
-                    arcs.pop(i)
-                    break
-        gap = 0
-        lb = ofv
-        ub = ofv
-        runtime = TSP.Runtime
-    elif (TSP.status == grb.GRB.status.TIME_LIMIT):
-        solType = 'IP_TimeLimit'
-        ofv = None
-        seq = []
-        gap = TSP.MIPGap
-        lb = TSP.ObjBoundC
-        ub = TSP.ObjVal
-        runtime = TSP.Runtime
-
-    return {
-        'ofv': ofv,
-        'seq': seq,
-        'gap': gap,
-        'solType': solType,
-        'lowerBound': lb,
-        'upperBound': ub,
-        'runtime': runtime
-    }
-
-def _ipTSPShortestPath(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
-    try:
-        import gurobipy as grb
-    except(ImportError):
-        print("ERROR: Cannot find Gurobi")
-        return
-
-    # Initialize
-    n = len(nodeIDs)
-    TSP = grb.Model('TSP')
-    if (outputFlag == False):
-        TSP.setParam('OutputFlag', 0)
-    if (timeLimit != None):
-        TSP.setParam(grb.GRB.Param.TimeLimit, timeLimit)
-    if (gapTolerance != None):
-        TSP.setParam(grb.GRB.Param.MIPGap, gapTolerance)
-
-    # Decision variables ======================================================
-    x = {}
-    for i in range(n):
-        for j in range(n):
-            if (j != i):
-                for t in range(n):
-                    x[i, j, t] = TSP.addVar(
-                        obj = tau[nodeIDs[i], nodeIDs[j]],
-                        vtype = grb.GRB.BINARY)
-
-    # Stage constraints =======================================================
-    # Start from depot 
-    TSP.addConstr(grb.quicksum(x[0, j, 0] for j in range(1, n)) == 1)
-    # First stage
-    for i in range(1, n):
-        TSP.addConstr(grb.quicksum(x[i, j, 1] for j in range(1, n) if i != j) - x[0, i, 0] == 0)
-    # In between
-    for i in range(1, n):
-        for t in range(2, n - 1):
-            TSP.addConstr(grb.quicksum(x[i, j, t] for j in range(1, n) if i != j) - grb.quicksum(x[j, i, t - 1] for j in range(1, n) if i != j) == 0)
-    # Last stage
-    for i in range(1, n):
-        TSP.addConstr(x[i, 0, n - 1] - grb.quicksum(x[j, i, n - 2] for j in range(1, n) if i != j) == 0)
-    # Return to depot
-    TSP.addConstr(grb.quicksum(x[i, 0, n - 1] for i in range(1, n)) == 1)
-    # Consequent
-    for i in range(1, n):
-        TSP.addConstr(grb.quicksum(grb.quicksum(x[i, j, t] for j in range(1, n) if i != j) for t in range(1, n - 1)) + x[i, 0, n - 1] <= 1)
-
-    # TSP =====================================================================
-    TSP.optimize()
-
-    # Reconstruct solution ====================================================
-    ofv = None
-    seq = []
-    arcs = []
-    solType = None
-    gap = None
-    lb = None
-    ub = None
-    runtime = None
-    if (TSP.status == grb.GRB.status.OPTIMAL):
-        solType = 'IP_Optimal'
-        ofv = TSP.getObjective().getValue()
-        for i, j, t in x:
-            if (x[i, j, t].x > 0.5):
-                arcs.append([i, j])
-        currentNode = 0
-        seq.append(nodeIDs[currentNode])
-        while (len(arcs) > 0):
-            for i in range(len(arcs)):
-                if (arcs[i][0] == currentNode):
-                    currentNode = arcs[i][1]
-                    seq.append(nodeIDs[currentNode])
-                    arcs.pop(i)
-                    break
-        gap = 0
-        lb = ofv
-        ub = ofv
-        runtime = TSP.Runtime
-    elif (TSP.status == grb.GRB.status.TIME_LIMIT):
-        solType = 'IP_TimeLimit'
-        ofv = None
-        seq = []
-        gap = TSP.MIPGap
-        lb = TSP.ObjBoundC
-        ub = TSP.ObjVal
-        runtime = TSP.Runtime
-
-    return {
-        'ofv': ofv,
-        'seq': seq,
-        'gap': gap,
-        'solType': solType,
-        'lowerBound': lb,
-        'upperBound': ub,
-        'runtime': runtime
-    }
-
-def _ipTSPMTZ(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
-    try:
-        import gurobipy as grb
-    except(ImportError):
-        print("ERROR: Cannot find Gurobi")
-        return
-
-    # Initialize
-    n = len(nodeIDs)
-    TSP = grb.Model('TSP')
-    if (outputFlag == False):
-        TSP.setParam('OutputFlag', 0)
-    if (timeLimit != None):
-        TSP.setParam(grb.GRB.Param.TimeLimit, timeLimit)
-    if (gapTolerance != None):
-        TSP.setParam(grb.GRB.Param.MIPGap, gapTolerance)
-
-    # Decision variables ======================================================
-    x = {}
-    for i in range(n):
-        for j in range(n):
-            if i != j:
-                x[i, j] = TSP.addVar(
-                    vtype = grb.GRB.BINARY, 
-                    obj = tau[nodeIDs[i], nodeIDs[j]], 
-                    name = 'x_%s_%s' % (i, j))
-    u = {}
-    for i in range(n):
-        u[i] = TSP.addVar(
-            vtype = grb.GRB.CONTINUOUS,
-            name = 'u_%s' % (i))
-
-    # TSP objective function ==================================================
-    TSP.modelSense = grb.GRB.MINIMIZE
-    TSP.update()
-
-    # Degree constraints ======================================================
-    for i in range(n):
-        TSP.addConstr(grb.quicksum(x[i, j] for j in range(n) if i != j) == 1, name = 'leave_%s' % i)
-        TSP.addConstr(grb.quicksum(x[j, i] for j in range(n) if i != j) == 1, name = 'enter_%s' % i)
-
-    # Sequence constraints ====================================================
-    for i in range(1, n):
-        for j in range(1, n):
-            if (i != j):
-                TSP.addConstr(u[i] - u[j] + (n - 1) * x[i, j] <= n - 2, name = 'seq_%s_%s' % (i, j))
-    for i in range(1, n):
-        TSP.addConstr(1 <= u[i])
-        TSP.addConstr(u[i] <= n - 1)
-
-    # TSP =====================================================================
-    TSP.optimize()
-
-    # Reconstruct solution ====================================================
-    ofv = None
-    gap = None
-    seq = []
-    arcs = []
-    solType = None
-    gap = None
-    lb = None
-    ub = None
-    runtime = None
-    if (TSP.status == grb.GRB.status.OPTIMAL):
-        solType = 'IP_Optimal'
-        ofv = TSP.getObjective().getValue()
-        gap = TSP.Params.MIPGapAbs
-        for i, j in x:
-            if (x[i, j].x > 0.5):
-                arcs.append([i, j])
-        currentNode = 0
-        seq.append(nodeIDs[currentNode])
-        while (len(arcs) > 0):
-            for i in range(len(arcs)):
-                if (arcs[i][0] == currentNode):
-                    currentNode = arcs[i][1]
-                    seq.append(nodeIDs[currentNode])
-                    arcs.pop(i)
-                    break
-        gap = 0
-        lb = ofv
-        ub = ofv
-        runtime = TSP.Runtime
-    elif (TSP.status == grb.GRB.status.TIME_LIMIT):
-        solType = 'IP_TimeLimit'
-        ofv = None
-        seq = []
-        gap = TSP.MIPGap
-        lb = TSP.ObjBoundC
-        ub = TSP.ObjVal
-        runtime = TSP.Runtime
-
-    return {
-        'ofv': ofv,
-        'seq': seq,
-        'gap': gap,
-        'solType': solType,
-        'lowerBound': lb,
-        'upperBound': ub,
-        'runtime': runtime
-    }
-
-def _ipTSPPlainLoop(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
-    try:
-        import gurobipy as grb
-    except(ImportError):
-        print("ERROR: Cannot find Gurobi")
-        return
-
-    # Initialize
-    n = len(nodeIDs)
-    TSP = grb.Model('TSP')
-    if (outputFlag == False):
-        TSP.setParam('OutputFlag', 0)
-    if (timeLimit != None):
-        TSP.setParam(grb.GRB.Param.TimeLimit, timeLimit)
-    if (gapTolerance != None):
-        TSP.setParam(grb.GRB.Param.MIPGap, gapTolerance)
-
-    # Decision variables ======================================================
-    x = {}
-    for i in range(n):
-        for j in range(n):
+    for i in nodeIDs:
+        for j in nodeIDs:
             if (i != j):
                 x[i, j] = TSP.addVar(
-                    vtype = grb.GRB.BINARY, 
-                    obj = tau[nodeIDs[i], nodeIDs[j]], 
-                    name = 'x_%s_%s' % (i, j))
-                
-    # TSP =====================================================================
-    TSP.modelSense = grb.GRB.MINIMIZE
-    TSP.Params.lazyConstraints = 1
-    TSP.update()
-
-    # Degree constraints ======================================================
-    for i in range(n):
-        TSP.addConstr(grb.quicksum(x[i, j] for j in range(n) if i != j) == 1, name = 'leave_%s' % i)
-        TSP.addConstr(grb.quicksum(x[j, i] for j in range(n) if i != j) == 1, name = 'enter_%s' % i)
-
-    # Resolve to optimality and try to find sub-tours =========================
-    noSubtourFlag = False
-    accRuntime = 0
-    while (not noSubtourFlag):
-        if (timeLimit != None):
-            TSP.setParam(grb.GRB.Param.TimeLimit, timeLimit - accRuntime)
-        TSP.optimize()
-        if (TSP.status == grb.GRB.status.OPTIMAL):
-            accRuntime += TSP.Runtime
-            G = nx.Graph()
-            for i, j in x.keys():
-                if (x[i, j].x > 0.9):
-                    G.add_edge(i, j, weight = tau[i, j])
-            components = [list(c) for c in nx.connected_components(G)]
-            if (len(components) == 1):
-                noSubtourFlag = True
-                break
-            else:
-                for comp in components:
-                    TSP.addConstr(grb.quicksum(x[i, j] for i in comp for j in comp if i != j) <= len(comp) - 1)
-        elif (TSP.status == grb.GRB.status.TIME_LIMIT):
-            accRuntime += TSP.Runtime
-            break
-
-    # Reconstruct solution ====================================================
-    ofv = None
-    seq = []
-    arcs = []
-    solType = None
-    gap = None
-    lb = None
-    ub = None
-    runtime = None
-    if (TSP.status == grb.GRB.status.OPTIMAL):
-        solType = 'IP_Optimal'
-        ofv = TSP.getObjective().getValue()
-        for i, j in x:
-            if (x[i, j].x > 0.5):
-                arcs.append([i, j])
-        currentNode = 0
-        seq.append(nodeIDs[currentNode])
-        while (len(arcs) > 0):
-            for i in range(len(arcs)):
-                if (arcs[i][0] == currentNode):
-                    currentNode = arcs[i][1]
-                    seq.append(nodeIDs[currentNode])
-                    arcs.pop(i)
-                    break
-        gap = 0
-        lb = ofv
-        ub = ofv
-        runtime = accRuntime
-    elif (TSP.status == grb.GRB.status.TIME_LIMIT):
-        solType = 'IP_TimeLimit'
-        ofv = None
-        seq = []
-        gap = TSP.MIPGap
-        lb = TSP.ObjBoundC
-        ub = TSP.ObjVal
-        runtime = accRuntime
-
-    return {
-        'ofv': ofv,
-        'seq': seq,
-        'gap': gap,
-        'solType': solType,
-        'lowerBound': lb,
-        'upperBound': ub,
-        'runtime': runtime
-    }
-
-def _ipTSPLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
-    try:
-        import gurobipy as grb
-    except(ImportError):
-        print("ERROR: Cannot find Gurobi")
-        return
-
-    # Initialize
-    n = len(nodeIDs)
-    TSP = grb.Model('TSP')
-    if (outputFlag == False):
-        TSP.setParam('OutputFlag', 0)
-    if (timeLimit != None):
-        TSP.setParam(grb.GRB.Param.TimeLimit, timeLimit)
-    if (gapTolerance != None):
-        TSP.setParam(grb.GRB.Param.MIPGap, gapTolerance)
-
-    # Decision variables ======================================================
-    x = {}
-    for i in range(n):
-        for j in range(n):
-            if (i != j):
-                x[i, j] = TSP.addVar(
-                    vtype = grb.GRB.BINARY, 
-                    obj = tau[nodeIDs[i], nodeIDs[j]], 
+                    vtype = cp.COPT.BINARY, 
+                    obj = tau[i, j], 
                     name = 'x_%s_%s' % (i, j))
                 
     # TSP objective function ==================================================
-    TSP.modelSense = grb.GRB.MINIMIZE
-    TSP.Params.lazyConstraints = 1
-    TSP.update()
+    TSP.ObjSense = cp.COPT.MINIMIZE
 
     # Degree constraints ======================================================
-    for i in range(n):
-        TSP.addConstr(grb.quicksum(x[i, j] for j in range(n) if i != j) == 1, name = 'leave_%s' % i)
-        TSP.addConstr(grb.quicksum(x[j, i] for j in range(n) if i != j) == 1, name = 'enter_%s' % i)
+    for i in nodeIDs:
+        TSP.addConstr(cp.quicksum(x[i, j] for j in nodeIDs if i != j) == 1, name = 'leave_%s' % i)
+        TSP.addConstr(cp.quicksum(x[j, i] for j in nodeIDs if i != j) == 1, name = 'enter_%s' % i)
 
-    # Sub-tour elimination ====================================================
-    TSP._x = x
-    def subtourelim(model, where):
-        if (where == grb.GRB.Callback.MIPSOL):
-            x_sol = model.cbGetSolution(model._x)
-            G = nx.Graph()
-            for (i, j) in x.keys():
-                if (x_sol[i, j] > 0.9):
-                    G.add_edge(i, j, weight = tau[i, j])
-            components = [list(c) for c in nx.connected_components(G)]
-            for component in components:
-                if (len(component) < n):
-                    model.cbLazy(grb.quicksum(x[i,j] for i in component for j in component if i != j) <= len(component) - 1)
+    # Callback ================================================================
+    class CoptCallback(cp.CallbackBase):
+        def __init__(self):
+            super().__init__()
+        def callback(self):
+            if (self.where() == cp.COPT.CBCONTEXT_MIPSOL):
+                # print("Called me!")
+                x_sol = self.getSolution(x)
+                G = nx.Graph()
+                for (i, j) in x:
+                    if (x_sol[i, j] > 0.9):
+                        G.add_edge(i, j, weight = tau[i, j])
+                components = [list(c) for c in nx.connected_components(G)]
+                # print(components)
+                for component in components:
+                    if (len(component) < n):
+                        self.addLazyConstr(cp.quicksum(x[i, j] for i in component for j in component if i != j) <= len(component) - 1)
+    cb = CoptCallback()
 
     # TSP with callback =======================================================
-    TSP.optimize(subtourelim)
+    TSP.setCallback(cb, cp.COPT.CBCONTEXT_MIPSOL)
+    TSP.solve()
 
     # Reconstruct solution ====================================================
     ofv = None
@@ -750,33 +901,34 @@ def _ipTSPLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     lb = None
     ub = None
     runtime = None
-    if (TSP.status == grb.GRB.status.OPTIMAL):
+    if (TSP.status == cp.COPT.OPTIMAL):
         solType = 'IP_Optimal'
         ofv = TSP.getObjective().getValue()
         for i, j in x:
             if (x[i, j].x > 0.5):
                 arcs.append([i, j])
-        currentNode = 0
-        seq.append(nodeIDs[currentNode])
+        currentNode = nodeIDs[0]
+        seq.append(currentNode)
+        # print(arcs)
         while (len(arcs) > 0):
             for i in range(len(arcs)):
                 if (arcs[i][0] == currentNode):
                     currentNode = arcs[i][1]
-                    seq.append(nodeIDs[currentNode])
+                    seq.append(currentNode)
                     arcs.pop(i)
                     break
         gap = 0
         lb = ofv
         ub = ofv
-        runtime = TSP.Runtime
-    elif (TSP.status == grb.GRB.status.TIME_LIMIT):
+        runtime = TSP.SolvingTime
+    elif (TSP.status == cp.COPT.TIMEOUT):
         solType = 'IP_TimeLimit'
         ofv = None
         seq = []
-        gap = TSP.MIPGap
-        lb = TSP.ObjBoundC
-        ub = TSP.ObjVal
-        runtime = TSP.Runtime
+        gap = TSP.BestGap
+        lb = TSP.BestBnd
+        ub = TSP.BestObj
+        runtime = TSP.SolvingTime
 
     return {
         'ofv': ofv,
@@ -787,3 +939,5 @@ def _ipTSPLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
         'upperBound': ub,
         'runtime': runtime
     }
+
+

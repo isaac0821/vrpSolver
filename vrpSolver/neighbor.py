@@ -32,6 +32,10 @@ def createNeighbor(
             ...     'radius': 1,
             ...     'lod': 30 # Optional, 'lod' = 'level of detail', default to use a 30-gon representing cirlce
             }
+        3) Add egg shape surrounding nodes
+            >>> neighbor = {
+            ... 
+            ... }
 
     Returns
     -------
@@ -73,10 +77,15 @@ def createNeighbor(
         nodes[n]['neighbor'] = poly
     return nodes
 
-def getNeighborInConvexHull(
+def cutNodesNeighbor(
     nodes: dict) -> dict:
 
     """Given a node dictionary with neighbors, reduce the neiborhood to the convex hull
+
+    WARNING
+    -------
+    This function will modify the input dictionary `nodes`
+
 
     Parameter
     ---------
@@ -108,7 +117,7 @@ def getNeighborInConvexHull(
     
     return nodes
 
-def getSteinerZone(
+def createSteinerZone(
     nodes: dict, 
     order: int|None = None
     ) -> list[dict]:
@@ -130,7 +139,7 @@ def getSteinerZone(
         A list of Steiner zone dictionaris, each in the following format::
             >>> SteinerZone = {
             ...     'poly': poly,
-            ...     'centroid': centroid,
+            ...     'repPt': centroid,
             ...     'nodeID': []
             ... }
 
@@ -142,31 +151,42 @@ def getSteinerZone(
 
     # Check overlapping
     overlapMatrix = {}
+    registeredSZ = []
 
     # First check by any two pairs of neighbor
     for i in nodes:
         for j in nodes:
-            if (i < j and 'neighbor' in nodes[i] and 'neighbor' in nodes[j]):
-                neiI = shapely.Polygon([[p[0], p[1]] for p in nodes[i]['neighbor']])
-                neiJ = shapely.Polygon([[p[0], p[1]] for p in nodes[j]['neighbor']])
-                if (neiI.intersects(neiJ)):
+            if (i < j):
+                neiI = None
+                if ('neighbor' in nodes[i]):
+                    neiI = shapely.Polygon([[p[0], p[1]] for p in nodes[i]['neighbor']])
+                else:
+                    neiI = shapely.Point([nodes[i]['loc'][0], nodes[i]['loc'][1]])
+                neiJ = None
+                if ('neighbor' in nodes[j]):
+                    neiJ = shapely.Polygon([[p[0], p[1]] for p in nodes[j]['neighbor']])
+                else:
+                    neiJ = shapely.Point([nodes[j]['loc'][0], nodes[j]['loc'][1]])
+
+                intersectIJ = shapely.intersection(neiI, neiJ)
+                if (not intersectIJ.is_empty):
                     overlapMatrix[i, j] = 1
-                    overlapMatrix[j, i] = 1
-                    intersectIJ = shapely.intersection(neiI, neiJ)
+                    overlapMatrix[j, i] = 1                    
                     lstSteinerZoneShape.append({
                             'polyShape': intersectIJ,
-                            'centroidShape': intersectIJ.centroid,
+                            'repPtShape': intersectIJ.centroid,
                             'nodeIDs': [i, j]
                         })
                 else:
                     overlapMatrix[i, j] = 0
                     overlapMatrix[j, i] = 0
+
     # If no two neighbor are overlapped, every neighborhood is a Steiner Zone of order 1
     if (sum(overlapMatrix.values()) == 0):
         return [
             {
                 'poly': nodes[n]['neighbor'] if 'neighbor' in nodes[n] else [nodes[n]['loc']],
-                'centroid': list(shapely.Polygon([[p[0], p[1]] for p in nodes[n]['neighbor']]).centroid.coords[0]) if 'neighbor' in nodes[n] else [nodes[n]['loc']],
+                'repPt': list(shapely.Polygon([[p[0], p[1]] for p in nodes[n]['neighbor']]).centroid.coords[0]) if 'neighbor' in nodes[n] else [nodes[n]['loc']],
                 'nodeIDs': [n]
             } for n in nodes]
 
@@ -178,30 +198,32 @@ def getSteinerZone(
 
         # Check each SZ in this order, to see if it can be increase by order 1
         for p in range(pointer, endPointer):
+            # Get a SZ, see if there is a node n intersect with this SZ
             SZShape = lstSteinerZoneShape[p]
             for n in nodes:
-                if (n not in SZShape['nodeIDs'] and 'neighbor' in nodes[n]):
+                # First, n should not be a SZ member
+                if (n not in SZShape['nodeIDs']):
                     # Assume all neighbor in SZShape is intersected with n
                     overlapAllFlag = True
                     # Check one by one, if one of neighbor is not intersected with n, skip
                     for i in SZShape['nodeIDs']:
-                        if (i < n and overlapMatrix[i, n] == 0):
-                            overlapAllFlag = False
-                            break
-                        elif (i > n and overlapMatrix[n, i] == 0):
+                        if (overlapMatrix[i, n] == 0):
                             overlapAllFlag = False
                             break
                     if (overlapAllFlag):
-                        newIntersect = shapely.intersection(
-                            SZShape['polyShape'],
-                            shapely.Polygon([[p[0], p[1]] for p in nodes[n]['neighbor']]))
-                        newNodeIDs = [i for i in SZShape['nodeIDs']]
+                        newNodeIDs = [k for k in SZShape['nodeIDs']]
                         newNodeIDs.append(n)
-                        lstSteinerZoneShape.append({
-                                'polyShape': newIntersect,
-                                'centroidShape': newIntersect.centroid,
-                                'nodeIDs': newNodeIDs
-                            })
+                        if (list2Tuple(newNodeIDs) not in registeredSZ):
+                            # The neighbor of node n could be either a Polygon or a Point
+                            neiN = shapely.Polygon([[p[0], p[1]] for p in nodes[n]['neighbor']]) if 'neighbor' in nodes[n] else shapely.Point(nodes[n]['loc'])
+                            newIntersect = shapely.intersection(SZShape['polyShape'], neiN)
+                            if (not newIntersect.is_empty):
+                                registeredSZ.append(list2Tuple(newNodeIDs))
+                                lstSteinerZoneShape.append({
+                                        'polyShape': newIntersect,
+                                        'repPtShape': newIntersect.centroid,
+                                        'nodeIDs': newNodeIDs
+                                    })
 
         # Set `pointer` to be `endPointer`
         pointer = endPointer
@@ -209,15 +231,25 @@ def getSteinerZone(
 
     lstSteinerZone = [{
         'poly': nodes[n]['neighbor'] if 'neighbor' in nodes[n] else [nodes[n]['loc']],
-        'centroid': list(shapely.Polygon([[p[0], p[1]] for p in nodes[n]['neighbor']]).centroid.coords[0]) if 'neighbor' in nodes[n] else [nodes[n]['loc']],
+        'repPt': list(shapely.Polygon([[p[0], p[1]] for p in nodes[n]['neighbor']]).centroid.coords[0]) if 'neighbor' in nodes[n] else nodes[n]['loc'],
         'nodeIDs': [n]
     } for n in nodes]
 
-    lstSteinerZone.extend([{
-        'poly': [i for i in mapping(n['polyShape'])['coordinates'][0]],
-        'centroid': list(n['centroidShape'].coords[0]),
-        'nodeIDs': [i for i in n['nodeIDs']]
-    } for n in lstSteinerZoneShape])
+    for n in lstSteinerZoneShape:
+        # print(n['polyShape'])
+        if (type(n['polyShape']) == shapely.Point):
+            lstSteinerZone.append({
+                'poly': [[n['polyShape'].x, n['polyShape'].y]],
+                'repPt': list(n['repPtShape'].coords[0]),
+                'nodeIDs': [i for i in n['nodeIDs']]
+            })
+        else:
+
+            lstSteinerZone.append({
+                'poly': [i for i in mapping(n['polyShape'])['coordinates'][0]],
+                'repPt': list(n['repPtShape'].coords[0]),
+                'nodeIDs': [i for i in n['nodeIDs']]
+            })    
 
     return lstSteinerZone
 
