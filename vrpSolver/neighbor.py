@@ -13,8 +13,14 @@ def createNeighbor(
 
     """Given a node dictionary, add neighborhood to selected nodes
 
+    WARNING
+    -------
+    
+    This function will modify the input dictionary `nodes`
+
     Parameters
     ----------
+
     node: dictionary, required
         A node dictionary indicating the locations in 'loc'
     nodeIDs: string | list[int|str], optional, default as 'All'
@@ -34,7 +40,9 @@ def createNeighbor(
             }
         3) Add egg shape surrounding nodes
             >>> neighbor = {
-            ... 
+            ...     'shape': 'egg',
+            ...     '': 
+            ...     'lod': 30 # Optional, 'lod' = 'level of detail', default to use a 30-gon representing cirlce
             ... }
 
     Returns
@@ -66,15 +74,15 @@ def createNeighbor(
         if (neighbor['shape'] == 'circle'):
             if ('radius' not in neighbor):
                 raise MissingParameterError("ERROR: Missing required key 'poly' in `neighbor`")
-        # By default, a circle is plotted by a 30-gon
-        lod = 30
-        if ('lod' in neighbor and type(neighbor['lod']) == int):
-            lod = neighbor['lod']
-        poly = [[
-            nodes[n]['loc'][0] + neighbor['radius'] * math.sin(2 * d * math.pi / lod),
-            nodes[n]['loc'][1] + neighbor['radius'] * math.cos(2 * d * math.pi / lod),
-        ] for d in range(lod)]
-        nodes[n]['neighbor'] = poly
+            # By default, a circle is plotted by a 30-gon
+            lod = 30
+            if ('lod' in neighbor and type(neighbor['lod']) == int):
+                lod = neighbor['lod']
+            poly = [[
+                nodes[n]['loc'][0] + neighbor['radius'] * math.sin(2 * d * math.pi / lod),
+                nodes[n]['loc'][1] + neighbor['radius'] * math.cos(2 * d * math.pi / lod),
+            ] for d in range(lod)]
+            nodes[n]['neighbor'] = poly
     return nodes
 
 def cutNodesNeighbor(
@@ -84,8 +92,8 @@ def cutNodesNeighbor(
 
     WARNING
     -------
-    This function will modify the input dictionary `nodes`
 
+    This function will modify the input dictionary `nodes`
 
     Parameter
     ---------
