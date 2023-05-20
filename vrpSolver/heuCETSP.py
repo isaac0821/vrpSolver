@@ -167,7 +167,7 @@ def heuCETSP(
                     x[i, m, i + 1, n] = mcf.addVar(vtype = grb.GRB.CONTINUOUS, obj = repTau[i, m, i + 1, n], name = "x_%s_%s_%s_%s" % (i, m, i + 1, n))
 
         # MCF objective
-        mcf.ObjSense = grb.GRB.MINIMIZE
+        mcf.modelSense = grb.GRB.MINIMIZE
 
         # Degree constraints
         mcf.addConstr(grb.quicksum(x[0, 0, 1, n] for n in range(len(ptByStep[0]))) == 1)

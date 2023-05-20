@@ -1,7 +1,6 @@
 import math
 import shapely
 from shapely.geometry import mapping
-import coptpy as cp
 
 from .geometry import *
 

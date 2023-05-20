@@ -224,12 +224,12 @@ def _ipTSPGurobiLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
 
     # Decision variables ======================================================
     x = {}
-    for i in range(n):
-        for j in range(n):
+    for i in nodeIDs:
+        for j in nodeIDs:
             if (i != j):
                 x[i, j] = TSP.addVar(
                     vtype = grb.GRB.BINARY, 
-                    obj = tau[nodeIDs[i], nodeIDs[j]], 
+                    obj = tau[i, j], 
                     name = 'x_%s_%s' % (i, j))
                 
     # TSP objective function ==================================================
@@ -238,9 +238,9 @@ def _ipTSPGurobiLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     TSP.update()
 
     # Degree constraints ======================================================
-    for i in range(n):
-        TSP.addConstr(grb.quicksum(x[i, j] for j in range(n) if i != j) == 1, name = 'leave_%s' % i)
-        TSP.addConstr(grb.quicksum(x[j, i] for j in range(n) if i != j) == 1, name = 'enter_%s' % i)
+    for i in nodeIDs:
+        TSP.addConstr(grb.quicksum(x[i, j] for j in nodeIDs if i != j) == 1, name = 'leave_%s' % i)
+        TSP.addConstr(grb.quicksum(x[j, i] for j in nodeIDs if i != j) == 1, name = 'enter_%s' % i)
 
     # Sub-tour elimination ====================================================
     TSP._x = x
@@ -274,13 +274,13 @@ def _ipTSPGurobiLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
         for i, j in x:
             if (x[i, j].x > 0.5):
                 arcs.append([i, j])
-        currentNode = 0
-        seq.append(nodeIDs[currentNode])
+        currentNode = nodeIDs[0]
+        seq.append(currentNode)
         while (len(arcs) > 0):
             for i in range(len(arcs)):
                 if (arcs[i][0] == currentNode):
                     currentNode = arcs[i][1]
-                    seq.append(nodeIDs[currentNode])
+                    seq.append(currentNode)
                     arcs.pop(i)
                     break
         gap = 0

@@ -9,7 +9,7 @@ setuptools.setup(
 	name="vrpSolver",
 	version=__version__,
 	author="Lan Peng",
-	author_email="lanpeng@buffalo.edu",
+	author_email="lanpeng@shu.edu.cn",
 	description="VRP Solver",
 	long_description=long_description,
 	long_description_content_type="text/markdown",
@@ -26,6 +26,7 @@ setuptools.setup(
 		'numpy',  
 		'scipy',
 		'geopy',
+		'geojson',
 		'matplotlib',
 		'shapely',
 		'networkx'
