@@ -110,6 +110,7 @@ from .heuTSP import *
 
 # Close Enough
 from .neighbor import *
+from .heuCETSP import *
 
 
 # VRP

@@ -530,28 +530,25 @@ def plotSeq(
             ax.set_ylim(yMin, yMax)
 
     # Draw arcs ===============================================================
-    for arc in arcs:
+    if (arcColor == 'Random'):
+        arcColor = colorRandom() 
+    for i in range(len(seq) - 1):
+        arc = [seq[i], seq[i + 1]]
         if (not xyReverseFlag):
-            x1 = nodes[arc[0]]['loc'][0]
-            y1 = nodes[arc[0]]['loc'][1]
-            x2 = nodes[arc[1]]['loc'][0]
-            y2 = nodes[arc[1]]['loc'][1]
+            x1 = arc[0][0]
+            y1 = arc[0][1]
+            x2 = arc[1][0]
+            y2 = arc[1][1]
         else:
-            x1 = nodes[arc[0]]['loc'][1]
-            y1 = nodes[arc[0]]['loc'][0]
-            x2 = nodes[arc[1]]['loc'][1]
-            y2 = nodes[arc[1]]['loc'][0]
+            x1 = arc[0][1]
+            y1 = arc[0][0]
+            x2 = arc[1][1]
+            y2 = arc[1][0]
         dx = x2 - x1
         dy = y2 - y1
-        if (arcColor == 'Random'):
-            rndColor = colorRandom()
-            ax.plot([x1, x2], [y1, y2], color = rndColor)
-            if (arrowFlag):
-                ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=rndColor)
-        else:
-            ax.plot([x1, x2], [y1, y2], color = arcColor)
-            if (arrowFlag):
-                ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=arcColor)
+        ax.plot([x1, x2], [y1, y2], color = arcColor)
+        if (arrowFlag):
+            ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=arcColor)
     plt.close(fig)
 
     # Save figure =============================================================

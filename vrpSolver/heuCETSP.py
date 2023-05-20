@@ -3,7 +3,9 @@ import math
 import re
 import shapely
 from shapely.geometry import mapping
+import coptpy as cp
 
+from .ipTSP import *
 from .const import *
 from .common import *
 from .neighbor import *
@@ -16,9 +18,7 @@ from .msg import *
 # =============================================================================
 
 def heuCETSP(
-    nodes: dict,
-    algo: dict,
-    tolerance: float = 0.01,
+    nodes: dict
     ) -> dict | None:
 
     """Use heuristic method to find suboptimal CETSP solution
@@ -40,15 +40,16 @@ def heuCETSP(
 
     """
 
-    # Create convex hull of the nodes, truncate neighborhoods
-    nodes = cutNodesNeighbor(nodes)
+    # Create convex hull of the nodes, truncate neighborhoods =================
+    ch = cutNodesNeighbor(nodes)
 
-    # Create a list of Steiner zones
-    sz = createSteinerZone(nodes)
+    # Create a list of Steiner zones ==========================================
+    sz = createSteinerZone(ch)
 
-    # Constructive phase
-    # Step 1: Start from SZ that has the highest order
-    remain = [i for i in range(12)]
+    # Constructive phase ======================================================
+    # Step 1: Create a list of Steiner zones (SZs) ----------------------------
+    # NOTE: Start from SZ that has the highest order, greedy set partition
+    remain = [i for i in nodes]
     szIDs = []
     for i in range(len(sz)):
         szID = len(sz) - i - 1
@@ -62,12 +63,94 @@ def heuCETSP(
             for k in sz[szID]['nodeIDs']:
                 remain.remove(k)
 
-    # Step 2: Get centroids of selected SZs as representative point
-    repNodes = []
+    # Step 2: Get centroids of selected SZs as repPt and do TSP ---------------
+    repNodes = {}
     for szID in szIDs:
         repNodes[szID] = {
-            'loc': sz[szID]['centroid']
-        }
+            'loc': sz[szID]['repPt'],
+            'neighbor': sz[szID]['poly'],
+            'nodeIDs': sz[szID]['nodeIDs']
+        }    
 
-    # Step 3: Transform into shortest path problem
+    repTSP = ipTSP(
+        nodes = repNodes,
+        depotID = min(repNodes),
+        edges = {'method': 'Euclidean'},
+        fml = 'DFJ_Lazy',
+        solver = {'solver': 'COPT', 'outputFlag': False})
+
+    # Step 3: Transform into shortest path problem ----------------------------
     repSeq = []
+    if (repTSP != None):
+        repSeq = repTSP['seq']
+
+    # NOTE: For now, naively use all extreme points of neighbor poly as candidate
+    ptByStep = []
+    for i in range(len(repSeq)):
+        ptByStep.append([])
+        for p in range(len(repNodes[repSeq[i]]['neighbor'])):
+            ptByStep[i].append(repNodes[repSeq[i]]['neighbor'][p])
+
+    repTau = {}
+    for i in range(len(ptByStep) - 1):
+        for m in range(len(ptByStep[i])):
+            for n in range(len(ptByStep[i + 1])):
+                repTau[i, m, i + 1, n] = shapely.distance(shapely.Point(ptByStep[i][m]), shapely.Point(ptByStep[i + 1][n]))
+
+    # NOTE: right now I only have COPT...
+    def minCostFlow(ptByStep, repTau):
+        seq = []
+        cost = None
+
+        env = cp.Envr()
+        mcf = env.createModel("Minimum Cost Flow")
+
+        # Decision variables
+        x = {}
+        for i in range(len(ptByStep) - 1):
+            for m in range(len(ptByStep[i])):
+                for n in range(len(ptByStep[i + 1])):
+                    x[i, m, i + 1, n] = mcf.addVar(vtype = cp.COPT.CONTINUOUS, obj = repTau[i, m, i + 1, n], name = "x_%s_%s_%s_%s" % (i, m, i + 1, n))
+
+        # MCF objective
+        mcf.ObjSense = cp.COPT.MINIMIZE
+
+        # Degree constraints
+        mcf.addConstr(cp.quicksum(x[0, 0, 1, n] for n in range(len(ptByStep[0]))) == 1)
+        for i in range(1, len(ptByStep) - 1):
+            mcf.addConstr(cp.quicksum(x[i, m, i + 1, n] for m in range(len(ptByStep[i])) for n in range(len(ptByStep[i + 1]))) == 1)
+            mcf.addConstr(cp.quicksum(x[i - 1, m, i, n] for m in range(len(ptByStep[i - 1])) for n in range(len(ptByStep[i]))) == 1)
+            for m in range(len(ptByStep[i])):
+                mcf.addConstr(cp.quicksum(x[i - 1, k, i, m] for k in range(len(ptByStep[i - 1]))) == cp.quicksum(x[i, m, i + 1, n] for n in range(len(ptByStep[i + 1]))))
+        mcf.addConstr(cp.quicksum(x[len(ptByStep) - 2, m, len(ptByStep) - 1, 0] for m in range(len(ptByStep[len(ptByStep) - 2]))) == 1)
+
+        # Solve
+        mcf.solve()
+        seqID = []
+        szSeq = []
+        if (mcf.status == cp.COPT.OPTIMAL):
+            cost = mcf.getObjective().getValue()
+            for i in range(len(ptByStep) - 1):
+                for m in range(len(ptByStep[i])):
+                    for n in range(len(ptByStep[i + 1])):
+                        if (x[i, m, i + 1, n].x == 1):
+                            seqID.append(m)
+                            szSeq.append(repNodes[repSeq[i]]['nodeIDs'])
+            seqID.append(0)
+            szSeq.append(repNodes[repSeq[0]]['nodeIDs'])
+
+        return {
+            'seqID': seqID,
+            'szSeq': szSeq,
+            'cost': cost
+        }
+    mcf = minCostFlow(ptByStep, repTau)
+    seq = []
+    for i in range(len(mcf['seqID'])):
+        seq.append(ptByStep[i][mcf['seqID'][i]])
+
+    return {
+        'seq': seq,
+        'szSeq': mcf['szSeq'],
+        'ofv': mcf['cost']
+    }
