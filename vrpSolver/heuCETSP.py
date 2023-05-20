@@ -11,7 +11,7 @@ from .msg import *
 
 # History =====================================================================
 # 20230519 - Initialize
-# 20230520 - Naive implementation of CETSP using COPT
+# 20230520 - Naive implementation of CETSP using COPT/Gurobi
 # =============================================================================
 
 def heuCETSP(
