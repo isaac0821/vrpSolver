@@ -8,7 +8,6 @@ from .const import *
 from .geometry import *
 from .msg import *
 from .error import *
-from .relation import *
 
 # History =====================================================================
 # 20230510 - Cleaned up for v0.0.55, including the following available nodes 
@@ -19,8 +18,12 @@ from .relation import *
 
 def rndPlainNodes(
     N: int|None = None, 
-    nodeIDs: list[int | str] = [], 
-    distr: dict = {'method': 'UniformSquareXY', 'xRange': (0, 100), 'yRange': (0, 100)}
+    nodeIDs: list[int|str] = [], 
+    distr: dict = {
+            'method': 'UniformSquareXY', 
+            'xRange': (0, 100), 
+            'yRange': (0, 100)
+        }
     ) -> dict:
 
     """Randomly create a set of locations

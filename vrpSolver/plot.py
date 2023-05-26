@@ -1,22 +1,27 @@
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+from matplotlib.animation import PillowWriter
 
 from .common import *
 from .color import *
-from .geometry import *
 from .msg import *
 from .province import *
+from .error import *
 
 # History =====================================================================
 # 20230518 - `plotNodes()` now will plot the neighborhood of nodes
 # =============================================================================
 
 def plotNodes(
+    nodes: dict, 
+    nodeColor: str = 'Random',
+    nodeMarker: str = 'o',
+    nodeMarkersize: float = 1,
+    neighborColor: str|None = 'gray',
+    neighborOpacity: float = 0.5,
+    xyReverseFlag: bool = False,
     fig = None,
     ax = None,
-    nodes: dict | None = None, 
-    nodeColor: str = 'Random',
-    neighborColor: str = 'gray',
-    xyReverseFlag: bool = False,    
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
     boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
     saveFigPath: str|None = None,
@@ -27,30 +32,31 @@ def plotNodes(
 
     Parameters
     ----------
-
-    fig: matplotlib object, optional, defaut None
-        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
-    ax: matplotlib object, optional, default None
-        See `fig`
     nodes: dictionary, required
         The coordinates and other attributions of the nodes to be plotted, in the following format::
             >>> nodes = {
             ...     nodeID1: {
             ...         'loc': (x, y),
+            ...         'neighbor': poly, # Optional, indicate if need to display the neighborhood
             ...         'marker': 'r',    # Optional, default as 'o'
             ...         'markersize': 2,  # Optional, default as None
             ...         'color': 'red',   # Optional, default as 'Random'
             ...         'size': 3,        # Optional, default as 3
             ...         'fontsize': 3,    # Optional, default as 3
-            ...         'neighbor': poly, # Optional, indicate if need to display the neighborhood
             ...     }, # ...
             ... }
     nodeColor: str, optional, default 'Random'
         Alternative option. If 'color' is provided in `node`, this will be ignored.
-    neighborhoodColor: str, optional, default 'gray'
+    neighborColor: str, optional, default 'gray'
         If nodes have 'neighbor' label, will plot the neighbor area in this color
+    neighborOpacity: float, optional, default 0.5
+        The opacity of neighborhood.
     xyReverseFlag: bool, optional, default False
         True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
+    fig: matplotlib object, optional, defaut None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
     figSize: 2-tuple, optional, default as (None, 5)
         Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
     boundingBox: 4-tuple, optional, default as (None, None, None, None)
@@ -117,7 +123,7 @@ def plotNodes(
     # Draw nodes ==============================================================
     for n in nodes:
         # If node has neighbor, plot the neighbor color first -----------------
-        if ('neighbor' in nodes[n]):
+        if ('neighbor' in nodes[n] and neighborColor != None):
             fig, ax = plotPolygon(
                 fig = fig,
                 ax = ax,
@@ -125,7 +131,7 @@ def plotNodes(
                 edgeWidth = 1,
                 edgeColor = 'black',
                 fillColor = neighborColor,
-                opacity = 0.5,
+                opacity = neighborOpacity,
                 fillStyle = '///')
 
         # Define color --------------------------------------------------------
@@ -138,10 +144,8 @@ def plotNodes(
             color = nodeColor
 
         # Define marker and marker size ---------------------------------------
-        nodeMarker = 'o'
         if ('marker' in nodes[n]):
             nodeMarker = nodes[n]['marker']
-        nodeMarkersize = None
         if ('markersize' in nodes[n]):
             nodeMarkersize = nodes[n]['markersize']
 
@@ -154,7 +158,7 @@ def plotNodes(
         else:
             x = nodes[n]['loc'][1]
             y = nodes[n]['loc'][0]
-        if (nodeMarker == None):
+        if (nodeMarkersize == None):
             ax.plot(x, y, color = color, marker = nodeMarker)
         else:
             ax.plot(x, y, color = color, marker = nodeMarker, markersize = nodeMarkersize)
@@ -164,8 +168,6 @@ def plotNodes(
             lbl = nodes[n]['label']
 
         ax.annotate(lbl, (x, y))
-        
-    plt.close(fig)
 
     # Save figure =============================================================
     if (saveFigPath != None and isinstance(fig, plt.Figure)):
@@ -176,16 +178,16 @@ def plotNodes(
     return fig, ax
 
 def plotArcs(
-    fig = None,
-    ax = None,
-    nodes: dict | None = None, 
-    arcs: list[line] | None = None,
+    nodes: dict, 
+    arcs: list[line],
     arcColor: str = 'Random',
     arcWidth: float = 1,
     arrowFlag: bool = True,
     arrowHeadWidth: float = 0.1,
     arrowHeadLength: float = 0.2,
     xyReverseFlag: bool = False,
+    fig = None,
+    ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
     boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
     saveFigPath: str|None = None,
@@ -197,10 +199,6 @@ def plotArcs(
     Parameters
     ----------
 
-    fig: matplotlib object, optional, defaut None
-        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
-    ax: matplotlib object, optional, default None
-        See `fig`
     nodes: dictionary, required
         The coordinates and other attributions of the nodes to be plotted, in the following format::
             >>> nodes = {
@@ -214,7 +212,7 @@ def plotArcs(
             ...         'neighbor': poly, # Optional, indicate if need to display the neighborhood
             ...     }, # ...
             ... }
-    arcs: list[line], optional, default None
+    arcs: list[line], required
         A set of arcs, each arc is defined by two points
     arcColor: string, optional, default 'Random'
         Color of arcs
@@ -226,6 +224,10 @@ def plotArcs(
         Width of arrow head
     arrowHeadLength: float, optional, default 0.2
         Lengtho of arrow head
+    fig: matplotlib object, optional, defaut None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
     xyReverseFlag: bool, optional, default False
         True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
     figSize: 2-tuple, optional, default as (None, 5)
@@ -320,7 +322,6 @@ def plotArcs(
             ax.plot([x1, x2], [y1, y2], color = arcColor)
             if (arrowFlag):
                 ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=arcColor)
-    plt.close(fig)
 
     # Save figure =============================================================
     if (saveFigPath != None and isinstance(fig, plt.Figure)):
@@ -331,16 +332,16 @@ def plotArcs(
     return fig, ax
 
 def plotRoute(
-    fig = None,
-    ax = None,
-    nodes: dict | None = None, 
-    route: list[int|str] | None = None,
+    nodes: dict, 
+    route: list[int|str],
     lineColor: str = 'Random',
     lineWidth: float = 1,
     arrowFlag: bool = True,
     arrowHeadWidth: float = 0.1,
     arrowHeadLength: float = 0.2,
     xyReverseFlag: bool = False,
+    fig = None,
+    ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
     boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
     saveFigPath: str|None = None,
@@ -352,10 +353,6 @@ def plotRoute(
     Parameters
     ----------
 
-    fig: matplotlib object, optional, defaut None
-        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
-    ax: matplotlib object, optional, default None
-        See `fig`
     nodes: dictionary, required
         The coordinates and other attributions of the nodes to be plotted, in the following format::
             >>> nodes = {
@@ -383,6 +380,10 @@ def plotRoute(
         Lengtho of arrow head
     xyReverseFlag: bool, optional, default False
         True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
+    fig: matplotlib object, optional, defaut None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
     figSize: 2-tuple, optional, default as (None, 5)
         Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
     boundingBox: 4-tuple, optional, default as (None, None, None, None)
@@ -428,15 +429,15 @@ def plotRoute(
     return fig, ax
 
 def plotSeq(
-    fig = None,
-    ax = None,
-    seq: list[pt] | None = None,
+    seq: list[pt],
     arcColor: str = 'Random',
     arcWidth: float = 1,
     arrowFlag: bool = True,
     arrowHeadWidth: float = 0.1,
     arrowHeadLength: float = 0.2,
     xyReverseFlag: bool = False,
+    fig = None,
+    ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
     boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
     saveFigPath: str|None = None,
@@ -448,10 +449,6 @@ def plotSeq(
     Parameters
     ----------
 
-    fig: matplotlib object, optional, defaut None
-        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
-    ax: matplotlib object, optional, default None
-        See `fig`
     seq: list[pt], optional, default None
         A list of points to form a sequence
     arcColor: string, optional, default 'Random'
@@ -466,6 +463,10 @@ def plotSeq(
         Lengtho of arrow head
     xyReverseFlag: bool, optional, default False
         True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
+    fig: matplotlib object, optional, defaut None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
     figSize: 2-tuple, optional, default as (None, 5)
         Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
     boundingBox: 4-tuple, optional, default as (None, None, None, None)
@@ -549,7 +550,6 @@ def plotSeq(
         ax.plot([x1, x2], [y1, y2], color = arcColor)
         if (arrowFlag):
             ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=arcColor)
-    plt.close(fig)
 
     # Save figure =============================================================
     if (saveFigPath != None and isinstance(fig, plt.Figure)):
@@ -560,15 +560,15 @@ def plotSeq(
     return fig, ax
 
 def plotPolygon(
-    fig = None,
-    ax = None,
-    poly: poly | None = None, 
+    poly: poly, 
     edgeWidth: float = 0.5,
-    edgeColor: str = 'Random',
+    edgeColor: str|None = 'Random',
     fillColor: str|None = None,
     fillStyle: str = "///",
     opacity: float = 0.5,
     xyReverseFlag: bool = False,    
+    fig = None,
+    ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
     boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
     saveFigPath: str|None = None,
@@ -580,10 +580,6 @@ def plotPolygon(
     Parameters
     ----------
 
-    fig: matplotlib object, optional, defaut None
-        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
-    ax: matplotlib object, optional, default None
-        See `fig`
     poly: poly, required, default None
         A polygon to be plotted
     edgeWidth: float, optional, default 0.5
@@ -598,6 +594,10 @@ def plotPolygon(
         Opacity of the polygon
     xyReverseFlag: bool, optional, default False
         True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
+    fig: matplotlib object, optional, defaut None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
     figSize: 2-tuple, optional, default as (None, 5)
         Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
     boundingBox: 4-tuple, optional, default as (None, None, None, None)
@@ -688,7 +688,6 @@ def plotPolygon(
             ax.fill(x, y, facecolor=colorRandom(), edgecolor=edgeColor, hatch=fillStyle, linewidth=edgeWidth, alpha=opacity)
         else:
             ax.fill(x, y, facecolor=fillColor, edgecolor=edgeColor, hatch=fillStyle, linewidth=edgeWidth, alpha=opacity)
-    plt.close(fig)
 
     # Save figure =============================================================
     if (saveFigPath != None and isinstance(fig, plt.Figure)):
@@ -699,8 +698,6 @@ def plotPolygon(
     return fig, ax
 
 def plotProvinceMap(
-    fig = None,
-    ax = None,
     country: str = 'U.S.',
     province: list[str]|str = [],
     edgeWidth: float = 0.5,
@@ -708,6 +705,8 @@ def plotProvinceMap(
     fillColor: str|None = None,
     fillStyle: str = "///",
     opacity: float = 0.5,   
+    fig = None,
+    ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
     saveFigPath: str|None = None,
     showFig: bool = True
@@ -719,10 +718,7 @@ def plotProvinceMap(
     Parameters
     ----------
 
-    fig: matplotlib object, optional, defaut None
-        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
-    ax: matplotlib object, optional, default None
-        See `fig`
+
     country: string, required, default 'U.S.'
         Country of the province
     province: string | list[string], required, default ['New York']
@@ -739,10 +735,12 @@ def plotProvinceMap(
         Opacity of the polygon
     xyReverseFlag: bool, optional, default False
         True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
+    fig: matplotlib object, optional, defaut None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
     figSize: 2-tuple, optional, default as (None, 5)
-        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
-    boundingBox: 4-tuple, optional, default as (None, None, None, None)
-        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
+        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.    
     saveFigPath: string, optional, default as None
         The path for exporting image if provided
     showFig: bool, optional, default as True
@@ -992,35 +990,18 @@ def plotGantt(
         plt.close(fig)
     return fig, ax
 
-def plotRoadNetwork(
-    fig:        "Based matplotlib figure object" = None,
-    ax:         "Based matplotlib ax object" = None,
-    roadNetwork: "A road network dictionary" = None,
-    linewidth:  "Width of arcs" = 1,
-    roadColor:  "1) String 'Random', random color for each class of road, or\
-                 2) String, one color for all, or\
-                 3) (Default) Dictionary, designated color for each class of road, " = None,
-    roadClass:  "1) String 'All', show all classes, or\
-                 2) List of strings, a list of classes to be shown" = 'All',
-    buildingColor: "1) String 'Random', random color for each class of road, or\
-                 2) String, one color for all, or\
-                 3) (Default) Dictionary, designated color for each class of road, " = None,
-    showBuildingFlag: "True if include buildings, False otherwise" = False,
-    figSize:    "Size of the figure, in (width, height)" = None, 
-    xMin:       "min of x-axis" = None,
-    xMax:       "max of x-axis" = None,
-    yMin:       "min of y-axis" = None,
-    yMax:       "max of y-axis" = None,
-    edgeWidth:  "Width on the edge" = 0.005,
-    saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None,
-    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
-                 recommended to turn off if generate a batch of images" = True
-    ) -> "Draw a set of polylines, usually for plotting road network": 
-
-    # Default color for different classes of the road =========================
-    if (roadColor == None):
-        roadColor = {
+def plotRoadNetwork2D(
+    roads: dict,
+    roadWidth: dict[str,float]|float = {
+            'motorway': 2,
+            'truck': 1.5,
+            'primary': 1.2,
+            'secondary': 1,
+            'tertiary': 1,
+            'residential': 0.8,
+            'others': 0.8
+        },
+    roadColors: dict[str,str]|str = {
             'motorway': 'red',
             'truck': 'orange',
             'primary': 'orange',
@@ -1028,9 +1009,9 @@ def plotRoadNetwork(
             'tertiary': 'orange',
             'residential': 'green',
             'others': 'gray'
-        }
-    if (buildingColor == None):
-        buildingColor = {
+        },
+    roadShowFlags: dict[str, bool]|str|bool = 'All',
+    bldColors: dict[str,str]|str = {
             'building': 'yellow',
             'commercial': 'yellow',
             'residential': 'green',
@@ -1038,7 +1019,50 @@ def plotRoadNetwork(
             'static_caravan': 'green',
             'industrial': 'orange',
             'manufacture': 'orange'
-        }
+        },
+    bldShowFlags: dict[str, bool]|str|bool = False,
+    fig = None,
+    ax = None,
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ): 
+
+    """Plot road network (and buildings) using given OSM transformed dictionary
+
+    Parameters
+    ----------
+
+    roads: dict, required
+        The road network dictionary, including the geometry shape. In the following format::
+            >>> roads = {
+            ...     'road': {roadID: {'class': class, 'shape': shape}}
+            ...     'building': {buildingID: {'type': type, 'shape': shape}}
+            ... }
+    roadWidth: dict[str, float]|float, optional
+        The width of roads. If a dictionary is given, will use the width in the dictionary, otherwise will be default as 1. If a float is given will use the float value.
+    roadColor: dict[str, str]|str, optional
+        The color of roads, works in the same way as `roadWidth`
+    roadShowFlags: dict[str, bool]|str|bool, optional, 'All'
+        Whether or not show some types of roads, works in the same way as `roadWidth`
+    bldColor: dict[str, str]|str, optional
+        The color of buildings, works in the same way as `roadWidth`
+    bldShowFlags: dict[str, bool]|str|bool, optional
+        Whether or not show some types of buildings, works in the same way as `roadWidth`
+    fig: matplotlib object, optional, defaut None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
+    figSize: 2-tuple, optional, default as (None, 5)
+        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
+    boundingBox: 4-tuple, optional, default as (None, None, None, None)
+        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
+    saveFigPath: string, optional, default as None
+        The path for exporting image if provided
+    showFig: bool, optional, default as True
+        True if show the figure in Juypter Notebook environment
+    """
 
     # FIXME: In future, we might want to distinguish roads by max speed or show the names of roads
     # If no based matplotlib figure, define boundary ==========================
@@ -1046,66 +1070,90 @@ def plotRoadNetwork(
         fig, ax = plt.subplots()
         allX = []
         allY = []
-        for pt in roadNetwork['boundary']:
+        for pt in roads['boundary']:
             allX.append(pt[1])
             allY.append(pt[0])
+        (xMin, xMax, yMin, yMax) = boundingBox
         if (xMin == None):
-            xMin = min(allX) - edgeWidth
+            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
         if (xMax == None):
-            xMax = max(allX) + edgeWidth
+            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
         if (yMin == None):
-            yMin = min(allY) - edgeWidth
+            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
         if (yMax == None):
-            yMax = max(allY) + edgeWidth
-        if (figSize == None):
+            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+        width = 0
+        height = 0
+        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
             if (xMax - xMin > yMax - yMin):
-                width = 15
-                height = 15 * ((yMax - yMin) / (xMax - xMin))
+                width = 5
+                height = 5 * ((yMax - yMin) / (xMax - xMin))
             else:
-                width = 15 * ((xMax - xMin) / (yMax - yMin))
-                height = 15
+                width = 5 * ((xMax - xMin) / (yMax - yMin))
+                height = 5
+        elif (figSize != None and figSize[0] != None and figSize[1] == None):
+            width = figSize[0]
+            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
+        elif (figSize != None and figSize[0] == None and figSize[1] != None):
+            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
+            height = figSize[1]
         else:
             (width, height) = figSize
-        fig.set_figwidth(width)
-        fig.set_figheight(height)
-        ax.set_xlim(xMin, xMax)
-        ax.set_ylim(yMin, yMax)
+
+        if (isinstance(fig, plt.Figure)):
+            fig.set_figwidth(width)
+            fig.set_figheight(height)
+            ax.set_xlim(xMin, xMax)
+            ax.set_ylim(yMin, yMax)
 
     # Plot roads ==============================================================
-    for road in roadNetwork['road']:
-        if (roadClass == 'All' or type(roadClass) == list and roadNetwork['road'][road]['class'] in roadClass):
+    for road in roads['road']:
+        if (roadShowFlags == 'All' or roadShowFlags == True 
+            or (type(roadShowFlags) == dict 
+                and roads['road'][road]['class'] in roadShowFlags 
+                and roadShowFlags[roads['road'][road]['class']] == True)):
             x = []
             y = []
-            for pt in roadNetwork['road'][road]['shape']:
+            for pt in roads['road'][road]['shape']:
                 x.append(pt[1])
                 y.append(pt[0])
             color = None
-            if (roadColor == 'Random'):
+            if (roadColors == 'Random'):
                 color = colorRandom()
-            elif (type(roadColor) == str):
-                color = roadColor
-            elif (type(roadColor) == dict):
-                if (roadNetwork['road'][road]['class'] in roadColor):
-                    color = roadColor[roadNetwork['road'][road]['class']]
+            elif (type(roadColors) == str):
+                color = roadColors
+            elif (type(roadColors) == dict):
+                if (roads['road'][road]['class'] in roadColors):
+                    color = roadColors[roads['road'][road]['class']]
                 else:
                     color = 'gray'
-            ax.plot(x, y, color = color, linewidth = linewidth)
+            rw = 1
+            if (type(roadWidth) == dict):
+                if (roads['road'][road]['class'] in roadWidth):
+                    rw = roadWidth[roads['road'][road]['class']]
+            else:
+                rw = roadWidth
+            ax.plot(x, y, color = color, linewidth = rw)
 
     # Plot buildings ==========================================================
-    if (showBuildingFlag):
-        for building in roadNetwork['building']:
+    for building in roads['building']:
+        if (bldShowFlags == 'All' or bldShowFlags == True
+            or (type(bldShowFlags) == dict
+                and roads['building'][building]['type'] in bldShowFlags
+                and bldShowFlags[roads['building'][building]['type']] == True)):
             x = []
             y = []
-            for pt in roadNetwork['building'][building]['shape']:
+            color = None
+            for pt in roads['building'][building]['shape']:
                 x.append(pt[1])
                 y.append(pt[0])
-            if (buildingColor == 'Random'):
+            if (bldColors == 'Random'):
                 color = colorRandom()
-            elif (type(buildingColor) == str):
-                color = buildingColor
-            elif (type(buildingColor) == dict):
-                if (roadNetwork['building'][building]['type'] in buildingColor):
-                    color = buildingColor[roadNetwork['building'][building]['type']]
+            elif (type(bldColors) == str):
+                color = bldColors
+            elif (type(bldColors) == dict):
+                if (roads['building'][building]['type'] in bldColors):
+                    color = bldColors[roads['building'][building]['type']]
                 else:
                     color = 'gray'
             ax.fill(x, y, facecolor=color)

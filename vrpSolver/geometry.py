@@ -10,7 +10,94 @@ from .common import *
 from .const import *
 from .graph import *
 from .msg import *
-from .relation import *
+# from .relation import *
+
+def vecPolar2XY(vecPolar: tuple[float|int, float|int]
+    ) -> tuple[float|int, float|int]:
+
+    """Given vector's norm and its degree to North, convert it into a 2-tuple vector
+
+    Parameters:
+    -----------
+    vecPolar: tuple[float|int, float|int], required
+        2-tuple (vVal, vDeg), `vVal` is the norm and `vDeg` is the direction, 0 as North, clockwise, in [0, 360)
+
+    Returns
+    -------
+
+    tuple[float|int, float|int]
+
+    """
+
+    # Initialize ==============================================================
+    (vVal, vDeg) = vecPolar
+
+    vX = 0
+    vY = 0
+
+    while(vDeg < 0):
+        vDeg = vDeg + 360
+
+    while(vDeg >= 360):
+        vDeg = vDeg - 360
+
+    vX = vVal * math.sin(math.radians(vDeg))
+    vY = vVal * math.cos(math.radians(vDeg))
+
+    return (vX, vY)
+
+def vecXY2Polar(vecXY: tuple[float|int, float|int]) -> tuple[float|int, float|int]:
+
+    """Given a 2-tuple, convert it into a norm and a direction in degree
+
+    Parameters
+    ----------
+
+    vecXY: tuple[float|int, float|int], required
+        2-tuple (vX, vY), the coordinate of vector
+
+
+    Returns
+    -------
+
+    tuple[float|int, float|int]
+
+    """
+
+    
+    (vX, vY) = vecXY    
+    vDeg = 0
+    vVal = 0
+    if (abs(vX) <= 0.0001):
+        if (vY >= 0):
+            vDeg = 0
+            vVal = vY
+        elif (vY < 0):
+            vDeg = 180
+            vVal = -vY
+    elif (abs(vY) <= 0.0001):
+        if (vX >= 0):
+            vVal = vX
+            vDeg = 90
+        elif (vX < 0):
+            vVal = -vX
+            vDeg = 270
+    else:
+        vVal = math.sqrt(vX**2 + vY**2)
+        # 1st quad
+        if (vX > 0 and vY >= 0):
+            vDeg = math.degrees(math.atan(vX / vY))
+        # 2nd quad
+        elif (vX > 0 and vY < 0):
+            vDeg = 180 + math.degrees(math.atan(vX / vY))
+        # 3rd quad
+        elif (vX < 0 and vY < 0):
+            vDeg = 180 + math.degrees(math.atan(vX / vY))
+        # 4th quad
+        elif (vX < 0 and vY >= 0):
+            vDeg = 360 + math.degrees(math.atan(vX / vY))
+
+    return (vVal, vDeg)
 
 def ptXY2LatLonMercator(
     ptXY:       "Point in (x, y) coordinates"
@@ -31,245 +118,6 @@ def ptLatLon2XYMercator(
     x = math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * CONST_EARTH_RADIUS_METERS
     ptXY = (x, y)
     return ptXY
-
-def htMovingPtTowardsLineSegXY(
-    ptXY:       "Point that is moving" = None,
-    segXY:      "Line segment that is moving - no rotation" = None,
-    vecXYPt:    "Moving speed vector of the point in XY" = None,
-    vecXYSeg:   "Moving speed vector of the line segment in XY" = None
-    ) -> "Given a moving point and a moving line segment, returns\
-        1) when the point is going to hit the line segment, or\
-        2) None if the point is not going to hit the line segment":
-
-    # Initialize ==============================================================
-    # Convert the speed of both objects into the speed of pt
-    vecXY = calXYVecSubtract(vecXYPt, vecXYSeg)
-
-    # Move axis, so that ptXY = (0, 0) ========================================
-    segOffSet = [[segXY[0][0] - ptXY[0], segXY[0][1] - ptXY[1]], [segXY[1][0] - ptXY[0], segXY[1][1] - ptXY[1]]]
-    rayOffset = [(0, 0), vecXY]
-
-    # Find intersecting point of the ray and the line seg =====================
-    ptInt = intSeg2Ray(segOffSet, rayOffset)
-    if (ptInt == None):
-        return None
-
-    # Calculate the distance from ptXY to ptInt and calculate the time needed =
-    dist = distEuclidean2D((0, 0), ptInt)
-    absVXY = math.sqrt(vecXY[0]**2 + vecXY[1]**2)
-    hitTime = dist / absVXY
-
-    return hitTime
-
-def htMovingPtTowardsLineSegLatLon(
-    ptLatLon:   "Point that is moving" = None,
-    segLatLon:  "Line segment that is moving - no rotation" = None,
-    vecPolarPt: "Moving speed vector of the point in XY" = None,
-    vecPolarSeg: "Moving speed vector of the line segment in XY" = None
-    ) -> "Lat/lon version of `hitTimeMovingPtTowardsLineSegXY()`":
-
-    # Initialize ==============================================================
-    ptXY = ptLatLon2XYMercator(ptLatLon)
-    segXY = [ptLatLon2XYMercator(segLatLon[0]), ptLatLon2XYMercator(segLatLon[1])]
-    segOffset = [[segXY[0][0] - ptXY[0], segXY[0][1] - ptXY[1]], [segXY[1][0] - ptXY[0], segXY[1][1] - ptXY[1]]]
-    vecXY = calXYVecSubtract(
-        vecPolar2XY([vecPolarPt[0], 90 - vecPolarPt[1]]), 
-        vecPolar2XY([vecPolarSeg[0], 90 - vecPolarSeg[1]]))
-    rayOffset = [(0, 0), vecXY]
-
-    # Find intersection in XY space ===========================================
-    ptIntXY = intSeg2Ray(segOffset, rayOffset)
-    if (ptIntXY == None):
-        return None
-    ptIntLatLon = ptXY2LatLonMercator([ptIntXY[0] + ptXY[0], ptIntXY[1] + ptXY[1]])
-
-    # Calculate dist and time =================================================
-    dist = distLatLon(ptLatLon, ptIntLatLon)
-    absVXY = vecXY2Polar(vecXY)[0]
-    hitTime = dist / absVXY
-
-    return hitTime
-
-def htMovingPtTowardsLineLatLon(
-    ptLatLon:   "Point that is moving" = None,
-    lineLatLon:  "Line segment that is moving - no rotation" = None,
-    vecPolarPt: "Moving speed vector of the point in XY" = None,
-    vecPolarSeg: "Moving speed vector of the line segment in XY" = None
-    ) -> "Lat/lon version of `hitTimeMovingPtTowardsLineSegXY()`":
-
-    # Initialize ==============================================================
-    ptXY = ptLatLon2XYMercator(ptLatLon)
-    segXY = [ptLatLon2XYMercator(lineLatLon[0]), ptLatLon2XYMercator(lineLatLon[1])]
-    segOffset = [[segXY[0][0] - ptXY[0], segXY[0][1] - ptXY[1]], [segXY[1][0] - ptXY[0], segXY[1][1] - ptXY[1]]]
-    vecXY = calXYVecSubtract(
-        vecPolar2XY([vecPolarPt[0], 90 - vecPolarPt[1]]), 
-        vecPolar2XY([vecPolarSeg[0], 90 - vecPolarSeg[1]]))
-    rayOffset = [(0, 0), vecXY]
-
-    # Find intersection in XY space ===========================================
-    ptIntXY = intRay2Line(segOffset, rayOffset)
-    if (ptIntXY == None):
-        return None
-    ptIntLatLon = ptXY2LatLonMercator([ptIntXY[0] + ptXY[0], ptIntXY[1] + ptXY[1]])
-
-    # Calculate dist and time =================================================
-    dist = distLatLon(ptLatLon, ptIntLatLon)
-    absVXY = vecXY2Polar(vecXY)[0]
-    hitTime = dist / absVXY
-
-    return hitTime
-
-def twMovingPtInsidePolyXY(
-    ptXY:       "Point that is moving" = None,
-    polyXY:     "Polygon that are moving" = None,
-    vecXYPt:    "Moving speed vector of the point in XY" = None,
-    vecXYPoly:  "Moving speed vector of the polygon in XY" = None,
-    ) -> "Given a moving point in (x, y), a moving polygon in Euclidean2D, returns \
-        1) the time window of when the point is inside the polygon, or \
-        2) empty list if the point is not going to be inside the polygon":
-
-    # Initialize ==============================================================
-    tw = []
-    # Convert the speed of both objects into the speed of pt
-    vecXY = calXYVecSubtract(vecXYPt, vecXYPoly)
-
-    # Move axis, so that ptXY = (0, 0) ========================================
-    polyOffSet = []
-    for p in polyXY:
-        polyOffSet.append((p[0] - ptXY[0], p[1] - ptXY[1]))
-    rayOffset = [(0, 0), vecXY]
-
-    # Check if the point is going to go into the polygon ======================
-    intersectFlag = isRayCrossPoly(rayOffset, polyOffSet)
-    if (not intersectFlag):
-        return []
-
-    # Find the intersecting pts of the ray and all edges ======================
-    # Polygon might not be convex, there could be multiple time windows
-    intPts = []
-    for i in range(-1, len(polyOffSet) - 1):
-        ptInt = intSeg2Ray([polyOffSet[i], polyOffSet[i + 1]], rayOffset)
-        if (ptInt != None):
-            intPts.append(ptInt)
-
-    # Sort intersection points by dist ========================================
-    # Convert intPts to nodes
-    nodes = {}
-    nodes[0] = {'loc': (0, 0), 'color': 'blue'}
-    for i in range(len(intPts)):
-        nodes[i + 1] = {'loc': (intPts[i][0], intPts[i][1]), 'color': 'red'}
-    sortedSeq = getSortedNodesByDist(
-        nodes = nodes,
-        edges = 'Euclidean',
-        refNodeID = 0)
-
-    # Calculate relative distances to ptXY ====================================
-    dist = []
-    for i in range(len(sortedSeq)):
-        dist.append(distEuclidean2D((0, 0), nodes[sortedSeq[i]]['loc']))
-    timeStamp = []
-    absVXY = math.sqrt(vecXY[0]**2 + vecXY[1]**2)
-    for i in dist:
-        timeStamp.append(i / absVXY)
-
-    # Confirm time windows ====================================================
-    for i in range(len(dist) - 1):
-        mid = ((nodes[sortedSeq[i]]['loc'][0] / 2 + nodes[sortedSeq[i + 1]]['loc'][0] / 2), 
-            (nodes[sortedSeq[i]]['loc'][1] / 2 + nodes[sortedSeq[i + 1]]['loc'][1] / 2))
-        if (isPtInsidePoly(mid, polyOffSet)):
-            tw.append([timeStamp[i], timeStamp[i + 1]])
-
-    return tw
-
-def twMovingPtInsidePolyLatLon(
-    ptLatLon:      "Point that are moving" = None,
-    polyLatLon:    "Polygon that are moving" = None,
-    vecPolarPt:    "Moving speed vector of the point in XY, in the format of (val, deg), 0 deg as north" = None,
-    vecPolarPoly:  "Moving speed vector of the polygon in XY, in the format of (val, deg), 0 deg as north" = None,
-    ) -> "Given a moving point in (lat, lon), a moving polygon, returns \
-        1) the time window of when the point will be inside the polygon, or \
-        2) None if not going to be inside the polygon":
-
-    # Steps ===================================================================
-    # 1. Project the Lat/Lon into XY space, using Mercator Projection
-    # 2. Calculate the `twMovingPtInsidePolyXY()`, find the intersections
-    # 3. Convert the intersections back to (lat, lon)
-    # 4. Calculated the time windows based on speed vector in LatLon
-
-    # Initialize ==============================================================
-    tw = []
-    ptXY = ptLatLon2XYMercator(ptLatLon)
-    polyXYOffset = []
-    for p in polyLatLon:
-        pXY = ptLatLon2XYMercator(p)
-        polyXYOffset.append((pXY[0] - ptXY[0], pXY[1] - ptXY[1]))
-    vecXY = calXYVecSubtract(
-        vecPolar2XY([vecPolarPt[0], 90 - vecPolarPt[1]]), 
-        vecPolar2XY([vecPolarPoly[0], 90 - vecPolarPoly[1]]))
-    rayXYOffset = [(0, 0), vecXY]
-
-    # Find intersection in XY space ===========================================
-    intersectFlag = isRayCrossPoly(rayXYOffset, polyXYOffset)
-    # print(intersectFlag)
-    if (not intersectFlag):
-        return []
-    intPtsXY = []
-    for i in range(-1, len(polyXYOffset) - 1):
-        ptIntXY = intSeg2Ray([polyXYOffset[i], polyXYOffset[i + 1]], rayXYOffset)
-        if (ptIntXY != None):
-            intPtsXY.append(ptIntXY)
-
-    # Convert those points back to (lat, lon) =================================
-    intPtsLatLon = []
-    for p in intPtsXY:
-        pXY = (p[0] + ptXY[0], p[1] + ptXY[1])
-        intPtsLatLon.append(ptXY2LatLonMercator(pXY))
-
-    # Sort intersection points by dist ========================================
-    # Convert intPts to nodes
-    intPtsLatLonDict = {}
-    intPtsLatLonDict[0] = {'loc': (ptLatLon[0], ptLatLon[1])}
-    for i in range(len(intPtsLatLon)):
-        intPtsLatLonDict[i + 1] = {'loc': (intPtsLatLon[i][0], intPtsLatLon[i][1])}
-    sortedSeq = getSortedNodesByDist(
-        nodes = intPtsLatLonDict,
-        edges = 'LatLon',
-        refNodeID = 0)
-
-    # Calculate relative distances to ptLatLon ======================================
-    dist = []
-    for i in range(len(sortedSeq)):
-        dist.append(distLatLon(ptLatLon, intPtsLatLonDict[sortedSeq[i]]['loc'], distUnit='meter'))
-    timeStamp = []
-    vecPolar = vecXY2Polar(vecXY)
-    absVXY = vecPolar[0]
-    for i in dist:
-        timeStamp.append(i / absVXY)
-
-    # Confirm time windows ====================================================
-    for i in range(len(dist) - 1):
-        mid = ((intPtsLatLonDict[sortedSeq[i]]['loc'][0] / 2 + intPtsLatLonDict[sortedSeq[i + 1]]['loc'][0] / 2), 
-            (intPtsLatLonDict[sortedSeq[i]]['loc'][1] / 2 + intPtsLatLonDict[sortedSeq[i + 1]]['loc'][1] / 2))
-        if (isPtInsidePoly(mid, polyLatLon)):
-            tw.append([timeStamp[i], timeStamp[i + 1]])
-
-    return tw
-
-def projSeg2LineXY(
-    seg:        "Line segment to be projected to line" = None,
-    line:       "Line to project to" = None,
-    vec:        "Vector of projecting" = None
-    ) -> "Given a line segment, project it to a line using a given vector":
-
-    line4SegEnd1 = [seg[0], [seg[0][0] + vec[0], seg[0][1] + vec[1]]]
-    line4SegEnd2 = [seg[1], [seg[1][0] + vec[0], seg[1][1] + vec[1]]]
-
-    projPt1 = intLine2Line(line4SegEnd1, line)
-    projPt2 = intLine2Line(line4SegEnd2, line)
-
-    return {
-        'shadowSegOnLine': [projPt1, projPt2]
-    }
 
 def distEuclidean2D(
     pt1:        "First coordinate, in (x, y)", 
@@ -326,89 +174,109 @@ def distLatLon(
     else:
         return CONST_EPSILON
 
-def distPt2Line(
-    pt:         "2-tuple of coordinate (x, y)",
-    line:       "List of 2 pts which defines a line"
-    ) -> "Distance from a given point to a given line":
+def locInPath(
+    seq: list[pt],
+    timeStamp: list[float],
+    t: float
+    ) -> pt:
 
-    # Validation ==============================================================
-    if (is2PtsSame(line[0], line[1])):
-        raise ZeroVectorError("Line %s" % list2String(line))
-    
-    # Initialize ==============================================================
-    ptA = line[0]
-    ptB = line[1]
-    ptS = pt
+    curLoc = []
 
-    # Check if the pt is on line, if so the distance is 0 =====================
-    if (isPtOnLine(pt, line)):
-        return 0.0
+    if (len(seq) != len(timeStamp)):
+        raise UnsupportedInputError("ERROR: `timeStamp` does not match with `seq`.")
+    for i in range(len(timeStamp) - 1):
+        if (timeStamp[i] > timeStamp[i + 1]):
+            raise UnsupportedInputError("ERROR: `timeStamp` should be a non-descending sequence.")
 
-    # Calculate dist to line ==================================================
-    areaSAB = calTriangleAreaXY(ptS, ptA, ptB)
-    bottom = distEuclidean2D(ptA, ptB)
-    height = 2 * areaSAB / bottom
-    dist = height
+    if (t <= timeStamp[0]):
+        return seq[0]
+    if (t >= timeStamp[-1]):
+        return seq[-1]
 
-    return dist
+    for i in range(len(timeStamp) - 1):
+        if (timeStamp[i] <= t < timeStamp[i + 1]):
+            if (timeStamp[i] == timeStamp[i + 1]):
+                raise UnsupportedInputError("ERROR: an object cannot be two places at the same time.")
+            curLocX = seq[i][0] + (seq[i + 1][0] - seq[i][0]) * (t - timeStamp[i]) / (timeStamp[i + 1] - timeStamp[i])
+            curLocY = seq[i][1] + (seq[i + 1][1] - seq[i][1]) * (t - timeStamp[i]) / (timeStamp[i + 1] - timeStamp[i])
+            return [curLocX, curLocY]
+    raise UnsupportedInputError("ERROR: cannot find time stamp")
 
-def distPt2Seg(
-    pt:         "2-tuple of coordinate (x, y)",
-    seg:        "List of 2 pts which defines a line segment"
-    ) -> "Distance from a given point to a given line segment":
-    
-    # Validation ==============================================================
-    if (is2PtsSame(line[0], line[1])):
-        raise ZeroVectorError("Line %s" % list2String(line))
+def traceInPath(
+    seq: list[pt],
+    timeStamp: list[float],
+    ts: float,
+    te: float) -> list[pt]:
 
-    # Initialize ==============================================================
-    ptA = line[0]
-    ptB = line[1]
-    ptS = pt
+    trace = []
 
-    # Check if the pt is on line, if so the distance is 0 =====================
-    if (isPtOnLine(pt, line)):
-        return 0.0
+    if (len(seq) != len(timeStamp)):
+        raise UnsupportedInputError("ERROR: `timeStamp` does not match with `seq`.")
+    for i in range(len(timeStamp) - 1):
+        if (timeStamp[i] > timeStamp[i + 1]):
+            raise UnsupportedInputError("ERROR: `timeStamp` should be a non-descending sequence.")
+    if (ts >= te):
+        raise UnsupportedInputError("ERROR: `ts` should be earlier than `te`")
 
-    # Rays ====================================================================
-    rayAS = [ptS[0] - ptA[0], ptS[1] - ptA[1]]
-    rayAB = [ptB[0] - ptA[0], ptB[1] - ptA[1]]
-    rayBS = [ptS[0] - ptB[0], ptS[1] - ptB[1]]
-    rayBA = [ptA[0] - ptB[0], ptA[1] - ptB[1]]
+    if (ts <= timeStamp[0] and te >= timeStamp[-1]):
+        return [pt for pt in seq]
+    if (ts >= timeStamp[-1]):
+        return []
+    if (te <= timeStamp[0]):
+        return []
 
-    # cos value for A angle and B angle =======================================
-    cosSAB = cosRay2Ray(rayAS, rayAB)
-    cosSBA = cosRay2Ray(rayBS, rayBA)
+    tsIndex = None
+    teIndex = None
+    tsLoc = []
+    teLoc = []
 
-    # Calculate dist to line ==================================================
-    # if both angles are sharp, the closest point will be in the line, otherwise the closest point is at the edge
-    if (cosSAB >= 0 and cosSBA >= 0):
-        areaSAB = calTriangleAreaXY(ptS, ptA, ptB)
-        bottom = distEuclidean2D(ptA, ptB)
-        height = 2 * areaSAB / bottom
-        dist = height
+    if (ts <= timeStamp[0]):
+        tsIndex = 0
+        ts = timeStamp[0]
+        tsLoc = seq[0]
+    if (te >= timeStamp[-1]):
+        teIndex = len(timeStamp) - 1
+        te = timeStamp[-1]
+        teLoc = seq[-1]
+
+    for i in range(len(timeStamp) - 1):
+        if (timeStamp[i] <= ts < timeStamp[i + 1]):
+            if (timeStamp[i] == timeStamp[i + 1]):
+                raise UnsupportedInputError("ERROR: an object cannot be two places at the same time.")
+            tsIndex = i
+            tsX = seq[i][0] + (seq[i + 1][0] - seq[i][0]) * (ts - timeStamp[i]) / (timeStamp[i + 1] - timeStamp[i])
+            tsY = seq[i][1] + (seq[i + 1][1] - seq[i][1]) * (ts - timeStamp[i]) / (timeStamp[i + 1] - timeStamp[i])
+            tsLoc = [tsX, tsY]
+            for j in range(tsIndex, len(timeStamp) - 1):
+                if (timeStamp[j] <= te < timeStamp[j + 1]):
+                    if (timeStamp[j] == timeStamp[j + 1]):
+                        raise UnsupportedInputError("ERROR: an object cannot be two places at the same time.")
+                    teIndex = j
+                    teX = seq[j][0] + (seq[j + 1][0] - seq[j][0]) * (te - timeStamp[j]) / (timeStamp[j + 1] - timeStamp[j])
+                    teY = seq[j][1] + (seq[j + 1][1] - seq[j][1]) * (te - timeStamp[j]) / (timeStamp[j + 1] - timeStamp[j])
+                    teLoc = [teX, teY]
+
+    if (tsIndex == teIndex):
+        trace = [tsLoc, teLoc]
+    elif (tsIndex + 1 == teIndex):
+        trace.append(tsLoc)
+        trace.append(seq[tsIndex + 1])
+        trace.append(teLoc)
     else:
-        distAS = distEuclidean2D(ptS, ptA)
-        distBS = distEuclidean2D(ptS, ptB)
-        dist = min(distAS, distBS)
+        trace.append(tsLoc)
+        for i in range(tsIndex + 1, teIndex + 1):
+            trace.append(seq[i])
+        trace.append(teLoc)
 
-    return dist
+    return trace
 
-def calTriangleAreaEdge(
-    a:          "Length of edge", 
-    b:          "Length of edge", 
-    c:          "Length of edge"
-    ) -> "Given the length of three edges, calculates the area":
+def calTriangleAreaEdge(a: float, b: float, c: float) -> float:
     # Using Heron's Formula ===================================================
     s = (a / 2 + b / 2 + c / 2)
     area = math.sqrt(s * (s - a) * (s - b) * (s - c))
     return area
 
-def calTriangleAreaXY(
-    pt1:       "Coordinate of point", 
-    pt2:       "Coordinate of point", 
-    pt3:       "Coordinate of point"
-    ) -> "Given the coordinates of three points, calculates the area":
+def calTriangleAreaXY(pt1: pt, pt2: pt, pt3: pt) -> float:
     # Using determinant =======================================================
     [x1, y1] = pt1
     [x2, y2] = pt2
@@ -438,29 +306,6 @@ def calPolygonAreaLatLon(
     area = abs(geod.geometry_area_perimeter(polygon)[0])
 
     return area
-
-def linePerpendicularLine(
-    pt:         "Point which the line will go through",
-    vec:        "The vector that perpendicular to the line"
-    ) -> "Given a point, a vector, returns a line that is going through this point and perpendicular to the vector":
-
-    # Get the direction =======================================================
-    heading = headingXY(pt, (pt[0] + vec[0], pt[1] + vec[1]))
-    newHeading1 = heading + 90
-    newHeading2 = heading - 90
-    while (newHeading1 > 360):
-        newHeading1 -= 360
-    while (newHeading2 > 360):
-        newHeading2 -= 360
-    while (newHeading1 < 0):
-        newHeading1 += 360
-    while (newHeading2 < 0):
-        newHeading2 += 360
-
-    # Get line ================================================================
-    line = [ptInDistXY(pt, newHeading1, 10), ptInDistXY(pt, newHeading2, 10)]
-
-    return line
 
 def headingXY(
     pt1:        "Current location", 
@@ -529,46 +374,6 @@ def mileageInPathLatLon(
 
     return locInMileage
 
-def rectInWidthLengthOrientationXY(
-    centroidXY: "Centroid of rectangular in (x, y)" = None,
-    width:      "Width of the rectangular" = None,
-    length:     "Length of the rectangular" = None,
-    oriDeg:     "Orientation of the rectangular" = None
-    ) -> "Given args for the width, length, and orientation of rectangular, returns the coordinates in (x, y)":
-
-    # Create four corner points ===============================================
-    ptTemp1 = ptInDistXY(centroidXY, oriDeg, length / 2)
-    pt1 = ptInDistXY(ptTemp1, oriDeg + 90, width / 2)
-    pt2 = ptInDistXY(ptTemp1, oriDeg - 90, width / 2)
-    ptTemp2 = ptInDistXY(centroidXY, oriDeg + 180, length / 2)
-    pt3 = ptInDistXY(ptTemp2, oriDeg + 90, width / 2)
-    pt4 = ptInDistXY(ptTemp2, oriDeg - 90, width / 2)
-
-    # Get the rectangular =====================================================
-    rect = [pt1, pt2, pt4, pt3]
-
-    return rect
-
-def rectInWidthLengthOrientationLatLon(
-    centroidLatLon: "Centroid of rectangular in (lat, lon)" = None,
-    widthInMeter: "Width of the rectangular in meters" = None,
-    lengthInMeter: "Length of the rectangular in meters" = None,
-    oriDeg:     "Orientation of the rectangular" = None
-    ) -> "Given args for the width, length, and orientation of rectangular, returns the coordinates in (lat, lon)":
-
-    # Create four corner points ===============================================
-    ptTemp1 = ptInDistLatLon(centroidLatLon, oriDeg, lengthInMeter / 2)
-    pt1 = ptInDistLatLon(ptTemp1, oriDeg + 90, widthInMeter / 2)
-    pt2 = ptInDistLatLon(ptTemp1, oriDeg - 90, widthInMeter / 2)
-    ptTemp2 = ptInDistLatLon(centroidLatLon, oriDeg + 180, lengthInMeter / 2)
-    pt3 = ptInDistLatLon(ptTemp2, oriDeg + 90, widthInMeter / 2)
-    pt4 = ptInDistLatLon(ptTemp2, oriDeg - 90, widthInMeter / 2)
-
-    # Get the rectangular =====================================================
-    rect = [pt1, pt2, pt4, pt3]
-
-    return rect
-
 def ptInDistXY(
     pt:         "Starting location" = None, 
     direction:  "Direction towards the destination, Up is 0-degrees, clock-wise" = None, 
@@ -586,20 +391,6 @@ def ptInDistLatLon(
     # Bearing in degrees: 0 – North, 90 – East, 180 – South, 270 or -90 – West.
     newLoc = list(geopy.distance.distance(meters=distMeters).destination(point=pt, bearing=direction))[:2]
     return newLoc
-
-def intersectPolygon2Polygon(
-    poly1:      "First polygon to be intersected" = None,
-    poly2:      "Second polygon to be intersected" = None
-    ) -> "Given two polygons (no holes), returns the intersection of two polygons":
-
-    return poly
-
-def intersectPolygon2Line(
-    poly:       "Polygon to be intersected" = None,
-    line:       "Line to be intersected" = None
-    ) -> "Given a polygon and a line, returns the line segment inside the polygon":
-    
-    return seq
 
 def getTau(
     nodes:      "The coordinate of given nodeID" = None, 
@@ -725,103 +516,14 @@ def _getTauGrid(nodes, nodeIDs, grid):
             if (i != j):
                 t = gridPathFinding(
                     grid = grid,
-                    startGridCoord = nodes[i]['loc'],
-                    endGridCoord = nodes[j]['loc'])['dist']
+                    startCoord = nodes[i]['loc'],
+                    endCoord = nodes[j]['loc'])['dist']
                 tau[i, j] = t
                 tau[j, i] = t
             else:
                 tau[i, j] = 0
                 tau[j, i] = 0
     return tau
-
-def getNeighborCluster(
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None, 
-    edges:      "1) String (default) 'Euclidean' or \
-                 2) String 'LatLon' or \
-                 3) Dictionary {(nodeID1, nodeID2): dist, ...} or \
-                 4) String 'Grid', will need to add arguments using `edgeArgs`"= "Euclidean",
-    edgeArgs:   "If choose 'Grid' as tau option, we need to provide the following dictionary \
-                 {\
-                    'colRow': (numCol, numRow),\
-                    'barriers': [(coordX, coordY), ...], \
-                 }" = None,
-    nodeIDs:    "1) String (default) 'All', or \
-                 2) A list of node IDs" = 'All',
-    diameter:   "The diameter of the neighborhood" = None,
-    maxSize:    "Maximum number of nodes in each cluster" = 5
-    ) -> "Given a dictionary of locations, an a radius, return the sets that any two locations are within the distance":
-
-    # Define nodeIDs ==========================================================
-    if (type(nodeIDs) is not list):
-        if (nodeIDs == 'All'):
-            nodeIDs = []
-            for i in nodes:
-                nodeIDs.append(i)
-
-    # Define edges ============================================================
-    tau = getTau(nodes, edges, edgeArgs, None, nodeIDs, None)
-
-    # Initialize ==============================================================
-    seedClique = []
-    # For each node get the neighbors within diameter
-    neighbor = {}
-    for n in nodeIDs:
-        neighbor[n] = []
-
-    for n1 in nodeIDs:
-        for n2 in nodeIDs:
-            if (n1 != n2 and tau[n1, n2] <= diameter):
-                neighbor[n1].append(n2)
-
-    # Find seed cliques in the neighbor graph =================================
-    # FIXME: Now using stupid method, will be replaced by clique searching algorithm, or should I?
-    # 3-clique
-    for n1 in neighbor:
-        for n2 in neighbor[n1]:
-            for n3 in neighbor[n2]:
-                if (n1 < n2 < n3 and n1 in neighbor[n3]):
-                    seedClique.append([n1, n2, n3])
-
-    # Try to union existing seed-clique to find larger clique =================
-    canUnionFlag = True
-    while (canUnionFlag):
-        canUnionFlag = False
-        for c1 in range(len(seedClique) - 1):
-            for c2 in range(c1 + 1, len(seedClique)):
-                # Try to merge two cliques
-                clique1 = [i for i in seedClique[c1]]
-                clique2 = [i for i in seedClique[c2]]
-                intersect = listSetIntersect(clique1, clique2)                
-                # Two cliques can be merged iff they have intersection
-                if (len(intersect) > 0):
-                    diff1 = listSetMinus(clique1, intersect)
-                    diff2 = listSetMinus(clique2, intersect)                    
-                    # Try to see if the nodes that are not in the intersection are close
-                    mergeFlag = True
-                    for n1 in diff1:
-                        for n2 in diff2:
-                            if (n1 not in neighbor[n2]):
-                                mergeFlag = False
-                                break
-                        if (not mergeFlag):
-                            break
-                    if (mergeFlag):
-                        newClique = listSetUnion(clique1, clique2)
-                        if (maxSize == None or len(newClique) <= maxSize):
-                            newClique.sort()
-                            seedClique.remove(clique1)
-                            seedClique.remove(clique2)
-                            seedClique.append(newClique)
-                            canUnionFlag = True
-                            break
-            if (canUnionFlag):
-                break
-    return seedClique
 
 def getSortedNodesByDist(
     nodes:      "Dictionary, returns the coordinate of given nodeID, \
@@ -918,228 +620,174 @@ def getSweepSeq(
 
     return sweepSeq
 
-def getCentroid(
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None,
-    nodeIDs:    "1) String (default) 'All', or \
-                 2) A list of node IDs" = 'All',
-    algo:       "1) String, 'Weiszfeld'" = 'Weiszfeld'
-    ) -> "Get centroid location for given nodes":
+def gridPathFinding(
+    grid: dict,
+    startCoord: pt,
+    endCoord: pt,
+    algo: dict = {'method': 'A*', 'measure': 'Manhatten'}
+    ) -> dict | None:
 
-    # Define nodeIDs ==========================================================
-    if (type(nodeIDs) is not list):
-        if (nodeIDs == 'All'):
-            nodeIDs = []
-            for i in nodes:
-                nodeIDs.append(i)
+    """Given two coordinates on the grid, finds the 'shortest' path to travel
 
-    # Call subroutines ========================================================
-    centroid = None
-    if (algo == "Weiszfeld"):
-        centroid = _getCentroidWeiszfeld(nodes, nodeIDs)
+    Parameters
+    ----------
+
+    grid: dictionary, required, default as None
+        The environment of a grid area, in the following format:
+            >>> grid = {
+            ...     'column': col, # Number of columns,
+            ...     'row': row, # Number of rows,
+            ...     'barriers': barriers, # A list of coordinates,
+            ... }
+    startCoord: 2-tuple|2-list, required
+        Starting location on the grid
+    endCoord: 2-tuple|2-list, required
+        Ending location on the grid 
+    algo: dictionary, required, default as {'method': 'A*', 'distMeasure': 'Manhatten'}
+        The algorithm configuration. For example
+        1) A*
+            >>> algo = {
+            ...     'method': A*,
+            ...     'measure': 'Manhatten', # Options: 'Manhatten', 'Euclidean'
+            ... }
+
+    Returns
+    -------
+
+    dictionary
+        A path on the given grid, in the following formatt::
+            >>> res = {
+            ...     'dist': dist,
+            ...     'path': path,
+            ... }
+
+    """
+
+    # Decode ==================================================================
+    column = grid['column']
+    row = grid['row']
+    barriers = grid['barriers']
+    res = None
+
+    # Call path finding =======================================================
+    if (algo['method'] == 'A*'):
+        if ('measure' not in algo or algo['measure'] not in ['Manhatten', 'Euclidean']):
+            warnings.warn("WARNING: Set distance measurement to be default as 'Manhatten")
+        res = _gridPathFindingAStar(column, row, barriers, startCoord, endCoord, algo['measure'])
     else:
-        return None
+        print("Error: Incorrect or not available grid path finding option!")
+    return res
 
-    return centroid
+def _gridPathFindingAStar(column, row, barriers, startCoord, endCoord, distMeasure):
+    # Heuristic measure ==================================================-
+    def _calManhattenDist(coord1, coord2):
+        return abs(coord1[0] - coord2[0]) + abs(coord1[1] - coord2[1])
+    def _calEuclideanDist(coord1, coord2):
+        return math.sqrt((coord1[0] - coord2[0])**2 + (coord1[1] - coord2[1])**2)
 
-def _getCentroidWeiszfeld(nodes, nodeIDs):
-    # Initialize ==============================================================
-    q = [1 for i in range(len(nodeIDs))]
-    a = [nodes[nodeIDs[i]]['loc'][0] for i in range(len(nodeIDs))]
-    b = [nodes[nodeIDs[i]]['loc'][1] for i in range(len(nodeIDs))]
-    x = sum(a) / len(a)
-    y = sum(b) / len(b)
-    f = 0
-    for i in range(len(nodeIDs)):
-        f += math.sqrt((x - a[i])**2 + (y - b[i])**2)
+    # Initialize grid ====================================================-
+    # Evaluate value f(n) = g(n) + h(n)
+    gridStatus = {}
+    for col in range(column):
+        for ro in range(row):
+            if ((col, ro) not in barriers):
+                # Content in the dictionary (g(n), h(n), fromCoord)
+                # At this stage, no need to calculate h(n) 
+                gridStatus[(col, ro)] = (None, None, None)
+            else:
+                gridStatus[(col, ro)] = 'block'
+    if (distMeasure == 'Manhatten'):
+        gridStatus[startCoord] = (0, _calManhattenDist(startCoord, endCoord), None)
+    elif (distMeasure == 'Euclidean'):
+        gridStatus[startCoord] = (0, _calEuclideanDist(startCoord, endCoord), None)
+    gridStatus[endCoord] = (None, 0, None)
 
-    # Iterations ==============================================================
-    canGoFlag = True
-    while (canGoFlag):
-        # update q
-        q = []
-        for i in range(len(nodeIDs)):
-            q.append(1 / math.sqrt((x - a[i])**2 + (y - b[i])**2))
+    # Open/close set ======================================================
+    openList = [startCoord]
+    closeList = [i for i in barriers]
 
-        # update x, y
-        x = 0
-        y = 0
-        for i in range(len(nodeIDs)):
-            x += q[i] * a[i]
-            y += q[i] * b[i]
-        x /= sum(q)
-        y /= sum(q)
+    # Find smallest Fn ====================================================
+    def _findSmallestFnGrid():
+        bestFn = None
+        bestCoord = None
+        for coord in openList:
+            if (gridStatus[coord] != None
+                and gridStatus[coord] != 'block' 
+                and (bestFn == None or gridStatus[coord][0] + gridStatus[coord][1] < bestFn)):
+                bestFn = gridStatus[coord][0] + gridStatus[coord][1]
+                bestCoord = coord
+        if (bestCoord != None):
+            return bestCoord
+        else:
+            raise
 
-        # update f
-        newF = 0
-        for i in range(len(nodeIDs)):
-            newF += math.sqrt((x - a[i])**2 + (y - b[i])**2)
-        if (abs(newF - f) < CONST_EPSILON):
-            canGoFlag = False
-        f = newF
+    # For each grid in open set, update g(n) ==============================
+    while (len(openList) > 0):
+        tmpOpenList = []
+        coord = _findSmallestFnGrid()
+        # Up
+        upCoord = (coord[0], coord[1] + 1)
+        if (coord[1] + 1 < row and gridStatus[upCoord] != None and gridStatus[upCoord] != 'block' and upCoord not in closeList):
+            if (gridStatus[upCoord][0] == None or gridStatus[upCoord][0] > gridStatus[coord][0] + 1):
+                if (distMeasure == 'Manhatten'):
+                    gridStatus[upCoord] = (gridStatus[coord][0] + 1, _calManhattenDist(upCoord, endCoord), coord)
+                if (distMeasure == 'Euclidean'):
+                    gridStatus[upCoord] = (gridStatus[coord][0] + 1, _calEuclideanDist(upCoord, endCoord), coord)
+                if (upCoord == endCoord):
+                    break
+                else:
+                    tmpOpenList.append(upCoord)
+        # Down
+        downCoord = (coord[0], coord[1] - 1)
+        if (coord[1] - 1 >= 0 and gridStatus[downCoord] != None and gridStatus[downCoord] != 'block' and downCoord not in closeList):
+            if (gridStatus[downCoord][0] == None or gridStatus[downCoord][0] > gridStatus[coord][0] + 1):
+                if (distMeasure == 'Manhatten'):
+                    gridStatus[downCoord] = (gridStatus[coord][0] + 1, _calManhattenDist(downCoord, endCoord), coord)
+                if (distMeasure == 'Euclidean'):
+                    gridStatus[downCoord] = (gridStatus[coord][0] + 1, _calEuclideanDist(downCoord, endCoord), coord)
+                if (downCoord == endCoord):
+                    break
+                else:
+                    tmpOpenList.append(downCoord)
+        # Left
+        leftCoord = (coord[0] - 1, coord[1])
+        if (coord[0] - 1 >= 0 and gridStatus[leftCoord] != None and gridStatus[leftCoord] != 'block' and leftCoord not in closeList):
+            if (gridStatus[leftCoord][0] == None or gridStatus[leftCoord][0] > gridStatus[coord][0] + 1):
+                if (distMeasure == 'Manhatten'):
+                    gridStatus[leftCoord] = (gridStatus[coord][0] + 1, _calManhattenDist(leftCoord, endCoord), coord)
+                if (distMeasure == 'Euclidean'):
+                    gridStatus[leftCoord] = (gridStatus[coord][0] + 1, _calEuclideanDist(leftCoord, endCoord), coord)
+                if (leftCoord == endCoord):
+                    break
+                else:
+                    tmpOpenList.append(leftCoord)
+        # Right
+        rightCoord = (coord[0] + 1, coord[1])
+        if (coord[0] + 1 < column and gridStatus[rightCoord] != None and gridStatus[rightCoord] != 'block' and rightCoord not in closeList):
+            if (gridStatus[rightCoord][0] == None or gridStatus[rightCoord][0] > gridStatus[coord][0] + 1):
+                if (distMeasure == 'Manhatten'):
+                    gridStatus[rightCoord] = (gridStatus[coord][0] + 1, _calManhattenDist(rightCoord, endCoord), coord)
+                if (distMeasure == 'Euclidean'):
+                    gridStatus[rightCoord] = (gridStatus[coord][0] + 1, _calEuclideanDist(rightCoord, endCoord), coord)
+                if (rightCoord == endCoord):
+                    break
+                else:
+                    tmpOpenList.append(rightCoord)
+        openList.remove(coord)
+        openList.extend(tmpOpenList)
+        closeList.append(coord)
 
-    # Output ==================================================================
-    centroid = (x, y)
-
-    return centroid
-
-def getDiameter2D(
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None
-    ):
-
-    cov = getConvexHull(nodes)
-    
-    # FIXME: 先用最笨的O(n^2)顶上，找时间换成旋转卡壳法
-    maxD = 0
-
-    for i in range(len(cov) - 1):
-        for j in range(i + 1, len(cov)):
-            d = distEuclidean2D(nodes[cov[i]]['loc'], nodes[cov[j]]['loc'])
-            if (d >= maxD):
-                maxD = d
-
-    return maxD
-
-def getDiameterLatLon(
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None
-    ):
-
-    cov = getConvexHull(nodes)
-    
-    # FIXME: 先用最笨的O(n^2)顶上，找时间换成旋转卡壳法
-    maxD = 0
-
-    for i in range(len(cov) - 1):
-        for j in range(i + 1, len(cov)):
-            d = distLatLon(nodes[cov[i]]['loc'], nodes[cov[j]]['loc'])
-            if (d >= maxD):
-                maxD = d
-
-    return maxD
-
-def getMinCircle(
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None
-    ):
-    # FIXME: 占个座
-    return
-
-def getScan(
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None,
-    direction:  "Direction of scanning, 0 as North" = 0
-    ) -> "Scan nodes from one direction":
-
-    # Initialize ==============================================================
-    baseline = []
-    maxDist = 0
-    centroid = getCentroid(nodes)
-    for n in nodes:
-        d = distEuclidean2D(nodes[n]['loc'], centroid)
-        if (maxDist == None or d > maxDist):
-            maxDist = 1.2 * d
-    basePt = ptInDistXY(centroid, direction, maxDist)
-    baseline = linePerpendicularLine(basePt, vecPolar2XY([10, direction]))
-
-    # Distance to the baseline ================================================
-    distHeap = []
-    for n in nodes:
-        dist2Baseline = distPt2Line(nodes[n]['loc'], baseline)
-        heapq.heappush(distHeap, (dist2Baseline, n))
-
-    # Scan ====================================================================
-    scanSeq = []
-    while (len(distHeap)):
-        scanSeq.append(heapq.heappop(distHeap)[1])
-
-    return scanSeq
-
-def getConvexHull(
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None,
-    algo:       "1) String, 'Jarvis', O(nH) (current implementation is O(nHlog n)) or\
-                 2) String, (not available) 'DNC', O(nlog n) or\
-                 3) String, (not available) 'Graham', O(nlog n) or\
-                 4) String, (not available) 'Melkman'" = "Jarvis"
-    ) -> "Given a set of node locations, return a list of nodeID which construct the convex hull":
-
-    # Initialize ==============================================================
-    chSeq = None
-
-    # Some extreme cases ======================================================
-    if (len(nodes) == 0):
-        return None
-    elif (len(nodes) <= 3):
-        chSeq = []
-        for n in nodes:
-            chSeq.append(n)
-        return chSeq
-
-    # Call subroutines ========================================================
-    if (algo == "Jarvis"):
-        chSeq = _getConvexHullJavis(nodes)
-    else:
-        return None
-    
-    return chSeq
-
-def _getConvexHullJavis(nodes):
-    # References ==============================================================
-    # 1. https://blog.csdn.net/Bone_ACE/article/details/46239187
-    # 2. chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/viewer.html?pdfurl=http%3A%2F%2Fwww.ams.sunysb.edu%2F~jsbm%2Fcourses%2F345%2F13%2Fmelkman.pdf&clen=46562&chunk=true
-    # 3. https://en.wikipedia.org/wiki/Convex_hull_algorithms
-
-    # Initialize ==============================================================
-    chSeq = []
-
-    # Get the location of the left-most nodeID ================================
-    # Find an initial point which guaranteed to be in convex hull
-    leftMostID = None
-    leftMostX = None
-    for n in nodes:
-        if (leftMostID == None or nodes[n]['loc'][0] < leftMostX):
-            leftMostID = n
-            leftMostX = nodes[n]['loc'][0]
-
-    # Jarvis march ============================================================
-    curNodeID = leftMostID
-    curDirection = 0
-    marchFlag = True
-    while (marchFlag):
-        sweepSeq = getSweepSeq(
-            nodes = nodes,
-            nodeIDs = [i for i in nodes if i not in chSeq],
-            centerLoc = nodes[curNodeID]['loc'],
-            initDeg = curDirection)
-        if (sweepSeq[0] == leftMostID):
-            marchFlag = False
-        chSeq.append(sweepSeq[0])
-        curDirection = headingXY(nodes[curNodeID]['loc'], nodes[sweepSeq[0]]['loc'])    
-        curNodeID = sweepSeq[0]
-    return chSeq
+    # Recover path ========================================================
+    path = []
+    curCoord = endCoord
+    finishReconstructFlag = True
+    while (finishReconstructFlag):
+        finishReconstructFlag = False
+        path.insert(0, curCoord)
+        curCoord = gridStatus[curCoord][2]
+        if (curCoord != None):
+            finishReconstructFlag = True
+    return {
+        'dist': len(path) - 1,
+        'path': path
+    }

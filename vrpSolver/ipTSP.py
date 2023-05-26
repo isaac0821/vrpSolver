@@ -20,10 +20,10 @@ def ipTSP(
     edges: dict,
     fml: str = 'DFJ_Lazy', 
     solver: dict = {'solver': 'Gurobi'},
-    depotID: int | str = 0,
-    nodeIDs: list[int | str] | str = 'All',
+    depotID: int|str = 0,
+    nodeIDs: list[int|str]|str = 'All',
     serviceTime: float = 0,
-    ) -> dict | None:
+    ) -> dict|None:
 
     """Use IP formulation to find optimal TSP solution
 

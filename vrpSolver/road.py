@@ -6,7 +6,7 @@ from .geometry import *
 
 def createRoadNetworkFromGeoJSON(
     geoJSONPath: str,
-    boundaryLatLon: poly | None = None,
+    boundaryLatLon: poly|None = None,
     exportType: str = 'LatLon',
     buildingIncludedFlag: bool = False
     ) -> dict:

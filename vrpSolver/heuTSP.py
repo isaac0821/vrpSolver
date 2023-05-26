@@ -17,8 +17,8 @@ from .calculate import *
 
 def heuTSP(
     nodes: dict, 
-    edges: dict, 
-    algo: dict, 
+    edges: dict = {'method': "Euclidean", 'ratio': 1}, 
+    algo: dict = {'cons': 'Insertion', 'impv': '2opt'}, 
     depotID: int | str = 0, 
     nodeIDs: list[int | str] | str = 'All', 
     serviceTime: float = 0
@@ -63,7 +63,7 @@ def heuTSP(
             ...     'method': 'Grid',
             ...     'grid': grid
             ... }
-    algo: dictionary, required, default as {'cons': 'insert', 'impv': '2opt'}
+    algo: dictionary, required, default as {'cons': 'Insertion', 'impv': '2opt'}
         The algorithm configuration. Includes two phases, use 'cons' to specify constructive heuristic, and 'impv' to specify local improvement heurisitc::
             1) (default) Insertion
             >>> algo = {
@@ -241,14 +241,6 @@ def heuTSP(
                     ofv = imp['oriOfv']
                     revOfv = imp['oriRevOfv']
 
-            # Try reinsert
-            if (not canImproveFlag and (algo['impv'] == 'Reinsert' or 'Reinsert' in algo['impv'])):
-                imp = _impTSPReinsert(nodeIDs, tau, seq, ofv, revOfv, asymFlag)
-                if (imp['improvedFlag']):
-                    canImproveFlag = True
-                    seq = imp['impSeq']
-                    ofv = imp['oriOfv']
-                    revOfv = imp['oriRevOfv']
     return {
         'ofv': ofv,
         'consOfv': consOfv,
