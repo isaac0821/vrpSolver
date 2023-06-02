@@ -1,6 +1,7 @@
 import geopy.distance
 import heapq
 import math
+from networkx import center
 import numpy as np
 import tripy
 import shapely
@@ -12,8 +13,7 @@ from .graph import *
 from .msg import *
 # from .relation import *
 
-def vecPolar2XY(vecPolar: tuple[float|int, float|int]
-    ) -> tuple[float|int, float|int]:
+def vecPolar2XY(vecPolar: pt) -> pt:
 
     """Given vector's norm and its degree to North, convert it into a 2-tuple vector
 
@@ -46,7 +46,7 @@ def vecPolar2XY(vecPolar: tuple[float|int, float|int]
 
     return (vX, vY)
 
-def vecXY2Polar(vecXY: tuple[float|int, float|int]) -> tuple[float|int, float|int]:
+def vecXY2Polar(vecXY: pt) -> pt:
 
     """Given a 2-tuple, convert it into a norm and a direction in degree
 
@@ -99,9 +99,9 @@ def vecXY2Polar(vecXY: tuple[float|int, float|int]) -> tuple[float|int, float|in
 
     return (vVal, vDeg)
 
-def ptXY2LatLonMercator(
-    ptXY:       "Point in (x, y) coordinates"
-    ) -> "Given a point in (x, y), try to map it with a (lat, lon) coordinate with necessary inputs":
+def ptXY2LatLonMercator(ptXY: pt) -> pt:
+    """Given a point in (x, y), try to map it with a (lat, lon) coordinate with necessary inputs"""
+
     # Ref: https://wiki.openstreetmap.org/wiki/Mercator#Python
     (x, y) = ptXY
     lon = math.degrees(y / CONST_EARTH_RADIUS_METERS)
@@ -109,9 +109,9 @@ def ptXY2LatLonMercator(
     ptLatLon = (lat, lon)
     return ptLatLon
 
-def ptLatLon2XYMercator(
-    ptLatLon:   "Point in (lat, lon) coordinates" = None
-    ) -> "Given a point int (lat, lon), try to map it with a (x, y) coordinates with necessary inputs":
+def ptLatLon2XYMercator(ptLatLon: pt) -> pt:
+    """Given a point int (lat, lon), try to map it with a (x, y) coordinates with necessary inputs"""
+
     # Ref: https://wiki.openstreetmap.org/wiki/Mercator#Python
     (lat, lon) = ptLatLon
     y = math.radians(lon) * CONST_EARTH_RADIUS_METERS
@@ -119,36 +119,24 @@ def ptLatLon2XYMercator(
     ptXY = (x, y)
     return ptXY
 
-def distEuclidean2D(
-    pt1:        "First coordinate, in (x, y)", 
-    pt2:        "Second coordinate, in (x, y)"
-    ) -> "Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number":
+def distEuclidean2D(pt1: pt, pt2: pt) -> float:
+    """Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number"""
 
-    # 2-Norm ==================================================================
     if (pt1 != None and pt2 != None):
         return math.sqrt((pt1[0] - pt2[0]) ** 2 + (pt1[1] - pt2[1]) ** 2)
     else:
         return 0
 
-def distManhattenXY(
-    pt1:        "First coordinate, in (x, y)", 
-    pt2:        "Second coordinate, in (x, y)"
-    ) -> "Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number":
+def distManhattenXY(pt1: pt, pt2: pt) -> float:
+    """Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number"""
 
-    # 2-Norm ==================================================================
     if (pt1 != None and pt2 != None):
         return abs(pt1[0] - pt2[0]) + abs(pt1[1] - pt2[1])
     else:
         return 0
 
-def distLatLon(
-    pt1:        "First coordinate, in (lat, lon)", 
-    pt2:        "Second coordinate, in (lat, lon)",
-    distUnit:   "Unit of distance\
-                 1) String 'mile'\
-                 2) String (default) 'meter'\
-                 3) String 'kilometer'" = 'meter'
-    ) -> "Gives a Euclidean distance based on two lat/lon coords, if two coordinates are the same, return a small number":
+def distLatLon(pt1: pt, pt2: pt, distUnit: str = 'meter') -> float:
+    """Gives a Euclidean distance based on two lat/lon coords, if two coordinates are the same, return a small number"""
     
     # Get radius as in distUnit ===============================================
     R = None
@@ -159,8 +147,7 @@ def distLatLon(
     elif (distUnit in ['kilometer', 'km']):
         R = CONST_EARTH_RADIUS_METERS / 1000
     else:
-        print("ERROR: Unrecognized distance unit, options are 'mile', 'meter', 'kilometer'")
-        return
+        raise UnsupportedInputError("ERROR: Unrecognized distance unit, options are 'mile', 'meter', 'kilometer'")
 
     # Calculate distance ======================================================
     if (pt1 != None and pt2 != None):
@@ -174,11 +161,7 @@ def distLatLon(
     else:
         return CONST_EPSILON
 
-def locInPath(
-    seq: list[pt],
-    timeStamp: list[float],
-    t: float
-    ) -> pt:
+def locInPath(seq: list[pt], timeStamp: list[float], t: float) -> pt:
 
     curLoc = []
 
@@ -202,11 +185,7 @@ def locInPath(
             return [curLocX, curLocY]
     raise UnsupportedInputError("ERROR: cannot find time stamp")
 
-def traceInPath(
-    seq: list[pt],
-    timeStamp: list[float],
-    ts: float,
-    te: float) -> list[pt]:
+def traceInPath(seq: list[pt], timeStamp: list[float], ts: float, te: float) -> list[pt]:
 
     trace = []
 
@@ -225,8 +204,8 @@ def traceInPath(
     if (te <= timeStamp[0]):
         return []
 
-    tsIndex = None
-    teIndex = None
+    tsIndex = -1
+    teIndex = -1
     tsLoc = []
     teLoc = []
 
@@ -285,9 +264,8 @@ def calTriangleAreaXY(pt1: pt, pt2: pt, pt3: pt) -> float:
     area = abs(val)
     return area
 
-def calPolygonAreaLatLon(
-    polyLatLon: "List of [lat, lon] coordinates"
-    ) -> "Returns the area surrounded by polyLatLon on the Earth":
+def calPolygonAreaLatLon(polyLatLon: poly) -> float:
+    """Returns the area surrounded by polyLatLon on the Earth"""
 
     # Additional packages =====================================================
     from pyproj import Geod
@@ -307,20 +285,17 @@ def calPolygonAreaLatLon(
 
     return area
 
-def headingXY(
-    pt1:        "Current location", 
-    pt2:        "Targeted location"
-    ) -> "Given current location and a goal location, calculate the heading. North is 0-degrees, clock-wise":
+def headingXY(pt1, pt2) -> float:
     
     vec = (pt2[0] - pt1[0], pt2[1] - pt1[1])
     (_, vDeg) = vecXY2Polar(vec)
 
     return vDeg
 
-def headingLatLon(
-    pt1:        "Current location as in [lat, lon]", 
-    pt2:        "Target location as in [lat, lon]"
-    ) -> "Given current location and a goal location, calculate the heading. North is 0-degrees, clock-wise":
+def headingLatLon(pt1, pt2) -> float:
+
+    """Given current location and a goal location, calculate the heading. North is 0-degrees, clock-wise"""
+
     # Ref: https://github.com/manuelbieh/Geolib/issues/28
     (lat1, lon1) = pt1
     (lat2, lon2) = pt2
@@ -342,64 +317,26 @@ def headingLatLon(
     
     return deg
 
-def mileageInPathLatLon(
-    path:       "A list of coordinates in [lat, lon]" = None,
-    distMeters: "Distance from starting point of the path, in [m]" = None
-    ) -> "Given a list of lat/lon coordinates, and a traveling mileage, returns the coordinate":
-
-    # Initialize ==============================================================
-    inPathFlag = False
-    accDist = 0
-    preLoc = []
-    nextLoc = []
-
-    # Find segment ============================================================
-    for i in range(0, len(path) - 1):
-        accDist += distLatLon(path[i], path[i + 1])
-        if (accDist > distMeters):
-            preLoc = path[i]
-            nextLoc = path[i + 1]
-            inPathFlag = True
-            break
-
-    if (inPathFlag == False):
-        return None
-
-    # Find location on the segment ============================================
-    remainDist = accDist - distMeters
-    segDist = distLatLon(preLoc, nextLoc)
-    lat = nextLoc[0] + (remainDist / segDist) * (preLoc[0] - nextLoc[0])
-    lon = nextLoc[1] + (remainDist / segDist) * (preLoc[1] - nextLoc[1])
-    locInMileage = [lat, lon]
-
-    return locInMileage
-
-def ptInDistXY(
-    pt:         "Starting location" = None, 
-    direction:  "Direction towards the destination, Up is 0-degrees, clock-wise" = None, 
-    dist:       "Distance from origin location to destination location" = None
-    ) -> "A location in distance with given direction, in [lat, lon] form.":
+def ptInDistXY(pt, direction, dist):
+    """A location in distance with given direction, in [lat, lon] form."""
     x = pt[0] + dist * math.sin(math.radians(direction))
     y = pt[1] + dist * math.cos(math.radians(direction))
     return (x, y)
 
-def ptInDistLatLon(
-    pt:         "Starting location" = None, 
-    direction:  "Direction towards the destination, North is 0-degree, East is 90-degrees" = None, 
-    distMeters: "Distance from origin location to destination location" = None
-    ) -> "A location in distance with given direction, in [lat, lon] form.":
+def ptInDistLatLon(pt, direction, distMeters):
+    """A location in distance with given direction, in [lat, lon] form."""
     # Bearing in degrees: 0 – North, 90 – East, 180 – South, 270 or -90 – West.
     newLoc = list(geopy.distance.distance(meters=distMeters).destination(point=pt, bearing=direction))[:2]
     return newLoc
 
 def getTau(
-    nodes:      "The coordinate of given nodeID" = None, 
-    edges:      "The traveling matrix" = None,
-    depotID:    "DepotID, default to be 0" = 0,
-    nodeIDs:    "1) String (default) 'All', or \
-                 2) A list of node IDs" = 'All',
-    serviceTime: "Service time spent on each customer (will be added into travel matrix)" = 0
-    ) -> "Create traveling matrix":
+    nodes: dict, 
+    edges: dict,
+    depotID: int|str = 0,
+    nodeIDs: list[int|str]|str = 'All',
+    serviceTime: float = 0
+    ) -> dict:
+
     # Define tau ==============================================================
     tau = {}
     if (type(edges) != dict or 'method' not in edges):
@@ -410,7 +347,7 @@ def getTau(
         tau = _getTauEuclidean(nodes, nodeIDs, ratio)
     elif (edges['method'] == 'LatLon'):
         ratio = 1 if 'ratio' not in edges else edges['ratio']
-        tau = _getTauLatLon(nodes, nodeIDs, ratio)
+        tau = _getTauLatLon(nodes, nodeIDs, speed=ratio)
     elif (edges['method'] == 'Manhatten'):
         ratio = 1 if 'ratio' not in edges else edges['ratio']
         tau = _getTauManhatten(nodes, nodeIDs, ratio)
@@ -514,10 +451,7 @@ def _getTauGrid(nodes, nodeIDs, grid):
     for i in nodeIDs:
         for j in nodeIDs:
             if (i != j):
-                t = gridPathFinding(
-                    grid = grid,
-                    startCoord = nodes[i]['loc'],
-                    endCoord = nodes[j]['loc'])['dist']
+                t = gridPathFinding(grid = grid, startCoord = nodes[i]['loc'], endCoord = nodes[j]['loc'])['dist']
                 tau[i, j] = t
                 tau[j, i] = t
             else:
@@ -526,18 +460,12 @@ def _getTauGrid(nodes, nodeIDs, grid):
     return tau
 
 def getSortedNodesByDist(
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None, 
-    edges:      "1) String (default) 'Euclidean' or \
-                 2) String 'LatLon'" = "Euclidean",
-    nodeIDs:    "1) String (default) 'All', or \
-                 2) A list of node IDs" = 'All',
-    refNodeID:  "List, [x, y], the reference location to calculate distance" = None    
-    ) -> "Given a set of locations, and a referencing node, sort the nodes by distance to this referencing node":
+    nodes: dict, 
+    edges: dict,
+    refNodeID: int|str,
+    nodeIDs: list[int|str]|str = 'All'):
+
+    """Given a set of locations, and a referencing node, sort the nodes by distance to this referencing node"""
 
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):
@@ -547,7 +475,7 @@ def getSortedNodesByDist(
                 nodeIDs.append(i)
 
     # Define tau ==============================================================
-    tau = getTau(nodes, edges, None, refNodeID, nodeIDs, 0)
+    tau = getTau(nodes, edges, refNodeID, nodeIDs, 0)
 
     # Sort distance ===========================================================
     sortedSeq = []
@@ -561,20 +489,15 @@ def getSortedNodesByDist(
     return sortedSeq
 
 def getSweepSeq(
-    nodes:      "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: {'loc': (x, y)}, \
-                        nodeID2: {'loc': (x, y)}, \
-                        ... \
-                    }" = None, 
-    nodeIDs:    "1) String (default) 'All', or \
-                 2) A list of node IDs" = 'All',
-    centerLoc:  "1) (Default) String, 'Centroid' the centroid of nodes, or\
-                 2) List, [x, y], the center point" = 'Centroid',
-    isClockwise: "True if the sweeping direction is clock-wise, False otherwise" = True,
-    initDeg:    "Starting direction of the sweeping, 0 as North" = 0
-    ) -> "Given a set of locations, and a center point, gets the sequence from sweeping":
-
+    nodes: dict, 
+    nodeIDs: list[int|str]|str = 'All',
+    centerLoc: None|pt = None,
+    isClockwise: bool = True,
+    initDeg: float = 0
+    ) -> list:
+    
+    """Given a set of locations, and a center point, gets the sequence from sweeping"""
+    
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
@@ -583,8 +506,12 @@ def getSweepSeq(
                 nodeIDs.append(i)
 
     # Initialize centroid =====================================================
-    if (centerLoc == 'Centroid'):
-        centerLoc = getCentroid(nodes = nodes, nodeIDs = nodeIDs)
+    if (centerLoc == None):
+        lstNodeLoc = []
+        for n in nodeIDs:
+            lstNodeLoc.append(shapely.Point(nodes[n]['loc'][0], nodes[n]['loc'][1]))
+        centerLoc = list(shapely.centroid(shapely.MultiPoint(points = lstNodeLoc)))
+
 
     # Initialize heap =========================================================
     degHeap = []
@@ -625,7 +552,7 @@ def gridPathFinding(
     startCoord: pt,
     endCoord: pt,
     algo: dict = {'method': 'A*', 'measure': 'Manhatten'}
-    ) -> dict | None:
+    ) -> dict:
 
     """Given two coordinates on the grid, finds the 'shortest' path to travel
 
@@ -667,7 +594,7 @@ def gridPathFinding(
     column = grid['column']
     row = grid['row']
     barriers = grid['barriers']
-    res = None
+    res = {}
 
     # Call path finding =======================================================
     if (algo['method'] == 'A*'):

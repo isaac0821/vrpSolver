@@ -19,7 +19,7 @@ def ipTSP(
     nodes: dict, 
     edges: dict,
     fml: str = 'DFJ_Lazy', 
-    solver: dict = {'solver': 'Gurobi'},
+    solver: dict = {'solver': 'Gurobi', 'timeLimit': None, 'gapTolerance': None, 'outputFlag': False},
     depotID: int|str = 0,
     nodeIDs: list[int|str]|str = 'All',
     serviceTime: float = 0,

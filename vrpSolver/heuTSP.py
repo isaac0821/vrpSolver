@@ -163,7 +163,7 @@ def heuTSP(
     # Insertion heuristic
     elif (algo['cons'] == 'Insertion'):
         initSeq = None
-        if ('initSeq' not in algo):
+        if ('initSeq' not in algo):   
             farthestDist = -1
             farthestID = None
             for n in nodeIDs:

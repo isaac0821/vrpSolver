@@ -1,5 +1,6 @@
 import geojson
 import math
+import shapely
 
 from .const import *
 from .geometry import *
