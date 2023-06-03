@@ -1,25 +1,27 @@
-import math
 import random
-import pickle5 as pickle
+
+try:
+    import pickle5 as pickle
+except(ImportError):
+    import pickle
 
 from .const import *
 
-def saveDictionary(
-    obj:        "The dictionary to be saved", 
-    name:       "Local file name"
-    ) -> "Save a dictionary data to a local .pkl file":
+# Type alias
+pt = list[float] | tuple[float, float]
+poly = list[list[float]] | list[tuple[float, float]]
+polys = list[list[list[float]]] | list[list[tuple[float, float]]]
+line = list[pt]
+
+def saveDictionary(obj, name: str) -> None:
     with open(name + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
-def loadDictionary(
-    name:       "Local file name"
-    ) -> "Read a dictionary data from local .pkl file":
+def loadDictionary(name: str) -> None:
     with open(name + '.pkl', 'rb') as f:
         return pickle.load(f)
 
-def rndPick(
-    coefficients: "A list of float numbers as the weight"
-    ) -> "Given a list of coefficients, randomly return an index according to that coefficient.":
+def rndPick(coefficients: list[int | float]) -> int:
     totalSum = sum(coefficients)
     tmpSum = 0
     rnd = random.uniform(0, totalSum)
@@ -31,6 +33,24 @@ def rndPick(
             break
     return idx
 
+def binary2StartEndPair(l, trueValue = True):
+    p = []
+    start = None
+    if (l[0] == trueValue):
+        start = 0
+    for i in range(len(l)):
+        if (l[i] == trueValue):
+            if (start == None):
+                start = i
+        else:
+            if (start != None):
+                p.append([start, i - 1])
+                start = None
+    if (l[-1] == trueValue):
+        if (start != None):
+            p.append([start, len(l) - 1])
+    return p
+
 def iterSeq(seqL, i, direction):
     if (direction == 'next'):
         return i + 1 if i < seqL - 1 else 0
@@ -39,10 +59,7 @@ def iterSeq(seqL, i, direction):
     else:
         return None
 
-def insideInterval(
-    val:        "The value to be compared with the interval" = None,
-    interval:   "List, in the format of [start, end], None if no constraint on that side" = [None, None]    
-    ) -> "Given a value `val`, returns true if `val` is inside the interval (or on the edge), false else wise.":
+def insideInterval(val: float, interval: list[float | None]) -> bool:
     [s, e] = interval
     if (s != None and val < s):
         return False
@@ -72,3 +89,14 @@ def list2Tuple(l):
     sortedList.sort()
     tp = tuple(sortedList)
     return tp
+    
+def hyphenStr(s, length=75, sym='-'):
+    lenMidS = len(s)
+    if (s == ""):
+        return length * sym
+    elif (lenMidS + 2 < length):
+        lenLeftS = (int)((length - lenMidS - 2) / 2)
+        lenRightS = length - lenMidS - lenLeftS - 2
+        return (lenLeftS * sym) + " " + s + " " + (lenRightS * sym)
+    else:
+        return s

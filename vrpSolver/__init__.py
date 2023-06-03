@@ -1,4 +1,4 @@
-__version__ = "0.0.54"
+__version__ = "0.0.55"
 __author__ = "Lan Peng"
 
 '''
@@ -63,32 +63,38 @@ __author__ = "Lan Peng"
 # v0.0.52 - 05172022 - Minor fixes
 # v0.0.53 - 07112022 - Improve solution quality of 2Opts for TSP
 # v0.0.54 - 07112022 - Minor fixes
-# v0.0.55 - (working)- Reconstruct for better framework: 1. separates the seq/route operators
-#                    -                                   2. nodes related functions
+# v0.0.55 - 20230525 - Remove most of unstable functions
+#                    - Add Error exceptions
 #                    - Remove weather related functions: Not routing related
 #                    - Remove PMS functions: Not routing related
 #                    - Remove warehouse functions: Not directed related to VRP, the grid-based VRP remains in the package
-#                    - Last version before v0.1.0
+#                    - Docstrings for key `public` functions
+#                    - Redo a lot of stuff with shapely
+#                    - Redo a lot of stuff with NetworkX
 # =============================================================================
 '''
 
 # Constants and messages
 from .const import *
 from .msg import *
+from .error import *
+
+# Data
+from .province import *
+
+# Data structure definition
+# from .ds import *
 
 # Basic modules
 from .common import *
 from .plot import *
 from .instance import *
-from .timeWindows import *
 from .color import *
-from .vector import *
 from .calculate import *
 
 # Geometry
 from .geometry import *
-from .node import *
-from .relation import *
+# from .relation import *
 from .road import *
 
 # Graph/network algorithms
@@ -98,23 +104,14 @@ from .graph import *
 from .operator import *
 from .ipTSP import *
 from .heuTSP import *
-from .metaTSP import *
-from .lbTSP import *
 
 # VRP
 # from .ipVRP import *
-from .heuVRP import *
+# from .heuVRP import *
+
+# from .CVRPTW import *
+# from .cgCVRPTW import *
 
 # Post optimization
-from .stat import *
+# from .stat import *
 
-# System config
-def setGlobal(newConfig):
-    global config
-    if ('MESSAGE_SHOW_WARNING' in newConfig):
-        config['MESSAGE_SHOW_WARNING'] = newConfig['MESSAGE_SHOW_WARNING']
-    if ('MESSAGE_SHOW_ERROR' in newConfig):
-        config['MESSAGE_SHOW_ERROR'] = newConfig['MESSAGE_SHOW_ERROR']
-    if ('MESSAGE_SHOW_DEBUG' in newConfig):
-        config['MESSAGE_SHOW_DEBUG'] = newConfig['MESSAGE_SHOW_DEBUG']
-    return

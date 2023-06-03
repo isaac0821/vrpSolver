@@ -1,403 +1,307 @@
-import geopy
 import math
 import random
 import tripy
+import warnings
 
 from .common import *
 from .const import *
 from .geometry import *
 from .msg import *
-from .relation import *
-from .node import *
+from .error import *
+
+# History =====================================================================
+# 20230510 - Cleaned up for v0.0.55, including the following available nodes 
+#            distributions: 'UniformSquareXY', 'UniformPolyXY', 'UniformCircleXY', 
+#            'UniformCircleLatLon', 'RoadNetworkPolyLatLon', and 'RoadNetworkCircleLatLon'
+# 20230515 - Revise the parameter annotation according to PEP 3107
+# =============================================================================
 
 def rndPlainNodes(
-    N:          "Number of vertices" = None,
-    nodeIDs:    "A list of node IDs, `N` will be overwritten if `nodeIDs` is given" = None,
-    distr:      "Spatial distribution of nodes, the options are \
-                 1) String, (default) 'uniformSquare', or \
-                 2) String, 'uniformCircleXY', or \
-                 3) String, 'uniformCircleLatLon', or \
-                 4) String, 'uniformPoly', or\
-                 5) String, 'uniformRoadNetwork', or\
-                 6) String, 'clustered'" = 'uniformSquare',
-    distrArgs:  "Dictionary that describes the distribution of the nodes\
-                 1) for 'uniformSquare'\
-                    {\
-                        'xRange': A 2-tuple with minimum/maximum range of x, default as (0, 100), \
-                        'yRange': A 2-tuple with minimum/maximum range of y, default as (0, 100), \
-                    }\
-                 2) for 'uniformCircle'\
-                    {\
-                        'centerLoc': centering location \
-                        'radius': radius of the circle \
-                    }\
-                 3) for 'uniformPoly'\
-                    {\
-                        'poly': polygon of the area, (no holes)\
-                        (or 'polys': list of polygons) \
-                    }\
-                 4) for 'uniformRoadNetworkPoly'\
-                    {\
-                        'road': list of arcs that can be sampled \
-                        'poly': nodes should generated within the polygon, if not provided, will consider the entire network, \
-                        'class': list of classes that can be sampled \
-                    }\
-                 5) for 'uniformRoadNetworkCircle'\
-                    {\
-                        'road': list of arcs that can be sampled \
-                        'circle': {\
-                            'centerLoc': [lat, lon], \
-                            'radius': radius in [m] \
-                        }, \
-                        'class': list of classes that can be sampled\
-                    }\
-                 6) for 'clustered\
-                    {\
-                        'numCluster': number of cluster centers\
-                        'xRange': xRange of cluster centroid\
-                        'yRange': yRange of cluster centroid\
-                        'poly': polygon for customers\
-                        'centroidLocs': list of cluster center locations\
-                        'clusterDiameter': the spread of nodes, in diameter\
-                    }\
-                " = {
-                    'xRange': (0, 100),
-                    'yRange': (0, 100)
-                 }
-    ) -> "A set of nodes with id start from 0 to N":
+    N: int|None = None, 
+    nodeIDs: list[int|str] = [], 
+    distr: dict = {
+            'method': 'UniformSquareXY', 
+            'xRange': (0, 100), 
+            'yRange': (0, 100)
+        }
+    ) -> dict:
 
-    # Check for required fields ===============================================
-    if (N == None and nodeIDs == None):
-        msgError(ERROR_MISSING_N)
-        return
+    """Randomly create a set of locations
 
-    # Initialize ==============================================================
+    Parameters
+    ----------
+
+    N: integer, optional, default None
+        Number of locations/vertices/customers to be randomly created
+    nodeIDs: list, optional, default None
+        Alternative input parameter of `N`. A list of node IDs, `N` will be overwritten if `nodeIDs` is given
+    distr: dictionary, optional, default {'method': 'UniformSquareXY', 'xRange': (0, 100), 'yRange': (0, 100)}
+        Spatial distribution of nodes, options are as following:
+            1) (default) Uniformly sample from a square on the Euclidean space
+            >>> distr = {
+            ...     'method': 'UniformSquareXY', 
+            ...     'xRange': (0, 100), # A 2-tuple with minimum/maximum range of x, default as (0, 100), 
+            ...     'yRange': (0, 100), # A 2-tuple with minimum/maximum range of y, default as (0, 100), 
+            ... }
+            2) Uniformly sample from a given polygon on the Euclidean space
+            >>> distr = {
+            ...     'method': 'UniformPolyXY', 
+            ...     'polyXY': poly, # polygon of the area, (no holes)
+            ...     'polyXYs': polys, # alternative option for 'polyXY', as a list of polygons 
+            ... }
+            3) Uniformly sample from a circle on the Euclidean space
+            >>> distr = {
+            ...     'method': 'UniformCircleXY',
+            ...     'centerXY': (0, 0), # centering location, default as (0, 0), 
+            ...     'radius': 100, # radius of the circle , default as 100
+            ... }
+            4) Uniformly sample from a given polygon by lat/lon
+            >>> distr = {
+            ...     'method': 'UniformPolyLatLon', 
+            ...     'polyLatLon': polygon of the area, (no holes)
+            ...     'polyLatLons': alternative option for 'polyLatLon', as a list of polygons 
+            ... }
+            5) Uniformly sample from a given circle by lat/lon,
+            >>> distr = {
+            ...     'method': 'UniformCircleLatLon', 
+            ...     'centerLatLon': required, centering location in lat/lon, 
+            ...     'radiusInMeters': radius of the circle in meters 
+            ... }
+            6) Uniformly generate from a given polygon on a road network
+            >>> distr = {
+            ...     'method': 'RoadNetworkPolyLatLon'
+            ...     'RoadNetwork': list of arcs that can be sampled 
+            ...     'polyLatLon': nodes should generated within the polygon, if not provided, will consider the entire network, 
+            ...     'roadClass': list of classes that can be sampled 
+            ... }
+            7) Uniformly generate from a given circle on a road network
+            >>> distr = {
+            ...     'method': 'RoadNetworkCircleLatLon', 
+            ...     'RoadNetwork': list of arcs that can be sampled 
+            ...     'centerLatLon': [lat, lon], 
+            ...     'radiusInMeters': radius in [m] 
+            ...     'roadClass': list of classes that can be sampled
+            ... }
+
+    Returns
+    -------
+    dictionray
+        A set of randomly created locations, as in the following format::
+        >>> nodes[nodeID] = {
+        ...     'loc': (lat, lon)
+        ... }
+
+    Raises
+    ------
+    MissingParameterError
+        Missing `distr` field or values in `distr`.
+    UnsupportedInputError
+        Option is not supported for `distr['method']`
+    NotAvailableError
+        Functions/options that are not ready yet.
+    EmptyError
+        The sample area is empty.
+    """
+
+    # Sanity checks ===========================================================
+    if (distr == None or 'method' not in distr):
+        raise MissingParameterError(ERROR_MISSING_NODES_DISTR)
+
     nodes = {}
-    if (nodeIDs == None):
+    if (nodeIDs == [] and N == None):
+        raise MissingParameterError(ERROR_MISSING_N)
+    elif (nodeIDs == [] and N != None):
         nodeIDs = [i for i in range(N)]
 
     # Generate instance =======================================================
-    if (distr == 'uniformSquare'):
-        # Sanity check --------------------------------------------------------
-        if (distrArgs == None):
-            distrArgs = {
-                'xRange': (0, 100),
-                'yRange': (0, 100)
-            }
-        if ('xRange' not in distrArgs):
-            distrArgs['xRange'] = (0, 100)
-        if ('yRange' not in distrArgs):
-            distrArgs['yRange'] = (0, 100)
-        # Create nodes --------------------------------------------------------
+    # Uniformly sample from a square on the Euclidean space
+    if (distr['method'] == 'UniformSquareXY'):
+        xRange = None
+        yRange = None
+        if ('xRange' not in distr or 'yRange' not in distr):
+            xRange = [0, 100]
+            yRange = [0, 100]
+            warnings.warn("WARNING: Set sampled area to be default as a (0, 100) x (0, 100) square")
+        else:
+            xRange = [float(distr['xRange'][0]), float(distr['xRange'][1])]
+            yRange = [float(distr['yRange'][0]), float(distr['yRange'][1])]
         for n in nodeIDs:
             nodes[n] = {
-                'loc': _rndPtUniformSquare(distrArgs['xRange'], distrArgs['yRange'])
+                'loc': _rndPtUniformSquareXY(xRange, yRange)
             }
 
-    elif (distr == 'uniformCircleXY'):
-        # Sanity check --------------------------------------------------------
-        if (distrArgs == None):
-            distrArgs = {
-                'centerLoc': [0, 0],
-                'radius': 100
-            }
-        if ('centerLoc' not in distrArgs or 'radius' not in distrArgs):
-            msgError(ERROR_MISSING_DISTRARGS_UNICC)
-            return
-        # Create nodes --------------------------------------------------------
+    # Uniformly sample from a polygon/a list of polygons on the Euclidean space
+    elif (distr['method'] == 'UniformPolyXY'):
+        if ('polyXY' not in distr and 'polyXYs' not in distr):
+            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `distr`, which indicates a polygon / a list of polygons in the Euclidean space")
+        if ('polyXY' in distr):
+            for n in nodeIDs:
+                nodes[n] = {
+                    'loc': _rndPtUniformPolyXY(distr['polyXY'])
+                }
+        elif ('polyXYs' in distr):
+            for n in nodeIDs:
+                nodes[n] = {
+                    'loc': _rndPtUniformPolyXYs(distr['polyXYs'])
+                }
+
+    # Uniformly sample from a circle on the Euclidean space
+    elif (distr['method'] == 'UniformCircleXY'):
+        centerXY = None
+        radius = None
+        if ('centerXY' not in distr or 'radius' not in distr):
+            centerXY = (0, 0)
+            radius = 100
+            warnings.warn("WARNING: Set sample area to be default as a circle with radius of 100 centering at (0, 0)")
+        else:
+            centerXY = distr['centerXY']
+            radius = distr['radius']
         for n in nodeIDs:
             nodes[n] = {
-                'loc': _rndPtUniformCircleXY(distrArgs['radius'], distrArgs['centerLoc'])
+                'loc': _rndPtUniformCircleXY(radius, centerXY)
             }
 
-    elif (distr == 'uniformCircleLatLon'):
-        # Sanity check --------------------------------------------------------
-        if (distrArgs == None):
-            msgError(ERROR_MISSING_DISTRARGS)
-            return
-        # Create nodes --------------------------------------------------------
+    # Uniformly sample from a polygon by lat/lon
+    elif (distr['method'] == 'UniformPolyLatLon'):
+        if ('polyLatLon' not in distr and 'polyLatLons' not in distr):
+            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `distr`, which indicates a polygon / a list of polygons in the Euclidean space")
+        # TODO: Mercator projection
+        raise VrpSolverNotAvailableError("ERROR: 'UniformPolyLatLon' is not available yet, please stay tune.")
+
+    # Uniformly sample from a circle by lat/lon
+    elif (distr['method'] == 'UniformCircleLatLon'):
+        if ('centerLatLon' not in distr or 'radiusInMeters' not in distr):
+            raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `distr`.")
         for n in nodeIDs:
             nodes[n] = {
-                'loc': _rndPtUniformCircleLatLon(distrArgs['radius'], distrArgs['centerLoc'])
+                'loc': _rndPtUniformCircleLatLon(distr['radiusInMeters'], distr['centerLatLon'])
             }
 
-    elif (distr == 'uniformPoly'):
-        # Sanity check --------------------------------------------------------
-        if (distrArgs == None):
-            msgError(ERROR_MISSING_DISTRARGS)
-            return
-        if ('poly' not in distrArgs):
-            msgError(ERROR_MISSING_DISTRARGS_UNIPOLY)
-            return
-        # Create nodes --------------------------------------------------------
-        for n in nodeIDs:
-            nodes[n] = {
-                'loc': _rndPtUniformPoly(distrArgs['poly'])
-            }
-
-    elif (distr == 'uniformPolys'):
-        # Sanity check --------------------------------------------------------
-        if (distrArgs == None):
-            msgError(ERROR_MISSING_DISTRARGS)
-            return
-        if ('polys' not in distrArgs):
-            msgError(ERROR_MISSING_DISTRARGS_UNIPOLY)
-            return
-        # Create nodes --------------------------------------------------------
-        for n in nodeIDs:
-            nodes[n] = {
-                'loc': _rndPtUniformPolys(distrArgs['polys'])
-            }
-
-    elif (distr == 'uniformRoadNetworkPoly'):
-        # Sanity check --------------------------------------------------------
-        if (distrArgs == None):
-            msgError(ERROR_MISSING_DISTRARGS)
-            return
-        if ('road' not in distrArgs):
-            msgError(ERROR_MISSING_DISTRARGS_UNIROADNETWORK)
-            return
-
-        # Create nodes --------------------------------------------------------
-        nodeLocs = _rndPtRoadNetworkPoly(
+    # Uniformly sample from the roads/streets within a polygon/a list of polygons from given road networks
+    elif (distr['method'] == 'RoadNetworkPolyLatLon'):
+        if ('polyLatLon' not in distr):
+            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `distr`, which indicates a polygon / a list of polygons in the Euclidean space")
+        elif ('RoadNetwork' not in distr):
+            raise MissingParameterError("ERROR: Missing required key 'RoadNetwork' in field `distr`. Need to provide the road network where the nodes are generated.")
+        elif ('roadClass' not in distr):
+            warnings.warn("WARNING: Set 'roadClass' to be default as ['residential']")
+        nodeLocs = _rndPtRoadNetworkPolyLatLon(
             N if N != None else len(nodeIDs),
-            distrArgs['road'], 
-            distrArgs['poly'] if 'poly' in distrArgs else None,
-            distrArgs['class'] if 'class' in distrArgs else ['residential'])
+            distr['RoadNetwork'], 
+            distr['polyLatLon'],
+            distr['roadClass'] if 'roadClass' in distr else ['residential'])
         for n in range(len(nodeIDs)):
             nodes[nodeIDs[n]] = {
                 'loc': nodeLocs[n]
             }
 
-    elif (distr == 'uniformRoadNetworkCircle'):
-        # Sanity check --------------------------------------------------------
-        if (distrArgs == None):
-            msgError(ERROR_MISSING_DISTRARGS)
-            return
-        if ('road' not in distrArgs):
-            msgError(ERROR_MISSING_DISTRARGS_UNIROADNETWORK)
-            return
-        if ('centerLoc' not in distrArgs or 'radius' not in distrArgs):
-            print("Missing circle definition")
-            return
-
-        # Create nodes --------------------------------------------------------
-        nodeLocs = _rndPtRoadNetworkCircle(
+    # Uniformly sample from the roads/streets within a circle from given road network
+    elif (distr['method'] == 'RoadNetworkCircleLatLon'):
+        if ('centerLatLon' not in distr or 'radiusInMeters' not in distr):
+            raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `distr`.")
+        elif ('RoadNetwork' not in distr):
+            raise MissingParameterError("ERROR: Missing required key 'RoadNetwork' in field `distr`. Need to provide the road network where the nodes are generated.")
+        elif ('roadClass' not in distr):
+            warnings.warn("WARNING: Set 'roadClass' to be default as ['residential']")
+        nodeLocs = _rndPtRoadNetworkCircleLatLon(
             N if N != None else len(nodeIDs),
-            distrArgs['road'], 
-            distrArgs['centerLoc'],
-            distrArgs['radius'],
-            distrArgs['class'] if 'class' in distrArgs else ['residential'])
+            distr['RoadNetwork'], 
+            distr['radiusInMeters'],
+            distr['centerLatLon'],
+            distr['roadClass'] if 'roadClass' in distr else ['residential'])
         for n in range(len(nodeIDs)):
             nodes[nodeIDs[n]] = {
                 'loc': nodeLocs[n]
-            }
-
-    elif (distr == 'clusterXY'):
-        # Sanity check --------------------------------------------------------
-        if (distrArgs == None):
-            msgError(ERROR_MISSING_DISTRARGS)
-            return
-        if ('centroidLocs' not in distrArgs or 'clusterDiameter' not in distrArgs):
-            msgError(ERROR_MISSING_DISTRARGS_CLUSTER)
-            return
-        # Create nodes --------------------------------------------------------
-        for n in nodeIDs:
-            nodes[n] = {
-                'loc': _rndPtClusterXY(distrArgs['centroidLocs'], distrArgs['clusterDiameter'])
-            }
-
-    elif (distr == 'clusterLatLon'):
-        # Sanity check --------------------------------------------------------
-        if (distrArgs == None):
-            msgError(ERROR_MISSING_DISTRARGS)
-            return
-        if ('centroidLocs' not in distrArgs or 'clusterDiameterInMeters' not in distrArgs):
-            msgError(ERROR_MISSING_DISTRARGS_CLUSTER)
-            return
-        # Create nodes --------------------------------------------------------
-        for n in nodeIDs:
-            nodes[n] = {
-                'loc': _rndPtClusterLatLon(distrArgs['centroidLocs'], distrArgs['clusterDiameterInMeters'])
             }
     else:
-        msgError(ERROR_INCOR_DISTARG)
-        return
+        raise UnsupportedInputError(ERROR_MISSING_NODES_DISTR)
 
     return nodes
 
-def rndTimeWindowsNodes(
-    plainNodes: "Needs to provide plain nodes" = None,
-    timeSpan:   "Time span for generating time windows, starting from 0" = None,
-    twType:     "Type of time windows\
-                 1) String 'Known', all time windows are given priorly, or \
-                 2) String 'Periodic', time windows are generated periodically, or \
-                 3) String 'Random', time windows are generated randomly " = 'Random',
-    twArgs:     "Dictionary, \
-                 1) For 'Known' twType:\
-                    {\
-                        'timeWindows': A list of 2-tuples, e.g., [(s1, e1), (s2, e2), ...]\
-                    }\
-                 2) For 'Periodic' twType:\
-                    {\
-                        'cycleTime': cycleTime, \
-                        'startTimeInCycle': startTimeInCycle, \
-                        'endTimeInCycle': endTimeInCycle \
-                    }\
-                 3) For 'Random' twType:\
-                    {\
-                        'indFlag': True if different nodes have different time windows, False otherwise,\
-                        'avgBtwDur': average interval time between time windows, exponential distributed,\
-                        'avgTWDur': average length of time windows, exponential distributed\
-                    }" = None
-    ) -> "A set of nodes with time windows":
-    # Initialize ==============================================================
-    nodes = dict(plainNodes)
+def _rndPtUniformSquareXY(xRange: list[int] | list[float], yRange: list[int] | list[float]) -> pt:
+    x = random.uniform(xRange[0], xRange[1])
+    y = random.uniform(yRange[0], yRange[1])
+    return (x, y)
 
-    # Check for required fields ===============================================
-    if (plainNodes == None):
-        msgError(ERROR_MISSING_PLAINNODES)
-        return
-    if (timeSpan == None):
-        msgError(ERROR_MISSING_TIMESPAN)
-        return
-    validTWOpts = ['Known', 'Periodic', 'Random']
-    if (twType not in validTWOpts):
-        msgError(ERROR_OPTS_TWTYPE % validTWOpts)
-        return
-    elif (twType == 'Known'):
-        if (twArgs == None):
-            msgError(ERROR_MISSING_TWKNOWNARGS)
-            return
-        elif ('timeWindows' not in twArgs):
-            print (ERROR_MISSING_TWKNOWNARGS_TW)
-            return
-    elif (twType == 'Periodic'):
-        if (twArgs == None):
-            msgError(ERROR_MISSING_TWPERIODICARGS)
-            return
-        elif ('cycleTime' not in twArgs):
-            msgError(ERROR_MISSING_TWPERIODICARGS_CT)
-            return
-        elif ('startTimeInCycle' not in twArgs):
-            msgError(ERROR_MISSING_TWPERIODICARGS_ST)
-            return
-        elif ('endTimeInCycle' not in twArgs):
-            msgError(ERROR_MISSING_TWPERIODICARGS_ET)
-            return
-    elif (twType == 'Random'):
-        if (twArgs == None):
-            msgError(ERROR_MISSING_TWRANDOMARGS)
-            return
-        elif ('indFlag' not in twArgs):
-            msgError(ERROR_MISSING_TWRANDOMARGS_FG)
-            return
-        elif ('avgBtwDur' not in twArgs):
-            msgError(ERROR_MISSING_TWRANDOMARGS_BTW)
-            return
-        elif ('avgTWDur' not in twArgs):
-            msgError(ERROR_MISSING_TWRANDOMARGS_TW)
-            return
-
-    # Generate time windows for different types ===============================
-    for n in nodes:
-        nodes[n]['timeWindows'] = []
-    if (twType == "Known"):
-        for n in nodes:
-            nodes[n]['timeWindows'] = twArgs['timeWindows']
-    elif (twType == 'Periodic'):
-        repeatNum = math.ceil(timeSpan / twArgs['cycleTime'])
-        for tw in range(repeatNum):
-            for n in nodes:
-                nodes[n]['timeWindows'].append((
-                    tw * twArgs['cycleTime'] + twArgs['startTimeInCycle'], 
-                    tw * twArgs['cycleTime'] + twArgs['endTimeInCycle']))
-    elif (twType == 'Random'):
-        avgBtwDur = twArgs['avgBtwDur']
-        avgTWDur = twArgs['avgTWDur']
-        # If all nodes have different time windows
-        if (twArgs['indFlag'] == False):
-            now = 0
-            pre = 0
-            availFlag = True if (random.random() < (avgTWDur / (avgTWDur + avgBtwDur))) else False
-            while (now < timeSpan):            
-                interval = 0
-                if (availFlag):
-                    if (avgTWDur > 0):
-                        interval = random.expovariate(1 / avgTWDur)
-                        now += interval
-                        if (interval > 0.0001):
-                            for n in nodes:
-                                nodes[n]['timeWindows'].append((pre, now))
-                else:
-                    if (avgBtwDur > 0):
-                        interval = random.expovariate(1 / avgBtwDur)
-                        now += interval
-                availFlag = not availFlag
-                pre = now
-        # If all nodes have the same time windows
-        else:
-            for n in nodes:
-                now = 0
-                pre = 0
-                availFlag = True if (random.random() < (avgTWDur / (avgTWDur + avgBtwDur))) else False
-                while (now < timeSpan):
-                    interval = 0
-                    if (availFlag):
-                        if (avgTWDur > 0):
-                            interval = random.expovariate(1 / avgTWDur)
-                            now += interval
-                            if (interval > 0.0001):
-                                nodes[n]['timeWindows'].append((pre, now))
-                    else:
-                        if (avgBtwDur > 0):
-                            interval = random.expovariate(1 / avgBtwDur)
-                            now += interval
-                    availFlag = not availFlag
-                    pre = now
-
-    # Truncate last time window to fit time span ==============================
-    for n in nodes:
-        while (len(nodes[n]['timeWindows']) > 0 and (nodes[n]['timeWindows'][-1][0] >= timeSpan or nodes[n]['timeWindows'][-1][1] > timeSpan)):
-            lastStart = nodes[n]['timeWindows'][-1][0]
-            if (lastStart >= timeSpan):
-                for n in nodes:
-                    nodes[n]['timeWindows'] = nodes[n]['timeWindows'][:-1]
-            lastEnd = nodes[n]['timeWindows'][-1][1]
-            if (lastEnd >= timeSpan):
-                for n in nodes:
-                    nodes[n]['timeWindows'][-1] = (
-                        nodes[n]['timeWindows'][-1][0], 
-                        timeSpan)
-
-    return nodes
-
-def _rndPtRoadNetworkPoly(
-    N:          "Number of nodes" = 1,
-    road:       "Dictionary of road network in the format of \
-                {\
-                    roadID: {\
-                        'shape': [[lat, lon], [lat, lon], ...]\
-                    }\
-                }" = None,
-    poly:       "Nodes should also within this polygon" = None,
-    roadClass:  "List of classes that can be sampled" = None
-    ) -> "Given a road network, generate customers that locates on the road network":
+def _rndPtUniformTriangleXY(triangle: poly) -> pt:
     
+    # Get three extreme points ================================================
+    [x1, y1] = triangle[0]
+    [x2, y2] = triangle[1]
+    [x3, y3] = triangle[2]
+
+    # Generate random points ==================================================
+    rndR1 = random.uniform(0, 1)
+    rndR2 = random.uniform(0, 1)
+    x = (1 - math.sqrt(rndR1)) * x1 + math.sqrt(rndR1) * (1 - rndR2) * x2 + math.sqrt(rndR1) * rndR2 * x3
+    y = (1 - math.sqrt(rndR1)) * y1 + math.sqrt(rndR1) * (1 - rndR2) * y2 + math.sqrt(rndR1) * rndR2 * y3
+
+    return (x, y)
+
+def _rndPtUniformPolyXY(poly: poly) -> pt:
+    # Get list of triangles ===================================================
+    # TODO: tripy.earclip() to be replaced
+    lstTriangle = tripy.earclip(poly)
+
+    # Weight them and make draws ==============================================
+    lstWeight = []
+    for i in range(len(lstTriangle)):
+        lstWeight.append(calTriangleAreaXY(lstTriangle[i][0], lstTriangle[i][1], lstTriangle[i][2]))
+
+    # Select a triangle and randomize a point in the triangle =================
+    idx = rndPick(lstWeight)
+    (x, y) = _rndPtUniformTriangleXY(lstTriangle[idx])
+
+    return (x, y)
+
+def _rndPtUniformPolyXYs(polys: polys) -> pt:
+    # Get all triangulated triangles ==========================================
+    # TODO: tripy.earclip() to be replaced
+    lstTriangle = []
+    for p in polys:
+        lstTriangle.extend(tripy.earclip(p))
+
+    # Weight them and make draws ==============================================
+    lstWeight = []
+    for i in range(len(lstTriangle)):
+        lstWeight.append(calTriangleAreaXY(lstTriangle[i][0], lstTriangle[i][1], lstTriangle[i][2]))
+
+    # Select a triangle and randomize a point in the triangle =================
+    idx = rndPick(lstWeight)
+    (x, y) = _rndPtUniformTriangleXY(lstTriangle[idx])
+
+    return (x, y)
+
+def _rndPtUniformCircleXY(radius: float, center: pt) -> pt:
+    theta = random.uniform(0, 2 * math.pi)
+    r = math.sqrt(random.uniform(0, radius ** 2))
+    x = center[0] + r * math.cos(theta)
+    y = center[1] + r * math.sin(theta)
+
+    return (x, y)
+
+def _rndPtUniformCircleLatLon(radius: float, center: pt) -> pt:
+    theta = random.uniform(0, 2 * math.pi)
+    r = math.sqrt(random.uniform(0, radius ** 2))
+    (lat, lon) = ptInDistLatLon(center, theta, r)
+
+    return (lat, lon)
+
+def _rndPtRoadNetworkPolyLatLon(N: int, road: dict, poly: poly, roadClass: str | list[str]) -> list[pt]:
     # Calculate the length of each edge =======================================
     lengths = []
     roadIDs = []
     for rID in road:
         roadLength = 0
         includedFlag = False
-        if (poly == None and 'class' in road[rID] and road[rID]['class'] in roadClass):
-            includedFlag = True
-        elif ('class' in road[rID] and road[rID]['class'] in roadClass):
-            for i in range(len(road[rID]['shape'])):
-                if (isPtOnPoly(road[rID]['shape'][i], poly)):
-                    includedFlag = True
-                    break
-
+        if ('class' in road[rID] and road[rID]['class'] in roadClass):
+            if (poly == None):
+                includedFlag = True
+            else:
+                for i in range(len(road[rID]['shape'])):
+                    if (isPtOnPoly(road[rID]['shape'][i], poly)):
+                        includedFlag = True
+                        break
         # Check if this road is inside polygon
         if (includedFlag):
             for i in range(len(road[rID]['shape']) - 1):
@@ -410,11 +314,11 @@ def _rndPtRoadNetworkPoly(
 
     # Check if there are roads included =======================================
     if (sum(lengths) == 0):
-        return None
+        raise EmptyError("No road is found.")
 
     # Use accept-denial to test if the node is within poly ====================
     # FIXME: Inefficient approach, will need to be rewritten
-    # FIXME: Truncate the roads that partially in side polygon
+    # TODO: Truncate the roads that partially inside polygon
     nodeLocs = []
     for i in range(N):
         lat = None
@@ -434,21 +338,10 @@ def _rndPtRoadNetworkPoly(
                 if (isPtOnPoly([lat, lon], poly)):
                     insideFlag = True
         nodeLocs.append((lat, lon))
+
     return nodeLocs
 
-def _rndPtRoadNetworkCircle(
-    N:          "Number of nodes" = 1,
-    road: "Dictionary of road network in the format of \
-                {\
-                    roadID: {\
-                        'shape': [[lat, lon], [lat, lon], ...]\
-                    }\
-                }" = None,\
-    centerLoc:  "Center location" = None,
-    radius:     "Radius in [m]" = None,
-    roadClass:  "List of classes that can be sampled" = None
-    ) -> "Given a road network, generate customers that locates on the road network":
-    
+def _rndPtRoadNetworkCircleLatLon(N: int, road: dict, radius: float, center: pt, roadClass: str | list[str]) -> list[pt]:
     # Calculate the length of each edge =======================================
     lengths = []
     roadIDs = []
@@ -456,7 +349,7 @@ def _rndPtRoadNetworkCircle(
         roadLength = 0
         includedFlag = False
         for i in range(len(road[rID]['shape'])):
-            if (road[rID]['class'] in roadClass and distLatLon(road[rID]['shape'][i], centerLoc) <= radius):
+            if (road[rID]['class'] in roadClass and distLatLon(road[rID]['shape'][i], center) <= radius):
                 includedFlag = True
                 break
 
@@ -473,7 +366,7 @@ def _rndPtRoadNetworkCircle(
 
     # Check if there are roads included =======================================
     if (sum(lengths) == 0):
-        return None
+        return []
 
     # Use accept-denial to test if the node is within poly ====================
     # FIXME: Inefficient approach, will need to be rewritten
@@ -487,112 +380,9 @@ def _rndPtRoadNetworkCircle(
             edgeLength = lengths[idx]
             edgeDist = random.uniform(0, 1) * edgeLength
             (lat, lon) = mileageInPathLatLon(road[roadIDs[idx]]['shape'], edgeDist)
-            if (distLatLon([lat, lon], centerLoc) <= radius):
+            if (distLatLon([lat, lon], center) <= radius):
                 insideFlag = True
         nodeLocs.append((lat, lon))
+
     return nodeLocs
 
-def _rndPtUniformSquare(
-    xRange:    "The range of x coordinates" = (0, 100),
-    yRange:    "The range of y coordinates" = (0, 100)
-    ) -> "Given the range of x, y, returns a random point in the square defined by the ranges":
-    x = random.randrange(xRange[0], xRange[1])
-    y = random.randrange(yRange[0], yRange[1])
-    return (x, y)
-
-def _rndPtUniformTriangle(
-    triangle:   "The triangle for generating random points" = None
-    ) -> "Given a triangle, generate a random point in the triangle uniformly":
-    
-    # Get three extreme points ================================================
-    [x1, y1] = triangle[0]
-    [x2, y2] = triangle[1]
-    [x3, y3] = triangle[2]
-
-    # Generate random points ==================================================
-    rndR1 = random.uniform(0, 1)
-    rndR2 = random.uniform(0, 1)
-    x = (1 - math.sqrt(rndR1)) * x1 + math.sqrt(rndR1) * (1 - rndR2) * x2 + math.sqrt(rndR1) * rndR2 * x3
-    y = (1 - math.sqrt(rndR1)) * y1 + math.sqrt(rndR1) * (1 - rndR2) * y2 + math.sqrt(rndR1) * rndR2 * y3
-
-    return (x, y)
-
-def _rndPtUniformPoly(
-    poly:       "The polygon for generating random points" = None
-    ) -> "Given a polygon, generate a random point in the polygons uniformly":
-
-    # Get list of triangles ===================================================
-    lstTriangle = tripy.earclip(poly)
-
-    # Weight them and make draws ==============================================
-    lstWeight = []
-    for i in range(len(lstTriangle)):
-        lstWeight.append(calTriangleAreaByCoords(lstTriangle[i][0], lstTriangle[i][1], lstTriangle[i][2]))
-
-    # Select a triangle and randomize a point in the triangle =================
-    idx = rndPick(lstWeight)
-    (x, y) = _rndPtUniformTriangle(lstTriangle[idx])
-
-    return (x, y)
-
-def _rndPtUniformPolys(
-    polys:       "A list of polygons for generating random points" = None
-    ) -> "Given a list of polygons, generate a random point in the polygons uniformly":
-
-    # Get all triangulated triangles ==========================================
-    lstTriangle = []
-    for p in polys:
-        lstTriangle.extend(tripy.earclip(p))
-
-    # Weight them and make draws ==============================================
-    lstWeight = []
-    for i in range(len(lstTriangle)):
-        lstWeight.append(calTriangleAreaByCoords(lstTriangle[i][0], lstTriangle[i][1], lstTriangle[i][2]))
-
-    # Select a triangle and randomize a point in the triangle =================
-    idx = rndPick(lstWeight)
-    (x, y) = _rndPtUniformTriangle(lstTriangle[idx])
-
-    return (x, y)
-
-def _rndPtClusterXY(
-    centroidLocs: "A list of center locs of clusters" = None,
-    clusterDiameter: "Diameter of cluster" = None
-    ):
-    idx = random.randint(0, len(centroidLocs) - 1)
-    ctrLoc = centroidLocs[idx]
-    theta = random.uniform(0, 2 * math.pi)
-    r = math.sqrt(random.uniform(0, clusterDiameter))
-    x = ctrLoc[0] + r * math.cos(theta)
-    y = ctrLoc[1] + r * math.sin(theta)
-    return (x, y)
-
-def _rndPtClusterLatLon(
-    centroidLocs: "A list of center locs of clusters" = None,
-    clusterDiameterInMeters: "Diameter of cluster" = None
-    ):
-    idx = random.randint(0, len(centroidLocs) - 1)
-    ctrLoc = centroidLocs[idx]
-    theta = random.uniform(0, 2 * math.pi)
-    r = math.sqrt(random.uniform(0, clusterDiameterInMeters))
-    (lat, lon) = ptInDistLatLon(ctrLoc, theta, r)
-    return (lat, lon)
-
-def _rndPtUniformCircleXY(
-    radius:     "Radius of the circle" = None,
-    centerLoc:  "Center location of the circle" = None
-    ):
-    theta = random.uniform(0, 2 * math.pi)
-    r = math.sqrt(random.uniform(0, radius ** 2))
-    x = centerLoc[0] + r * math.cos(theta)
-    y = centerLoc[1] + r * math.sin(theta)
-    return (x, y)
-
-def _rndPtUniformCircleLatLon(
-    radius:     "Radius of the circle" = None,
-    centerLoc:  "Center location of the circle" = None
-    ):
-    theta = random.uniform(0, 2 * math.pi)
-    r = math.sqrt(random.uniform(0, radius ** 2))
-    (lat, lon) = ptInDistLatLon(centerLoc, theta, r)
-    return (lat, lon)

@@ -1,16 +1,47 @@
 import geojson
 import math
+import shapely
 
 from .const import *
 from .geometry import *
 
 def createRoadNetworkFromGeoJSON(
-    geoJSONPath:    "Path to geojson file" = None,
-    boundaryLatLon: "Filter out the area that are not within the boundary, if given" = None,
-    exportType:     "1) String, 'LatLon', exported as in lat/lon, or\
-                     2) String, 'Mercator', exported as projected in Mercator" = 'LatLon',
-    buildingIncludedFlag: "True if buildings are included" = False
-    ) -> "Given a geoJSON file, returns a road network dictionaries which only includes road info":
+    geoJSONPath: str,
+    boundaryLatLon: poly|None = None,
+    exportType: str = 'LatLon',
+    buildingIncludedFlag: bool = False
+    ) -> dict:
+
+    """Given a geoJSON file, returns a road network dictionaries which only includes road info
+
+    Note
+    ----
+    This function is incomplete, for the roads that partitially inside boundary, need to be truncated
+
+
+    Parameters
+    ----------
+    
+    geoJSONPath: string, required
+        The path to a geoJSON file
+    boundaryLatLon: list[pt], optionan, default as None
+        Filter out the area that are not within the boundary, if given
+    exportType: string, optional, default as 'LatLon'
+        Determine the axises of exported data, options are: 'LatLon' and 'Mercator'
+    buildingIncludedFlag: bool, optional, default as False
+        True if buildings are included
+
+    Returns
+    -------
+
+    dictionary
+        A road network dictionary, in the following formatt::
+        >>> road = {
+        ...     'boundary': boundary,
+        ...     'road': road,
+        ...     'building': building
+        ... }
+    """
 
     # Open the geojson file ===================================================
     with open(geoJSONPath, encoding = 'utf-8') as f:
@@ -104,10 +135,10 @@ def createRoadNetworkFromGeoJSON(
                 buildingID += 1
 
     # Fix the position ========================================================
-    minX = None
-    maxX = None
-    minY = None
-    maxY = None
+    minX = -math.inf
+    maxX = math.inf
+    minY = -math.inf
+    maxY = math.inf
 
     for r in road:
         for p in road[r]['shape']:
@@ -127,6 +158,7 @@ def createRoadNetworkFromGeoJSON(
                 p[1] -= minY
 
     # Define boundary =========================================================
+    boundary = []
     if (exportType == 'Mercator'):
         boundary = [(0, 0), (maxX - minX, 0), (maxX - minX, maxY - minY), (0, maxY - minY)]
     elif (exportType == 'LatLon'):

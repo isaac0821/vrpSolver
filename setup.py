@@ -1,4 +1,3 @@
-  
 import setuptools
 from vrpSolver import __version__
 
@@ -10,7 +9,7 @@ setuptools.setup(
 	name="vrpSolver",
 	version=__version__,
 	author="Lan Peng",
-	author_email="lanpeng@buffalo.edu",
+	author_email="lanpeng@shu.edu.cn",
 	description="VRP Solver",
 	long_description=long_description,
 	long_description_content_type="text/markdown",
@@ -26,7 +25,11 @@ setuptools.setup(
 	install_requires=[
 		'numpy',  
 		'scipy',
-		'matplotlib'
+		'geopy',
+		'geojson',
+		'matplotlib',
+		'shapely',
+		'networkx'
 	],
 	classifiers=[
 		"Development Status :: 2 - Pre-Alpha",

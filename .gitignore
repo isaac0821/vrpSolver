@@ -85,7 +85,6 @@ target/
 !README.md
 
 # Data
-**/*.pkl
 **/*.csv
 **/*.xlsx
 **/*.txt
