@@ -17,8 +17,8 @@ def vecPolar2XY(vecPolar: pt) -> pt:
 
     """Given vector's norm and its degree to North, convert it into a 2-tuple vector
 
-    Parameters:
-    -----------
+    Parameters
+    ----------
     vecPolar: tuple[float|int, float|int], required
         2-tuple (vVal, vDeg), `vVal` is the norm and `vDeg` is the direction, 0 as North, clockwise, in [0, 360)
 
