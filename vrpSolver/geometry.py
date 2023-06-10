@@ -1,9 +1,6 @@
 import geopy.distance
 import heapq
 import math
-from networkx import center
-import numpy as np
-import tripy
 import shapely
 
 from .error import *
@@ -184,6 +181,30 @@ def locInPath(seq: list[pt], timeStamp: list[float], t: float) -> pt:
             curLocY = seq[i][1] + (seq[i + 1][1] - seq[i][1]) * (t - timeStamp[i]) / (timeStamp[i + 1] - timeStamp[i])
             return [curLocX, curLocY]
     raise UnsupportedInputError("ERROR: cannot find time stamp")
+
+def spdInPath(seq: list[pt], timeStamp: list[float], t: float) -> float:
+
+    spd = 0
+
+    if (len(seq) != len(timeStamp)):
+        raise UnsupportedInputError("ERROR: `timeStamp` does not match with `seq`.")
+    for i in range(len(timeStamp) - 1):
+        if (timeStamp[i] > timeStamp[i + 1]):
+            raise UnsupportedInputError("ERROR: `timeStamp` should be a non-descending sequence.")
+
+    if (t <= timeStamp[0]):
+        return 0
+    if (t >= timeStamp[-1]):
+        return 0
+
+    for i in range(len(timeStamp) - 1):
+        if (timeStamp[i] <= t < timeStamp[i + 1]):
+            if (timeStamp[i] == timeStamp[i + 1]):
+                raise UnsupportedInputError("ERROR: an object cannot be two places at the same time.")
+            dist = distEuclidean2D(seq[i], seq[i + 1])
+            spd = dist / (timeStamp[i + 1] - timeStamp[i])
+
+    return spd
 
 def traceInPath(seq: list[pt], timeStamp: list[float], ts: float, te: float) -> list[pt]:
 
