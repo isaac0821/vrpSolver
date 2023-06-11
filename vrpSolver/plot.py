@@ -1,6 +1,4 @@
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
-from matplotlib.animation import PillowWriter
 
 from .common import *
 from .color import *
@@ -24,6 +22,7 @@ def plotNodes(
     ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
     boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
     ):
@@ -132,6 +131,8 @@ def plotNodes(
                 edgeColor = 'black',
                 fillColor = neighborColor,
                 opacity = neighborOpacity,
+                xyReverseFlag = xyReverseFlag,
+                showAxis = showAxis,
                 fillStyle = '///')
 
         # Define color --------------------------------------------------------
@@ -167,7 +168,17 @@ def plotNodes(
         else:
             lbl = nodes[n]['label']
 
-        ax.annotate(lbl, (x, y))
+        ha = 'left'
+        if ('ha' in nodes[n]):
+            ha = nodes[n]['ha']
+        va = 'top'
+        if ('va' in nodes[n]):
+            va = nodes[n]['va']
+        ax.annotate(lbl, (x, y), ha=ha, va=va)
+
+    # Axis on and off =========================================================
+    if (not showAxis):
+        plt.axis('off')
 
     # Save figure =============================================================
     if (saveFigPath != None and isinstance(fig, plt.Figure)):
@@ -190,6 +201,7 @@ def plotArcs(
     ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
     boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
     ):
@@ -323,6 +335,10 @@ def plotArcs(
             if (arrowFlag):
                 ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=arcColor)
 
+    # Axis on and off =========================================================
+    if (not showAxis):
+        plt.axis('off')
+
     # Save figure =============================================================
     if (saveFigPath != None and isinstance(fig, plt.Figure)):
         fig.savefig(saveFigPath)
@@ -344,6 +360,7 @@ def plotRoute(
     ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
     boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
     ):
@@ -423,6 +440,7 @@ def plotRoute(
         xyReverseFlag = xyReverseFlag,
         figSize = figSize,
         boundingBox = boundingBox,
+        showAxis = showAxis,
         saveFigPath = saveFigPath,
         showFig = showFig)
 
@@ -440,6 +458,7 @@ def plotSeq(
     ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
     boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
     ):
@@ -547,9 +566,13 @@ def plotSeq(
             y2 = arc[1][0]
         dx = x2 - x1
         dy = y2 - y1
-        ax.plot([x1, x2], [y1, y2], color = arcColor)
+        ax.plot([x1, x2], [y1, y2], color = arcColor, linewidth=arcWidth)
         if (arrowFlag):
             ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=arcColor)
+
+    # Axis on and off =========================================================
+    if (not showAxis):
+        plt.axis('off')
 
     # Save figure =============================================================
     if (saveFigPath != None and isinstance(fig, plt.Figure)):
@@ -571,6 +594,7 @@ def plotPolygon(
     ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
     boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
     ):
@@ -689,6 +713,10 @@ def plotPolygon(
         else:
             ax.fill(x, y, facecolor=fillColor, edgecolor=edgeColor, hatch=fillStyle, linewidth=edgeWidth, alpha=opacity)
 
+    # Axis on and off =========================================================
+    if (not showAxis):
+        plt.axis('off')
+
     # Save figure =============================================================
     if (saveFigPath != None and isinstance(fig, plt.Figure)):
         fig.savefig(saveFigPath)
@@ -708,6 +736,7 @@ def plotProvinceMap(
     fig = None,
     ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
     ):
@@ -777,6 +806,7 @@ def plotProvinceMap(
             xyReverseFlag = True,
             figSize=figSize,
             saveFigPath=saveFigPath,
+            showAxis = showAxis,
             showFig=showFig)
 
     return fig, ax
@@ -1025,6 +1055,7 @@ def plotRoadNetwork2D(
     ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
     boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
     ): 
@@ -1158,7 +1189,9 @@ def plotRoadNetwork2D(
                     color = 'gray'
             ax.fill(x, y, facecolor=color)
 
-    plt.close(fig)
+    # Axis on and off =========================================================
+    if (not showAxis):
+        plt.axis('off')
 
     # Save figure =============================================================
     if (saveFigPath != None):
