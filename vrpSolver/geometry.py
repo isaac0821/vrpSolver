@@ -159,9 +159,6 @@ def distLatLon(pt1: pt, pt2: pt, distUnit: str = 'meter') -> float:
         return CONST_EPSILON
 
 def locInPath(seq: list[pt], timeStamp: list[float], t: float) -> pt:
-
-    curLoc = []
-
     if (len(seq) != len(timeStamp)):
         raise UnsupportedInputError("ERROR: `timeStamp` does not match with `seq`.")
     for i in range(len(timeStamp) - 1):
