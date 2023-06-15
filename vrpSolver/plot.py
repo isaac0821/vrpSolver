@@ -812,44 +812,27 @@ def plotProvinceMap(
     return fig, ax
 
 def plotGantt(
-    fig:        "Based matplotlib figure object" = None, 
-    ax:         "Based matplotlib ax object" = None,
-    gantt:      "List of dictionaries, each represents a gantt block, in the following format\
-                [{\
-                    'entityID': entityID, \
-                    'timeWindow': [startTime, endTime], or \
-                        'timeStamps': [timeStamp1, timeStamp2, ..., timeStampN], \
-                    'desc': (optional) description of the window,\
-                    'descPos': (optional, default as 0, left-above) \
-                        0 - left-above, \
-                        1 - left-inside, \
-                        2 - middle-above, \
-                        3 - middle-inside,\
-                    'color': (optional, default as 'random') color, \
-                    'style': (optional, default as 'solid') 'solid' \
-                }, ... ]\
-                " = None,
-    group:      "List of groups of entityIDs, in the following format\
-                [{\
-                    'groupID': groupID, \
-                    'entityIDList': [entityID1, entityID2, ...], \
-                }, ... {\
-                }]" = None,
-    gridFlag:   "True if turn on the grid as background" = True,
-    labelFlag:  "True if add label of entities on Gantt chart" = True,
-    linewidth:  "The width of Gantt block borders" = 1,
+    gantt: list[dict],
+    group: dict|None = None,
+    
     xlabel:     "xlabel of the gantt" = "Time",
     ylabel:     "ylabel of the gantt" = "",
-    groupDivider: "Line style of dividing groups of gantt" = None,
-    groupDividerColor: "Line color of dividing groups of gantt" = 'black',
+
+
     blockwidth: "The width of Gantt block" = 0.8,
     entities:   "1) None, takes the entities in `gantt` \
                  2) List of strings, the Gantt chart will be drawn in this order, \
                  3) List of lists (strings), the Gantt chart will be drawn in groups" = None,
-    groupLabel: "List of group labels, should match with `entities`" = None,
+
+
     startTime:  "Start time of Gantt, default to be 0, if None, use the earliest time in `gantt`" = 0,
     endTime:    "End time of Gantt, default to be None, if None, use the latest time in `gantt`" = None,
     showTail:   "Show the latest time of all gantt blocks" = True,
+
+    linewidth:  "The width of Gantt block borders" = 1,
+
+    fig:        "Based matplotlib figure object" = None, 
+    ax:         "Based matplotlib ax object" = None,
     figSize:    "Size of the figure, in (width, height)" = (12, 5),
     saveFigPath:"1) None, if not exporting image, or \
                  2) String, the path for exporting image" = None,
@@ -857,10 +840,40 @@ def plotGantt(
                  recommended to turn off if generate a batch of images" = True
     ) -> "Given a Gantt dictionary, plot Gantt":
 
+    """Given a Gantt dictionary, plot a Gantt chart
+
+    Parameters
+    ----------
+    gantt: list of dictionaries, required
+        A list of dictionaries, each represents a gantt block, in the following format\
+            >>> gantt = [{
+            ...     'entityID': entityID, 
+            ...     'timeWindow': [startTime, endTime], or 
+            ...         'timeStamps': [timeStamp1, timeStamp2, ..., timeStampN], 
+            ...     'desc': (optional) description of the window,
+            ...     'color': (optional, default as 'random') color, 
+            ...     'style': (optional, default as 'solid') 'solid' 
+            ... }, ... ]
+    group: dictionary, optional, default None
+        Groups of entityIDs, in the following format
+            >>> group[groupID] = [entityID1, entityID2, ...]
+
+    fig: matplotlib object, optional, defaut None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
+    figSize: 2-tuple, optional, default as (None, 5)
+        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.    
+    saveFigPath: string, optional, default as None
+        The path for exporting image if provided
+    showFig: bool, optional, default as True
+        True if show the figure in Juypter Notebook environment
+    """
+
+
     # Check for required fields ===============================================
     if (gantt == None):
-        msgError(ERROR_MISSING_GANTT)
-        return
+        raise MissingParameterError(ERROR_MISSING_GANTT)
 
     # Pre-calculate ===========================================================
     realStart = None
@@ -962,11 +975,7 @@ def plotGantt(
     for g in gantt:
         if (g['entityID'] in entities):
             bottom = yticks[len(yticks) - 1 - entities.index(g['entityID'])] - blockwidth / 2
-            top = 0
-            if (labelFlag == True):
-                top = yticks[len(yticks) - 1 - entities.index(g['entityID'])] + blockwidth / 4
-            else:
-                top = yticks[len(yticks) - 1 - entities.index(g['entityID'])] + blockwidth / 2
+            top = yticks[len(yticks) - 1 - entities.index(g['entityID'])] + blockwidth / 4
             if ('timeWindow' in g):
                 s = g['timeWindow'][0]
                 e = g['timeWindow'][1]
@@ -978,11 +987,10 @@ def plotGantt(
                 else:
                     rndColor = colorRandom()
                     ax.fill(x, y, color = rndColor, linewidth = linewidth)
-                if (labelFlag == True):
-                    if ('descPosition' not in g or g['descPosition'] == 0):
-                        ax.annotate(g['desc'], (s + blockwidth / 4, top + blockwidth / 8))
-                    elif (g['descPosition'] == 1):
-                        ax.annotate(g['desc'], (s + blockwidth / 4, bottom + blockwidth / 8))
+                if ('descPosition' not in g or g['descPosition'] == 0):
+                    ax.annotate(g['desc'], (s + blockwidth / 4, top + blockwidth / 8))
+                elif (g['descPosition'] == 1):
+                    ax.annotate(g['desc'], (s + blockwidth / 4, bottom + blockwidth / 8))
                 if (g['style'] != 'solid'):
                     ax.fill(x, y, hatch = g['style'], fill=False, linewidth = linewidth)
             elif ('timeStamps' in g):
@@ -1000,8 +1008,7 @@ def plotGantt(
                         ax.fill(x, y, color = rndColor, linewidth = linewidth)
                     if (g['style'] != 'solid'):
                         ax.fill(x, y, hatch = g['style'], fill=False, linewidth = linewidth)
-                if (labelFlag == True):
-                    ax.annotate(g['desc'][-1], (g['timeStamps'][-1], top + blockwidth / 8))
+                ax.annotate(g['desc'][-1], (g['timeStamps'][-1], top + blockwidth / 8))
 
     # Show time span ==========================================================
     if (showTail):
