@@ -267,6 +267,8 @@ def traceInTimedSeq(seq: list[pt], timeStamp: list[float], ts: float, te: float)
 
 def locInPoly(poly: poly, startPt: pt, isClockwise: bool=True) -> pt:
 
+    """Given a polygon"""
+
     return loc
 
 
@@ -303,7 +305,7 @@ def locInSeq(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
         segDist = distEuclidean2D(preLoc, nextLoc)
     lat = nextLoc[0] + (remainDist / segDist) * (preLoc[0] - nextLoc[0])
     lon = nextLoc[1] + (remainDist / segDist) * (preLoc[1] - nextLoc[1])
-    
+    [lat, lon]
     return (lat, lon)
 
 def calPolygonPerimeter(poly: poly) -> float:
