@@ -158,7 +158,7 @@ def distLatLon(pt1: pt, pt2: pt, distUnit: str = 'meter') -> float:
     else:
         return CONST_EPSILON
 
-def locInPath(seq: list[pt], timeStamp: list[float], t: float) -> pt:
+def locInTimedSeq(seq: list[pt], timeStamp: list[float], t: float) -> pt:
     if (len(seq) != len(timeStamp)):
         raise UnsupportedInputError("ERROR: `timeStamp` does not match with `seq`.")
     for i in range(len(timeStamp) - 1):
@@ -179,8 +179,7 @@ def locInPath(seq: list[pt], timeStamp: list[float], t: float) -> pt:
             return [curLocX, curLocY]
     raise UnsupportedInputError("ERROR: cannot find time stamp")
 
-def spdInPath(seq: list[pt], timeStamp: list[float], t: float) -> float:
-
+def spdInTimedSeq(seq: list[pt], timeStamp: list[float], t: float) -> float:
     spd = 0
 
     if (len(seq) != len(timeStamp)):
@@ -203,8 +202,7 @@ def spdInPath(seq: list[pt], timeStamp: list[float], t: float) -> float:
 
     return spd
 
-def traceInPath(seq: list[pt], timeStamp: list[float], ts: float, te: float) -> list[pt]:
-
+def traceInTimedSeq(seq: list[pt], timeStamp: list[float], ts: float, te: float) -> list[pt]:
     trace = []
 
     if (len(seq) != len(timeStamp)):
@@ -267,6 +265,53 @@ def traceInPath(seq: list[pt], timeStamp: list[float], ts: float, te: float) -> 
 
     return trace
 
+def locInPoly(poly: poly, startPt: pt, isClockwise: bool=True) -> pt:
+
+    return loc
+
+
+def locInSeq(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
+
+    """Given a list of lat/lon coordinates, and a traveling mileage, returns the coordinate"""
+
+    # Initialize ==============================================================
+    inPathFlag = False
+    accDist = 0
+    preLoc = []
+    nextLoc = []
+
+    # Find segment ============================================================
+    for i in range(0, len(seq) - 1):
+        if (dimension == 'LatLon'):
+            accDist += distLatLon(seq[i], seq[i + 1])
+        elif (dimension == '2D'):
+            accDist += distEuclidean2D(seq[i], seq[i + 1])
+        if (accDist > distMeters):
+            preLoc = seq[i]
+            nextLoc = seq[i + 1]
+            inPathFlag = True
+            break
+
+    if (inPathFlag == False):
+        return None
+
+    # Find location on the segment ============================================
+    remainDist = accDist - distMeters
+    if (dimension == 'LatLon'):
+        segDist = distLatLon(preLoc, nextLoc)
+    elif (dimension == '2D'):
+        segDist = distEuclidean2D(preLoc, nextLoc)
+    lat = nextLoc[0] + (remainDist / segDist) * (preLoc[0] - nextLoc[0])
+    lon = nextLoc[1] + (remainDist / segDist) * (preLoc[1] - nextLoc[1])
+    
+    return (lat, lon)
+
+def calPolygonPerimeter(poly: poly) -> float:
+    p = 0
+    for i in range(-1, len(poly)):
+        p += distEuclidean2D(poly[i], poly[i + 1])
+    return p
+
 def calTriangleAreaEdge(a: float, b: float, c: float) -> float:
     # Using Heron's Formula ===================================================
     s = (a / 2 + b / 2 + c / 2)
@@ -287,14 +332,13 @@ def calPolygonAreaLatLon(polyLatLon: poly) -> float:
 
     # Additional packages =====================================================
     from pyproj import Geod
-    from shapely.geometry import Polygon
 
     # Create polygon ==========================================================
     # NOTE: shapely is in [lon, lat] format
     rev = []
     for p in polyLatLon:
         rev.append((p[1], p[0]))
-    polygon = Polygon(rev)
+    polygon = shapely.Polygon(rev)
 
     # Using pyproj to calculate ===============================================
     # Ref: https://hypc.github.io/2020/03/16/python-geo-area/
@@ -303,14 +347,14 @@ def calPolygonAreaLatLon(polyLatLon: poly) -> float:
 
     return area
 
-def headingXY(pt1, pt2) -> float:
+def headingXY(pt1: pt, pt2: pt) -> float:
     
     vec = (pt2[0] - pt1[0], pt2[1] - pt1[1])
     (_, vDeg) = vecXY2Polar(vec)
 
     return vDeg
 
-def headingLatLon(pt1, pt2) -> float:
+def headingLatLon(pt1: pt, pt2: pt) -> float:
 
     """Given current location and a goal location, calculate the heading. North is 0-degrees, clock-wise"""
 
@@ -335,13 +379,13 @@ def headingLatLon(pt1, pt2) -> float:
     
     return deg
 
-def ptInDistXY(pt, direction, dist):
+def ptInDistXY(pt: pt, direction: int|float, dist: int|float):
     """A location in distance with given direction, in [lat, lon] form."""
     x = pt[0] + dist * math.sin(math.radians(direction))
     y = pt[1] + dist * math.cos(math.radians(direction))
     return (x, y)
 
-def ptInDistLatLon(pt, direction, distMeters):
+def ptInDistLatLon(pt: pt, direction: int|float, distMeters: int|float):
     """A location in distance with given direction, in [lat, lon] form."""
     # Bearing in degrees: 0 – North, 90 – East, 180 – South, 270 or -90 – West.
     newLoc = list(geopy.distance.distance(meters=distMeters).destination(point=pt, bearing=direction))[:2]
@@ -394,7 +438,7 @@ def getTau(
 
     return tau
 
-def _getTauEuclidean(nodes, nodeIDs, speed = 1):
+def _getTauEuclidean(nodes: dict, nodeIDs: float[int|str]|str, speed = 1):
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
@@ -414,7 +458,7 @@ def _getTauEuclidean(nodes, nodeIDs, speed = 1):
                 tau[j, i] = CONST_EPSILON
     return tau
 
-def _getTauManhatten(nodes, nodeIDs, speed = 1):
+def _getTauManhatten(nodes: dict, nodeIDs: float[int|str]|str, speed = 1):
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
@@ -435,7 +479,7 @@ def _getTauManhatten(nodes, nodeIDs, speed = 1):
                 tau[j, i] = CONST_EPSILON
     return tau
 
-def _getTauLatLon(nodes, nodeIDs, distUnit = 'meter', speed = 1):
+def _getTauLatLon(nodes: dict, nodeIDs: float[int|str]|str, distUnit = 'meter', speed = 1):
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
@@ -456,7 +500,7 @@ def _getTauLatLon(nodes, nodeIDs, distUnit = 'meter', speed = 1):
                 tau[j, i] = CONST_EPSILON
     return tau
 
-def _getTauGrid(nodes, nodeIDs, grid):
+def _getTauGrid(nodes: dict, nodeIDs: float[int|str]|str, grid: dict):
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
@@ -477,11 +521,7 @@ def _getTauGrid(nodes, nodeIDs, grid):
                 tau[j, i] = 0
     return tau
 
-def getSortedNodesByDist(
-    nodes: dict, 
-    edges: dict,
-    refNodeID: int|str,
-    nodeIDs: list[int|str]|str = 'All'):
+def getSortedNodesByDist(nodes: dict, edges: dict, refNodeID: int|str, nodeIDs: list[int|str]|str = 'All'):
 
     """Given a set of locations, and a referencing node, sort the nodes by distance to this referencing node"""
 
@@ -506,13 +546,7 @@ def getSortedNodesByDist(
 
     return sortedSeq
 
-def getSweepSeq(
-    nodes: dict, 
-    nodeIDs: list[int|str]|str = 'All',
-    centerLoc: None|pt = None,
-    isClockwise: bool = True,
-    initDeg: float = 0
-    ) -> list:
+def getSweepSeq( nodes: dict, nodeIDs: list[int|str]|str = 'All', centerLoc: None|pt = None, isClockwise: bool = True, initDeg: float = 0) -> list:
     
     """Given a set of locations, and a center point, gets the sequence from sweeping"""
     
@@ -565,12 +599,7 @@ def getSweepSeq(
 
     return sweepSeq
 
-def gridPathFinding(
-    grid: dict,
-    startCoord: pt,
-    endCoord: pt,
-    algo: dict = {'method': 'A*', 'measure': 'Manhatten'}
-    ) -> dict:
+def gridPathFinding(grid: dict, startCoord: pt, endCoord: pt, algo: dict = {'method': 'A*', 'measure': 'Manhatten'}) -> dict:
 
     """Given two coordinates on the grid, finds the 'shortest' path to travel
 

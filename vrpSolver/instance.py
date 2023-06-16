@@ -314,7 +314,7 @@ def _rndPtRoadNetworkPolyLatLon(N: int, road: dict, poly: poly, roadClass: str |
 
     # Check if there are roads included =======================================
     if (sum(lengths) == 0):
-        raise EmptyError("No road is found.")
+        raise EmptyError("ERROR: No road is found.")
 
     # Use accept-denial to test if the node is within poly ====================
     # FIXME: Inefficient approach, will need to be rewritten
@@ -327,14 +327,14 @@ def _rndPtRoadNetworkPolyLatLon(N: int, road: dict, poly: poly, roadClass: str |
             idx = rndPick(lengths)
             edgeLength = lengths[idx]
             edgeDist = random.uniform(0, 1) * edgeLength
-            (lat, lon) = mileageInPathLatLon(road[roadIDs[idx]]['shape'], edgeDist)
+            (lat, lon) = locInSeq(road[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
         else:
             insideFlag = False
             while (not insideFlag):
                 idx = rndPick(lengths)
                 edgeLength = lengths[idx]
                 edgeDist = random.uniform(0, 1) * edgeLength
-                (lat, lon) = mileageInPathLatLon(road[roadIDs[idx]]['shape'], edgeDist)
+                (lat, lon) = locInSeq(road[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
                 if (isPtOnPoly([lat, lon], poly)):
                     insideFlag = True
         nodeLocs.append((lat, lon))
@@ -379,7 +379,7 @@ def _rndPtRoadNetworkCircleLatLon(N: int, road: dict, radius: float, center: pt,
             idx = rndPick(lengths)
             edgeLength = lengths[idx]
             edgeDist = random.uniform(0, 1) * edgeLength
-            (lat, lon) = mileageInPathLatLon(road[roadIDs[idx]]['shape'], edgeDist)
+            (lat, lon) = locInSeq(road[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
             if (distLatLon([lat, lon], center) <= radius):
                 insideFlag = True
         nodeLocs.append((lat, lon))

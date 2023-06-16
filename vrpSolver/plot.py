@@ -17,6 +17,9 @@ def plotNodes(
     nodeMarkersize: float = 1,
     neighborColor: str|None = 'gray',
     neighborOpacity: float = 0.5,
+    neighborEntranceColor: str = 'black',
+    neighborInboundColor: str = 'orange',
+    neighborOutboundColor: str = 'green',
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
@@ -50,6 +53,8 @@ def plotNodes(
         If nodes have 'neighbor' label, will plot the neighbor area in this color
     neighborOpacity: float, optional, default 0.5
         The opacity of neighborhood.
+    neighborEntranceColor: str, optional, default 'black', 
+        The color of neighbor entrance
     xyReverseFlag: bool, optional, default False
         True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
     fig: matplotlib object, optional, defaut None
@@ -134,6 +139,22 @@ def plotNodes(
                 xyReverseFlag = xyReverseFlag,
                 showAxis = showAxis,
                 fillStyle = '///')
+            if ('neighborEntrance' in nodes[n]):
+                for ent in nodes[n]['neighborEntrance']:
+                    entColor = neighborEntranceColor
+                    if (ent['direction'] == 'inbound'):
+                        entColor = neighborInboundColor
+                    elif (ent['direction'] == 'outbound'):
+                        entColor = neighborOutboundColor
+                    fig, ax = plotSeq(
+                        fig = fig,
+                        ax = ax,
+                        seq = ent['polyline'],
+                        arcColor = entColor,
+                        arcWidth = 2,
+                        arrowFlag = False,
+                        xyReverseFlag = xyReverseFlag,
+                        showAxis = showAxis)
 
         # Define color --------------------------------------------------------
         color = None
@@ -365,7 +386,7 @@ def plotRoute(
     showFig: bool = True
     ):
 
-    """Draw arcs
+    """Given a `nodes` dictionary and a sequnce of node IDs, plot a route that visits each node by IDs.
 
     Parameters
     ----------
@@ -463,7 +484,7 @@ def plotSeq(
     showFig: bool = True
     ):
     
-    """Draw arcs
+    """Given a list of coordinates, plot a open polyline by sequences.
 
     Parameters
     ----------
@@ -813,12 +834,9 @@ def plotProvinceMap(
 
 def plotGantt(
     gantt: list[dict],
-    group: dict|None = None,
-    
+    group: dict|None = None,    
     xlabel:     "xlabel of the gantt" = "Time",
     ylabel:     "ylabel of the gantt" = "",
-
-
     blockwidth: "The width of Gantt block" = 0.8,
     entities:   "1) None, takes the entities in `gantt` \
                  2) List of strings, the Gantt chart will be drawn in this order, \
@@ -839,6 +857,8 @@ def plotGantt(
     showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
                  recommended to turn off if generate a batch of images" = True
     ) -> "Given a Gantt dictionary, plot Gantt":
+
+    raise VrpSolverNotAvailableError("ERROR: The `plotGantt()` function is under rewriting.")
 
     """Given a Gantt dictionary, plot a Gantt chart
 
