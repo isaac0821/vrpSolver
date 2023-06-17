@@ -265,15 +265,63 @@ def traceInTimedSeq(seq: list[pt], timeStamp: list[float], ts: float, te: float)
 
     return trace
 
-def locInPoly(poly: poly, startPt: pt, isClockwise: bool=True) -> pt:
+def locInPoly(poly: poly, startPt: pt, dist: int|float, reverseFlag: bool=False, dimension: str = 'XY') -> pt:
 
-    """Given a polygon"""
+    perimeter = calPolygonPerimeter(poly)
+    while(dist > perimeter):
+        dist -= perimeter
+
+    seq = [startPt]
+    startID = len(poly) + 1
+
+    if (dimension == 'XY'):
+        for i in range(len(poly) - 1):
+            if (abs(distEuclidean2D(poly[i], poly[i + 1]) - distEuclidean2D(poly[i], startPt) - distEuclidean2D(startPt, poly[i + 1])) <= CONST_EPSILON):
+                startID = i + 1
+                break
+        if (startID == len(poly) + 1):
+            if (abs(distEuclidean2D(poly[0], poly[-1]) - distEuclidean2D(poly[0], startPt) - distEuclidean2D(startPt, poly[-1])) <= CONST_EPSILON):
+                startID = 0
+            else:
+                raise UnsupportedInputError("ERROR: `startPt` should be on the boundary of `poly`")
+    elif (dimension == 'LatLon'):
+        for i in range(len(poly) - 1):
+            if (abs(distLatLon(poly[i], poly[i + 1]) - distLatLon(poly[i], startPt) - distLatLon(startPt, poly[i + 1])) <= CONST_EPSILON):
+                startID = i + 1
+                break
+        if (startID == len(poly) + 1):
+            if (abs(distLatLon(poly[0], poly[-1]) - distLatLon(poly[0], startPt) - distLatLon(startPt, poly[-1])) <= CONST_EPSILON):
+                startID = 0
+            else:
+                raise UnsupportedInputError("ERROR: `startPt` should be on the boundary of `poly`")
+    else:
+        raise UnsupportedInputError("ERROR: options for parameter `dimension` includes ['XY', 'LatLon']")
+
+    if (not reverseFlag):
+        for i in range(startID, len(poly)):
+            seq.append(poly[i])
+        for i in range(startID):
+            seq.append(poly[i])
+        seq.append(startPt)
+    else:
+        for i in range(startID, len(poly)):
+            seq.insert(0, poly[i])
+        for i in range(startID):
+            seq.insert(0, poly[i])
+        seq.insert(0, startPt)
+    
+
+    print(seq) 
+
+    loc = locInSeq(seq, dist, dimension)
 
     return loc
 
+def traceInPoly(poly: poly, startPt: pt, endPt:pt, dist: int|float, reverseFlag: bool=False) -> list[pt]:
+
+    return trace
 
 def locInSeq(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
-
     """Given a list of lat/lon coordinates, and a traveling mileage, returns the coordinate"""
 
     # Initialize ==============================================================
@@ -286,31 +334,33 @@ def locInSeq(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
     for i in range(0, len(seq) - 1):
         if (dimension == 'LatLon'):
             accDist += distLatLon(seq[i], seq[i + 1])
-        elif (dimension == '2D'):
+        elif (dimension == 'XY'):
             accDist += distEuclidean2D(seq[i], seq[i + 1])
-        if (accDist > distMeters):
+        if (accDist > dist):
             preLoc = seq[i]
             nextLoc = seq[i + 1]
             inPathFlag = True
             break
 
     if (inPathFlag == False):
-        return None
+        raise UnsupportedInputError("ERROR: `dist` is longer than the length of `seq`")
 
     # Find location on the segment ============================================
-    remainDist = accDist - distMeters
+    remainDist = accDist - dist
+    segDist = 0
     if (dimension == 'LatLon'):
         segDist = distLatLon(preLoc, nextLoc)
-    elif (dimension == '2D'):
+    elif (dimension == 'XY'):
         segDist = distEuclidean2D(preLoc, nextLoc)
+    if (segDist <= CONST_EPSILON):
+        raise ZeroDivisionError
     lat = nextLoc[0] + (remainDist / segDist) * (preLoc[0] - nextLoc[0])
     lon = nextLoc[1] + (remainDist / segDist) * (preLoc[1] - nextLoc[1])
-    [lat, lon]
     return (lat, lon)
 
 def calPolygonPerimeter(poly: poly) -> float:
     p = 0
-    for i in range(-1, len(poly)):
+    for i in range(-1, len(poly) - 1):
         p += distEuclidean2D(poly[i], poly[i + 1])
     return p
 
@@ -440,7 +490,7 @@ def getTau(
 
     return tau
 
-def _getTauEuclidean(nodes: dict, nodeIDs: float[int|str]|str, speed = 1):
+def _getTauEuclidean(nodes: dict, nodeIDs: list[int|str]|str, speed = 1):
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
@@ -460,7 +510,7 @@ def _getTauEuclidean(nodes: dict, nodeIDs: float[int|str]|str, speed = 1):
                 tau[j, i] = CONST_EPSILON
     return tau
 
-def _getTauManhatten(nodes: dict, nodeIDs: float[int|str]|str, speed = 1):
+def _getTauManhatten(nodes: dict, nodeIDs: list[int|str]|str, speed = 1):
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
@@ -481,7 +531,7 @@ def _getTauManhatten(nodes: dict, nodeIDs: float[int|str]|str, speed = 1):
                 tau[j, i] = CONST_EPSILON
     return tau
 
-def _getTauLatLon(nodes: dict, nodeIDs: float[int|str]|str, distUnit = 'meter', speed = 1):
+def _getTauLatLon(nodes: dict, nodeIDs: list[int|str]|str, distUnit = 'meter', speed = 1):
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
@@ -502,7 +552,7 @@ def _getTauLatLon(nodes: dict, nodeIDs: float[int|str]|str, distUnit = 'meter', 
                 tau[j, i] = CONST_EPSILON
     return tau
 
-def _getTauGrid(nodes: dict, nodeIDs: float[int|str]|str, grid: dict):
+def _getTauGrid(nodes: dict, nodeIDs: list[int|str]|str, grid: dict):
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
