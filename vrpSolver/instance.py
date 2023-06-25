@@ -14,6 +14,7 @@ from .error import *
 #            distributions: 'UniformSquareXY', 'UniformPolyXY', 'UniformCircleXY', 
 #            'UniformCircleLatLon', 'RoadNetworkPolyLatLon', and 'RoadNetworkCircleLatLon'
 # 20230515 - Revise the parameter annotation according to PEP 3107
+# 20230624 - Add `rndPlainArcs()`
 # =============================================================================
 
 def rndPlainNodes(
@@ -218,7 +219,7 @@ def rndPlainNodes(
 
     return nodes
 
-def _rndPtUniformSquareXY(xRange: list[int] | list[float], yRange: list[int] | list[float]) -> pt:
+def _rndPtUniformSquareXY(xRange: list[int]|list[float], yRange: list[int]|list[float]) -> pt:
     x = random.uniform(xRange[0], xRange[1])
     y = random.uniform(yRange[0], yRange[1])
     return (x, y)
@@ -385,4 +386,78 @@ def _rndPtRoadNetworkCircleLatLon(N: int, road: dict, radius: float, center: pt,
         nodeLocs.append((lat, lon))
 
     return nodeLocs
+
+def rndPlainArcs(
+    A: int|None = None,
+    arcIDs: list[int|str] = [],
+    distr: dict = {
+            'method': 'UniformLengthInSquareXY',
+            'xRange': (0, 100),
+            'yRange': (0, 100),
+            'minLen': 0,
+            'maxLen': 10
+        }
+    ) -> dict:
+
+    """Randomly create a set of arcs (to be visited) 
+
+    Parameters
+    ----------
+
+    A: integer, optional, default None
+        Number of arcs to be visited
+    arcIDs: list, optional, default None
+        Alternative input parameter of `A`. A list of arc IDs, `A` will be overwritten if `arcIDs` is given
+    distr: dictionary, optional, default {'method': 'UniformLengthInSquareXY', 'xRange': (0, 100), 'yRange': (0, 100), 'minLen': 0, 'maxLen': 10}
+        Spatial distribution of arcs, optional are as following:
+        1) (default) Uniformly sample from a square on the Euclidean space, with uniformly selected length
+        >>> distr = {
+        ...     'method': 'UniformLengthInSquareXY',
+        ...     'xRange': (0, 100),
+        ...     'yRange': (0, 100),
+        ...     'minLen': 0,
+        ...     'maxLen': 10
+        ... }
+
+    """
+
+    # Sanity check ============================================================
+    if (distr == None or 'method' not in distr):
+        raise MissingParameterError(ERROR_MISSING_ARCS_DISTR)
+
+    arcs = {}
+    if (arcIDs == [] and A == None):
+        raise MissingParameterError(ERROR_MISSING_N)
+    elif (arcIDs == [] and A != None):
+        arcIDs = [i for i in range(A)]
+
+    # Generate instance =======================================================
+    if (distr['method'] == 'UniformLengthInSquareXY'):
+        if ('minLen' not in distr or 'maxLen' not in distr):
+            raise MissingParameterError("ERROR: Missing required field 'minLen' and/or 'maxLen' in `distr`")
+        xRange = None
+        yRange = None
+        if ('xRange' not in distr or 'yRange' not in distr):
+            xRange = [0, 100]
+            yRange = [0, 100]
+            warnings.warn("WARNING: Set sample area to be default as a (0, 100) x (0, 100) square")
+        else:
+            xRange = [float(distr['xRange'][0]), float(distr['xRange'][1])]
+            yRange = [float(distr['yRange'][0]), float(distr['yRange'][1])]
+        for n in arcIDs:
+            arcs[n] = {
+                'arc': _rndArcUniformSquareXY(xRange, yRange, distr['minLen'], distr['maxLen'])
+            }
+    else:
+        raise UnsupportedInputError(ERROR_MISSING_ARCS_DISTR)
+
+    return arcs
+
+def _rndArcUniformSquareXY(xRange: list[int]|list[float], yRange: list[int]|list[float], minLen: int|float, maxLen: int|float) -> tuple[pt, pt]:
+    length = random.uniform(minLen, maxLen)
+    direction = random.uniform(0, 360)
+    xStart = random.uniform(xRange[0], xRange[1])
+    yStart = random.uniform(yRange[0], yRange[1])
+    (xEnd, yEnd) = ptInDistXY((xStart, yStart), direction, length)
+    return ((xStart, yStart), (xEnd, yEnd))
 

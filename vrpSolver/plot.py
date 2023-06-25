@@ -8,6 +8,7 @@ from .error import *
 
 # History =====================================================================
 # 20230518 - `plotNodes()` now will plot the neighborhood of nodes
+# 20230624 - Rename functions `plotArcs()`, `plotLocSeq()`, `plotNodeSeq()`
 # =============================================================================
 
 def plotNodes(
@@ -17,6 +18,7 @@ def plotNodes(
     nodeMarkersize: float = 1,
     neighborColor: str|None = 'gray',
     neighborOpacity: float = 0.5,
+    neighborEntranceWidth: float = 1.2,
     neighborEntranceColor: str = 'black',
     neighborInboundColor: str = 'orange',
     neighborOutboundColor: str = 'green',
@@ -82,24 +84,27 @@ def plotNodes(
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
-        allX = []
-        allY = []
-        for i in nodes:
-            if (not xyReverseFlag):
-                allX.append(nodes[i]['loc'][0])
-                allY.append(nodes[i]['loc'][1])
-            else:
-                allX.append(nodes[i]['loc'][1])
-                allY.append(nodes[i]['loc'][0])
+        # Adjust bounding box
         (xMin, xMax, yMin, yMax) = boundingBox
-        if (xMin == None):
-            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
-        if (xMax == None):
-            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
-        if (yMin == None):
-            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
-        if (yMax == None):
-            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+        if (xMin == None or xMax == None or yMin == None or yMax == None):
+            allX = []
+            allY = []
+            for i in nodes:
+                if (not xyReverseFlag):
+                    allX.append(nodes[i]['loc'][0])
+                    allY.append(nodes[i]['loc'][1])
+                else:
+                    allX.append(nodes[i]['loc'][1])
+                    allY.append(nodes[i]['loc'][0])        
+            if (xMin == None):
+                xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
+            if (xMax == None):
+                xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
+            if (yMin == None):
+                yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
+            if (yMax == None):
+                yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+        # Adjust width and height
         width = 0
         height = 0
         if (figSize == None or (figSize[0] == None and figSize[1] == None)):
@@ -139,19 +144,23 @@ def plotNodes(
                 xyReverseFlag = xyReverseFlag,
                 showAxis = showAxis,
                 fillStyle = '///')
-            if ('neighborEntrance' in nodes[n]):
-                for ent in nodes[n]['neighborEntrance']:
-                    entColor = neighborEntranceColor
-                    if (ent['direction'] == 'inbound'):
+            if ('entrance' in nodes[n]):
+                for ent in nodes[n]['entrance']:
+                    entColor = 'black'
+                    if ('allow' not in ent):
+                        entColor = 'black'
+                    elif (ent['allow'] == 'Both'):
+                        entColor = neighborEntranceColor
+                    elif (ent['allow'] == 'Inbound'):
                         entColor = neighborInboundColor
-                    elif (ent['direction'] == 'outbound'):
+                    elif (ent['allow'] == 'Outbound'):
                         entColor = neighborOutboundColor
-                    fig, ax = plotSeq(
+                    fig, ax = plotLocSeq(
                         fig = fig,
                         ax = ax,
-                        seq = ent['polyline'],
-                        arcColor = entColor,
-                        arcWidth = 2,
+                        locSeq = ent['polyline'],
+                        lineColor = entColor,
+                        lineWidth = neighborEntranceWidth,
                         arrowFlag = False,
                         xyReverseFlag = xyReverseFlag,
                         showAxis = showAxis)
@@ -210,13 +219,21 @@ def plotNodes(
     return fig, ax
 
 def plotArcs(
-    nodes: dict, 
-    arcs: list[line],
+    arcs: dict,
     arcColor: str = 'Random',
-    arcWidth: float = 1,
+    arcWidth: float = 1.0,
     arrowFlag: bool = True,
-    arrowHeadWidth: float = 0.1,
-    arrowHeadLength: float = 0.2,
+    arrowHeadWidth: float = 2.0,
+    arrowHeadLength: float = 3.0,
+    startColor: str = 'black',
+    endColor: str = 'black',
+    bothEndSize: int|float = 2.0,
+    neighborColor: str = 'gray',
+    neighborOpacity: float = 0.5,
+    neighborEntranceWidth: float = 1.2,
+    neighborEntranceColor: str = 'black',
+    neighborInboundColor: str = 'orange',
+    neighborOutboundColor: str = 'green',
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
@@ -232,20 +249,7 @@ def plotArcs(
     Parameters
     ----------
 
-    nodes: dictionary, required
-        The coordinates and other attributions of the nodes to be plotted, in the following format::
-            >>> nodes = {
-            ...     nodeID1: {
-            ...         'loc': (x, y),
-            ...         'marker': 'r',    # Optional, default as 'o'
-            ...         'markersize': 2,  # Optional, default as None
-            ...         'color': 'red',   # Optional, default as 'Random'
-            ...         'size': 3,        # Optional, default as 3
-            ...         'fontsize': 3,    # Optional, default as 3
-            ...         'neighbor': poly, # Optional, indicate if need to display the neighborhood
-            ...     }, # ...
-            ... }
-    arcs: list[line], required
+    arcs: dict, required
         A set of arcs, each arc is defined by two points
     arcColor: string, optional, default 'Random'
         Color of arcs
@@ -256,8 +260,8 @@ def plotArcs(
     arrowHeadWidth: float, optional, default 0.1
         Width of arrow head
     arrowHeadLength: float, optional, default 0.2
-        Lengtho of arrow head
-    fig: matplotlib object, optional, defaut None
+        Length of arrow head
+    fig: matplotlib object, optional, default None
         `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
     ax: matplotlib object, optional, default None
         See `fig`
@@ -278,36 +282,38 @@ def plotArcs(
     """
 
     # Check for required fields ===============================================
-    if (nodes == None):
-        raise MissingParameterError(ERROR_MISSING_NODES)
     if (arcs == None):
         raise MissingParameterError("ERROR: Missing required field `arcs`.")
 
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
-        allX = []
-        allY = []
-        for i in arcs:
-            if (not xyReverseFlag):
-                allX.append(nodes[i[0]]['loc'][0])
-                allY.append(nodes[i[0]]['loc'][1])
-                allX.append(nodes[i[1]]['loc'][0])
-                allY.append(nodes[i[1]]['loc'][1])
-            else:
-                allX.append(nodes[i[0]]['loc'][1])
-                allY.append(nodes[i[0]]['loc'][0])
-                allX.append(nodes[i[1]]['loc'][1])
-                allY.append(nodes[i[1]]['loc'][0])
+        # Adjust bounding box
         (xMin, xMax, yMin, yMax) = boundingBox
-        if (xMin == None):
-            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
-        if (xMax == None):
-            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
-        if (yMin == None):
-            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
-        if (yMax == None):
-            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+        if (xMin == None or xMax == None or yMin == None or yMax == None):
+            allX = []
+            allY = []
+            for i in arcs:
+                if (not xyReverseFlag):
+                    allX.append(arcs[i]['arc'][0][0])
+                    allX.append(arcs[i]['arc'][0][1])
+                    allY.append(arcs[i]['arc'][1][0])
+                    allY.append(arcs[i]['arc'][1][1])
+                else:
+                    allX.append(arcs[i]['arc'][0][1])
+                    allX.append(arcs[i]['arc'][0][0])
+                    allY.append(arcs[i]['arc'][1][1])
+                    allY.append(arcs[i]['arc'][1][0])
+            
+            if (xMin == None):
+                xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
+            if (xMax == None):
+                xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
+            if (yMin == None):
+                yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
+            if (yMax == None):
+                yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+        # Adjust width and height
         width = 0
         height = 0
         if (figSize == None or (figSize[0] == None and figSize[1] == None)):
@@ -333,17 +339,18 @@ def plotArcs(
             ax.set_ylim(yMin, yMax)
 
     # Draw arcs ===============================================================
-    for arc in arcs:
+    for i in arcs:
+        x1, y1, x2, y2 = 0, 0, 0, 0
         if (not xyReverseFlag):
-            x1 = nodes[arc[0]]['loc'][0]
-            y1 = nodes[arc[0]]['loc'][1]
-            x2 = nodes[arc[1]]['loc'][0]
-            y2 = nodes[arc[1]]['loc'][1]
+            x1 = arcs[i]['arc'][0][0]
+            y1 = arcs[i]['arc'][0][1]
+            x2 = arcs[i]['arc'][1][0]
+            y2 = arcs[i]['arc'][1][1]
         else:
-            x1 = nodes[arc[0]]['loc'][1]
-            y1 = nodes[arc[0]]['loc'][0]
-            x2 = nodes[arc[1]]['loc'][1]
-            y2 = nodes[arc[1]]['loc'][0]
+            x1 = arcs[i]['arc'][0][1]
+            y1 = arcs[i]['arc'][0][0]
+            x2 = arcs[i]['arc'][1][1]
+            y2 = arcs[i]['arc'][1][0]
         dx = x2 - x1
         dy = y2 - y1
         if (arcColor == 'Random'):
@@ -355,6 +362,52 @@ def plotArcs(
             ax.plot([x1, x2], [y1, y2], color = arcColor)
             if (arrowFlag):
                 ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=arcColor)
+
+        ax.plot(x1, y1, color = startColor, marker = 'o', markersize = bothEndSize)
+        ax.plot(x2, y2, color = endColor, marker = 'o', markersize = bothEndSize)
+        if ('label' not in arcs[i]):
+            lbl = i
+        else:
+            lbl = arcs[i]['label']
+        ha = 'left'
+        if ('ha' in arcs[i]):
+            ha = arcs[i]['ha']
+        va = 'top'
+        if ('va' in arcs[i]):
+            va = arcs[i]['va']
+        ax.annotate(lbl, (x1 + dx / 2, y1 + dy / 2), ha=ha, va=va)
+        if ('neighbor' in arcs[i] and neighborColor != None):
+            fig, ax = plotPolygon(
+                fig = fig,
+                ax = ax,
+                poly = arcs[i]['neighbor'],
+                edgeWidth = 1,
+                edgeColor = 'black',
+                fillColor = neighborColor,
+                opacity = neighborOpacity,
+                xyReverseFlag = xyReverseFlag,
+                showAxis = showAxis,
+                fillStyle = '///')
+            if ('entrance' in arcs[i]):
+                for ent in arcs[i]['entrance']:
+                    entColor = 'black'
+                    if ('allow' not in ent):
+                        entColor = 'black'
+                    elif (ent['allow'] == 'Both'):
+                        entColor = neighborEntranceColor
+                    elif (ent['allow'] == 'Inbound'):
+                        entColor = neighborInboundColor
+                    elif (ent['allow'] == 'Outbound'):
+                        entColor = neighborOutboundColor
+                    fig, ax = plotLocSeq(
+                        fig = fig,
+                        ax = ax,
+                        locSeq = ent['polyline'],
+                        lineColor = entColor,
+                        lineWidth = neighborEntranceWidth,
+                        arrowFlag = False,
+                        xyReverseFlag = xyReverseFlag,
+                        showAxis = showAxis)
 
     # Axis on and off =========================================================
     if (not showAxis):
@@ -368,109 +421,10 @@ def plotArcs(
 
     return fig, ax
 
-def plotRoute(
-    nodes: dict, 
-    route: list[int|str],
+def plotLocSeq(
+    locSeq: list[pt],
     lineColor: str = 'Random',
-    lineWidth: float = 1,
-    arrowFlag: bool = True,
-    arrowHeadWidth: float = 0.1,
-    arrowHeadLength: float = 0.2,
-    xyReverseFlag: bool = False,
-    fig = None,
-    ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
-    showAxis: bool = True,
-    saveFigPath: str|None = None,
-    showFig: bool = True
-    ):
-
-    """Given a `nodes` dictionary and a sequnce of node IDs, plot a route that visits each node by IDs.
-
-    Parameters
-    ----------
-
-    nodes: dictionary, required
-        The coordinates and other attributions of the nodes to be plotted, in the following format::
-            >>> nodes = {
-            ...     nodeID1: {
-            ...         'loc': (x, y),
-            ...         'marker': 'r',    # Optional, default as 'o'
-            ...         'markersize': 2,  # Optional, default as None
-            ...         'color': 'red',   # Optional, default as 'Random'
-            ...         'size': 3,        # Optional, default as 3
-            ...         'fontsize': 3,    # Optional, default as 3
-            ...         'neighbor': poly, # Optional, indicate if need to display the neighborhood
-            ...     }, # ...
-            ... }
-    arcs: list[line], optional, default None
-        A set of arcs, each arc is defined by two points
-    arcColor: string, optional, default 'Random'
-        Color of arcs
-    arcWidth: float, optional, default 1
-        Width of arcs
-    arrowFlag: bool, optional, default True
-        True if plot arrows
-    arrowHeadWidth: float, optional, default 0.1
-        Width of arrow head
-    arrowHeadLength: float, optional, default 0.2
-        Lengtho of arrow head
-    xyReverseFlag: bool, optional, default False
-        True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
-    fig: matplotlib object, optional, defaut None
-        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
-    ax: matplotlib object, optional, default None
-        See `fig`
-    figSize: 2-tuple, optional, default as (None, 5)
-        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
-    boundingBox: 4-tuple, optional, default as (None, None, None, None)
-        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
-    saveFigPath: string, optional, default as None
-        The path for exporting image if provided
-    showFig: bool, optional, default as True
-        True if show the figure in Juypter Notebook environment
-
-    Returns
-    -------
-    fig, ax: matplotlib.pyplot object
-    """
-
-    # Create arcs =============================================================
-    if (route == None):
-        raise MissingParameterError("ERROR: Missing required field `route`.")
-    arcs = []
-    for i in range(len(route) - 1):
-        arcs.append([route[i], route[i + 1]])
-
-    # Color ===================================================================
-    if (lineColor == 'Random'):
-        lineColor = colorRandom()
-
-    # Call plotArcs ===========================================================
-    fig, ax = plotArcs(
-        fig = fig,
-        ax = ax,
-        nodes = nodes,
-        arcs = arcs,
-        arcColor = lineColor,
-        arcWidth = lineWidth,
-        arrowFlag = arrowFlag,
-        arrowHeadWidth = arrowHeadWidth,
-        arrowHeadLength = arrowHeadLength,
-        xyReverseFlag = xyReverseFlag,
-        figSize = figSize,
-        boundingBox = boundingBox,
-        showAxis = showAxis,
-        saveFigPath = saveFigPath,
-        showFig = showFig)
-
-    return fig, ax
-
-def plotSeq(
-    seq: list[pt],
-    arcColor: str = 'Random',
-    arcWidth: float = 1,
+    lineWidth: float = 1.0,
     arrowFlag: bool = True,
     arrowHeadWidth: float = 0.1,
     arrowHeadLength: float = 0.2,
@@ -489,21 +443,21 @@ def plotSeq(
     Parameters
     ----------
 
-    seq: list[pt], optional, default None
-        A list of points to form a sequence
-    arcColor: string, optional, default 'Random'
-        Color of arcs
-    arcWidth: float, optional, default 1
-        Width of arcs
+    locSeq: list[pt], required
+        A list of coordinates to form a sequence
+    lineColor: string, optional, default 'Random'
+        Color of lines
+    lineWidth: float, optional, default 1
+        Width of lines
     arrowFlag: bool, optional, default True
         True if plot arrows
     arrowHeadWidth: float, optional, default 0.1
         Width of arrow head
     arrowHeadLength: float, optional, default 0.2
-        Lengtho of arrow head
+        Length of arrow head
     xyReverseFlag: bool, optional, default False
         True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
-    fig: matplotlib object, optional, defaut None
+    fig: matplotlib object, optional, default None
         `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
     ax: matplotlib object, optional, default None
         See `fig`
@@ -522,15 +476,15 @@ def plotSeq(
     """
 
     # Check for required fields ===============================================
-    if (seq == None):
-        raise MissingParameterError("ERROR: Missing required field `seq`.")
+    if (locSeq == None):
+        raise MissingParameterError("ERROR: Missing required field `locSeq`.")
 
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
         allX = []
         allY = []
-        for i in seq:
+        for i in locSeq:
             if (not xyReverseFlag):
                 allX.append(i[0])
                 allY.append(i[1])
@@ -570,26 +524,26 @@ def plotSeq(
             ax.set_xlim(xMin, xMax)
             ax.set_ylim(yMin, yMax)
 
-    # Draw arcs ===============================================================
-    if (arcColor == 'Random'):
-        arcColor = colorRandom() 
-    for i in range(len(seq) - 1):
-        arc = [seq[i], seq[i + 1]]
+    # Draw lines ===============================================================
+    if (lineColor == 'Random'):
+        lineColor = colorRandom() 
+    for i in range(len(locSeq) - 1):
+        line = [locSeq[i], locSeq[i + 1]]
         if (not xyReverseFlag):
-            x1 = arc[0][0]
-            y1 = arc[0][1]
-            x2 = arc[1][0]
-            y2 = arc[1][1]
+            x1 = line[0][0]
+            y1 = line[0][1]
+            x2 = line[1][0]
+            y2 = line[1][1]
         else:
-            x1 = arc[0][1]
-            y1 = arc[0][0]
-            x2 = arc[1][1]
-            y2 = arc[1][0]
+            x1 = line[0][1]
+            y1 = line[0][0]
+            x2 = line[1][1]
+            y2 = line[1][0]
         dx = x2 - x1
         dy = y2 - y1
-        ax.plot([x1, x2], [y1, y2], color = arcColor, linewidth=arcWidth)
+        ax.plot([x1, x2], [y1, y2], color = lineColor, linewidth=lineWidth)
         if (arrowFlag):
-            ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=arcColor)
+            ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=lineWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=lineColor)
 
     # Axis on and off =========================================================
     if (not showAxis):
@@ -600,6 +554,111 @@ def plotSeq(
         fig.savefig(saveFigPath)
     if (not showFig):
         plt.close(fig)
+
+    return fig, ax
+
+def plotNodeSeq(
+    nodes: dict, 
+    nodeSeq: list[int|str],
+    lineColor: str = 'Random',
+    lineWidth: float = 1,
+    arrowFlag: bool = True,
+    arrowHeadWidth: float = 0.1,
+    arrowHeadLength: float = 0.2,
+    xyReverseFlag: bool = False,
+    fig = None,
+    ax = None,
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ):
+
+    """Given a `nodes` dictionary and a sequence of node IDs, plot a route that visits each node by IDs.
+
+    Parameters
+    ----------
+
+    nodes: dictionary, required
+        The coordinates and other attributions of the nodes to be plotted, in the following format::
+            >>> nodes = {
+            ...     nodeID1: {
+            ...         'loc': (x, y),
+            ...         'marker': 'r',    # Optional, default as 'o'
+            ...         'markersize': 2,  # Optional, default as None
+            ...         'color': 'red',   # Optional, default as 'Random'
+            ...         'size': 3,        # Optional, default as 3
+            ...         'fontsize': 3,    # Optional, default as 3
+            ...         'neighbor': poly, # Optional, indicate if need to display the neighborhood
+            ...     }, # ...
+            ... }
+    nodeSeq: list[int|str], required
+        A list of nodeIDs which will form a visiting sequence
+    arcColor: string, optional, default 'Random'
+        Color of arcs
+    arcWidth: float, optional, default 1
+        Width of arcs
+    arrowFlag: bool, optional, default True
+        True if plot arrows
+    arrowHeadWidth: float, optional, default 0.1
+        Width of arrow head
+    arrowHeadLength: float, optional, default 0.2
+        Length of arrow head
+    xyReverseFlag: bool, optional, default False
+        True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
+    fig: matplotlib object, optional, default None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
+    figSize: 2-tuple, optional, default as (None, 5)
+        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
+    boundingBox: 4-tuple, optional, default as (None, None, None, None)
+        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
+    saveFigPath: string, optional, default as None
+        The path for exporting image if provided
+    showFig: bool, optional, default as True
+        True if show the figure in Juypter Notebook environment
+
+    Returns
+    -------
+    fig, ax: matplotlib.pyplot object
+    """
+
+    # Create arcs =============================================================
+    if (nodeSeq == None):
+        raise MissingParameterError("ERROR: Missing required field `nodeSeq`.")
+    arcs = []
+    for i in range(len(nodeSeq) - 1):
+        arcs.append([nodeSeq[i], nodeSeq[i + 1]])
+
+    # Color ===================================================================
+    if (lineColor == 'Random'):
+        lineColor = colorRandom()
+
+    # Call plotArcs ===========================================================
+
+    locSeq = []
+    for n in nodeSeq:
+        if (n not in nodes):
+            raise UnsupportedInputError("ERROR: Cannot find %s in nodes" % n)
+        locSeq.append(nodes[n]['loc'])
+
+    fig, ax = plotLocSeq(
+        fig = fig,
+        ax = ax,
+        locSeq = locSeq,
+        lineColor = lineColor,
+        lineWidth = lineWidth,
+        arrowFlag = arrowFlag,
+        arrowHeadWidth = arrowHeadWidth,
+        arrowHeadLength = arrowHeadLength,
+        xyReverseFlag = xyReverseFlag,
+        figSize = figSize,
+        boundingBox = boundingBox,
+        showAxis = showAxis,
+        saveFigPath = saveFigPath,
+        showFig = showFig)
 
     return fig, ax
 
@@ -762,7 +821,6 @@ def plotProvinceMap(
     showFig: bool = True
     ):
 
-
     """Draw arcs
 
     Parameters
@@ -834,21 +892,20 @@ def plotProvinceMap(
 
 def plotGantt(
     gantt: list[dict],
-    group: dict|None = None,    
-    xlabel:     "xlabel of the gantt" = "Time",
-    ylabel:     "ylabel of the gantt" = "",
-    blockwidth: "The width of Gantt block" = 0.8,
-    entities:   "1) None, takes the entities in `gantt` \
-                 2) List of strings, the Gantt chart will be drawn in this order, \
-                 3) List of lists (strings), the Gantt chart will be drawn in groups" = None,
-
-
+    group: dict|None = None, 
+    phase: list[dict] = None,
+    xlabel: str = "Time",
+    ylabel: str = "",
+    ganttHeight: float = 0.8,
+    ganttLinewidth: float = 1.0,
+    groupSpace: float = 0.5,
+    groupSeparater: str = "-",
+    groupSeparaterLinewidth: float = 0.5,
+    phaseSeparater: str = "--",
+    phaseSeparaterLinewidth: float = 0.5,
     startTime:  "Start time of Gantt, default to be 0, if None, use the earliest time in `gantt`" = 0,
     endTime:    "End time of Gantt, default to be None, if None, use the latest time in `gantt`" = None,
     showTail:   "Show the latest time of all gantt blocks" = True,
-
-    linewidth:  "The width of Gantt block borders" = 1,
-
     fig:        "Based matplotlib figure object" = None, 
     ax:         "Based matplotlib ax object" = None,
     figSize:    "Size of the figure, in (width, height)" = (12, 5),
@@ -876,9 +933,19 @@ def plotGantt(
             ... }, ... ]
     group: dictionary, optional, default None
         Groups of entityIDs, in the following format
-            >>> group[groupID] = [entityID1, entityID2, ...]
-
-    fig: matplotlib object, optional, defaut None
+            >>> group[groupID] = {
+            ...     'title': groupTitle,
+            ...     'entities': [entityID1, entityID2, ...],
+            ...     'showFlag': True,
+            ...     'backgroundColor': 'gray',
+            ...     'backgroundOpacity': 0.5
+            ... }
+    phase: list of dictionaries, optional, default None
+    xlabel: string, optional, default "Time"
+        The label of x-axis
+    ylabel: string, optional, default ""
+        The label of y-axis
+    fig: matplotlib object, optional, default None
         `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
     ax: matplotlib object, optional, default None
         See `fig`
@@ -889,7 +956,6 @@ def plotGantt(
     showFig: bool, optional, default as True
         True if show the figure in Juypter Notebook environment
     """
-
 
     # Check for required fields ===============================================
     if (gantt == None):
@@ -914,14 +980,9 @@ def plotGantt(
                 realEnd = g['timeStamps'][-1]
 
     # Check overwritten fields ================================================
-    if (startTime != None):
-        startTime = startTime
-    else:
+    if (startTime == None):
         startTime = realStart
-
-    if (endTime != None):
-        endTime = endTime
-    else:
+    if (endTime == None):
         endTime = realEnd
 
     # Arrange entities ========================================================
@@ -994,8 +1055,8 @@ def plotGantt(
     # Loop through `gantt` and draw gantt =====================================
     for g in gantt:
         if (g['entityID'] in entities):
-            bottom = yticks[len(yticks) - 1 - entities.index(g['entityID'])] - blockwidth / 2
-            top = yticks[len(yticks) - 1 - entities.index(g['entityID'])] + blockwidth / 4
+            bottom = yticks[len(yticks) - 1 - entities.index(g['entityID'])] - blockHeight / 2
+            top = yticks[len(yticks) - 1 - entities.index(g['entityID'])] + blockHeight / 4
             if ('timeWindow' in g):
                 s = g['timeWindow'][0]
                 e = g['timeWindow'][1]
@@ -1008,9 +1069,9 @@ def plotGantt(
                     rndColor = colorRandom()
                     ax.fill(x, y, color = rndColor, linewidth = linewidth)
                 if ('descPosition' not in g or g['descPosition'] == 0):
-                    ax.annotate(g['desc'], (s + blockwidth / 4, top + blockwidth / 8))
+                    ax.annotate(g['desc'], (s + blockHeight / 4, top + blockHeight / 8))
                 elif (g['descPosition'] == 1):
-                    ax.annotate(g['desc'], (s + blockwidth / 4, bottom + blockwidth / 8))
+                    ax.annotate(g['desc'], (s + blockHeight / 4, bottom + blockHeight / 8))
                 if (g['style'] != 'solid'):
                     ax.fill(x, y, hatch = g['style'], fill=False, linewidth = linewidth)
             elif ('timeStamps' in g):
@@ -1020,7 +1081,7 @@ def plotGantt(
                     x = [s, s, e, e, s]
                     y = [bottom, top, top, bottom, bottom]
                     ax.plot(x, y, color = 'black', linewidth = linewidth)
-                    ax.annotate(g['desc'][i], (s, top + blockwidth / 8))
+                    ax.annotate(g['desc'][i], (s, top + blockHeight / 8))
                     if (g['color'] != 'random'):
                         ax.fill(x, y, color = g['color'], linewidth = linewidth)
                     else:
@@ -1028,7 +1089,7 @@ def plotGantt(
                         ax.fill(x, y, color = rndColor, linewidth = linewidth)
                     if (g['style'] != 'solid'):
                         ax.fill(x, y, hatch = g['style'], fill=False, linewidth = linewidth)
-                ax.annotate(g['desc'][-1], (g['timeStamps'][-1], top + blockwidth / 8))
+                ax.annotate(g['desc'][-1], (g['timeStamps'][-1], top + blockHeight / 8))
 
     # Show time span ==========================================================
     if (showTail):

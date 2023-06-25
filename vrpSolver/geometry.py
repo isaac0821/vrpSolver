@@ -308,10 +308,7 @@ def locInPoly(poly: poly, startPt: pt, dist: int|float, reverseFlag: bool=False,
             seq.insert(0, poly[i])
         for i in range(startID):
             seq.insert(0, poly[i])
-        seq.insert(0, startPt)
-    
-
-    print(seq) 
+        seq.insert(0, startPt) 
 
     loc = locInSeq(seq, dist, dimension)
 
