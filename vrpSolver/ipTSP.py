@@ -17,7 +17,7 @@ from .geometry import *
 
 def ipTSP(
     nodes: dict, 
-    edges: dict,
+    edges: dict = {'method': "Euclidean", 'ratio': 1},
     fml: str = 'DFJ_Lazy', 
     solver: dict = {'solver': 'Gurobi', 'timeLimit': None, 'gapTolerance': None, 'outputFlag': False},
     depotID: int|str = 0,
@@ -940,4 +940,375 @@ def _ipTSPCOPTLazyCuts(nodeIDs, tau, outputFlag, timeLimit):
         'runtime': runtime
     }
 
+def ipTSPEx(
+    nodes: dict, 
+    predefinedArcs: list[tuple[int|str]],
+    edges: dict = {'method': "Euclidean", 'ratio': 1},
+    fml: str = 'DFJ_Lazy', 
+    solver: dict = {'solver': 'Gurobi', 'timeLimit': None, 'gapTolerance': None, 'outputFlag': False},
+    depotID: int|str = 0,
+    nodeIDs: list[int|str]|str = 'All',
+    serviceTime: float = 0,
+    ) -> dict|None:
 
+    """Use IP formulation to find optimal TSP solution with extra predefined arcs
+
+    Parameters
+    ----------
+
+    nodes: dictionary, required, default None
+        The coordinates of given nodes, in the following format::
+            >>> nodes = {
+            ...     nodeID1: {'loc': (x, y)},
+            ...     nodeID2: {'loc': (x, y)}, # ...
+            ... }
+    edges: dictionary, required, default as {'method': "Euclidean", 'ratio': 1}
+        The traveling matrix. The options are as follows::
+            1) (default) Euclidean space
+            >>> edge = {
+            ...     'method': 'Euclidean',
+            ...     'ratio': 1 # Optional, default to be 1
+            ... }
+            2) By given pairs of lat/lon
+            >>> edge = {
+            ...     'method': 'LatLon',
+            ...     'unit': 'meters' # Optional, default to be 1
+            ... }
+            3) ManhattenDistance
+            >>> edge = {
+            ...     'method': 'Manhatten',
+            ...     'ratio': 1 # Optional, default to be 1
+            ... }
+            4) By a given dictionary
+            >>> edge = {
+            ...     'method': 'Dictionary',
+            ...     'dictionary': dictionary,
+            ...     'ratio': 1 # Optional, default to be 1
+            ... }
+            5) On the grids
+            >>> edge = {
+            ...     'method': 'Grid',
+            ...     'grid': grid
+            ... }
+    fml: string, required, default as 'DFJ_Lazy'
+        The IP formulation used for solving TSP with predefined arcs. The options are as follows:
+            1) 'DFJ_Lazy'
+    solver: dictionary, required, default as {'solver': 'Gurobi', 'timeLimit': None, 'gapTolerance': None, 'outputFlag': False}
+        The settings for the MILP solver, right now Gurobi supports all formulation and COPT supports 'DFJ_Lazy', the format is as following:
+            >>> solver = {
+            ...     'solver': 'Gurobi',
+            ...     'timeLimit': timeLimit, # Time limit in seconds, for 'DFJ_Plainloop' is the total time limit
+            ...     'gapTolerance': gapTolerance,
+            ...     'outputFlag': False # Turn off solver log output by default
+            ... }
+    depotID: int or string, required, default as 0
+        The ID of depot.
+    nodeIDs: string 'All' or a list of node IDs, required, default as 'All'
+        The following are two options: 1) 'All', all nodes will be visited, 2) A list of node IDs to be visited.
+    serviceTime: float, optional, default as 0
+        The service time needed at each location.
+
+    Returns
+    -------
+
+    dictionary
+        A TSP solution in the following format::
+            >>> solution = {
+            ...     'ofv': ofv,
+            ...     'seq': seq,
+            ...     'gap': gap,
+            ...     'solType': solType,
+            ...     'lowerBound': lb,
+            ...     'upperBound': ub,
+            ...     'runtime': runtime
+            ... }
+
+    """
+
+    # Sanity check ============================================================
+    if (nodes == None or type(nodes) != dict):
+        raise MissingParameterError(ERROR_MISSING_NODES)
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = [i for i in nodes]
+        else:
+            for i in nodeIDs:
+                if (i not in nodes):
+                    raise OutOfRangeError("ERROR: Node %s is not in `nodes`." % i)
+    if ((type(nodeIDs) == list and depotID not in nodeIDs)
+        or (nodeIDs == 'All' and depotID not in nodes)):
+        raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
+    if (solver == None or 'solver' not in solver):
+        raise MissingParameterError("ERROR: Missing required field `solver`.")
+    elif (solver['solver'] == 'Gurobi' and fml not in ['DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', 'QAP']):
+        raise OutOfRangeError("ERROR: Gurobi option supports 'DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', and 'QAP' formulations", )
+    elif (solver['solver'] == 'COPT' and fml not in ['DFJ_Lazy']):
+        raise OutOfRangeError("ERROR: COPT option supports 'DFJ_Lazy' formulations", )
+
+    # Define tau ==============================================================
+    tau = getTau(nodes, edges, depotID, nodeIDs, serviceTime)
+
+    # Solve by different formulations =========================================
+    tspEx = None
+    if (solver['solver'] == 'Gurobi'):
+        if (fml == 'DFJ_Lazy'):
+            tspEx = _ipTSPExGurobiLazyCuts(
+                nodeIDs, 
+                predefinedArcs,
+                tau, 
+                solver['outputFlag'] if 'outputFlag' in solver else None, 
+                solver['timeLimit'] if 'timeLimit' in solver else None, 
+                solver['gapTolerance'] if 'gapTolerance' in solver else None) 
+    elif (solver['solver'] == 'COPT'):
+        if (fml == 'DFJ_Lazy'):
+            tspEx = _ipTSPExCOPTLazyCuts(
+                nodeIDs, 
+                predefinedArcs,
+                tau, 
+                solver['outputFlag'] if 'outputFlag' in solver else None, 
+                solver['timeLimit'] if 'timeLimit' in solver else None,)
+    if (tspEx == None):
+        raise UnsupportedInputError("ERROR: Incorrect or not available TSP formulation option!")
+    
+    tspEx['fml'] = fml
+
+    # Fix the sequence to make it start from the depot ========================
+    startIndex = 0
+    seq = [i for i in tspEx['seq']]
+    truckSeq = []
+    for k in range(len(seq)):
+        if (seq[k] == depotID):
+            startIndex = k
+    if (startIndex <= len(seq) - 1):
+        for k in range(startIndex, len(seq) - 1):
+            truckSeq.append(seq[k])
+    if (startIndex >= 0):
+        for k in range(0, startIndex):
+            truckSeq.append(seq[k])
+    truckSeq.append(depotID)
+    tspEx['seq'] = truckSeq
+
+    # Add service time info ===================================================
+    tspEx['serviceTime'] = serviceTime
+
+    return tspEx
+
+def _ipTSPExGurobiLazyCuts(nodeIDs, predefinedArcs, tau, outputFlag, timeLimit, gapTolerance):
+    try:
+        import gurobipy as grb
+    except(ImportError):
+        print("ERROR: Cannot find Gurobi")
+        return
+
+    # Initialize
+    n = len(nodeIDs)
+    TSPEx = grb.Model('TSPEx')
+    if (outputFlag == False):
+        TSPEx.setParam('OutputFlag', 0)
+    if (timeLimit != None):
+        TSPEx.setParam(grb.GRB.Param.TimeLimit, timeLimit)
+    if (gapTolerance != None):
+        TSPEx.setParam(grb.GRB.Param.MIPGap, gapTolerance)
+
+    # Decision variables ======================================================
+    x = {}
+    for i in nodeIDs:
+        for j in nodeIDs:
+            if (i != j):
+                x[i, j] = TSPEx.addVar(
+                    vtype = grb.GRB.BINARY, 
+                    obj = tau[i, j], 
+                    name = 'x_%s_%s' % (i, j))
+                
+    # TSPEx objective function ==================================================
+    TSPEx.modelSense = grb.GRB.MINIMIZE
+    TSPEx.Params.lazyConstraints = 1
+    TSPEx.update()
+
+    # Degree constraints ======================================================
+    for i in nodeIDs:
+        TSPEx.addConstr(grb.quicksum(x[i, j] for j in nodeIDs if i != j) == 1, name = 'leave_%s' % i)
+        TSPEx.addConstr(grb.quicksum(x[j, i] for j in nodeIDs if i != j) == 1, name = 'enter_%s' % i)
+
+    # Predefined arcs =========================================================
+    for arc in predefinedArcs:
+        if ((arc[0], arc[1]) not in x or (arc[1], arc[0]) not in x):
+            raise UnsupportedInputError("ERROR: Cannot find arc[%s, %s] and/or arc[%s, %s]" % (arc[0], arc[1], arc[1], arc[0]))
+        TSPEx.addConstr(x[arc[0], arc[1]] + x[arc[1], arc[0]] == 1, name = 'predefind_%s_%s' % (arc[0], arc[1]))
+
+    # Sub-tour elimination ====================================================
+    TSPEx._x = x
+    def subtourelim(model, where):
+        if (where == grb.GRB.Callback.MIPSOL):
+            x_sol = model.cbGetSolution(model._x)
+            G = nx.Graph()
+            for (i, j) in x.keys():
+                if (x_sol[i, j] > 0.9):
+                    G.add_edge(i, j, weight = tau[i, j])
+            components = [list(c) for c in nx.connected_components(G)]
+            for component in components:
+                if (len(component) < n):
+                    model.cbLazy(grb.quicksum(x[i,j] for i in component for j in component if i != j) <= len(component) - 1)
+
+    # TSPEx with callback =======================================================
+    TSPEx.optimize(subtourelim)
+
+    # Reconstruct solution ====================================================
+    ofv = None
+    seq = []
+    arcs = []
+    solType = None
+    gap = None
+    lb = None
+    ub = None
+    runtime = None
+    if (TSPEx.status == grb.GRB.status.OPTIMAL):
+        solType = 'IP_Optimal'
+        ofv = TSPEx.getObjective().getValue()
+        for i, j in x:
+            if (x[i, j].x > 0.5):
+                arcs.append([i, j])
+        currentNode = nodeIDs[0]
+        seq.append(currentNode)
+        while (len(arcs) > 0):
+            for i in range(len(arcs)):
+                if (arcs[i][0] == currentNode):
+                    currentNode = arcs[i][1]
+                    seq.append(currentNode)
+                    arcs.pop(i)
+                    break
+        gap = 0
+        lb = ofv
+        ub = ofv
+        runtime = TSPEx.Runtime
+    elif (TSPEx.status == grb.GRB.status.TIME_LIMIT):
+        solType = 'IP_TimeLimit'
+        ofv = None
+        seq = []
+        gap = TSPEx.MIPGap
+        lb = TSPEx.ObjBoundC
+        ub = TSPEx.ObjVal
+        runtime = TSPEx.Runtime
+
+    return {
+        'ofv': ofv,
+        'seq': seq,
+        'gap': gap,
+        'solType': solType,
+        'lowerBound': lb,
+        'upperBound': ub,
+        'runtime': runtime
+    }
+
+def _ipTSPExCOPTLazyCuts(nodeIDs, predefinedArcs, tau, outputFlag, timeLimit):
+    try:
+        import coptpy as cp
+    except(ImportError):
+        print("ERROR: Cannot find COPT")
+        return
+
+    env = cp.Envr()
+    TSPEx = env.createModel("TSPEx")
+
+    # Initialize
+    n = len(nodeIDs)
+    if (outputFlag != None):
+        TSPEx.setParam(cp.COPT.Param.Logging, outputFlag)
+        TSPEx.setParam(cp.COPT.Param.LogToConsole, outputFlag)
+    if (timeLimit != None):
+        TSPEx.setParam(cp.COPT.Param.TimeLimit, timeLimit)
+
+    # Decision variables ======================================================
+    x = {}
+    for i in nodeIDs:
+        for j in nodeIDs:
+            if (i != j):
+                x[i, j] = TSPEx.addVar(
+                    vtype = cp.COPT.BINARY, 
+                    obj = tau[i, j], 
+                    name = 'x_%s_%s' % (i, j))
+                
+    # TSPEx objective function ==================================================
+    TSPEx.ObjSense = cp.COPT.MINIMIZE
+
+    # Degree constraints ======================================================
+    for i in nodeIDs:
+        TSPEx.addConstr(cp.quicksum(x[i, j] for j in nodeIDs if i != j) == 1, name = 'leave_%s' % i)
+        TSPEx.addConstr(cp.quicksum(x[j, i] for j in nodeIDs if i != j) == 1, name = 'enter_%s' % i)
+
+    # Predefined arcs =========================================================
+    for arc in predefinedArcs:
+        if ((arc[0], arc[1]) not in x or (arc[1], arc[0]) not in x):
+            raise UnsupportedInputError("ERROR: Cannot find arc[%s, %s] and/or arc[%s, %s]" % (arc[0], arc[1], arc[1], arc[0]))
+        TSPEx.addConstr(x[arc[0], arc[1]] + x[arc[1], arc[0]] == 1, name = 'predefind_%s_%s' % (arc[0], arc[1]))
+
+    # Callback ================================================================
+    class CoptCallback(cp.CallbackBase):
+        def __init__(self):
+            super().__init__()
+        def callback(self):
+            if (self.where() == cp.COPT.CBCONTEXT_MIPSOL):
+                # print("Called me!")
+                x_sol = self.getSolution(x)
+                G = nx.Graph()
+                for (i, j) in x:
+                    if (x_sol[i, j] > 0.9):
+                        G.add_edge(i, j, weight = tau[i, j])
+                components = [list(c) for c in nx.connected_components(G)]
+                # print(components)
+                for component in components:
+                    if (len(component) < n):
+                        self.addLazyConstr(cp.quicksum(x[i, j] for i in component for j in component if i != j) <= len(component) - 1)
+    cb = CoptCallback()
+
+    # TSPEx with callback =======================================================
+    TSPEx.setCallback(cb, cp.COPT.CBCONTEXT_MIPSOL)
+    TSPEx.solve()
+
+    # Reconstruct solution ====================================================
+    ofv = None
+    seq = []
+    arcs = []
+    solType = None
+    gap = None
+    lb = None
+    ub = None
+    runtime = None
+    if (TSPEx.status == cp.COPT.OPTIMAL):
+        solType = 'IP_Optimal'
+        ofv = TSPEx.getObjective().getValue()
+        for i, j in x:
+            if (x[i, j].x > 0.5):
+                arcs.append([i, j])
+        currentNode = nodeIDs[0]
+        seq.append(currentNode)
+        # print(arcs)
+        while (len(arcs) > 0):
+            for i in range(len(arcs)):
+                if (arcs[i][0] == currentNode):
+                    currentNode = arcs[i][1]
+                    seq.append(currentNode)
+                    arcs.pop(i)
+                    break
+        gap = 0
+        lb = ofv
+        ub = ofv
+        runtime = TSPEx.SolvingTime
+    elif (TSPEx.status == cp.COPT.TIMEOUT):
+        solType = 'IP_TimeLimit'
+        ofv = None
+        seq = []
+        gap = TSPEx.BestGap
+        lb = TSPEx.BestBnd
+        ub = TSPEx.BestObj
+        runtime = TSPEx.SolvingTime
+
+    return {
+        'ofv': ofv,
+        'seq': seq,
+        'gap': gap,
+        'solType': solType,
+        'lowerBound': lb,
+        'upperBound': ub,
+        'runtime': runtime
+    }
