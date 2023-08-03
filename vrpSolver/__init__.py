@@ -63,14 +63,15 @@ __author__ = "Lan Peng"
 # v0.0.52 - 05172022 - Minor fixes
 # v0.0.53 - 07112022 - Improve solution quality of 2Opts for TSP
 # v0.0.54 - 07112022 - Minor fixes
-# v0.0.55 - 20230525 - Remove most of unstable functions
+# v0.0.55 - 05252023 - Remove most of unstable functions
 #                    - Add Error exceptions
 #                    - Remove weather related functions: Not routing related
 #                    - Remove PMS functions: Not routing related
 #                    - Remove warehouse functions: Not directed related to VRP, the grid-based VRP remains in the package
 #                    - Docstrings for key `public` functions
 #                    - Redo a lot of stuff with shapely
-#                    - Redo a lot of stuff with NetworkX
+#                    - Redo a lot of stuff with networkX
+# v0.0.56 - 07122023 - CVRP functions
 # =============================================================================
 '''
 

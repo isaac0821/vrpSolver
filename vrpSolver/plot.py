@@ -408,6 +408,7 @@ def plotArcs(
                         arrowFlag = False,
                         xyReverseFlag = xyReverseFlag,
                         showAxis = showAxis)
+                    ax.annotate(ent['setID'], ent['polyline'][int(len(ent['polyline']) / 2)], ha=ha, va=va)
 
     # Axis on and off =========================================================
     if (not showAxis):

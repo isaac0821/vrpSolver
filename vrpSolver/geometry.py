@@ -179,7 +179,7 @@ def locInTimedSeq(seq: list[pt], timeStamp: list[float], t: float) -> pt:
             return [curLocX, curLocY]
     raise UnsupportedInputError("ERROR: cannot find time stamp")
 
-def spdInTimedSeq(seq: list[pt], timeStamp: list[float], t: float) -> float:
+def speedInTimedSeq(seq: list[pt], timeStamp: list[float], t: float) -> float:
     spd = 0
 
     if (len(seq) != len(timeStamp)):
@@ -265,7 +265,7 @@ def traceInTimedSeq(seq: list[pt], timeStamp: list[float], ts: float, te: float)
 
     return trace
 
-def locInPoly(poly: poly, startPt: pt, dist: int|float, reverseFlag: bool=False, dimension: str = 'XY') -> pt:
+def locOnPolyExt(poly: poly, startPt: pt, dist: int|float, reverseFlag: bool=False, dimension: str = 'XY') -> pt:
 
     perimeter = calPolygonPerimeter(poly)
     while(dist > perimeter):
@@ -314,7 +314,7 @@ def locInPoly(poly: poly, startPt: pt, dist: int|float, reverseFlag: bool=False,
 
     return loc
 
-def traceInPoly(poly: poly, startPt: pt, endPt:pt, dist: int|float, reverseFlag: bool=False) -> list[pt]:
+def traceOnPolyExt(poly: poly, startPt: pt, endPt:pt, dist: int|float, reverseFlag: bool=False) -> list[pt]:
 
     return trace
 
