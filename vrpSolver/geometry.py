@@ -16,6 +16,7 @@ from .const import *
 from .msg import *
 
 def is2PtsSame(pt1: pt, pt2: pt) -> bool:
+    """Are two points at the 'same' location"""
     # Check if two points are very close to each other ========================
     if (abs(pt1[0] - pt2[0]) >= CONST_EPSILON):
         return False
@@ -24,73 +25,72 @@ def is2PtsSame(pt1: pt, pt2: pt) -> bool:
     return True
 
 def isPtOnLine(pt: pt, line: line) -> bool:
+    """Is a pt on the line."""
     # Validation ==============================================================
     if (is2PtsSame(line[0], line[1])):
         raise ZeroVectorError()
-
     # Calculate the distance between pt and the line ==========================
     if (is3PtsClockWise(pt, line[0], line[1]) == None):
         return True
     else:
         return False
 
-def isPtOnSeg(pt: pt, seg: line) -> bool:
+def isPtOnSeg(pt: pt, seg: line, interiorOnly: bool=False) -> bool:
+    """Is a pt on the segment"""
     # Check if is on the line seg =============================================
     onLine = isPtOnLine(pt, seg)
     if (onLine != True):
         return onLine
-
     # Get pts =================================================================
     [x1, y1] = [seg[0][0], seg[0][1]]
     [x2, y2] = [pt[0], pt[1]]
     [x3, y3] = [seg[1][0], seg[1][1]]
-
-    return (
+    onSeg = (
         abs(math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2) 
         + math.sqrt((x2 - x3) ** 2 + (y2 - y3) ** 2) 
         - math.sqrt((x1 - x3) ** 2 + (y1 - y3) ** 2)) <= CONST_EPSILON)
-
-def isPtInsideSeg(pt: pt, seg: line) -> bool:
-    # Check if is on the line seg =============================================
-    onSeg = isPtOnSeg(pt, seg)
-    if (onSeg != True):
+    # Check if the intertion is in the interior ===============================
+    if (interiorOnly):
+        return onSeg and not is2PtsSame(pt, seg[0]) and not is2PtsSame(pt, seg[1])
+    else:
         return onSeg
 
-    # Check if is at any one the ends =========================================
-    if (is2PtsSame(pt, seg[0])):
-        return False
-    if (is2PtsSame(pt, seg[1])):
-        return False
-
-    return True
-
-def isPtOnRay(pt: pt, ray: line) -> bool:
+def isPtOnRay(pt: pt, ray: line, interiorOnly: bool=False) -> bool:
+    """Is a pt on the ray, could be at the end."""
     # Check if is on the line seg =============================================
     onLine = isPtOnLine(pt, ray)
     if (onLine != True):
         return onLine
-
     # Get pts =================================================================
     [x1, y1] = [ray[0][0], ray[0][1]]
     [x2, y2] = [pt[0], pt[1]]
     [x3, y3] = [ray[1][0], ray[1][1]]
-
     # Relative location =======================================================
-    return (math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2) >= math.sqrt((x2 - x3) ** 2 + (y2 - y3) ** 2))
+    onRay = (
+        (abs(math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2) 
+            + math.sqrt((x2 - x3) ** 2 + (y2 - y3) ** 2) 
+            - math.sqrt((x1 - x3) ** 2 + (y1 - y3) ** 2)) <= CONST_EPSILON)
+        or (math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2) >= math.sqrt((x2 - x3) ** 2 + (y2 - y3) ** 2)))
+    # Check if the intertion is in the interior ===============================
+    if (interiorOnly):
+        return onRay and not is2PtsSame(pt, ray[0])
+    else:
+        return onRay
 
-def isPtOnPoly(pt: pt, poly: poly) -> bool:
+def isPtOnPolyEdge(pt: pt, poly: poly) -> bool:
+    """Is a point on any edge of a polygon"""
     # Check if the pt is on any of the edge segment ===========================
     for i in range(-1, len(poly) - 1):
         if (isPtOnSeg(pt, [poly[i], poly[i + 1]])):
             return True
     return False
 
-def isPtInPoly(pt: pt, poly: poly) -> bool:
+def isPtInPoly(pt: pt, poly: poly, interiorOnly: bool=False) -> bool:
+    """Is a pt in the polygon, could be on the edge"""
     x = pt[1]
     y = pt[0]
     inPoly = False
-
-    # [Need Rewriting]
+    # NOTE: 忘记这段魔法是从哪里来的了...
     j = len(poly) - 1
     for i in range(len(poly)):
         xi = poly[i][1]
@@ -103,25 +103,22 @@ def isPtInPoly(pt: pt, poly: poly) -> bool:
         if (intersect):
             inPoly = not inPoly
         j = i
-    return inPoly
-
-def isPtInsidePoly(pt: pt, poly: poly) -> bool:
-    # Check if the pt is on the edge of the polygon ===========================
-    if (isPtInPoly(pt, poly) and not isPtOnPoly(pt, poly)):
-        return True
-    return False
+    # Check if the intertion is in the interior ===============================
+    if (interiorOnly):
+        return inPoly and not isPtOnPolyEdge(pt, poly)
+    else:
+        return inPoly
 
 def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt) -> bool | None:
+    """Are three given pts in a clock-wise order, None as they are colliner"""
     # Validation ==============================================================
     if (is2PtsSame(pt1, pt2) or is2PtsSame(pt2, pt3) or is2PtsSame(pt1, pt3)):
-        raise ZeroVectorError()
-
+        return None
     # Use Determinant to determine ============================================
     [x1, y1] = [pt1[0], pt1[1]]
     [x2, y2] = [pt2[0], pt2[1]]
     [x3, y3] = [pt3[0], pt3[1]]
     ori = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1)
-
     if (abs(ori) <= CONST_EPSILON):
         return None
     elif (ori < 0):
@@ -129,75 +126,62 @@ def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt) -> bool | None:
     else:
         return False
 
-def isSegCrossSeg(seg1: line, seg2: line) -> bool:
-    # Check isSegIntSeg =======================================================
-    segIntSeg = isSegIntSeg(seg1, seg2)
-    if (segIntSeg != True):
-        return segIntSeg
-
-    # Check for collinear =====================================================
-    if (isPtOnSeg(seg1[0], seg2) or isPtOnSeg(seg1[1], seg2) or isPtOnSeg(seg2[0], seg1) or isPtOnSeg(seg2[1], seg2)):
-        return False
-
-    return True
-
-def isSegIntSeg(seg1: line, seg2: line) -> bool:
+def isSegIntSeg(seg1: line, seg2: line, interiorOnly: bool=False) -> bool:
+    """Are two segment intersect with each other, could be at the end of a segment"""
     intPt = intLine2Line(seg1, seg2)
-
     if (intPt == None):
         return False
-
-    if (isPtOnSeg(intPt, seg1) and isPtOnSeg(intPt, seg2)):
+    if (isPtOnSeg(intPt, seg1, interiorOnly) and isPtOnSeg(intPt, seg2, interiorOnly)):
         return True
     else:
         return False
 
-def isSegCrossRay(seg: line, ray: line) -> bool:
-    crossFlag = (intSeg2Ray(seg, ray) != None)
-    return crossFlag
-
-def isRayCrossRay(ray1: line, ray2: line) -> bool:
-    crossFlag = (intRay2Ray(ray1, ray2) != None)
-    return crossFlag
-
-def isSegIntRay(seg: line, ray: line) -> bool:
+def isSegIntRay(seg: line, ray: line, interiorOnly: bool=False) -> bool:
+    """Is a segment intersect with a ray, could be at the end of the segment/ray"""
     intPt = intLine2Line(seg, ray)
-
     if (intPt == None):
         return False
-
-    if (isPtOnSeg(intPt, seg) and isPtOnRay(intPt, ray)):
+    if (isPtOnSeg(intPt, seg, interiorOnly) and isPtOnRay(intPt, ray, interiorOnly)):
         return True
     else:
         return False
 
-def isSegCrossPoly(seg: line, poly: poly) -> bool:
+def isRayIntRay(ray1: line, ray2: line, interiorOnly: bool=False) -> bool:
+    """Is a segment intersect with a ray, could be at the end of the segment/ray"""
+    intPt = intLine2Line(ray1, ray2)
+    if (intPt == None):
+        return False
+    if (isPtOnRay(intPt, ray1, interiorOnly) and isPtOnRay(intPt, ray2, interiorOnly)):
+        return True
+    else:
+        return False
+
+def isSegIntPoly(seg: line, poly: poly, interiorOnly: bool=False) -> bool:
     # Check if an end point is already inside the polygon, might be faster?
-    if (isPtInsidePoly(seg[0], poly) or isPtInsidePoly(seg[1], poly)):
+    if (isPtInPoly(seg[0], poly, interiorOnly) or isPtInPoly(seg[1], poly, interiorOnly)):
         return True
     # If both ends are not inside polygon, could be crossing still..
     for i in range(-1, len(poly) - 1):
         edge = [poly[i], poly[i + 1]]
-        if (isSegIntSeg(edge, seg)):
+        if (isSegIntSeg(edge, seg, interiorOnly)):
             return True
     return False
 
-def isRayCrossPoly(ray: line, poly: poly) -> bool:
-    if (isPtInsidePoly(ray[0], poly)):
+def isRayIntPoly(ray: line, poly: poly, interiorOnly: bool=False) -> bool:
+    if (isPtInPoly(ray[0], poly, interiorOnly)):
         return True
     for i in range(-1, len(poly) - 1):
         edge = [poly[i], poly[i + 1]]
-        if (isSegCrossRay(edge, ray)):
+        if (isSegIntRay(edge, ray, interiorOnly)):
             return True
     return False
 
 def intLine2Line(line1: line, line2: line) -> pt | None:
     # Validation ==============================================================
     if (is2PtsSame(line1[0], line1[1])):
-        raise ZeroVectorError()
+        raise ZeroVectorError(line1)
     if (is2PtsSame(line2[0], line2[1])):
-        raise ZeroVectorError()
-
+        raise ZeroVectorError(line2)
     # Get Ax + By + C = 0 =====================================================
     def abc(pt1, pt2):
         x1, y1 = pt1
@@ -206,27 +190,22 @@ def intLine2Line(line1: line, line2: line) -> pt | None:
         b = x2 - x1
         c = x1 * y2 - x2 * y1
         return a, b, c
-
     # Calculate intersection ==================================================
     a1, b1, c1 = abc(line1[0], line1[1])
     a2, b2, c2 = abc(line2[0], line2[1])
     D = a1 * b2 - a2 * b1
-
     # Check if parallel =======================================================
     if (D == 0):
         return None
-
     # Intersection ============================================================
     x = (b1 * c2 - b2 * c1) / D
     y = (a2 * c1 - a1 * c2) / D
     intPt = (x, y)
-
     return intPt
 
 def intSeg2Seg(seg1: line, seg2: line) -> pt | None:
     # Calculate intersection for two lines ====================================
     intPt = intLine2Line(seg1, seg2)
-
     # Check if it is on segs ==================================================
     if (intPt != None and isPtOnSeg(intPt, seg1) and isPtOnSeg(intPt, seg2)):
         return intPt
@@ -236,7 +215,6 @@ def intSeg2Seg(seg1: line, seg2: line) -> pt | None:
 def intSeg2Ray(seg: line, ray: line) -> pt | None:
     # Calculate intersection for two lines ====================================
     intPt = intLine2Line(seg, ray)
-
     # Check if it is on segs
     if (intPt != None and isPtOnSeg(intPt, seg) and isPtOnRay(intPt, ray)):
         return intPt
@@ -244,15 +222,8 @@ def intSeg2Ray(seg: line, ray: line) -> pt | None:
         return None
 
 def intRay2Line(ray: line, line: line) -> pt | None:
-    # Validation ==============================================================
-    if (is2PtsSame(ray[0], ray[1])):
-        raise ZeroVectorError()
-    if (is2PtsSame(line[0], line[1])):
-        raise ZeroVectorError()
-
     # Calculate intersection ==================================================
     intPt = intLine2Line(ray, line)
-
     # Check if it is on segs ==================================================
     if (intPt != None and isPtOnRay(intPt, ray)):
         return intPt
@@ -260,15 +231,8 @@ def intRay2Line(ray: line, line: line) -> pt | None:
         return None
 
 def intRay2Ray(ray1: line, ray2: line) -> pt | None:
-    # Validation ==============================================================
-    if (is2PtsSame(ray1[0], ray1[1])):
-        raise ZeroVectorError()
-    if (is2PtsSame(ray2[0], ray2[1])):
-        raise ZeroVectorError()
-
     # Calculate intersection ==================================================
     intPt = intLine2Line(ray1, ray2)
-
     # Check if it is on segs ==================================================
     if (intPt != None and isPtOnRay(intPt, ray1) and isPtOnRay(intPt, ray2)):
         return intPt
@@ -820,7 +784,7 @@ def _getTauGrid(nodes: dict, nodeIDs: list|str, grid: dict):
                 tau[j, i] = 0
     return tau
 
-def getSortedNodesByDist(nodes: dict, edges: dict, refNodeID: int|str, nodeIDs: list|str = 'All'):
+def getSortedNodesByDist(nodes: dict, edges: dict, refNodeID: int|str, nodeIDs: list|str = 'All') -> list:
 
     """Given a set of locations, and a referencing node, sort the nodes by distance to this referencing node"""
 
@@ -846,7 +810,6 @@ def getSortedNodesByDist(nodes: dict, edges: dict, refNodeID: int|str, nodeIDs: 
     return sortedSeq
 
 def getSweepSeq(nodes: dict, nodeIDs: list|str = 'All', centerLoc: None|pt = None, isClockwise: bool = True, initDeg: float = 0) -> list:
-    
     """Given a set of locations, and a center point, gets the sequence from sweeping"""
     
     # Define nodeIDs ==========================================================
@@ -862,7 +825,6 @@ def getSweepSeq(nodes: dict, nodeIDs: list|str = 'All', centerLoc: None|pt = Non
         for n in nodeIDs:
             lstNodeLoc.append(shapely.Point(nodes[n]['loc'][0], nodes[n]['loc'][1]))
         centerLoc = list(shapely.centroid(shapely.MultiPoint(points = lstNodeLoc)))
-
 
     # Initialize heap =========================================================
     degHeap = []
@@ -888,12 +850,12 @@ def getSweepSeq(nodes: dict, nodeIDs: list|str = 'All', centerLoc: None|pt = Non
                 evalDeg -= 360
             while(evalDeg < 0):
                 evalDeg += 360
-            heapq.heappush(degHeap, (evalDeg, n))
+            heapq.heappush(degHeap, (evalDeg, dist, n))
 
     # Sweep ===================================================================
     sweepSeq = []
     while (len(degHeap)):
-        sweepSeq.append(heapq.heappop(degHeap)[1])
+        sweepSeq.append(heapq.heappop(degHeap)[2])
     sweepSeq.extend(centerLocNodes)
 
     return sweepSeq
