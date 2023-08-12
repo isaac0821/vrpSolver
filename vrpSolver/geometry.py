@@ -81,8 +81,9 @@ def isPtOnPolyEdge(pt: pt, poly: poly) -> bool:
     """Is a point on any edge of a polygon"""
     # Check if the pt is on any of the edge segment ===========================
     for i in range(-1, len(poly) - 1):
-        if (isPtOnSeg(pt, [poly[i], poly[i + 1]])):
-            return True
+        if (not is2PtsSame(poly[i], poly[i + 1])):
+            if (isPtOnSeg(pt, [poly[i], poly[i + 1]])):
+                return True
     return False
 
 def isPtInPoly(pt: pt, poly: poly, interiorOnly: bool=False) -> bool:
@@ -157,24 +158,47 @@ def isRayIntRay(ray1: line, ray2: line, interiorOnly: bool=False) -> bool:
         return False
 
 def isSegIntPoly(seg: line, poly: poly, interiorOnly: bool=False) -> bool:
-    # Check if an end point is already inside the polygon, might be faster?
+    """Is a segment intersect with a polygon"""
+    # 若线段中的一个端点妥妥的在poly的interior里，interiorOnly True
     if (isPtInPoly(seg[0], poly, interiorOnly) or isPtInPoly(seg[1], poly, interiorOnly)):
         return True
-    # If both ends are not inside polygon, could be crossing still..
+
+    # 若线段和多边形的至少一条边妥妥的相交，interiorOnly True
     for i in range(-1, len(poly) - 1):
         edge = [poly[i], poly[i + 1]]
-        if (isSegIntSeg(edge, seg, interiorOnly)):
+        if (not is2PtsSame(poly[i], poly[i + 1])):
+            if (isSegIntSeg(edge, seg, interiorOnly)):
+                return True
+
+    # 若线段只和多边形的boundary相交： 线段的一个顶点在poly edge，或一个顶点在线段上
+    # if (interiorOnly == False):
+    #     if (isPtOnPolyEdge(seg[0], poly) or isPtOnPolyEdge(seq[1], poly)):
+    #         return True
+    #     for pt in poly:
+    #         if (isPtOnSeg(pt, seg, interiorOnly=False)):
+    #             return True
+
+    # 最后最麻烦的情况：如果线段的两端都在poly edge上，是否相交呢？
+    # NOTE: 思路是找线段interior上的任何一点，若在poly内，就相交，否则一定不相交（interior-wise）
+    midPt = [seg[0][0] + (seg[1][0] - seg[0][0])/2, seg[0][1] + (seg[1][1] - seg[0][1])/2]
+    if (isPtInPoly(midPt, poly, interiorOnly=True)):
+        return True
+    else:
+        if (interiorOnly == True):
+            return False
+        else:
             return True
     return False
 
-def isRayIntPoly(ray: line, poly: poly, interiorOnly: bool=False) -> bool:
-    if (isPtInPoly(ray[0], poly, interiorOnly)):
-        return True
-    for i in range(-1, len(poly) - 1):
-        edge = [poly[i], poly[i + 1]]
-        if (isSegIntRay(edge, ray, interiorOnly)):
-            return True
-    return False
+# def isRayIntPoly(ray: line, poly: poly, interiorOnly: bool=False) -> bool:
+#     """Is a ray intersect with a polygon"""
+#     # 若射线的端点妥妥的在poly的interior里，True
+#     for i in range(-1, len(poly) - 1):
+#         edge = [poly[i], poly[i + 1]]
+#         if (not is2PtsSame(poly[i], poly[i + 1])):
+#             if (isSegIntRay(edge, ray, interiorOnly)):
+#                 return True
+#     return False
 
 def intLine2Line(line1: line, line2: line) -> pt | None:
     # Validation ==============================================================
@@ -784,10 +808,7 @@ def _getTauGrid(nodes: dict, nodeIDs: list|str, grid: dict):
                 tau[j, i] = 0
     return tau
 
-def getSortedNodesByDist(nodes: dict, edges: dict, refNodeID: int|str, nodeIDs: list|str = 'All') -> list:
-
-    """Given a set of locations, and a referencing node, sort the nodes by distance to this referencing node"""
-
+def getSortedNodesByDist(nodes: dict, refLoc: pt, nodeIDs: list|str = 'All') -> list:
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
@@ -795,14 +816,11 @@ def getSortedNodesByDist(nodes: dict, edges: dict, refNodeID: int|str, nodeIDs: 
             for i in nodes:
                 nodeIDs.append(i)
 
-    # Define tau ==============================================================
-    tau = getTau(nodes, edges, refNodeID, nodeIDs, 0)
-
     # Sort distance ===========================================================
     sortedSeq = []
     sortedSeqHeap = []
     for n in nodeIDs:
-        dist = tau[refNodeID, n]
+        dist = distEuclidean2D(refLoc, nodes[n]['loc'])
         heapq.heappush(sortedSeqHeap, (dist, n))
     while (len(sortedSeqHeap) > 0):
         sortedSeq.append(heapq.heappop(sortedSeqHeap)[1])  
