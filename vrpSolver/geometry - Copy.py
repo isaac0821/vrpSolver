@@ -81,8 +81,9 @@ def isPtOnPolyEdge(pt: pt, poly: poly) -> bool:
     """Is a point on any edge of a polygon"""
     # Check if the pt is on any of the edge segment ===========================
     for i in range(-1, len(poly) - 1):
-        if (isPtOnSeg(pt, [poly[i], poly[i + 1]])):
-            return True
+        if (not is2PtsSame(poly[i], poly[i + 1])):
+            if (isPtOnSeg(pt, [poly[i], poly[i + 1]])):
+                return True
     return False
 
 def isPtInPoly(pt: pt, poly: poly, interiorOnly: bool=False) -> bool:
@@ -120,76 +121,17 @@ def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt) -> bool | None:
     [x3, y3] = [pt3[0], pt3[1]]
     ori = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1)
     if (abs(ori) <= CONST_EPSILON):
-        # collinear
         return None
     elif (ori < 0):
-        # clockwise
         return True
     else:
-        # counter-clockwise
         return False
-
-def isLineIntLine(line1: line, line2: line) -> bool:
-    """Is two line intersect with each other"""
-    intPt = intLine2Line(line1, line2)
-    if (intPt == None):
-        if (isPtOnLine(line1[0], line2)):
-            # 若两条直线重合
-            return True
-        else:
-            return False
-    else:
-        # 有交点
-        return True
-
-def isLineIntSeg(line: line, seg: line, interiorOnly:bool=False) -> bool:
-    """Is a line intersect with a segment"""
-    intPt = intLine2Line(line1, line2)
-    if (intPt == None):
-        if (isPtOnLine(seg[0], line)):
-            # 若线段整个包含在直线内
-            return True
-        else:
-            return False
-    else:
-        if (isPtOnSeg(intPt, seg, interiorOnly)):
-            return True
-        else:
-            return False
-
-def isLineIntRay(line: line, ray: line, interiorOnly: bool=False) -> bool:
-    """Is a line intersect with a ray"""
-    intPt = intLine2Line(line1, line2)
-    if (intPt == None):
-        if (isPtOnLine(ray[0], line)):
-            return True
-        else:
-            return False
-    else:
-        if (isPtOnRay(intPt, ray, interiorOnly)):
-            return True
-        else:
-            return False
-
-def isSegIntLine(seg: line, line: line, interiorOnly: bool=False) -> bool:
-    """Is a segment intersect with a line"""
-    return isLineIntSeg(line, seg, interiorOnly)
 
 def isSegIntSeg(seg1: line, seg2: line, interiorOnly: bool=False) -> bool:
     """Are two segment intersect with each other, could be at the end of a segment"""
     intPt = intLine2Line(seg1, seg2)
     if (intPt == None):
-        # 可能存在共线的情形
-        if (isPtOnSeg(seg1[0], seg2, interiorOnly=False) or isPtOnSeg(seg1[1], seg2, interiorOnly=False)):
-            if ((is2PtsSame(seg1[0], seg2[0]) and not is2PtsSame(seg1[1], seg2[1]))
-                or (is2PtsSame(seg1[0], seg2[1]) and not is2PtsSame(seg1[1], seg2[0]))
-                or (is2PtsSame(seg1[1], seg2[1]) and not is2PtsSame(seg1[0], seg2[0]))
-                or (is2PtsSame(seg1[1], seg2[0]) and not is2PtsSame(seg1[0], seg2[1]))):
-                if (interiorOnly):
-                    return False
-            return True
-        else:
-            return False
+        return False
     if (isPtOnSeg(intPt, seg1, interiorOnly) and isPtOnSeg(intPt, seg2, interiorOnly)):
         return True
     else:
@@ -199,10 +141,7 @@ def isSegIntRay(seg: line, ray: line, interiorOnly: bool=False) -> bool:
     """Is a segment intersect with a ray, could be at the end of the segment/ray"""
     intPt = intLine2Line(seg, ray)
     if (intPt == None):
-        if (isPtOnSeg(ray[0], seg)):
-            return True
-        else:
-            return False
+        return False
     if (isPtOnSeg(intPt, seg, interiorOnly) and isPtOnRay(intPt, ray, interiorOnly)):
         return True
     else:
@@ -261,9 +200,10 @@ def isRayIntPoly(ray: line, poly: poly, interiorOnly: bool=False) -> bool:
     intList = []
     for i in range(-1, len(poly) - 1):
         edge = [poly[i], poly[i + 1]]
-        sxr = intSeg2Ray(edge, ray)
-        if (sxr != None):
-            intList.append(sxr)
+        if (not is2PtsSame(poly[i], poly[i + 1])):
+            sxr = intSeg2Ray(edge, ray)
+            if (sxr != None):
+                intList.append(sxr)
 
     if (len(intList) >= 3):
         return True
@@ -276,13 +216,6 @@ def isRayIntPoly(ray: line, poly: poly, interiorOnly: bool=False) -> bool:
         return False
 
     return False
-
-def isLineIntPoly(line: line, poly: poly, interiorOnly: bool=False) -> bool:
-    """Is a line intersect with a polygon"""
-    for i in range(-1, len(poly) - 1):
-        edge = [poly[i], poly[i + 1]]
-        if (isLineIntSeg(line, edge, interiorOnly)):
-            return True
 
 def intLine2Line(line1: line, line2: line) -> pt | None:
     # Validation ==============================================================
