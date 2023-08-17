@@ -75,28 +75,27 @@ __author__ = "Lan Peng"
 # =============================================================================
 '''
 
-# Constants and messages
+# Constants, messages, and basic modules
 from .const import *
 from .msg import *
 from .error import *
+from .common import *
+from .color import *
 
 # Data
 from .province import *
+from .road import *
 
 # Data structure definition
 # from .ds import *
 
 # Basic modules
-from .common import *
 from .plot import *
 from .instance import *
-from .color import *
 from .calculate import *
 
 # Geometry
 from .geometry import *
-# from .relation import *
-from .road import *
 
 # Graph/network algorithms
 from .graph import *
@@ -105,14 +104,3 @@ from .graph import *
 from .operator import *
 from .ipTSP import *
 from .heuTSP import *
-
-# VRP
-# from .ipVRP import *
-# from .heuVRP import *
-
-# from .CVRPTW import *
-# from .cgCVRPTW import *
-
-# Post optimization
-# from .stat import *
-

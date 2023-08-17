@@ -891,6 +891,187 @@ def plotProvinceMap(
 
     return fig, ax
 
+def plotRoadNetwork(
+    roads: dict,
+    roadWidth: dict[str,float]|float = {
+            'motorway': 2,
+            'truck': 1.5,
+            'primary': 1.2,
+            'secondary': 1,
+            'tertiary': 1,
+            'residential': 0.8,
+            'others': 0.8
+        },
+    roadColors: dict[str,str]|str = {
+            'motorway': 'red',
+            'truck': 'orange',
+            'primary': 'orange',
+            'secondary': 'orange',
+            'tertiary': 'orange',
+            'residential': 'green',
+            'others': 'gray'
+        },
+    roadShowFlags: dict[str, bool]|str|bool = 'All',
+    bldColors: dict[str,str]|str = {
+            'building': 'yellow',
+            'commercial': 'yellow',
+            'residential': 'green',
+            'house': 'green',
+            'static_caravan': 'green',
+            'industrial': 'orange',
+            'manufacture': 'orange'
+        },
+    bldShowFlags: dict[str, bool]|str|bool = False,
+    fig = None,
+    ax = None,
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ): 
+
+    """Plot road network (and buildings) using given OSM transformed dictionary
+
+    Parameters
+    ----------
+
+    roads: dict, required
+        The road network dictionary, including the geometry shape. In the following format::
+            >>> roads = {
+            ...     'road': {roadID: {'class': class, 'shape': shape}}
+            ...     'building': {buildingID: {'type': type, 'shape': shape}}
+            ... }
+    roadWidth: dict[str, float]|float, optional
+        The width of roads. If a dictionary is given, will use the width in the dictionary, otherwise will be default as 1. If a float is given will use the float value.
+    roadColor: dict[str, str]|str, optional
+        The color of roads, works in the same way as `roadWidth`
+    roadShowFlags: dict[str, bool]|str|bool, optional, 'All'
+        Whether or not show some types of roads, works in the same way as `roadWidth`
+    bldColor: dict[str, str]|str, optional
+        The color of buildings, works in the same way as `roadWidth`
+    bldShowFlags: dict[str, bool]|str|bool, optional
+        Whether or not show some types of buildings, works in the same way as `roadWidth`
+    fig: matplotlib object, optional, defaut None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
+    figSize: 2-tuple, optional, default as (None, 5)
+        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
+    boundingBox: 4-tuple, optional, default as (None, None, None, None)
+        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
+    saveFigPath: string, optional, default as None
+        The path for exporting image if provided
+    showFig: bool, optional, default as True
+        True if show the figure in Juypter Notebook environment
+    """
+
+    # FIXME: In future, we might want to distinguish roads by max speed or show the names of roads
+    # If no based matplotlib figure, define boundary ==========================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        allX = []
+        allY = []
+        for pt in roads['boundary']:
+            allX.append(pt[1])
+            allY.append(pt[0])
+        (xMin, xMax, yMin, yMax) = boundingBox
+        if (xMin == None):
+            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
+        if (xMax == None):
+            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
+        if (yMin == None):
+            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
+        if (yMax == None):
+            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+        width = 0
+        height = 0
+        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
+            if (xMax - xMin > yMax - yMin):
+                width = 5
+                height = 5 * ((yMax - yMin) / (xMax - xMin))
+            else:
+                width = 5 * ((xMax - xMin) / (yMax - yMin))
+                height = 5
+        elif (figSize != None and figSize[0] != None and figSize[1] == None):
+            width = figSize[0]
+            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
+        elif (figSize != None and figSize[0] == None and figSize[1] != None):
+            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
+            height = figSize[1]
+        else:
+            (width, height) = figSize
+
+        if (isinstance(fig, plt.Figure)):
+            fig.set_figwidth(width)
+            fig.set_figheight(height)
+            ax.set_xlim(xMin, xMax)
+            ax.set_ylim(yMin, yMax)
+
+    # Plot roads ==============================================================
+    for road in roads['road']:
+        if (roadShowFlags == 'All' or roadShowFlags == True 
+            or (type(roadShowFlags) == dict 
+                and roads['road'][road]['class'] in roadShowFlags 
+                and roadShowFlags[roads['road'][road]['class']] == True)):
+            x = []
+            y = []
+            for pt in roads['road'][road]['shape']:
+                x.append(pt[1])
+                y.append(pt[0])
+            color = None
+            if (roadColors == 'Random'):
+                color = colorRandom()
+            elif (type(roadColors) == str):
+                color = roadColors
+            elif (type(roadColors) == dict):
+                if (roads['road'][road]['class'] in roadColors):
+                    color = roadColors[roads['road'][road]['class']]
+                else:
+                    color = 'gray'
+            rw = 1
+            if (type(roadWidth) == dict):
+                if (roads['road'][road]['class'] in roadWidth):
+                    rw = roadWidth[roads['road'][road]['class']]
+            else:
+                rw = roadWidth
+            ax.plot(x, y, color = color, linewidth = rw)
+
+    # Plot buildings ==========================================================
+    for building in roads['building']:
+        if (bldShowFlags == 'All' or bldShowFlags == True
+            or (type(bldShowFlags) == dict
+                and roads['building'][building]['type'] in bldShowFlags
+                and bldShowFlags[roads['building'][building]['type']] == True)):
+            x = []
+            y = []
+            color = None
+            for pt in roads['building'][building]['shape']:
+                x.append(pt[1])
+                y.append(pt[0])
+            if (bldColors == 'Random'):
+                color = colorRandom()
+            elif (type(bldColors) == str):
+                color = bldColors
+            elif (type(bldColors) == dict):
+                if (roads['building'][building]['type'] in bldColors):
+                    color = bldColors[roads['building'][building]['type']]
+                else:
+                    color = 'gray'
+            ax.fill(x, y, facecolor=color)
+
+    # Axis on and off =========================================================
+    if (not showAxis):
+        plt.axis('off')
+
+    # Save figure =============================================================
+    if (saveFigPath != None):
+        fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
+
+    return fig, ax
+
 def plotGantt(
     gantt: list[dict],
     group: dict|None = None, 
@@ -1107,185 +1288,4 @@ def plotGantt(
         fig.savefig(saveFigPath)
     if (not showFig):
         plt.close(fig)
-    return fig, ax
-
-def plotRoadNetwork2D(
-    roads: dict,
-    roadWidth: dict[str,float]|float = {
-            'motorway': 2,
-            'truck': 1.5,
-            'primary': 1.2,
-            'secondary': 1,
-            'tertiary': 1,
-            'residential': 0.8,
-            'others': 0.8
-        },
-    roadColors: dict[str,str]|str = {
-            'motorway': 'red',
-            'truck': 'orange',
-            'primary': 'orange',
-            'secondary': 'orange',
-            'tertiary': 'orange',
-            'residential': 'green',
-            'others': 'gray'
-        },
-    roadShowFlags: dict[str, bool]|str|bool = 'All',
-    bldColors: dict[str,str]|str = {
-            'building': 'yellow',
-            'commercial': 'yellow',
-            'residential': 'green',
-            'house': 'green',
-            'static_caravan': 'green',
-            'industrial': 'orange',
-            'manufacture': 'orange'
-        },
-    bldShowFlags: dict[str, bool]|str|bool = False,
-    fig = None,
-    ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
-    showAxis: bool = True,
-    saveFigPath: str|None = None,
-    showFig: bool = True
-    ): 
-
-    """Plot road network (and buildings) using given OSM transformed dictionary
-
-    Parameters
-    ----------
-
-    roads: dict, required
-        The road network dictionary, including the geometry shape. In the following format::
-            >>> roads = {
-            ...     'road': {roadID: {'class': class, 'shape': shape}}
-            ...     'building': {buildingID: {'type': type, 'shape': shape}}
-            ... }
-    roadWidth: dict[str, float]|float, optional
-        The width of roads. If a dictionary is given, will use the width in the dictionary, otherwise will be default as 1. If a float is given will use the float value.
-    roadColor: dict[str, str]|str, optional
-        The color of roads, works in the same way as `roadWidth`
-    roadShowFlags: dict[str, bool]|str|bool, optional, 'All'
-        Whether or not show some types of roads, works in the same way as `roadWidth`
-    bldColor: dict[str, str]|str, optional
-        The color of buildings, works in the same way as `roadWidth`
-    bldShowFlags: dict[str, bool]|str|bool, optional
-        Whether or not show some types of buildings, works in the same way as `roadWidth`
-    fig: matplotlib object, optional, defaut None
-        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
-    ax: matplotlib object, optional, default None
-        See `fig`
-    figSize: 2-tuple, optional, default as (None, 5)
-        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
-    boundingBox: 4-tuple, optional, default as (None, None, None, None)
-        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
-    saveFigPath: string, optional, default as None
-        The path for exporting image if provided
-    showFig: bool, optional, default as True
-        True if show the figure in Juypter Notebook environment
-    """
-
-    # FIXME: In future, we might want to distinguish roads by max speed or show the names of roads
-    # If no based matplotlib figure, define boundary ==========================
-    if (fig == None or ax == None):
-        fig, ax = plt.subplots()
-        allX = []
-        allY = []
-        for pt in roads['boundary']:
-            allX.append(pt[1])
-            allY.append(pt[0])
-        (xMin, xMax, yMin, yMax) = boundingBox
-        if (xMin == None):
-            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
-        if (xMax == None):
-            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
-        if (yMin == None):
-            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
-        if (yMax == None):
-            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
-        width = 0
-        height = 0
-        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
-            if (xMax - xMin > yMax - yMin):
-                width = 5
-                height = 5 * ((yMax - yMin) / (xMax - xMin))
-            else:
-                width = 5 * ((xMax - xMin) / (yMax - yMin))
-                height = 5
-        elif (figSize != None and figSize[0] != None and figSize[1] == None):
-            width = figSize[0]
-            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
-        elif (figSize != None and figSize[0] == None and figSize[1] != None):
-            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
-            height = figSize[1]
-        else:
-            (width, height) = figSize
-
-        if (isinstance(fig, plt.Figure)):
-            fig.set_figwidth(width)
-            fig.set_figheight(height)
-            ax.set_xlim(xMin, xMax)
-            ax.set_ylim(yMin, yMax)
-
-    # Plot roads ==============================================================
-    for road in roads['road']:
-        if (roadShowFlags == 'All' or roadShowFlags == True 
-            or (type(roadShowFlags) == dict 
-                and roads['road'][road]['class'] in roadShowFlags 
-                and roadShowFlags[roads['road'][road]['class']] == True)):
-            x = []
-            y = []
-            for pt in roads['road'][road]['shape']:
-                x.append(pt[1])
-                y.append(pt[0])
-            color = None
-            if (roadColors == 'Random'):
-                color = colorRandom()
-            elif (type(roadColors) == str):
-                color = roadColors
-            elif (type(roadColors) == dict):
-                if (roads['road'][road]['class'] in roadColors):
-                    color = roadColors[roads['road'][road]['class']]
-                else:
-                    color = 'gray'
-            rw = 1
-            if (type(roadWidth) == dict):
-                if (roads['road'][road]['class'] in roadWidth):
-                    rw = roadWidth[roads['road'][road]['class']]
-            else:
-                rw = roadWidth
-            ax.plot(x, y, color = color, linewidth = rw)
-
-    # Plot buildings ==========================================================
-    for building in roads['building']:
-        if (bldShowFlags == 'All' or bldShowFlags == True
-            or (type(bldShowFlags) == dict
-                and roads['building'][building]['type'] in bldShowFlags
-                and bldShowFlags[roads['building'][building]['type']] == True)):
-            x = []
-            y = []
-            color = None
-            for pt in roads['building'][building]['shape']:
-                x.append(pt[1])
-                y.append(pt[0])
-            if (bldColors == 'Random'):
-                color = colorRandom()
-            elif (type(bldColors) == str):
-                color = bldColors
-            elif (type(bldColors) == dict):
-                if (roads['building'][building]['type'] in bldColors):
-                    color = bldColors[roads['building'][building]['type']]
-                else:
-                    color = 'gray'
-            ax.fill(x, y, facecolor=color)
-
-    # Axis on and off =========================================================
-    if (not showAxis):
-        plt.axis('off')
-
-    # Save figure =============================================================
-    if (saveFigPath != None):
-        fig.savefig(saveFigPath)
-    if (not showFig):
-        plt.close(fig)
-
     return fig, ax

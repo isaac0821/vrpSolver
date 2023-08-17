@@ -15,8 +15,10 @@ import math
 from .const import *
 from .msg import *
 
+# Point versus Objects ========================================================
 def is2PtsSame(pt1: pt, pt2: pt) -> bool:
     """Are two points at the 'same' location"""
+    # CHECKED: 20230817
     # Check if two points are very close to each other ========================
     if (abs(pt1[0] - pt2[0]) >= CONST_EPSILON):
         return False
@@ -24,8 +26,29 @@ def is2PtsSame(pt1: pt, pt2: pt) -> bool:
         return False
     return True
 
+def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt) -> bool | None:
+    """Are three given pts in a clock-wise order, None as they are colliner"""
+    # Validation ==============================================================
+    if (is2PtsSame(pt1, pt2) or is2PtsSame(pt2, pt3) or is2PtsSame(pt1, pt3)):
+        return None
+    # Use Determinant to determine ============================================
+    [x1, y1] = [pt1[0], pt1[1]]
+    [x2, y2] = [pt2[0], pt2[1]]
+    [x3, y3] = [pt3[0], pt3[1]]
+    ori = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1)
+    if (abs(ori) <= CONST_EPSILON):
+        # collinear
+        return None
+    elif (ori < 0):
+        # clockwise
+        return True
+    else:
+        # counter-clockwise
+        return False
+
 def isPtOnLine(pt: pt, line: line) -> bool:
     """Is a pt on the line."""
+    # CHECKED: 20230817
     # Validation ==============================================================
     if (is2PtsSame(line[0], line[1])):
         raise ZeroVectorError()
@@ -37,6 +60,7 @@ def isPtOnLine(pt: pt, line: line) -> bool:
 
 def isPtOnSeg(pt: pt, seg: line, interiorOnly: bool=False) -> bool:
     """Is a pt on the segment"""
+    # CHECKED: 20230817
     # Check if is on the line seg =============================================
     onLine = isPtOnLine(pt, seg)
     if (onLine != True):
@@ -57,6 +81,7 @@ def isPtOnSeg(pt: pt, seg: line, interiorOnly: bool=False) -> bool:
 
 def isPtOnRay(pt: pt, ray: line, interiorOnly: bool=False) -> bool:
     """Is a pt on the ray, could be at the end."""
+    # CHECKED: 20230817
     # Check if is on the line seg =============================================
     onLine = isPtOnLine(pt, ray)
     if (onLine != True):
@@ -109,48 +134,24 @@ def isPtInPoly(pt: pt, poly: poly, interiorOnly: bool=False) -> bool:
     else:
         return inPoly
 
-def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt) -> bool | None:
-    """Are three given pts in a clock-wise order, None as they are colliner"""
-    # Validation ==============================================================
-    if (is2PtsSame(pt1, pt2) or is2PtsSame(pt2, pt3) or is2PtsSame(pt1, pt3)):
-        return None
-    # Use Determinant to determine ============================================
-    [x1, y1] = [pt1[0], pt1[1]]
-    [x2, y2] = [pt2[0], pt2[1]]
-    [x3, y3] = [pt3[0], pt3[1]]
-    ori = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1)
-    if (abs(ori) <= CONST_EPSILON):
-        # collinear
-        return None
-    elif (ori < 0):
-        # clockwise
-        return True
-    else:
-        # counter-clockwise
-        return False
-
+# Line-shape versus Objects ===================================================
 def isLineIntLine(line1: line, line2: line) -> bool:
     """Is two line intersect with each other"""
     intPt = intLine2Line(line1, line2)
     if (intPt == None):
-        if (isPtOnLine(line1[0], line2)):
-            # 若两条直线重合
-            return True
-        else:
-            return False
+        return False
+    elif (intPt == "Collinear"):
+        return True
     else:
-        # 有交点
         return True
 
 def isLineIntSeg(line: line, seg: line, interiorOnly:bool=False) -> bool:
     """Is a line intersect with a segment"""
-    intPt = intLine2Line(line1, line2)
+    intPt = intLine2Line(line, seg)
     if (intPt == None):
-        if (isPtOnLine(seg[0], line)):
-            # 若线段整个包含在直线内
-            return True
-        else:
-            return False
+        return False
+    elif (intPt == "Collinear"):
+        return True
     else:
         if (isPtOnSeg(intPt, seg, interiorOnly)):
             return True
@@ -161,10 +162,9 @@ def isLineIntRay(line: line, ray: line, interiorOnly: bool=False) -> bool:
     """Is a line intersect with a ray"""
     intPt = intLine2Line(line1, line2)
     if (intPt == None):
-        if (isPtOnLine(ray[0], line)):
-            return True
-        else:
-            return False
+        return False
+    elif (intPt == "Collinear"):
+        return True
     else:
         if (isPtOnRay(intPt, ray, interiorOnly)):
             return True
@@ -179,44 +179,80 @@ def isSegIntSeg(seg1: line, seg2: line, interiorOnly: bool=False) -> bool:
     """Are two segment intersect with each other, could be at the end of a segment"""
     intPt = intLine2Line(seg1, seg2)
     if (intPt == None):
-        # 可能存在共线的情形
-        if (isPtOnSeg(seg1[0], seg2, interiorOnly=False) or isPtOnSeg(seg1[1], seg2, interiorOnly=False)):
-            if ((is2PtsSame(seg1[0], seg2[0]) and not is2PtsSame(seg1[1], seg2[1]))
-                or (is2PtsSame(seg1[0], seg2[1]) and not is2PtsSame(seg1[1], seg2[0]))
-                or (is2PtsSame(seg1[1], seg2[1]) and not is2PtsSame(seg1[0], seg2[0]))
-                or (is2PtsSame(seg1[1], seg2[0]) and not is2PtsSame(seg1[0], seg2[1]))):
-                if (interiorOnly):
-                    return False
+        return False
+    elif (intPt == "Collinear"):
+        if (isPtOnSeg(seg1[0], seg2, interiorOnly=False) 
+                or isPtOnSeg(seg1[1], seg2, interiorOnly=False)
+                or isPtOnSeg(seg2[0], seg1, interiorOnly=False)
+                or isPtOnSeg(seg2[1], seg1, interiorOnly=False)):
+            if (interiorOnly
+                    and ((is2PtsSame(seg1[0], seg2[0]) and not is2PtsSame(seg1[1], seg2[1]))
+                        or (is2PtsSame(seg1[0], seg2[1]) and not is2PtsSame(seg1[1], seg2[0]))
+                        or (is2PtsSame(seg1[1], seg2[1]) and not is2PtsSame(seg1[0], seg2[0]))
+                        or (is2PtsSame(seg1[1], seg2[0]) and not is2PtsSame(seg1[0], seg2[1])))):
+                return False
             return True
         else:
             return False
-    if (isPtOnSeg(intPt, seg1, interiorOnly) and isPtOnSeg(intPt, seg2, interiorOnly)):
-        return True
     else:
-        return False
+        if (isPtOnSeg(intPt, seg1, interiorOnly) and isPtOnSeg(intPt, seg2, interiorOnly)):
+            return True
+        else:
+            return False
 
 def isSegIntRay(seg: line, ray: line, interiorOnly: bool=False) -> bool:
     """Is a segment intersect with a ray, could be at the end of the segment/ray"""
     intPt = intLine2Line(seg, ray)
     if (intPt == None):
-        if (isPtOnSeg(ray[0], seg)):
+        return False
+    elif (intPt == "Collinear"):
+        if (isPtOnSeg(ray[0], seg, interiorOnly=False)):
+            if (interiorOnly
+                    and ((is2PtsSame(seg[0], ray[0]) and not isPtOnRay(seg[1], ray))
+                        or (is2PtsSame(seg[1], ray[0]) and not isPtOnRay(seg[0], ray)))):
+                return False
             return True
         else:
             return False
-    if (isPtOnSeg(intPt, seg, interiorOnly) and isPtOnRay(intPt, ray, interiorOnly)):
-        return True
     else:
-        return False
+        if (isPtOnSeg(intPt, seg, interiorOnly) and isPtOnRay(intPt, ray, interiorOnly)):
+            return True
+        else:
+            return False
+
+def isRayIntLine(ray: line, line: line, interiorOnly: bool=False) -> bool:
+    """Is a ray intersect with a line"""
+    return isLineIntRay(line, ray, interiorOnly)
+
+def isRayIntSeg(ray: line, seg: line, interiorOnly: bool=False) -> bool:
+    """Is a ray intersect with a segment"""
+    return isSegIntRay(seg, ray, interiorOnly)
 
 def isRayIntRay(ray1: line, ray2: line, interiorOnly: bool=False) -> bool:
     """Is a segment intersect with a ray, could be at the end of the segment/ray"""
     intPt = intLine2Line(ray1, ray2)
     if (intPt == None):
         return False
-    if (isPtOnRay(intPt, ray1, interiorOnly) and isPtOnRay(intPt, ray2, interiorOnly)):
-        return True
+    elif (intPt == "Collinear"):
+        if (isPtOnRay(ray1[0], ray2, interiorOnly=False) or isPtOnRay(ray2[0], ray1, interiorOnly=False)):
+            if (interiorOnly
+                    and (is2PtsSame(ray1[0], ray2[0]) and not isPtOnRay(ray1[1], ray2))):
+                return False
+            return True
+        else:
+            return False
     else:
-        return False
+        if (isPtOnRay(intPt, ray1, interiorOnly) and isPtOnRay(intPt, ray2, interiorOnly)):
+            return True
+        else:
+            return False
+
+def isLineIntPoly(line: line, poly: poly, interiorOnly: bool=False) -> bool:
+    """Is a line intersect with a polygon"""
+    for i in range(-1, len(poly) - 1):
+        edge = [poly[i], poly[i + 1]]
+        if (isLineIntSeg(line, edge, interiorOnly)):
+            return True
 
 def isSegIntPoly(seg: line, poly: poly, interiorOnly: bool=False) -> bool:
     """Is a segment intersect with a polygon"""
@@ -277,14 +313,8 @@ def isRayIntPoly(ray: line, poly: poly, interiorOnly: bool=False) -> bool:
 
     return False
 
-def isLineIntPoly(line: line, poly: poly, interiorOnly: bool=False) -> bool:
-    """Is a line intersect with a polygon"""
-    for i in range(-1, len(poly) - 1):
-        edge = [poly[i], poly[i + 1]]
-        if (isLineIntSeg(line, edge, interiorOnly)):
-            return True
-
-def intLine2Line(line1: line, line2: line) -> pt | None:
+# Intersection calculation ====================================================
+def intLine2Line(line1: line, line2: line) -> pt | None | str:
     # Validation ==============================================================
     if (is2PtsSame(line1[0], line1[1])):
         raise ZeroVectorError(line1)
@@ -304,18 +334,32 @@ def intLine2Line(line1: line, line2: line) -> pt | None:
     D = a1 * b2 - a2 * b1
     # Check if parallel =======================================================
     if (D == 0):
-        return None
+        if (is3PtsClockWise(line1[0], line1[1], line2[0]) == None):
+            return "Collinear"
+        else:
+            return None
     # Intersection ============================================================
     x = (b1 * c2 - b2 * c1) / D
     y = (a2 * c1 - a1 * c2) / D
     intPt = (x, y)
     return intPt
 
+def intLine2Seg(line: line, seg: line) -> pt | None | str:
+    intPt = intLine2Line(line, seg)
+    if (isLineIntSeg(line, seg, interiorOnly=False)):
+        return intPt
+    else:
+        return None
+
+def intLine2Ray()
+
+def intSeg2Line()
+
 def intSeg2Seg(seg1: line, seg2: line) -> pt | None:
     # Calculate intersection for two lines ====================================
     intPt = intLine2Line(seg1, seg2)
     # Check if it is on segs ==================================================
-    if (intPt != None and isPtOnSeg(intPt, seg1) and isPtOnSeg(intPt, seg2)):
+    if (isinstance(intPt, tuple) and isPtOnSeg(intPt, seg1) and isPtOnSeg(intPt, seg2)):
         return intPt
     else:
         return None
@@ -324,7 +368,7 @@ def intSeg2Ray(seg: line, ray: line) -> pt | None:
     # Calculate intersection for two lines ====================================
     intPt = intLine2Line(seg, ray)
     # Check if it is on segs
-    if (intPt != None and isPtOnSeg(intPt, seg) and isPtOnRay(intPt, ray)):
+    if (isinstance(intPt, tuple) and isPtOnSeg(intPt, seg) and isPtOnRay(intPt, ray)):
         return intPt
     else:
         return None
@@ -333,20 +377,23 @@ def intRay2Line(ray: line, line: line) -> pt | None:
     # Calculate intersection ==================================================
     intPt = intLine2Line(ray, line)
     # Check if it is on segs ==================================================
-    if (intPt != None and isPtOnRay(intPt, ray)):
+    if (isinstance(intPt, tuple) and isPtOnRay(intPt, ray)):
         return intPt
     else:
         return None
+
+def intRay2Seg()
 
 def intRay2Ray(ray1: line, ray2: line) -> pt | None:
     # Calculate intersection ==================================================
     intPt = intLine2Line(ray1, ray2)
     # Check if it is on segs ==================================================
-    if (intPt != None and isPtOnRay(intPt, ray1) and isPtOnRay(intPt, ray2)):
+    if (isinstance(intPt, tuple) and isPtOnRay(intPt, ray1) and isPtOnRay(intPt, ray2)):
         return intPt
     else:
         return None
 
+# 
 def vecPolar2XY(vecPolar: pt) -> pt:
 
     """Given vector's norm and its degree to North, convert it into a 2-tuple vector
@@ -482,6 +529,7 @@ def distLatLon(pt1: pt, pt2: pt, distUnit: str = 'meter') -> float:
     a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
+
 def locInTimedSeq(seq: list[pt], timeStamp: list[float], t: float) -> pt:
     if (len(seq) != len(timeStamp)):
         raise UnsupportedInputError("ERROR: `timeStamp` does not match with `seq`.")
@@ -589,6 +637,7 @@ def traceInTimedSeq(seq: list[pt], timeStamp: list[float], ts: float, te: float)
 
     return trace
 
+
 def locOnPolyExt(poly: poly, startPt: pt, dist: int|float, reverseFlag: bool=False, dimension: str = 'XY') -> pt:
     perimeter = calPolygonPerimeter(poly)
     while(dist > perimeter):
@@ -677,6 +726,7 @@ def locInSeq(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
     lon = nextLoc[1] + (remainDist / segDist) * (preLoc[1] - nextLoc[1])
     return (lat, lon)
 
+
 def calPolygonPerimeter(poly: poly) -> float:
     p = 0
     for i in range(-1, len(poly) - 1):
@@ -717,6 +767,7 @@ def calPolygonAreaLatLon(polyLatLon: poly) -> float:
     area = abs(geod.geometry_area_perimeter(polygon)[0])
 
     return area
+
 
 def headingXY(pt1: pt, pt2: pt) -> float:
     
@@ -761,6 +812,7 @@ def ptInDistLatLon(pt: pt, direction: int|float, distMeters: int|float):
     # Bearing in degrees: 0 – North, 90 – East, 180 – South, 270 or -90 – West.
     newLoc = list(geopy.distance.distance(meters=distMeters).destination(point=pt, bearing=direction))[:2]
     return newLoc
+
 
 def getTau(
     nodes: dict, 
