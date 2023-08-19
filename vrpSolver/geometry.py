@@ -1,6 +1,9 @@
 import geopy.distance
 import heapq
 import math
+
+# Shapely can do a lot of things, but it seems that shapely does not 
+#     support (infinite) lines and rays.
 import shapely
 
 from .error import *
@@ -18,8 +21,6 @@ from .msg import *
 # Point versus Objects ========================================================
 def is2PtsSame(pt1: pt, pt2: pt) -> bool:
     """Are two points at the 'same' location"""
-    # CHECKED: 20230817
-    # Check if two points are very close to each other ========================
     if (abs(pt1[0] - pt2[0]) >= CONST_EPSILON):
         return False
     if (abs(pt1[1] - pt2[1]) >= CONST_EPSILON):
@@ -28,10 +29,9 @@ def is2PtsSame(pt1: pt, pt2: pt) -> bool:
 
 def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt) -> bool | None:
     """Are three given pts in a clock-wise order, None as they are colliner"""
-    # Validation ==============================================================
     if (is2PtsSame(pt1, pt2) or is2PtsSame(pt2, pt3) or is2PtsSame(pt1, pt3)):
+        # If points are overlapped, return None as collinear
         return None
-    # Use Determinant to determine ============================================
     [x1, y1] = [pt1[0], pt1[1]]
     [x2, y2] = [pt2[0], pt2[1]]
     [x3, y3] = [pt3[0], pt3[1]]
@@ -48,11 +48,8 @@ def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt) -> bool | None:
 
 def isPtOnLine(pt: pt, line: line) -> bool:
     """Is a pt on the line."""
-    # CHECKED: 20230817
-    # Validation ==============================================================
     if (is2PtsSame(line[0], line[1])):
         raise ZeroVectorError()
-    # Calculate the distance between pt and the line ==========================
     if (is3PtsClockWise(pt, line[0], line[1]) == None):
         return True
     else:
@@ -60,11 +57,9 @@ def isPtOnLine(pt: pt, line: line) -> bool:
 
 def isPtOnSeg(pt: pt, seg: line, interiorOnly: bool=False) -> bool:
     """Is a pt on the segment"""
-    # CHECKED: 20230817
-    # Check if is on the line seg =============================================
     onLine = isPtOnLine(pt, seg)
-    if (onLine != True):
-        return onLine
+    if (onLine == False):
+        return False
     # Get pts =================================================================
     [x1, y1] = [seg[0][0], seg[0][1]]
     [x2, y2] = [pt[0], pt[1]]
@@ -81,16 +76,13 @@ def isPtOnSeg(pt: pt, seg: line, interiorOnly: bool=False) -> bool:
 
 def isPtOnRay(pt: pt, ray: line, interiorOnly: bool=False) -> bool:
     """Is a pt on the ray, could be at the end."""
-    # CHECKED: 20230817
-    # Check if is on the line seg =============================================
     onLine = isPtOnLine(pt, ray)
-    if (onLine != True):
-        return onLine
+    if (onLine == False):
+        return False
     # Get pts =================================================================
     [x1, y1] = [ray[0][0], ray[0][1]]
     [x2, y2] = [pt[0], pt[1]]
     [x3, y3] = [ray[1][0], ray[1][1]]
-    # Relative location =======================================================
     onRay = (
         (abs(math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2) 
             + math.sqrt((x2 - x3) ** 2 + (y2 - y3) ** 2) 
@@ -134,7 +126,7 @@ def isPtInPoly(pt: pt, poly: poly, interiorOnly: bool=False) -> bool:
     else:
         return inPoly
 
-# Line-shape versus Objects ===================================================
+# Line-shape versus Line-shape ===================================================
 def isLineIntLine(line1: line, line2: line) -> bool:
     """Is two line intersect with each other"""
     intPt = intLine2Line(line1, line2)
@@ -160,7 +152,7 @@ def isLineIntSeg(line: line, seg: line, interiorOnly:bool=False) -> bool:
 
 def isLineIntRay(line: line, ray: line, interiorOnly: bool=False) -> bool:
     """Is a line intersect with a ray"""
-    intPt = intLine2Line(line1, line2)
+    intPt = intLine2Line(line, ray)
     if (intPt == None):
         return False
     elif (intPt == "Collinear"):
@@ -247,6 +239,7 @@ def isRayIntRay(ray1: line, ray2: line, interiorOnly: bool=False) -> bool:
         else:
             return False
 
+# Line-shape versus polygon ===================================================
 def isLineIntPoly(line: line, poly: poly, interiorOnly: bool=False) -> bool:
     """Is a line intersect with a polygon"""
     for i in range(-1, len(poly) - 1):
@@ -313,6 +306,18 @@ def isRayIntPoly(ray: line, poly: poly, interiorOnly: bool=False) -> bool:
 
     return False
 
+
+# Distance from Point to Object ===============================================
+def distPt2Line(pt: pt, line: line) -> float:
+    return
+
+def distPt2Seg(pt: pt, seg: line) -> float:
+    return
+
+def distPt2Seq(pt: pt, seq: list[pt]) -> float:
+    return
+
+
 # Intersection calculation ====================================================
 def intLine2Line(line1: line, line2: line) -> pt | None | str:
     # Validation ==============================================================
@@ -320,6 +325,7 @@ def intLine2Line(line1: line, line2: line) -> pt | None | str:
         raise ZeroVectorError(line1)
     if (is2PtsSame(line2[0], line2[1])):
         raise ZeroVectorError(line2)
+
     # Get Ax + By + C = 0 =====================================================
     def abc(pt1, pt2):
         x1, y1 = pt1
@@ -328,70 +334,130 @@ def intLine2Line(line1: line, line2: line) -> pt | None | str:
         b = x2 - x1
         c = x1 * y2 - x2 * y1
         return a, b, c
+
     # Calculate intersection ==================================================
     a1, b1, c1 = abc(line1[0], line1[1])
     a2, b2, c2 = abc(line2[0], line2[1])
     D = a1 * b2 - a2 * b1
+
     # Check if parallel =======================================================
     if (D == 0):
         if (is3PtsClockWise(line1[0], line1[1], line2[0]) == None):
-            return "Collinear"
+            return {
+                'status': 'Collinear',
+                'intersect': line1,
+                'intersectType': 'Line'
+            }
         else:
-            return None
+            return {
+                'status': 'NoCross',
+                'intersect': None,
+                'intersectType': None
+            }
+
     # Intersection ============================================================
     x = (b1 * c2 - b2 * c1) / D
     y = (a2 * c1 - a1 * c2) / D
-    intPt = (x, y)
-    return intPt
+    return {
+        'status': 'Cross',
+        'intersect': (x, y),
+        'intersectType': 'Point'
+    }
 
-def intLine2Seg(line: line, seg: line) -> pt | None | str:
+def intLine2Seg(line: line, seg: line) -> pt | None | line:
     intPt = intLine2Line(line, seg)
-    if (isLineIntSeg(line, seg, interiorOnly=False)):
-        return intPt
+
+    if (intPt['status'] == 'NoCross'):
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None
+        }
+    elif (intPt['status'] == 'Collinear'):
+        return {
+            'status': 'Collinear',
+            'intersect': seg,
+            'intersectType': 'Segment'
+        }
     else:
-        return None
+        if (isPtOnSeg(intPt['intersect'], seg, interiorOnly=False)):
+            return intPt
+        else:
+            return {
+                'status': 'NoCross',
+                'intersect': None,
+                'intersectType': None
+            }
 
-def intLine2Ray()
+def ptLine2Ray(line: line, ray: line) -> pt | None | str:
+    intPt = intLine2Line(line, ray)
 
-def intSeg2Line()
+    if (intPt['status'] == 'NoCross'):
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None
+        }
+    elif (intPt == "Collinear"):
+        return {
+            'status': 'Collinear',
+            'intersect': ray,
+            'intersectType': 'Ray'
+        }
+    else:
+        if (isPtOnRay(intPt['intersect'], ray, interiorOnly=False)):
+            return intPt
+        else:
+            return {
+                'status': 'NoCross',
+                'intersect': None,
+                'intersectType': None
+            }
 
-def intSeg2Seg(seg1: line, seg2: line) -> pt | None:
-    # Calculate intersection for two lines ====================================
+def ptSeg2Line(seg: line, line: line) -> pt | None | line:
+    return intLine2Seg(line, seg)
+
+def ptSeg2Seg(seg1: line, seg2: line) -> pt | None | line:
     intPt = intLine2Line(seg1, seg2)
-    # Check if it is on segs ==================================================
-    if (isinstance(intPt, tuple) and isPtOnSeg(intPt, seg1) and isPtOnSeg(intPt, seg2)):
-        return intPt
-    else:
+    if (intPt == None):
         return None
+    elif (intPt == "Collinear"):
+        if (isPtOnSeg(seg1[0], seg2, interiorOnly=False) 
+                or isPtOnSeg(seg1[1], seg2, interiorOnly=False)
+                or isPtOnSeg(seg2[0], seg1, interiorOnly=False)
+                or isPtOnSeg(seg2[1], seg1, interiorOnly=False)):
+            if (interiorOnly
+                    and ((is2PtsSame(seg1[0], seg2[0]) and not is2PtsSame(seg1[1], seg2[1]))
+                        or (is2PtsSame(seg1[0], seg2[1]) and not is2PtsSame(seg1[1], seg2[0]))
+                        or (is2PtsSame(seg1[1], seg2[1]) and not is2PtsSame(seg1[0], seg2[0]))
+                        or (is2PtsSame(seg1[1], seg2[0]) and not is2PtsSame(seg1[0], seg2[1])))):
+                return False
+            return True
+        else:
+            return False
 
-def intSeg2Ray(seg: line, ray: line) -> pt | None:
-    # Calculate intersection for two lines ====================================
-    intPt = intLine2Line(seg, ray)
-    # Check if it is on segs
-    if (isinstance(intPt, tuple) and isPtOnSeg(intPt, seg) and isPtOnRay(intPt, ray)):
-        return intPt
+        # 
+        if (isPtOnSeg(seg1[0], seg2, interiorOnly=False)
+                and (seg1[1], seg2)):
+
     else:
-        return None
+        if (isPtOnSeg(intPt, seg1, interiorOnly=False)
+                and isPtOnSeg(intPt, seg2, interiorOnly=False)):
+            return intPt
+        else:
+            return None
 
-def intRay2Line(ray: line, line: line) -> pt | None:
-    # Calculate intersection ==================================================
-    intPt = intLine2Line(ray, line)
-    # Check if it is on segs ==================================================
-    if (isinstance(intPt, tuple) and isPtOnRay(intPt, ray)):
-        return intPt
-    else:
-        return None
+def ptSeg2Ray(seg: line, ray: line) -> pt | None | line:
+    return
 
-def intRay2Seg()
+def ptRay2Line(ray: line, line: line) -> pt | None | line:
+    return
 
-def intRay2Ray(ray1: line, ray2: line) -> pt | None:
-    # Calculate intersection ==================================================
-    intPt = intLine2Line(ray1, ray2)
-    # Check if it is on segs ==================================================
-    if (isinstance(intPt, tuple) and isPtOnRay(intPt, ray1) and isPtOnRay(intPt, ray2)):
-        return intPt
-    else:
-        return None
+def ptRay2Seg(ray: line, seg: line) -> pt | None | line:
+    return
+
+def ptRay2Ray(ray1: line, ray2: line) -> pt | None | line:
+    return
 
 # 
 def vecPolar2XY(vecPolar: pt) -> pt:
@@ -498,7 +564,7 @@ def ptLatLon2XYMercator(ptLatLon: pt) -> pt:
     ptXY = (x, y)
     return ptXY
 
-def distEuclidean2D(pt1: pt, pt2: pt) -> float:
+def distEuclideanXY(pt1: pt, pt2: pt) -> float:
     """Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number"""
     return math.sqrt((pt1[0] - pt2[0]) ** 2 + (pt1[1] - pt2[1]) ** 2)
 
@@ -529,7 +595,7 @@ def distLatLon(pt1: pt, pt2: pt, distUnit: str = 'meter') -> float:
     a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
     return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
-
+# Time seq related ============================================================
 def locInTimedSeq(seq: list[pt], timeStamp: list[float], t: float) -> pt:
     if (len(seq) != len(timeStamp)):
         raise UnsupportedInputError("ERROR: `timeStamp` does not match with `seq`.")
@@ -569,7 +635,7 @@ def speedInTimedSeq(seq: list[pt], timeStamp: list[float], t: float) -> float:
         if (timeStamp[i] <= t < timeStamp[i + 1]):
             if (timeStamp[i] == timeStamp[i + 1]):
                 raise UnsupportedInputError("ERROR: an object cannot be two places at the same time.")
-            dist = distEuclidean2D(seq[i], seq[i + 1])
+            dist = distEuclideanXY(seq[i], seq[i + 1])
             spd = dist / (timeStamp[i + 1] - timeStamp[i])
 
     return spd
@@ -648,11 +714,11 @@ def locOnPolyExt(poly: poly, startPt: pt, dist: int|float, reverseFlag: bool=Fal
 
     if (dimension == 'XY'):
         for i in range(len(poly) - 1):
-            if (abs(distEuclidean2D(poly[i], poly[i + 1]) - distEuclidean2D(poly[i], startPt) - distEuclidean2D(startPt, poly[i + 1])) <= CONST_EPSILON):
+            if (abs(distEuclideanXY(poly[i], poly[i + 1]) - distEuclideanXY(poly[i], startPt) - distEuclideanXY(startPt, poly[i + 1])) <= CONST_EPSILON):
                 startID = i + 1
                 break
         if (startID == len(poly) + 1):
-            if (abs(distEuclidean2D(poly[0], poly[-1]) - distEuclidean2D(poly[0], startPt) - distEuclidean2D(startPt, poly[-1])) <= CONST_EPSILON):
+            if (abs(distEuclideanXY(poly[0], poly[-1]) - distEuclideanXY(poly[0], startPt) - distEuclideanXY(startPt, poly[-1])) <= CONST_EPSILON):
                 startID = 0
             else:
                 raise UnsupportedInputError("ERROR: `startPt` should be on the boundary of `poly`")
@@ -703,7 +769,7 @@ def locInSeq(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
         if (dimension == 'LatLon'):
             accDist += distLatLon(seq[i], seq[i + 1])
         elif (dimension == 'XY'):
-            accDist += distEuclidean2D(seq[i], seq[i + 1])
+            accDist += distEuclideanXY(seq[i], seq[i + 1])
         if (accDist > dist):
             preLoc = seq[i]
             nextLoc = seq[i + 1]
@@ -719,7 +785,7 @@ def locInSeq(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
     if (dimension == 'LatLon'):
         segDist = distLatLon(preLoc, nextLoc)
     elif (dimension == 'XY'):
-        segDist = distEuclidean2D(preLoc, nextLoc)
+        segDist = distEuclideanXY(preLoc, nextLoc)
     if (segDist <= CONST_EPSILON):
         raise ZeroDivisionError
     lat = nextLoc[0] + (remainDist / segDist) * (preLoc[0] - nextLoc[0])
@@ -730,7 +796,7 @@ def locInSeq(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
 def calPolygonPerimeter(poly: poly) -> float:
     p = 0
     for i in range(-1, len(poly) - 1):
-        p += distEuclidean2D(poly[i], poly[i + 1])
+        p += distEuclideanXY(poly[i], poly[i + 1])
     return p
 
 def calTriangleAreaEdge(a: float, b: float, c: float) -> float:
@@ -873,7 +939,7 @@ def _getTauEuclidean(nodes: dict, nodeIDs: list|str, speed = 1):
     for i in nodeIDs:
         for j in nodeIDs:
             if (i != j):
-                t = distEuclidean2D(nodes[i]['loc'], nodes[j]['loc']) / speed
+                t = distEuclideanXY(nodes[i]['loc'], nodes[j]['loc']) / speed
                 tau[i, j] = t
                 tau[j, i] = t
             else:
@@ -956,7 +1022,7 @@ def getSortedNodesByDist(nodes: dict, refLoc: pt, nodeIDs: list|str = 'All') -> 
     sortedSeq = []
     sortedSeqHeap = []
     for n in nodeIDs:
-        dist = distEuclidean2D(refLoc, nodes[n]['loc'])
+        dist = distEuclideanXY(refLoc, nodes[n]['loc'])
         heapq.heappush(sortedSeqHeap, (dist, n))
     while (len(sortedSeqHeap) > 0):
         sortedSeq.append(heapq.heappop(sortedSeqHeap)[1])  
@@ -986,7 +1052,7 @@ def getSweepSeq(nodes: dict, nodeIDs: list|str = 'All', centerLoc: None|pt = Non
     
     # Build heap ==============================================================
     for n in nodeIDs:
-        dist = distEuclidean2D(nodes[n]['loc'], centerLoc)
+        dist = distEuclideanXY(nodes[n]['loc'], centerLoc)
         # If the nodes are too close, separate it/them
         if (dist <= CONST_EPSILON):
             centerLocNodes.append(n)
@@ -1013,170 +1079,3 @@ def getSweepSeq(nodes: dict, nodeIDs: list|str = 'All', centerLoc: None|pt = Non
     sweepSeq.extend(centerLocNodes)
 
     return sweepSeq
-
-def gridPathFinding(grid: dict, startCoord: pt, endCoord: pt, algo: dict = {'method': 'A*', 'measure': 'Manhatten'}) -> dict:
-
-    """Given two coordinates on the grid, finds the 'shortest' path to travel
-
-    Parameters
-    ----------
-
-    grid: dictionary, required, default as None
-        The environment of a grid area, in the following format:
-            >>> grid = {
-            ...     'column': col, # Number of columns,
-            ...     'row': row, # Number of rows,
-            ...     'barriers': barriers, # A list of coordinates,
-            ... }
-    startCoord: 2-tuple|2-list, required
-        Starting location on the grid
-    endCoord: 2-tuple|2-list, required
-        Ending location on the grid 
-    algo: dictionary, required, default as {'method': 'A*', 'distMeasure': 'Manhatten'}
-        The algorithm configuration. For example
-        1) A*
-            >>> algo = {
-            ...     'method': A*,
-            ...     'measure': 'Manhatten', # Options: 'Manhatten', 'Euclidean'
-            ... }
-
-    Returns
-    -------
-
-    dictionary
-        A path on the given grid, in the following formatt::
-            >>> res = {
-            ...     'dist': dist,
-            ...     'path': path,
-            ... }
-
-    """
-
-    # Decode ==================================================================
-    column = grid['column']
-    row = grid['row']
-    barriers = grid['barriers']
-    res = {}
-
-    # Call path finding =======================================================
-    if (algo['method'] == 'A*'):
-        if ('measure' not in algo or algo['measure'] not in ['Manhatten', 'Euclidean']):
-            warnings.warn("WARNING: Set distance measurement to be default as 'Manhatten")
-        res = _gridPathFindingAStar(column, row, barriers, startCoord, endCoord, algo['measure'])
-    else:
-        print("Error: Incorrect or not available grid path finding option!")
-    return res
-
-def _gridPathFindingAStar(column, row, barriers, startCoord, endCoord, distMeasure):
-    # Heuristic measure ==================================================-
-    def _calManhattenDist(coord1, coord2):
-        return abs(coord1[0] - coord2[0]) + abs(coord1[1] - coord2[1])
-    def _calEuclideanDist(coord1, coord2):
-        return math.sqrt((coord1[0] - coord2[0])**2 + (coord1[1] - coord2[1])**2)
-
-    # Initialize grid ====================================================-
-    # Evaluate value f(n) = g(n) + h(n)
-    gridStatus = {}
-    for col in range(column):
-        for ro in range(row):
-            if ((col, ro) not in barriers):
-                # Content in the dictionary (g(n), h(n), fromCoord)
-                # At this stage, no need to calculate h(n) 
-                gridStatus[(col, ro)] = (None, None, None)
-            else:
-                gridStatus[(col, ro)] = 'block'
-    if (distMeasure == 'Manhatten'):
-        gridStatus[startCoord] = (0, _calManhattenDist(startCoord, endCoord), None)
-    elif (distMeasure == 'Euclidean'):
-        gridStatus[startCoord] = (0, _calEuclideanDist(startCoord, endCoord), None)
-    gridStatus[endCoord] = (None, 0, None)
-
-    # Open/close set ======================================================
-    openList = [startCoord]
-    closeList = [i for i in barriers]
-
-    # Find smallest Fn ====================================================
-    def _findSmallestFnGrid():
-        bestFn = None
-        bestCoord = None
-        for coord in openList:
-            if (gridStatus[coord] != None
-                and gridStatus[coord] != 'block' 
-                and (bestFn == None or gridStatus[coord][0] + gridStatus[coord][1] < bestFn)):
-                bestFn = gridStatus[coord][0] + gridStatus[coord][1]
-                bestCoord = coord
-        if (bestCoord != None):
-            return bestCoord
-        else:
-            raise
-
-    # For each grid in open set, update g(n) ==============================
-    while (len(openList) > 0):
-        tmpOpenList = []
-        coord = _findSmallestFnGrid()
-        # Up
-        upCoord = (coord[0], coord[1] + 1)
-        if (coord[1] + 1 < row and gridStatus[upCoord] != None and gridStatus[upCoord] != 'block' and upCoord not in closeList):
-            if (gridStatus[upCoord][0] == None or gridStatus[upCoord][0] > gridStatus[coord][0] + 1):
-                if (distMeasure == 'Manhatten'):
-                    gridStatus[upCoord] = (gridStatus[coord][0] + 1, _calManhattenDist(upCoord, endCoord), coord)
-                if (distMeasure == 'Euclidean'):
-                    gridStatus[upCoord] = (gridStatus[coord][0] + 1, _calEuclideanDist(upCoord, endCoord), coord)
-                if (upCoord == endCoord):
-                    break
-                else:
-                    tmpOpenList.append(upCoord)
-        # Down
-        downCoord = (coord[0], coord[1] - 1)
-        if (coord[1] - 1 >= 0 and gridStatus[downCoord] != None and gridStatus[downCoord] != 'block' and downCoord not in closeList):
-            if (gridStatus[downCoord][0] == None or gridStatus[downCoord][0] > gridStatus[coord][0] + 1):
-                if (distMeasure == 'Manhatten'):
-                    gridStatus[downCoord] = (gridStatus[coord][0] + 1, _calManhattenDist(downCoord, endCoord), coord)
-                if (distMeasure == 'Euclidean'):
-                    gridStatus[downCoord] = (gridStatus[coord][0] + 1, _calEuclideanDist(downCoord, endCoord), coord)
-                if (downCoord == endCoord):
-                    break
-                else:
-                    tmpOpenList.append(downCoord)
-        # Left
-        leftCoord = (coord[0] - 1, coord[1])
-        if (coord[0] - 1 >= 0 and gridStatus[leftCoord] != None and gridStatus[leftCoord] != 'block' and leftCoord not in closeList):
-            if (gridStatus[leftCoord][0] == None or gridStatus[leftCoord][0] > gridStatus[coord][0] + 1):
-                if (distMeasure == 'Manhatten'):
-                    gridStatus[leftCoord] = (gridStatus[coord][0] + 1, _calManhattenDist(leftCoord, endCoord), coord)
-                if (distMeasure == 'Euclidean'):
-                    gridStatus[leftCoord] = (gridStatus[coord][0] + 1, _calEuclideanDist(leftCoord, endCoord), coord)
-                if (leftCoord == endCoord):
-                    break
-                else:
-                    tmpOpenList.append(leftCoord)
-        # Right
-        rightCoord = (coord[0] + 1, coord[1])
-        if (coord[0] + 1 < column and gridStatus[rightCoord] != None and gridStatus[rightCoord] != 'block' and rightCoord not in closeList):
-            if (gridStatus[rightCoord][0] == None or gridStatus[rightCoord][0] > gridStatus[coord][0] + 1):
-                if (distMeasure == 'Manhatten'):
-                    gridStatus[rightCoord] = (gridStatus[coord][0] + 1, _calManhattenDist(rightCoord, endCoord), coord)
-                if (distMeasure == 'Euclidean'):
-                    gridStatus[rightCoord] = (gridStatus[coord][0] + 1, _calEuclideanDist(rightCoord, endCoord), coord)
-                if (rightCoord == endCoord):
-                    break
-                else:
-                    tmpOpenList.append(rightCoord)
-        openList.remove(coord)
-        openList.extend(tmpOpenList)
-        closeList.append(coord)
-
-    # Recover path ========================================================
-    path = []
-    curCoord = endCoord
-    finishReconstructFlag = True
-    while (finishReconstructFlag):
-        finishReconstructFlag = False
-        path.insert(0, curCoord)
-        curCoord = gridStatus[curCoord][2]
-        if (curCoord != None):
-            finishReconstructFlag = True
-    return {
-        'dist': len(path) - 1,
-        'path': path
-    }
