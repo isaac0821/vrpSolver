@@ -73,6 +73,14 @@ __author__ = "Lan Peng"
 #                    - Redo a lot of stuff with networkX
 # v0.0.56 - 07122023 - CVRP functions
 # =============================================================================
+
+
+# A few SE tips/notes =========================================================
+# 1. Avoid nested if/for for more than three levels
+# 2. A function should not be more than one page in length
+# 3. Variables start with lower-case, classes names start with upper-case
+# 4. NEVER use variable start with `my-` or `tmp-`, that is lame
+# =============================================================================
 '''
 
 # Constants, messages, and basic modules

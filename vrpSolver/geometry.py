@@ -36,14 +36,14 @@ def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt) -> bool | None:
     [x2, y2] = [pt2[0], pt2[1]]
     [x3, y3] = [pt3[0], pt3[1]]
     ori = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1)
-    if (abs(ori) <= CONST_EPSILON):
-        # collinear
+    # collinear
+    if (abs(ori) <= CONST_EPSILON):        
         return None
-    elif (ori < 0):
-        # clockwise
+    # clockwise 
+    elif (ori < 0):        
         return True
-    else:
-        # counter-clockwise
+    # counter-clockwise
+    else:        
         return False
 
 def isPtOnLine(pt: pt, line: line) -> bool:
@@ -64,6 +64,7 @@ def isPtOnSeg(pt: pt, seg: line, interiorOnly: bool=False) -> bool:
     [x1, y1] = [seg[0][0], seg[0][1]]
     [x2, y2] = [pt[0], pt[1]]
     [x3, y3] = [seg[1][0], seg[1][1]]
+    # NOTE: 判断在线段上的标准为到两端点的距离的和等于端点间距离
     onSeg = (
         abs(math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2) 
         + math.sqrt((x2 - x3) ** 2 + (y2 - y3) ** 2) 
@@ -126,200 +127,20 @@ def isPtInPoly(pt: pt, poly: poly, interiorOnly: bool=False) -> bool:
     else:
         return inPoly
 
-# Line-shape versus Line-shape ===================================================
-def isLineIntLine(line1: line, line2: line) -> bool:
-    """Is two line intersect with each other"""
-    intPt = intLine2Line(line1, line2)
-    if (intPt == None):
-        return False
-    elif (intPt == "Collinear"):
-        return True
-    else:
-        return True
+# Point to line-shape =========================================================
+def rayPerpendicularLine(pt: pt, line: line) -> line:
+    """Given a point and a line, return a ray from that point and perpendicular to the givne line"""
+    if (isPtOnLine(pt, line)):
+        raise ZeroVectorError()
+    return ray
 
-def isLineIntSeg(line: line, seg: line, interiorOnly:bool=False) -> bool:
-    """Is a line intersect with a segment"""
-    intPt = intLine2Line(line, seg)
-    if (intPt == None):
-        return False
-    elif (intPt == "Collinear"):
-        return True
-    else:
-        if (isPtOnSeg(intPt, seg, interiorOnly)):
-            return True
-        else:
-            return False
+def ptFoot2Line(pt: pt, line: line) -> pt:
+    """Given a point and a line, return the foot of that point on the line"""
 
-def isLineIntRay(line: line, ray: line, interiorOnly: bool=False) -> bool:
-    """Is a line intersect with a ray"""
-    intPt = intLine2Line(line, ray)
-    if (intPt == None):
-        return False
-    elif (intPt == "Collinear"):
-        return True
-    else:
-        if (isPtOnRay(intPt, ray, interiorOnly)):
-            return True
-        else:
-            return False
+    return pt
 
-def isSegIntLine(seg: line, line: line, interiorOnly: bool=False) -> bool:
-    """Is a segment intersect with a line"""
-    return isLineIntSeg(line, seg, interiorOnly)
-
-def isSegIntSeg(seg1: line, seg2: line, interiorOnly: bool=False) -> bool:
-    """Are two segment intersect with each other, could be at the end of a segment"""
-    intPt = intLine2Line(seg1, seg2)
-    if (intPt == None):
-        return False
-    elif (intPt == "Collinear"):
-        if (isPtOnSeg(seg1[0], seg2, interiorOnly=False) 
-                or isPtOnSeg(seg1[1], seg2, interiorOnly=False)
-                or isPtOnSeg(seg2[0], seg1, interiorOnly=False)
-                or isPtOnSeg(seg2[1], seg1, interiorOnly=False)):
-            if (interiorOnly
-                    and ((is2PtsSame(seg1[0], seg2[0]) and not is2PtsSame(seg1[1], seg2[1]))
-                        or (is2PtsSame(seg1[0], seg2[1]) and not is2PtsSame(seg1[1], seg2[0]))
-                        or (is2PtsSame(seg1[1], seg2[1]) and not is2PtsSame(seg1[0], seg2[0]))
-                        or (is2PtsSame(seg1[1], seg2[0]) and not is2PtsSame(seg1[0], seg2[1])))):
-                return False
-            return True
-        else:
-            return False
-    else:
-        if (isPtOnSeg(intPt, seg1, interiorOnly) and isPtOnSeg(intPt, seg2, interiorOnly)):
-            return True
-        else:
-            return False
-
-def isSegIntRay(seg: line, ray: line, interiorOnly: bool=False) -> bool:
-    """Is a segment intersect with a ray, could be at the end of the segment/ray"""
-    intPt = intLine2Line(seg, ray)
-    if (intPt == None):
-        return False
-    elif (intPt == "Collinear"):
-        if (isPtOnSeg(ray[0], seg, interiorOnly=False)):
-            if (interiorOnly
-                    and ((is2PtsSame(seg[0], ray[0]) and not isPtOnRay(seg[1], ray))
-                        or (is2PtsSame(seg[1], ray[0]) and not isPtOnRay(seg[0], ray)))):
-                return False
-            return True
-        else:
-            return False
-    else:
-        if (isPtOnSeg(intPt, seg, interiorOnly) and isPtOnRay(intPt, ray, interiorOnly)):
-            return True
-        else:
-            return False
-
-def isRayIntLine(ray: line, line: line, interiorOnly: bool=False) -> bool:
-    """Is a ray intersect with a line"""
-    return isLineIntRay(line, ray, interiorOnly)
-
-def isRayIntSeg(ray: line, seg: line, interiorOnly: bool=False) -> bool:
-    """Is a ray intersect with a segment"""
-    return isSegIntRay(seg, ray, interiorOnly)
-
-def isRayIntRay(ray1: line, ray2: line, interiorOnly: bool=False) -> bool:
-    """Is a segment intersect with a ray, could be at the end of the segment/ray"""
-    intPt = intLine2Line(ray1, ray2)
-    if (intPt == None):
-        return False
-    elif (intPt == "Collinear"):
-        if (isPtOnRay(ray1[0], ray2, interiorOnly=False) or isPtOnRay(ray2[0], ray1, interiorOnly=False)):
-            if (interiorOnly
-                    and (is2PtsSame(ray1[0], ray2[0]) and not isPtOnRay(ray1[1], ray2))):
-                return False
-            return True
-        else:
-            return False
-    else:
-        if (isPtOnRay(intPt, ray1, interiorOnly) and isPtOnRay(intPt, ray2, interiorOnly)):
-            return True
-        else:
-            return False
-
-# Line-shape versus polygon ===================================================
-def isLineIntPoly(line: line, poly: poly, interiorOnly: bool=False) -> bool:
-    """Is a line intersect with a polygon"""
-    for i in range(-1, len(poly) - 1):
-        edge = [poly[i], poly[i + 1]]
-        if (isLineIntSeg(line, edge, interiorOnly)):
-            return True
-
-def isSegIntPoly(seg: line, poly: poly, interiorOnly: bool=False) -> bool:
-    """Is a segment intersect with a polygon"""
-    # 若线段中的一个端点妥妥的在poly的interior里，interiorOnly True
-    if (isPtInPoly(seg[0], poly, interiorOnly) or isPtInPoly(seg[1], poly, interiorOnly)):
-        return True
-
-    # 若线段和多边形的至少一条边妥妥的相交，interiorOnly True
-    for i in range(-1, len(poly) - 1):
-        edge = [poly[i], poly[i + 1]]
-        if (not is2PtsSame(poly[i], poly[i + 1])):
-            if (isSegIntSeg(edge, seg, interiorOnly)):
-                return True
-
-    # 若线段只和多边形的boundary相交： 线段的一个顶点在poly edge，或一个顶点在线段上
-    if (interiorOnly == False):
-        if (isPtOnPolyEdge(seg[0], poly) or isPtOnPolyEdge(seq[1], poly)):
-            return True
-        for pt in poly:
-            if (isPtOnSeg(pt, seg, interiorOnly=False)):
-                return True
-
-    # 最后最麻烦的情况：如果线段的两端都在poly edge上，是否相交呢？
-    # NOTE: 思路是找线段interior上的任何一点，若在poly内，就相交，否则一定不相交（interior-wise）
-    midPt = [seg[0][0] + (seg[1][0] - seg[0][0])/2, seg[0][1] + (seg[1][1] - seg[0][1])/2]
-    if (isPtInPoly(midPt, poly, interiorOnly=True)):
-        return True
-    else:
-        if (interiorOnly == True):
-            return False
-        else:
-            return True
-    return False
-
-def isRayIntPoly(ray: line, poly: poly, interiorOnly: bool=False) -> bool:
-    """Is a ray intersect with a polygon"""
-    # 若射线的端点妥妥的在poly的interior里，interiorOnly True
-    if (isPtInPoly(ray[0], poly, interiorOnly)):
-        return True
-
-    # Check number of intersection between ray and each line segment
-    intList = []
-    for i in range(-1, len(poly) - 1):
-        edge = [poly[i], poly[i + 1]]
-        sxr = intSeg2Ray(edge, ray)
-        if (sxr != None):
-            intList.append(sxr)
-
-    if (len(intList) >= 3):
-        return True
-    elif (len(intList) == 2):
-        if (interiorOnly == True):
-            return False
-        else:
-            return True
-    elif (len(intList) <= 1):
-        return False
-
-    return False
-
-
-# Distance from Point to Object ===============================================
-def distPt2Line(pt: pt, line: line) -> float:
-    return
-
-def distPt2Seg(pt: pt, seg: line) -> float:
-    return
-
-def distPt2Seq(pt: pt, seq: list[pt]) -> float:
-    return
-
-
-# Intersection calculation ====================================================
-def intLine2Line(line1: line, line2: line) -> pt | None | str:
+# Line-shape intersection =====================================================
+def intLine2Line(line1: line, line2: line) -> dict:
     # Validation ==============================================================
     if (is2PtsSame(line1[0], line1[1])):
         raise ZeroVectorError(line1)
@@ -341,125 +162,645 @@ def intLine2Line(line1: line, line2: line) -> pt | None | str:
     D = a1 * b2 - a2 * b1
 
     # Check if parallel =======================================================
-    if (D == 0):
-        if (is3PtsClockWise(line1[0], line1[1], line2[0]) == None):
-            return {
-                'status': 'Collinear',
-                'intersect': line1,
-                'intersectType': 'Line'
-            }
-        else:
-            return {
-                'status': 'NoCross',
-                'intersect': None,
-                'intersectType': None
-            }
+    # 共线情形
+    if (D == 0 and is3PtsClockWise(line1[0], line1[1], line2[0]) == None):
+        return {
+            'status': 'Collinear',
+            'intersect': line1,
+            'intersectType': 'Line',
+            'interiorFlag': True
+        }
+    # 平行情形
+    elif (D == 0):
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None,
+            'interiorFlag': None
+        }
+    # 相交情形
+    else:
+        x = (b1 * c2 - b2 * c1) / D
+        y = (a2 * c1 - a1 * c2) / D
+        return {
+            'status': 'Cross',
+            'intersect': (x, y),
+            'intersectType': 'Point',
+            'interiorFlag': True
+        }
 
-    # Intersection ============================================================
-    x = (b1 * c2 - b2 * c1) / D
-    y = (a2 * c1 - a1 * c2) / D
-    return {
-        'status': 'Cross',
-        'intersect': (x, y),
-        'intersectType': 'Point'
-    }
-
-def intLine2Seg(line: line, seg: line) -> pt | None | line:
+def intLine2Seg(line: line, seg: line) -> dict:
     intPt = intLine2Line(line, seg)
 
+    # 如果直线不相交，返回不相交
     if (intPt['status'] == 'NoCross'):
         return {
             'status': 'NoCross',
             'intersect': None,
-            'intersectType': None
+            'intersectType': None,
+            'interiorFlag': True
         }
+    # 如果直线和线段共线，返回线段
     elif (intPt['status'] == 'Collinear'):
         return {
             'status': 'Collinear',
             'intersect': seg,
-            'intersectType': 'Segment'
+            'intersectType': 'Segment',
+            'interiorFlag': True
         }
+    # 若相交点不在线段上，返回不相交
+    elif (not isPtOnSeg(intPt['intersect'], seg, interiorOnly=False)):
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None,
+            'interiorFlag': None
+        }
+    # 若相交点在线段端点上，返回相交且不在interior
+    elif (is2PtsSame(intPt['intersect'], seg[0]) or is2PtsSame(intPt['intersect'], seg[1])):
+        return {
+            'status': 'Cross',
+            'intersect': intPt['intersect'],
+            'intersectType': 'Point',
+            'interiorFlag': False
+        }
+    # 若相交点在线段内，返回相交且在interior内
     else:
-        if (isPtOnSeg(intPt['intersect'], seg, interiorOnly=False)):
-            return intPt
-        else:
-            return {
-                'status': 'NoCross',
-                'intersect': None,
-                'intersectType': None
-            }
+        return {
+            'status': 'Cross',
+            'intersect': intPt['intersect'],
+            'intersectType': 'Point',
+            'interiorFlag': True
+        }
 
-def ptLine2Ray(line: line, ray: line) -> pt | None | str:
+def intLine2Ray(line: line, ray: line) -> dict:
     intPt = intLine2Line(line, ray)
 
+    # 若直线不相交，返回不相交
     if (intPt['status'] == 'NoCross'):
         return {
             'status': 'NoCross',
             'intersect': None,
-            'intersectType': None
+            'intersectType': None,
+            'interiorFlag': None
         }
+    # 若直线与射线共线，返回射线
     elif (intPt == "Collinear"):
         return {
             'status': 'Collinear',
             'intersect': ray,
-            'intersectType': 'Ray'
+            'intersectType': 'Ray',
+            'interiorFlag': True
         }
+    # 若相交点不在射线内，返回不相交
+    elif (not isPtOnRay(intPt['intersect'], ray, interiorOnly=False)):
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None,
+            'interiorFlag': None
+        }
+    # 若相交点在射线端点上，返回相交且不在interior
+    elif (is2PtsSame(intPt['intersect'], ray[0])):
+        return {
+            'status': 'Cross',
+            'intersect': intPt['intersect'],
+            'intersectType': 'Point',
+            'interiorFlag': False
+        }
+    # 若相交点在射线内，返回相交且在interior内
     else:
-        if (isPtOnRay(intPt['intersect'], ray, interiorOnly=False)):
-            return intPt
-        else:
-            return {
-                'status': 'NoCross',
-                'intersect': None,
-                'intersectType': None
-            }
+        return {
+            'status': 'Cross',
+            'intersect': intPt['intersect'],
+            'intersectType': 'Point',
+            'interiorFlag': True
+        }        
 
-def ptSeg2Line(seg: line, line: line) -> pt | None | line:
+def intSeg2Line(seg: line, line: line) -> dict:
     return intLine2Seg(line, seg)
 
-def ptSeg2Seg(seg1: line, seg2: line) -> pt | None | line:
+def intSeg2Seg(seg1: line, seg2: line) -> dict:
     intPt = intLine2Line(seg1, seg2)
-    if (intPt == None):
-        return None
-    elif (intPt == "Collinear"):
-        if (isPtOnSeg(seg1[0], seg2, interiorOnly=False) 
-                or isPtOnSeg(seg1[1], seg2, interiorOnly=False)
-                or isPtOnSeg(seg2[0], seg1, interiorOnly=False)
-                or isPtOnSeg(seg2[1], seg1, interiorOnly=False)):
-            if (interiorOnly
-                    and ((is2PtsSame(seg1[0], seg2[0]) and not is2PtsSame(seg1[1], seg2[1]))
-                        or (is2PtsSame(seg1[0], seg2[1]) and not is2PtsSame(seg1[1], seg2[0]))
-                        or (is2PtsSame(seg1[1], seg2[1]) and not is2PtsSame(seg1[0], seg2[0]))
-                        or (is2PtsSame(seg1[1], seg2[0]) and not is2PtsSame(seg1[0], seg2[1])))):
-                return False
-            return True
+
+    # 若直线不相交，返回不相交
+    if (intPt['status'] == 'NoCross'):
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None,
+            'interiorFlag': None
+        }
+    # 若直线共线，进一步分情况讨论
+    elif (intPt['status'] == "Collinear"):
+        # 线段端点是否在另一条线段上
+        seg1aInSeg2Flag = isPtOnSeg(seg1[0], seg2, interiorOnly=False)
+        seg1bInSeg2Flag = isPtOnSeg(seg1[1], seg2, interiorOnly=False)
+        seg2aInSeg1Flag = isPtOnSeg(seg2[0], seg1, interiorOnly=False)
+        seg2bInSeg1Flag = isPtOnSeg(seg2[1], seg1, interiorOnly=False)
+
+        # Case 1: seg1完全在seg2内
+        if (seg1aInSeg2Flag and seg1bInSeg2Flag):
+            return {
+                'status': 'Collinear',
+                'intersect': seg1,
+                'intersectType': 'Segment',
+                'interiorFlag': True
+            }
+        # Case 2: seg2完全在seg1内
+        elif (seg2aInSeg1Flag and seg2bInSeg1Flag):
+            return {
+                'status': 'Collinear',
+                'intersect': seg2,
+                'intersectType': 'Segment',
+                'interiorFlag': True
+            }
+        # Case 3: seg1b在seg2内，seg2a在seg1内
+        elif (seg1bInSeg2Flag and seg2aInSeg1Flag):
+            # Case 3.1: 相交在端点上
+            if (is2PtsSame(seg1[1], seg2[0])):
+                return {
+                    'status': 'Collinear',
+                    'intersect': seg1[1],
+                    'intersectType': 'Point',
+                    'interiorFlag': False
+                }
+            # Case 3.2: 有重合线段
+            else:
+                return {
+                    'status': 'Collinear',
+                    'intersect': [seg1[1], seg2[0]],
+                    'intersectType': 'Segment',
+                    'interiorFlag': True
+                }
+        # Case 4: seg1a在seg2内，seg2a在seg1内
+        elif (seg1aInSeg2Flag and seg2aInSeg1Flag):
+            # Case 4.1: 相交在端点上
+            if (is2PtsSame(seg1[0], seg2[0])):
+                return {
+                    'status': 'Collinear',
+                    'intersect': seg1[0],
+                    'intersectType': 'Point',
+                    'interiorFlag': False
+                }
+            # Case 4.2: 有重合线段
+            else:
+                return {
+                    'status': 'Collinear',
+                    'intersect': [seg1[0], seg2[0]],
+                    'intersectType': 'Segment',
+                    'interiorFlag': True
+                }
+        # Case 5: seg1b在seg2内，seg2b在seg1内
+        elif (seg1bInSeg2Flag and seg2bInSeg1Flag):
+            # Case 5.1: 相交在端点上
+            if (is2PtsSame(seg1[1], seg2[1])):
+                return {
+                    'status': 'Collinear',
+                    'intersect': seg1[1],
+                    'intersectType': 'Point',
+                    'interiorFlag': False
+                }
+            # Case 5.2: 有重合线段
+            else:
+                return {
+                    'status': 'Collinear',
+                    'intersect': [seg1[1], seg2[1]],
+                    'intersectType': 'Segment',
+                    'interiorFlag': True
+                }
+        # Case 6: seg1a在seg2内，seg2b在seg1内
+        elif (seg1aInSeg2Flag and seg2bInSeg1Flag):
+            # Case 6.1: 相交在端点上
+            if (is2PtsSame(seg1[0], seg2[1])):
+                return {
+                    'status': 'Collinear',
+                    'intersect': seg1[0],
+                    'intersectType': 'Point',
+                    'interiorFlag': False
+                }
+            # Case 6.2: 有重合线段
+            else:
+                return {
+                    'status': 'Collinear',
+                    'intersect': [seg1[0], seg2[1]],
+                    'intersectType': 'Segment',
+                    'interiorFlag': True
+                }
+        # Case 7: 无相交
         else:
-            return False
-
-        # 
-        if (isPtOnSeg(seg1[0], seg2, interiorOnly=False)
-                and (seg1[1], seg2)):
-
+            return {
+                'status': 'Collinear',
+                'intersect': None,
+                'intersectType': None,
+                'interiorFlag': None
+            }
+    # 若交点不在任何一个线段上，不相交
+    elif (not isPtOnSeg(intPt['intersect'], seg1, interiorOnly=False)
+            or not isPtOnSeg(intPt['intersect'], seg2, interiorOnly=False)):
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None,
+            'interiorFlag': None
+        }
+    # 若交点在任意一个端点上，交于boundary
+    if (is2PtsSame(intPt['intersect'], seg1[0])
+            or is2PtsSame(intPt['intersect'], seg1[1])
+            or is2PtsSame(intPt['intersect'], seg2[0])
+            or is2PtsSame(intPt['intersect'], seg2[1])):
+        return {
+            'status': 'Cross',
+            'intersect': intPt['intersect'],
+            'intersectType': 'Point',
+            'interiorFlag': False
+        }
+    # 若交点在两个线段内，交于interior
     else:
-        if (isPtOnSeg(intPt, seg1, interiorOnly=False)
-                and isPtOnSeg(intPt, seg2, interiorOnly=False)):
-            return intPt
+        return {
+            'status': 'Cross',
+            'intersect': intPt['intersect'],
+            'intersectType': 'Point',
+            'interiorFlag': True
+        }
+
+def intSeg2Ray(seg: line, ray: line) -> dict:
+    intPt = intLine2Line(seg, ray)
+
+    # 若直线不相交，返回不相交
+    if (intPt['status'] == 'NoCross'):
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None,
+            'interiorFlag': None
+        }
+    # 若直线共线，进一步分情况讨论
+    elif (intPt['status'] == "Collinear"):
+        # 线段端点是否在射线内
+        segAInRayFlag = isPtOnRay(seg[0], ray, interiorOnly=False)
+        segBInRayFlag = isPtOnRay(seg[1], ray, interiorOnly=False)
+        # Case 1: seg整个在ray内
+        if (segAInRayFlag and segBInRayFlag):
+            return {
+                'status': 'Collinear',
+                'intersect': seg,
+                'intersectType': 'Segment',
+                'interiorFlag': True
+            }
+        # Case 2: segA在ray内，segB不在ray内
+        elif (segAInRayFlag and not segBInRayFlag):
+            # Case 2.1: 相交于射线的端点
+            if (is2PtsSame(seg[1], ray[0])):
+                return {
+                    'status': 'Collinear',
+                    'intersect': seg[1],
+                    'intersectType': 'Point',
+                    'interiorFlag': False
+                }
+            # Case 2.2: 相较于射线内部
+            else:
+                return {
+                    'status': 'Collinear',
+                    'intersect': [ray[0], seg[1]],
+                    'intersectType': 'Segment',
+                    'interiorFlag': True
+                }
+        # Case 3: segB在ray内，segA不在ray内
+        elif (segBInRayFlag and not segAInRayFlag):
+            # Case 3.1: 相交于射线的端点
+            if (is2PtsSame(seg[0], ray[0])):
+                return {
+                    'status': 'Collinear',
+                    'intersect': seg[0],
+                    'intersectType': 'Point',
+                    'interiorFlag': False
+                }
+            # Case 3.2: 相较于射线内部
+            else:
+                return {
+                    'status': 'Collinear',
+                    'intersect': [ray[0], seg[0]],
+                    'intersectType': 'Segment',
+                    'interiorFlag': True
+                }
+        # Case 4: 无相交
         else:
-            return None
+            return {
+                'status': 'Collinear',
+                'intersect': None,
+                'intersectType': None,
+                'interiorFlag': None
+            }
+    # 若交点不在线段内或不在射线内，不相交
+    elif (not isPtOnSeg(intPt['intersect'], seg, interiorOnly=False)
+            or not isPtOnRay(intPt['intersect'], ray, interiorOnly=False)):
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None,
+            'interiorFlag': None
+        }
+    # 若交点在线段端点上或者在射线端点上，交于boundary
+    elif (is2PtsSame(intPt['intersect'], seg[0])
+            or is2PtsSame(intPt['intersect'], seg[1])
+            or is2PtsSame(intPt['intersect'], ray[0])):
+        return {
+            'status': 'Cross',
+            'intersect': intPt['intersect'],
+            'intersectType': 'Point',
+            'interiorFlag': False
+        }
+    # 若交点在线段内且在射线内，交于interior
+    else:
+        return {
+            'status': 'Cross',
+            'intersect': intPt['intersect'],
+            'intersectType': 'Point',
+            'interiorFlag': True
+        }
 
-def ptSeg2Ray(seg: line, ray: line) -> pt | None | line:
+def intRay2Line(ray: line, line: line) -> dict:
+    return intLine2Ray(line, ray)
+
+def intRay2Seg(ray: line, seg: line) -> dict:
+    return intSeg2Ray(seg, ray)
+
+def intRay2Ray(ray1: line, ray2: line) -> dict:
+    intPt = intLine2Line(ray1, ray2)
+
+    # 若直线不相交，返回不相交
+    if (intPt['status'] == 'NoCross'):
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None,
+            'interiorFlag': None
+        }
+    # 若直线共线，进一步情况讨论
+    elif (intPt['status'] == "Collinear"):
+        # 射线端点是否在其他射线内
+        ray1AInRay2Flag = isPtOnRay(ray1[0], ray2, interiorOnly=False)
+        ray2AInRay1Flag = isPtOnRay(ray2[0], ray1, interiorOnly=False)
+        # Case 1: ray2a在ray1内，且ray1a在ray2内
+        if (ray1AInRay2Flag and ray2AInRay1Flag):
+            # Case 1.1: 射线对头相交于端点
+            if (is2PtsSame(ray1[0], ray2[0])):
+                return {
+                    'status': 'Collinear',
+                    'intersect': ray1[0],
+                    'intersectType': 'Point',
+                    'interiorFlag': False
+                }
+            # Case 1.2: 射线有重合线段
+            else:
+                return {
+                    'status': 'Collinear',
+                    'intersect': [ray1[0], ray2[0]],
+                    'intersectType': 'Segment',
+                    'interiorFlag': True
+                }
+        # Case 2: ray2a在ray1内，且ray1a不在ray2内
+        elif (ray2AInRay1Flag and not ray1AInRay2Flag):
+            return {
+                'status': 'Collinear',
+                'intersect': ray2,
+                'intersectType': 'Ray',
+                'interiorFlag': True
+            }
+        # Case 3: ray1a在ray2内，且ray2a不在ray1内
+        elif (ray1AInRay2Flag and not ray2AInRay1Flag):
+            return {
+                'status': 'Collinear',
+                'intersect': ray1,
+                'intersectType': 'Ray',
+                'interiorFlag': True
+            }
+        # Case 4: 无相交
+        else:
+            return {
+                'status': 'Collinear',
+                'intersect': None,
+                'intersectType': None,
+                'interiorFlag': None
+            }
+    # 若直线相交点不在任何一个射线上，不相交
+    elif (not isPtOnRay(intPt['intersect'], ray1, interiorOnly=False)
+            or not isPtOnRay(intPt['intersect'], ray2, interiorOnly=False)):
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None,
+            'interiorFlag': None
+        }
+    # 若相交点在射线的端点上，交于boundary
+    elif (is2PtsSame(intPt['intersect'], ray1[0])
+            or is2PtsSame(intPt['intersect'], ray2[0])):
+        return {
+            'status': 'Cross',
+            'intersect': intPt['intersect'],
+            'intersectType': 'Point',
+            'interiorFlag': False
+        }
+    # 若相交点在射线内，交于interior
+    else:
+        return {
+            'status': 'Cross',
+            'intersect': intPt['intersect'],
+            'intersectType': 'Point',
+            'interiorFlag': True
+        }
+
+# Line-shape versus Line-shape ===================================================
+def isLineIntLine(line1: line, line2: line) -> bool:
+    """Is two line intersect with each other"""
+    intPt = intLine2Line(line1, line2)
+    if (intPt['intersect'] == None):
+        return False
+    else:
+        return True
+
+def isLineIntSeg(line: line, seg: line, interiorOnly:bool=False) -> bool:
+    """Is a line intersect with a segment"""
+    intPt = intLine2Seg(line, seg)
+    # 无相交点
+    if (intPt['intersect'] == None):
+        return False
+    # 需要交于interior但未能交于interiror
+    elif (interiorOnly and not intPt['interiorFlag']):
+        return False
+    # 不需要交于interior或需要且交于interior
+    else:
+        return True
+
+def isLineIntRay(line: line, ray: line, interiorOnly: bool=False) -> bool:
+    """Is a line intersect with a ray"""
+    intPt = intLine2Ray(line, ray)
+    # 无相交点
+    if (intPt['intersect'] == None):
+        return False
+    # 需要交于interior但未能交于interiror
+    elif (interiorOnly and not intPt['interiorFlag']):
+        return False
+    # 不需要交于interior或需要且交于interior
+    else:
+        return True
+
+def isSegIntLine(seg: line, line: line, interiorOnly: bool=False) -> bool:
+    """Is a segment intersect with a line"""
+    return isLineIntSeg(line, seg, interiorOnly)
+
+def isSegIntSeg(seg1: line, seg2: line, interiorOnly: bool=False) -> bool:
+    """Are two segment intersect with each other, could be at the end of a segment"""
+    intPt = intSeg2Seg(seg1, seg2)
+    # 无相交点
+    if (intPt['intersect'] == None):
+        return False
+    # 需要交于interior但未能交于interiror
+    elif (interiorOnly and not intPt['interiorFlag']):
+        return False
+    # 不需要交于interior或需要且交于interior
+    else:
+        return True
+
+def isSegIntRay(seg: line, ray: line, interiorOnly: bool=False) -> bool:
+    """Is a segment intersect with a ray, could be at the end of the segment/ray"""
+    intPt = intSeg2Ray(seg, ray)
+    # 无相交点
+    if (intPt['intersect'] == None):
+        return False
+    # 需要交于interior但未能交于interiror
+    elif (interiorOnly and not intPt['interiorFlag']):
+        return False
+    # 不需要交于interior或需要且交于interior
+    else:
+        return True
+
+def isRayIntLine(ray: line, line: line, interiorOnly: bool=False) -> bool:
+    """Is a ray intersect with a line"""
+    return isLineIntRay(line, ray, interiorOnly)
+
+def isRayIntSeg(ray: line, seg: line, interiorOnly: bool=False) -> bool:
+    """Is a ray intersect with a segment"""
+    return isSegIntRay(seg, ray, interiorOnly)
+
+def isRayIntRay(ray1: line, ray2: line, interiorOnly: bool=False) -> bool:
+    """Is a segment intersect with a ray, could be at the end of the segment/ray"""
+    intPt = intRay2Ray(ray1, ray2)
+    # 无相交点
+    if (intPt['intersect'] == None):
+        return False
+    # 需要交于interior但未能交于interiror
+    elif (interiorOnly and not intPt['interiorFlag']):
+        return False
+    # 不需要交于interior或需要且交于interior
+    else:
+        return True
+
+# Line-shape intersect with polygon ===========================================
+def intLine2Poly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
+    # Convert line to a proper segment
+    seg = line
+    return intSeg2Poly(seg, poly, polyShapely, returnShaplelyObj)
+
+def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
+    # Sanity check ============================================================
+    if (poly == None and polyShapely == None):
+        raise MissingParameterError("ERROR: `poly` and `polyShapely` cannot be None at the same time.")
+
+    # 处理成shapely objects ======================================================
+    segShapely = shapely.LineString([seg[0], seg[1]])
+    if (polyShapely == None):
+        polyShapely = shapely.Polygon(poly)
+    intShape = shapely.intersection(segShapely, polyShapely)
+
+    # 若返回为shapely object，不用处理直接返回 =============================================
+    if (returnShaplelyObj):
+        return intShape
+    
+    # 处理成vrpSolver相交信息字典 ======================================================
+    # 根据相交形状确定输出字典
+    def intByGeom(geoShapely, polyShapely) -> dict:
+        if (isinstance(geoShapely, shapely.Point)):
+            return {
+                'status': 'Cross',
+                'intersect': (geoShapely.x, geoShapely.y),
+                'intersectType': 'Point',
+                'interiorFlag': False
+            }
+        elif (isinstance(geoShapely, shapely.LineString)):
+            seg = [geoShapely.coords[0], geoShapely.coords[1]]
+            interiorFlag = shapely.contains(polyShapely, geoShapely)
+            return {
+                'status': 'Cross',
+                'intersect': seg,
+                'intersectType': 'Segment',
+                'interiorFlag': interiorFlag
+            }
+
+    # 若不相交，返回不相交
+    if (intShape.is_empty):
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None,
+            'interiorFlag': None
+        }
+    # 若交于一个点或一个线段，返回交点和not interiror
+    elif (not isinstance(intShape, shapely.GeometryCollection)):
+        return intByGeom(intShape, polyShapely)
+    # 若交出了多个形状，分别处理
+    elif (isinstance(intShape, shapely.GeometryCollection)):
+        intSp = []
+        for geoShapely in intShape.geoms:
+            intSp.append(intByGeom(geoShapely, polyShapely))
+        return intSp
+
+def intRay2Poly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
+    # Convert ray to a proper segment
+    seg = ray
+    return intSeg2Poly(seg, poly, polyShapely, returnShaplelyObj)
+
+# Line-shape versus polygon ===================================================
+def isLineIntPoly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None, interiorOnly: bool=False) -> bool:
+    """Is a line intersect with a polygon"""
     return
 
-def ptRay2Line(ray: line, line: line) -> pt | None | line:
+def isSegIntPoly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, interiorOnly: bool=False) -> bool:
+    """Is a segment intersect with a polygon"""
+    intSp = intSeg2Poly(seg, poly, polyShapely)
+    # 若只输出了一个字典，按字典判断
+    if (isinstance(intSp, dict)):
+        # 输出True的条件：
+        # 1. 'Cross'
+        # 2. 且若interiorOnly时intSp['interiorFlag']
+        trueWhen = intSp['status'] == 'Cross' 
+            and not (interiorOnly and not intSp['interiorFlag'])
+        return trueWhen
+    elif (isinstance(intSp, list[dict])):
+        for intPt in intSp:
+            if (intPt['status'] == 'Cross'):
+                if (interiorOnly and not intPt['interiorFlag']):
+                    pass
+                else:
+                    return True
+        return False
+
+def isRayIntPoly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, interiorOnly: bool=False) -> bool:
+    """Is a ray intersect with a polygon"""
     return
 
-def ptRay2Seg(ray: line, seg: line) -> pt | None | line:
+# Distance from Point to Object ===============================================
+def distPt2Line(pt: pt, line: line) -> float:
     return
 
-def ptRay2Ray(ray1: line, ray2: line) -> pt | None | line:
+def distPt2Seg(pt: pt, seg: line) -> float:
     return
 
-# 
+def distPt2Seq(pt: pt, seq: list[pt]) -> float:
+    return
+
+# Axis mapping ================================================================ 
 def vecPolar2XY(vecPolar: pt) -> pt:
 
     """Given vector's norm and its degree to North, convert it into a 2-tuple vector
@@ -564,6 +905,7 @@ def ptLatLon2XYMercator(ptLatLon: pt) -> pt:
     ptXY = (x, y)
     return ptXY
 
+# Distance calculation ========================================================
 def distEuclideanXY(pt1: pt, pt2: pt) -> float:
     """Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number"""
     return math.sqrt((pt1[0] - pt2[0]) ** 2 + (pt1[1] - pt2[1]) ** 2)
@@ -703,7 +1045,7 @@ def traceInTimedSeq(seq: list[pt], timeStamp: list[float], ts: float, te: float)
 
     return trace
 
-
+# Movement in line-shape ======================================================
 def locOnPolyExt(poly: poly, startPt: pt, dist: int|float, reverseFlag: bool=False, dimension: str = 'XY') -> pt:
     perimeter = calPolygonPerimeter(poly)
     while(dist > perimeter):
@@ -792,7 +1134,7 @@ def locInSeq(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
     lon = nextLoc[1] + (remainDist / segDist) * (preLoc[1] - nextLoc[1])
     return (lat, lon)
 
-
+# Area calculation ====
 def calPolygonPerimeter(poly: poly) -> float:
     p = 0
     for i in range(-1, len(poly) - 1):
