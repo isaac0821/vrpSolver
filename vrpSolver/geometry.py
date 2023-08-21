@@ -12,12 +12,6 @@ from .const import *
 from .graph import *
 from .msg import *
 
-
-import math
-
-from .const import *
-from .msg import *
-
 # Point versus Objects ========================================================
 def is2PtsSame(pt1: pt, pt2: pt) -> bool:
     """Are two points at the 'same' location"""
@@ -128,16 +122,33 @@ def isPtInPoly(pt: pt, poly: poly, interiorOnly: bool=False) -> bool:
         return inPoly
 
 # Point to line-shape =========================================================
-def rayPerpendicularLine(pt: pt, line: line) -> line:
+def rayPerp2Line(pt: pt, line: line) -> line:
     """Given a point and a line, return a ray from that point and perpendicular to the givne line"""
     if (isPtOnLine(pt, line)):
         raise ZeroVectorError()
+
+    # Heading of line
+    heading = headingXY(line[0], line[1])
+    heading += 90
+    while (heading > 360):
+        heading -= 360
+    while (heading < 0):
+        heading += 360
+
+    # Perp line    
+    perp = [pt, ptInDistXY(pt, heading, 10)]
+    intPt = intLine2Line(line, perp)
+    ray = [pt, intPt['intersect']]
+
     return ray
 
 def ptFoot2Line(pt: pt, line: line) -> pt:
     """Given a point and a line, return the foot of that point on the line"""
-
-    return pt
+    if (isPtOnLine(pt, line)):
+        return tuple(pt)
+    else:
+        ray = rayPerp2Line(pt, line)
+        return ray[1]
 
 # Line-shape intersection =====================================================
 def intLine2Line(line1: line, line2: line) -> dict:
@@ -699,44 +710,36 @@ def isRayIntRay(ray1: line, ray2: line, interiorOnly: bool=False) -> bool:
 
 # Line-shape intersect with polygon ===========================================
 def intLine2Poly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
-    # Convert line to a proper segment
-    seg = line
-    return intSeg2Poly(seg, poly, polyShapely, returnShaplelyObj)
-
-def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
     # Sanity check ============================================================
     if (poly == None and polyShapely == None):
         raise MissingParameterError("ERROR: `poly` and `polyShapely` cannot be None at the same time.")
 
-    # 处理成shapely objects ======================================================
+    # Projct points to the line ===============================================
+    projPts = []    
+    for pt in poly:
+        projPts.append(ptFoot2Line(pt, line))
+
+    # Find two pts on the line that are the farthest away from each other =====
+    projPts.sort()
+    seg = [projPts[0], projPts[-1]]
+
+    return intSeg2Poly(seg, poly, polyShapely, returnShaplelyObj)
+
+def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
+    
+    # Sanity check ============================================================
+    if (poly == None and polyShapely == None):
+        raise MissingParameterError("ERROR: `poly` and `polyShapely` cannot be None at the same time.")
+
+    # get shapely objects =====================================================
     segShapely = shapely.LineString([seg[0], seg[1]])
     if (polyShapely == None):
         polyShapely = shapely.Polygon(poly)
     intShape = shapely.intersection(segShapely, polyShapely)
 
-    # 若返回为shapely object，不用处理直接返回 =============================================
+    # If return shapely objects no processing needed ==========================
     if (returnShaplelyObj):
         return intShape
-    
-    # 处理成vrpSolver相交信息字典 ======================================================
-    # 根据相交形状确定输出字典
-    def intByGeom(geoShapely, polyShapely) -> dict:
-        if (isinstance(geoShapely, shapely.Point)):
-            return {
-                'status': 'Cross',
-                'intersect': (geoShapely.x, geoShapely.y),
-                'intersectType': 'Point',
-                'interiorFlag': False
-            }
-        elif (isinstance(geoShapely, shapely.LineString)):
-            seg = [geoShapely.coords[0], geoShapely.coords[1]]
-            interiorFlag = shapely.contains(polyShapely, geoShapely)
-            return {
-                'status': 'Cross',
-                'intersect': seg,
-                'intersectType': 'Segment',
-                'interiorFlag': interiorFlag
-            }
 
     # 若不相交，返回不相交
     if (intShape.is_empty):
@@ -746,49 +749,131 @@ def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, r
             'intersectType': None,
             'interiorFlag': None
         }
-    # 若交于一个点或一个线段，返回交点和not interiror
-    elif (not isinstance(intShape, shapely.GeometryCollection)):
-        return intByGeom(intShape, polyShapely)
-    # 若交出了多个形状，分别处理
-    elif (isinstance(intShape, shapely.GeometryCollection)):
+    elif (isinstance(intShape, shapely.Point)):
+        return {
+            'status': 'Cross',
+            'intersect': (intShape.x, intShape.y),
+            'intersectType': 'Point',
+            'interiorFlag': False
+        }
+    elif (isinstance(intShape, shapely.LineString)):
+        seg = [tuple(intShape.coords[0]), tuple(intShape.coords[1])]
+        midPt = (seg[0][0] + (seg[1][0] - seg[0][0]) / 2,
+                 seg[0][1] + (seg[1][1] - seg[0][1]) / 2)
+        interiorFlag = shapely.contains(polyShapely, shapely.Point(midPt))
+        return {
+            'status': 'Cross',
+            'intersect': seg,
+            'intersectType': 'Segment',
+            'interiorFlag': interiorFlag
+        }
+    else:
         intSp = []
-        for geoShapely in intShape.geoms:
-            intSp.append(intByGeom(geoShapely, polyShapely))
+        for obj in intShape.geoms:
+            if (isinstance(obj, shapely.Point)):
+                intSp.append({
+                    'status': 'Cross',
+                    'intersect': (obj.x, obj.y),
+                    'intersectType': 'Point',
+                    'interiorFlag': False
+                })
+            elif (isinstance(obj, shapely.LineString)):
+                seg = [tuple(obj.coords[0]), tuple(obj.coords[1])]
+                midPt = (seg[0][0] + (seg[1][0] - seg[0][0]) / 2,
+                         seg[0][1] + (seg[1][1] - seg[0][1]) / 2)
+                interiorFlag = shapely.contains(polyShapely, shapely.Point(midPt))
+                intSp.append({
+                    'status': 'Cross',
+                    'intersect': seg,
+                    'intersectType': 'Segment',
+                    'interiorFlag': interiorFlag
+                })
         return intSp
+
 
 def intRay2Poly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
     # Convert ray to a proper segment
-    seg = ray
-    return intSeg2Poly(seg, poly, polyShapely, returnShaplelyObj)
+    # Sanity check ============================================================
+    if (poly == None and polyShapely == None):
+        raise MissingParameterError("ERROR: `poly` and `polyShapely` cannot be None at the same time.")
+
+    # Projct points to the line ===============================================
+    projPts = []    
+    for pt in poly:
+        projPts.append(ptFoot2Line(pt, ray))
+
+    projPts.sort()
+    minPt = projPts[0]
+    maxPt = projPts[-1]
+    
+    isMinPtOnRay = isPtOnRay(minPt, ray)
+    isMaxPtOnRay = isPtOnRay(maxPt, ray)
+    # 若minPt和maxPt均不能投影到射线上，肯定不相交
+    if (not isMinPtOnRay and not isMaxPtOnRay):
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None,
+            'interiorFlag': None
+        }
+    # 若两个都在射线上，射线可能的与之相交部分在两点间
+    elif (isMinPtOnRay and isMaxPtOnRay):
+        seg = [minPt, maxPt]
+        return intSeg2Poly(seg, poly, polyShapely, returnShaplelyObj)
+    # 若minPt在射线上，maxPt不在
+    elif (isMinPtOnRay):
+        seg = [ray[0], minPt]
+        return intSeg2Poly(seg, poly, polyShapely, returnShaplelyObj)
+    # 若maxPt在射线上，minPt不在
+    else:
+        seg = [ray[0], maxPt]
+        return intSeg2Poly(seg, poly, polyShapely, returnShaplelyObj)
 
 # Line-shape versus polygon ===================================================
 def isLineIntPoly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None, interiorOnly: bool=False) -> bool:
     """Is a line intersect with a polygon"""
-    return
+    intSp = intLine2Poly(line, poly, polyShapely)
+    # 若只输出了一个字典，按字典判断
+    if (isinstance(intSp, dict)):
+        return (intSp['status'] == 'Cross' 
+            and not (interiorOnly and not intSp['interiorFlag']))
+    elif (isinstance(intSp, list)):
+        for intPt in intSp:
+            trueWhen = (intPt['status'] == 'Cross' 
+                and not (interiorOnly and not intPt['interiorFlag']))
+            if (trueWhen):
+                return True    
+        return False
 
 def isSegIntPoly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, interiorOnly: bool=False) -> bool:
     """Is a segment intersect with a polygon"""
     intSp = intSeg2Poly(seg, poly, polyShapely)
     # 若只输出了一个字典，按字典判断
     if (isinstance(intSp, dict)):
-        # 输出True的条件：
-        # 1. 'Cross'
-        # 2. 且若interiorOnly时intSp['interiorFlag']
-        trueWhen = intSp['status'] == 'Cross' 
-            and not (interiorOnly and not intSp['interiorFlag'])
-        return trueWhen
-    elif (isinstance(intSp, list[dict])):
+        return (intSp['status'] == 'Cross' 
+            and not (interiorOnly and not intSp['interiorFlag']))
+    elif (isinstance(intSp, list)):
         for intPt in intSp:
-            if (intPt['status'] == 'Cross'):
-                if (interiorOnly and not intPt['interiorFlag']):
-                    pass
-                else:
-                    return True
+            trueWhen = (intPt['status'] == 'Cross' 
+                and not (interiorOnly and not intPt['interiorFlag']))
+            if (trueWhen):
+                return True    
         return False
 
 def isRayIntPoly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, interiorOnly: bool=False) -> bool:
     """Is a ray intersect with a polygon"""
-    return
+    intSp = intRay2Poly(ray, poly, polyShapely)
+    # 若只输出了一个字典，按字典判断
+    if (isinstance(intSp, dict)):
+        return (intSp['status'] == 'Cross' 
+            and not (interiorOnly and not intSp['interiorFlag']))
+    elif (isinstance(intSp, list)):
+        for intPt in intSp:
+            trueWhen = (intPt['status'] == 'Cross' 
+                and not (interiorOnly and not intPt['interiorFlag']))
+            if (trueWhen):
+                return True    
+        return False
 
 # Distance from Point to Object ===============================================
 def distPt2Line(pt: pt, line: line) -> float:
@@ -1177,17 +1262,14 @@ def calPolygonAreaLatLon(polyLatLon: poly) -> float:
     return area
 
 
-def headingXY(pt1: pt, pt2: pt) -> float:
-    
+def headingXY(pt1: pt, pt2: pt) -> float:    
     vec = (pt2[0] - pt1[0], pt2[1] - pt1[1])
     (_, vDeg) = vecXY2Polar(vec)
 
     return vDeg
 
 def headingLatLon(pt1: pt, pt2: pt) -> float:
-
     """Given current location and a goal location, calculate the heading. North is 0-degrees, clock-wise"""
-
     # Ref: https://github.com/manuelbieh/Geolib/issues/28
     (lat1, lon1) = pt1
     (lat2, lon2) = pt2
