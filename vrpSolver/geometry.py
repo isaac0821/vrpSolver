@@ -9,7 +9,6 @@ import shapely
 from .error import *
 from .common import *
 from .const import *
-from .graph import *
 from .msg import *
 
 # Point versus Objects ========================================================
@@ -726,7 +725,6 @@ def intLine2Poly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None,
     return intSeg2Poly(seg, poly, polyShapely, returnShaplelyObj)
 
 def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
-    
     # Sanity check ============================================================
     if (poly == None and polyShapely == None):
         raise MissingParameterError("ERROR: `poly` and `polyShapely` cannot be None at the same time.")
@@ -789,7 +787,6 @@ def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, r
                     'interiorFlag': interiorFlag
                 })
         return intSp
-
 
 def intRay2Poly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
     # Convert ray to a proper segment
@@ -1303,7 +1300,6 @@ def ptInDistLatLon(pt: pt, direction: int|float, distMeters: int|float):
     newLoc = list(geopy.distance.distance(meters=distMeters).destination(point=pt, bearing=direction))[:2]
     return newLoc
 
-
 def getTau(
     nodes: dict, 
     edges: dict,
@@ -1434,7 +1430,7 @@ def _getTauGrid(nodes: dict, nodeIDs: list|str, grid: dict):
                 tau[j, i] = 0
     return tau
 
-def getSortedNodesByDist(nodes: dict, refLoc: pt, nodeIDs: list|str = 'All') -> list:
+def nodeSeqByDist(nodes: dict, refLoc: pt, nodeIDs: list|str = 'All') -> list:
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
@@ -1453,9 +1449,8 @@ def getSortedNodesByDist(nodes: dict, refLoc: pt, nodeIDs: list|str = 'All') -> 
 
     return sortedSeq
 
-def getSweepSeq(nodes: dict, nodeIDs: list|str = 'All', centerLoc: None|pt = None, isClockwise: bool = True, initDeg: float = 0) -> list:
+def nodeSeqBySweeping(nodes: dict, nodeIDs: list|str = 'All', centerLoc: None|pt = None, isClockwise: bool = True, initDeg: float = 0) -> list:
     """Given a set of locations, and a center point, gets the sequence from sweeping"""
-    
     # Define nodeIDs ==========================================================
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):

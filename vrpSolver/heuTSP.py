@@ -2,10 +2,10 @@ import heapq
 import math
 import datetime
 import warnings
+import networkx as nx
 
 from .const import *
 from .common import *
-from .graph import *
 from .geometry import *
 from .msg import *
 from .operator import *
@@ -147,7 +147,6 @@ def heuTSP(
         raise MissingParameterError(ERROR_MISSING_TSP_ALGO)
 
     seq = None
-    # Constructive phase
     # An initial solution is given
     if ('cons' not in algo):
         if ('initSeq' not in algo):
@@ -204,7 +203,7 @@ def heuTSP(
             for (i, j) in tau:
                 if (i != None and j != None and i < j):
                     weightArcs.append((i, j, tau[i, j]))
-            seq = _consTSPChristofides(depotID, weightArcs, 'IP')
+            seq = _consTSPChristofides(depotID, tau)
         else:
             raise UnsupportedInputError("ERROR: 'Christofides' algorithm is not designed for Asymmetric TSP")
 
@@ -299,7 +298,7 @@ def _consTSPFarthestNeighbor(depotID, nodeIDs, tau):
 
 def _consTSPSweep(nodes, depotID, nodeIDs, tau):
     # Sweep seq -----------------------------------------------------------
-    sweep = getSweepSeq(
+    sweep = nodeSeqBySweeping(
         nodes = nodes, 
         nodeIDs = nodeIDs,
         centerLoc = nodes[depotID]['loc'])
@@ -356,41 +355,43 @@ def _consTSPInsertion(nodeIDs, initSeq, tau):
             unInserted.remove(bestCus)
     return seq
     
-def _consTSPChristofides(depotID, weightArcs, matchingAlgo):
-    # Create MST ----------------------------------------------------------
-    mst = graphMST(
-        weightArcs = weightArcs,
-        exportAs = 'Arcs')['mst']
-    mstAsTree = graphArcs2AdjList(mst['mst'])
+def _consTSPChristofides(depotID, tau):
+    G = nx.Graph()
+    subG = nx.Graph()
+    for (i, j) in tau:
+        G.add_edge(i, j, weight=tau[i, j])
+    mst = nx.minimum_spanning_tree(G)
 
-    # Derive subgraph of odd degree vertices ------------------------------
+    degreeOfEachNodes = {}
+    for n in nodes:
+        degreeOfEachNodes[n] = 0
+    for edge in mst.edges:
+        degreeOfEachNodes[edge[0]] += 1
+        degreeOfEachNodes[edge[1]] += 1
+        subG.add_edge(edge[0], edge[1], weight=tau[edge[0], edge[1]])
+
+    matchG = nx.Graph()
     oddDegrees = []
-    for node in mstAsTree:
-        if (len(mstAsTree[node]) % 2 != 0):
-            oddDegrees.append(node)
-    subGraph = []
-    for arc in weightArcs:
-        if (arc[0] in oddDegrees and arc[1] in oddDegrees):
-            subGraph.append(arc)
+    for n in degreeOfEachNodes:
+        if (degreeOfEachNodes[n] % 2 != 0):
+            oddDegrees.append(n)
+    for i in oddDegrees:
+        for j in oddDegrees:
+            if ((i, j) in tau and i < j and (i, j) not in subG.edges and (j, i) not in subG.edges):
+                matchG.add_edge(i, j, weight=tau[i, j])
+    
+    mwm = nx.min_weight_matching(matchG)
+    for edge in mwm:
+        subG.add_edge(edge[0], edge[1], weight=tau[edge[0], edge[1]])
+    s = nx.eulerian_circuit(subG, source=depotID)
 
-    # Find minimum cost matching of the subgraph --------------------------
-    minMatching = graphMatching(
-        weightArcs = subGraph, 
-        algo = matchingAlgo,
-        mType = 'Minimize')['matching']
-
-    # Add them back to create a new graph ---------------------------------
-    newGraph = []
-    for arc in minMatching:
-        newGraph.append(arc)
-    for arc in mst:
-        newGraph.append(arc)
-
-    # Traverse graph and get seq ------------------------------------------
-    seq = graphTraversal(
-        arcs = newGraph, 
-        oID = depotID)['seq']
-    seq.append(depotID)
+    seq = []
+    for i in s:
+        if (i[0] not in seq):
+            seq.append(i[0])
+        if (i[1] not in seq):
+            seq.append(i[1])
+    seq.append(seq[0])
 
     return seq
 

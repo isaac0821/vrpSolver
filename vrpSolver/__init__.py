@@ -94,10 +94,8 @@ from .color import *
 from .province import *
 from .road import *
 
-# Data structure definition
-# from .ds import *
-
 # Basic modules
+from .ds import *
 from .plot import *
 from .instance import *
 from .calculate import *
@@ -105,10 +103,6 @@ from .calculate import *
 # Geometry
 from .geometry import *
 
-# Graph/network algorithms
-from .graph import *
-
 # TSP
-from .operator import *
 from .ipTSP import *
 from .heuTSP import *
