@@ -13,6 +13,7 @@ from .calculate import *
 
 # History =====================================================================
 # 20230510 - Cleaning
+# 20230822 - Rewrite Christofide using networkx
 # =============================================================================
 
 def heuTSP(
@@ -132,7 +133,7 @@ def heuTSP(
         raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
 
     # Define tau ==============================================================
-    tau = getTau(nodes, edges, depotID, nodeIDs, serviceTime)
+    tau = distMatrix(nodes, edges, depotID, nodeIDs, serviceTime)
 
     # Check symmetric =========================================================
     asymFlag = False
@@ -230,7 +231,6 @@ def heuTSP(
         canImproveFlag = True
         while (canImproveFlag):
             canImproveFlag = False
-
             # Try 2Opts
             if (not canImproveFlag and (algo['impv'] == '2Opt' or '2Opt' in algo['impv'])):
                 imp = _impTSP2Opts(nodeIDs, tau, seq, asymFlag)
@@ -239,7 +239,6 @@ def heuTSP(
                     seq = imp['impSeq']
                     ofv = imp['oriOfv']
                     revOfv = imp['oriRevOfv']
-
     return {
         'ofv': ofv,
         'consOfv': consOfv,
@@ -393,6 +392,9 @@ def _consTSPChristofides(depotID, tau):
             seq.append(i[1])
     seq.append(seq[0])
 
+    return seq
+
+def _consTSPCycleCover():
     return seq
 
 def _impTSP2Opts(nodeIDs, tau, initSeq, asymFlag):

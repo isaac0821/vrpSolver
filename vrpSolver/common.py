@@ -59,14 +59,6 @@ def iterSeq(seqL, i, direction):
     else:
         return None
 
-def insideInterval(val: float, interval: list[float | None]) -> bool:
-    [s, e] = interval
-    if (s != None and val < s):
-        return False
-    if (e != None and val > e):
-        return False
-    return True
-
 def listSetMinus(a, b):
     return [v for v in a if v not in b]
 

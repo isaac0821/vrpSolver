@@ -1,15 +1,16 @@
 import geopy.distance
 import heapq
 import math
+import tripy
 
-# Shapely can do a lot of things, but it seems that shapely does not 
-#     support (infinite) lines and rays.
 import shapely
+import networkx as nx
 
 from .error import *
 from .common import *
 from .const import *
 from .msg import *
+from .ds import *
 
 # Point versus Objects ========================================================
 def is2PtsSame(pt1: pt, pt2: pt) -> bool:
@@ -879,7 +880,13 @@ def distPt2Line(pt: pt, line: line) -> float:
 def distPt2Seg(pt: pt, seg: line) -> float:
     return
 
+def distPt2Ray(pt: pt, ray: line) -> float:
+    return
+
 def distPt2Seq(pt: pt, seq: list[pt]) -> float:
+    return
+
+def distPt2Poly(pt: pt, poly: poly) -> float:
     return
 
 # Axis mapping ================================================================ 
@@ -987,37 +994,205 @@ def ptLatLon2XYMercator(ptLatLon: pt) -> pt:
     ptXY = (x, y)
     return ptXY
 
-# Distance calculation ========================================================
-def distEuclideanXY(pt1: pt, pt2: pt) -> float:
-    """Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number"""
-    return math.sqrt((pt1[0] - pt2[0]) ** 2 + (pt1[1] - pt2[1]) ** 2)
+# Polys =======================================================================
+def polysUnionAll(polys:polys, returnShaplelyObj:bool=False) -> list:
+    """Given a list of polygons which could be intersecting to each other, return unioned polygons that are not intersecting"""
+    polyShape = []
+    for p in polys:
+        polyShape.append(shapely.Polygon(p))
+    unionAll = shapely.union_all(polyShape)
+    if (returnShaplelyObj):
+        return unionAll
 
-def distManhattenXY(pt1: pt, pt2: pt) -> float:
-    """Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number"""
-    return abs(pt1[0] - pt2[0]) + abs(pt1[1] - pt2[1])
+    unionPolys = []
+    if (isinstance(unionAll, shapely.geometry.polygon.Polygon)):
+        unionPolys = [[[i[0], i[1]] for i in list(unionAll.exterior.coords)]]
+    elif (isinstance(unionAll, shapely.geometry.multipolygon.MultiPolygon)):
+        for p in unionAll.geoms:
+            unionPolys.append([[i[0], i[1]] for i in list(p.exterior.coords)])
+    return unionPolys
 
-def distLatLon(pt1: pt, pt2: pt, distUnit: str = 'meter') -> float:
-    """Gives a Euclidean distance based on two lat/lon coords, if two coordinates are the same, return a small number"""
-    
-    # Get radius as in distUnit ===============================================
-    R = None
-    if (distUnit in ['mile', 'mi']):
-        R = CONST_EARTH_RADIUS_MILES
-    elif (distUnit in ['meter', 'm']):
-        R = CONST_EARTH_RADIUS_METERS
-    elif (distUnit in ['kilometer', 'km']):
-        R = CONST_EARTH_RADIUS_METERS / 1000
-    else:
-        raise UnsupportedInputError("ERROR: Unrecognized distance unit, options are 'mile', 'meter', 'kilometer'")
+def polysVisibleGraph(polys:polys) -> dict:
+    vg = {}
+    for p in range(len(polys)):
+        for e in range(len(polys[p])):
+            vg[(p, e)] = {'loc': polys[p][e], 'visible': []}
+            W = ptsVisible((p, e), polys, knownVG=vg)
+            for w in W:
+                vg[(p, e)]['visible'].append(w)
+    return vg
 
-    # Calculate distance ======================================================
-    (lat1, lon1) = pt1
-    (lat2, lon2) = pt2
-    phi1, phi2 = math.radians(lat1), math.radians(lat2) 
-    dphi = math.radians(lat2 - lat1)
-    dlambda = math.radians(lon2 - lon1)
-    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
-    return 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+def ptsVisible(v:int|str|tuple, polys:polys, notOnPolyV:dict|None=None, knownVG:dict={}) -> list:
+    vertices = {}
+    polyVertices = []
+    for p in range(len(polys)):
+        for e in range(len(polys[p])):
+            vertices[(p, e)] = {
+                'loc': polys[p][e],
+                'visible': []
+            }
+            polyVertices.append((p, e))
+    if (notOnPolyV != None):
+        if (v not in notOnPolyV):
+            raise MissingParameterError("ERROR: Cannot find `v` in `polys` or `notOnPolyV`")
+        else:
+            vertices[v] = {
+                'loc': notOnPolyV[v]['loc'],
+                'visible': []
+            }
+
+    # 把所有的poly vertices按到v的距离排序，从而给每个点得到一个可排序的唯一编码
+    verticeDistIndex = {}
+    sortedSeq = nodeSeqByDist(
+        nodes = vertices,
+        refLoc = vertices[v]['loc'],
+        nodeIDs = polyVertices)
+    for i in range(len(sortedSeq)):
+        verticeDistIndex[sortedSeq[i]] = i
+    # 把所有的poly vertices按到v的角度排序，从x轴正方向开始，从而得到后续可视性检查的顺序
+    sweepSeq = nodeSeqBySweeping(
+        nodes = vertices,
+        nodeIDs = polyVertices,
+        centerLoc = vertices[v]['loc'],
+        initDeg = 90)
+
+    # 用一个红黑树来维护射线通过的边，边的键值用(closer-index, further-index)，这样排序的时候无论如何都能保持距离关系
+    def rayIntersectPolyEdges(ray, polys) -> RedBlackTree:
+        T = RedBlackTree()
+        # FIXME: 这个显然需要用线段树来优化，在这里就先实现再说吧
+        for p in range(len(polys)):
+            for i in range(-1, len(polys[p]) - 1):
+                edge = [polys[p][i], polys[p][i + 1]]
+                # NOTE: 注意，这里射线可以与线段交于端点上
+                if (isSegIntRay(edge, ray, interiorOnly=True)):
+                    # NOTE: 防止数组溢出
+                    k = i
+                    if (i == -1):
+                        k = len(polys[p]) - 1
+                    vIdx1 = verticeDistIndex[(p, k)]
+                    vIdx2 = verticeDistIndex[(p, i + 1)]
+                    T.insert(RedBlackTreeNode(
+                        key = (min(vIdx1, vIdx2), max(vIdx1, vIdx2)), 
+                        value = [(p, k), (p, i + 1)]))
+        return T
+
+    # 初始射线方向为x-轴正方向
+    xAxisRay = [vertices[v]['loc'], (vertices[v]['loc'][0] + 1, vertices[v]['loc'][1])]
+    T = rayIntersectPolyEdges(xAxisRay, polys)
+
+    # 给定一个障碍物的顶点w_i，确定v是否可以见到w_i
+    # NOTE: 这里的wi, wim（也就是w_{i-1})得是polys的顶点
+    def visible(wi, wim, polys):
+        # 如果wiv已经确定可视，直接返回True
+        if (wi in knownVG and v in knownVG[wi]['visible']):
+            # print("Time saved")
+            return True
+
+        # 所在的polygon的编号
+        polyV = polys[v[0]] if len(v) == 2 else None
+        polyW = polys[wi[0]]
+        vwi = [vertices[v]['loc'], vertices[wi]['loc']]
+
+        vNext = None
+        vPrev = None
+        if (len(v) == 2):
+            vNext = (v[0], v[1] + 1 if v[1] < len(polys[v[0]]) - 1 else 0)
+            vPrev = (v[0], v[1] - 1 if v[1] > 0 else len(polys[v[0]]) - 1)
+        wiNext = (wi[0], wi[1] + 1 if wi[1] < len(polys[wi[0]]) - 1 else 0)
+        wiPrev = (wi[0], wi[1] - 1 if wi[1] > 0 else len(polys[wi[0]]) - 1)        
+
+        # 判断是否是相邻节点，相邻节点直接返回可见
+        if (polyV == polyW and (wi == vNext or wi == vPrev)):
+            return True
+
+        # 需要w_{i-1}不存在，或者w_{i-1}不在线段vwi上
+        notOnlineFlag = False
+        if (wim == None or not isPtOnSeg(wim, vwi)):
+            notOnlineFlag = True
+
+        # 若T非空，查有没有阻拦线段
+        noSegBlockFlag = True
+        if (notOnlineFlag and not T.isEmpty and not T.min(T.root).isNil):
+            for edge in T.traverse():
+                if (isSegIntSeg(
+                        seg1 = [vertices[edge.value[0]]['loc'], vertices[edge.value[1]]['loc']], 
+                        seg2 = vwi, 
+                        interiorOnly = True)):
+                    noSegBlockFlag = False
+                    break
+
+        # 如果visibleFlag，查交点上是否相切
+        int2PolyVTangenFlag = False
+        int2PolyWTangenFlag = False
+        if (noSegBlockFlag):
+            # Check point V
+            if (polyV == None):
+                int2PolyVTangenFlag = True
+            else:
+                segV = [vertices[vNext]['loc'], vertices[vPrev]['loc']]
+                int2PolyVTangenFlag = not isLineIntSeg(vwi, segV, interiorOnly=True)
+        if (int2PolyVTangenFlag):
+            # Check point W
+            segW = [vertices[wiNext]['loc'], vertices[wiPrev]['loc']]
+            int2PolyWTangenFlag = not isLineIntSeg(vwi, segW, interiorOnly=True)
+        bothEndTangenFlag = int2PolyVTangenFlag and int2PolyWTangenFlag
+
+        # 如果没有阻挡线段，查是不是在多边形内部
+        # NOTE: 似乎可以通过查中点确定是不是在多边形内部
+        visibleFlag = False
+        if (noSegBlockFlag and bothEndTangenFlag and not isSegIntPoly(
+                seg = vwi,
+                poly = polyW,
+                interiorOnly = True)):
+            visibleFlag = True        
+
+
+        if (visibleFlag):
+            return True
+
+        # 前面任何一关不通过，则不可视
+        return False
+
+    W = []
+    for i in range(len(sweepSeq)):
+        wi = sweepSeq[i]
+        wim = sweepSeq[i - 1] if i > 1 else None
+        # print(T)
+        if (not is2PtsSame(vertices[v]['loc'], vertices[wi]['loc']) and visible(wi, wim, polys)):
+            W.append(wi)
+
+        # 将wi的边加入/移出平衡树T
+        # wi所在的poly编号
+        polyIdx = wi[0]
+        # wi在poly内的编号
+        idInPoly = wi[1]
+
+        # Edge 1: wi -> wi.next
+        wiNext = (wi[0], wi[1] + 1 if wi[1] < len(polys[wi[0]]) - 1 else 0)
+        # Edge 2: wi.prev -> wi
+        wiPrev = (wi[0], wi[1] - 1 if wi[1] > 0 else len(polys[wi[0]]) - 1)
+
+        # 判断edgeNext
+        vIdxWi = verticeDistIndex[wi]
+        vIdxWiNext = verticeDistIndex[wiNext]
+        vIdxWiPrev = verticeDistIndex[wiPrev]
+        if (is3PtsClockWise(vertices[v]['loc'], vertices[wi]['loc'], vertices[wiNext]['loc'])):
+            if (T.query((min(vIdxWi, vIdxWiNext), max(vIdxWi, vIdxWiNext))).isNil):
+                T.insert(RedBlackTreeNode(
+                    key = (min(vIdxWi, vIdxWiNext), max(vIdxWi, vIdxWiNext)), 
+                    value = [wi, wiNext]))
+        else:
+            if (not T.query((min(vIdxWi, vIdxWiNext), max(vIdxWi, vIdxWiNext))).isNil):
+                T.delete((min(vIdxWi, vIdxWiNext), max(vIdxWi, vIdxWiNext)))        
+        if (is3PtsClockWise(vertices[v]['loc'], vertices[wi]['loc'], vertices[wiPrev]['loc'])):
+            if (T.query((min(vIdxWiPrev, vIdxWi), max(vIdxWiPrev, vIdxWi))).isNil):
+                T.insert(RedBlackTreeNode(
+                    key = (min(vIdxWiPrev, vIdxWi), max(vIdxWiPrev, vIdxWi)), 
+                    value = [wiPrev, wi]))
+        else:
+            if (not T.query((min(vIdxWiPrev, vIdxWi), max(vIdxWiPrev, vIdxWi))).isNil):
+                T.delete((min(vIdxWiPrev, vIdxWi), max(vIdxWiPrev, vIdxWi)))
+    return W
 
 # Time seq related ============================================================
 def locInTimedSeq(seq: list[pt], timeStamp: list[float], t: float) -> pt:
@@ -1059,7 +1234,7 @@ def speedInTimedSeq(seq: list[pt], timeStamp: list[float], t: float) -> float:
         if (timeStamp[i] <= t < timeStamp[i + 1]):
             if (timeStamp[i] == timeStamp[i + 1]):
                 raise UnsupportedInputError("ERROR: an object cannot be two places at the same time.")
-            dist = distEuclideanXY(seq[i], seq[i + 1])
+            dist = distEuclideanXY(seq[i], seq[i + 1])['dist']
             spd = dist / (timeStamp[i + 1] - timeStamp[i])
 
     return spd
@@ -1127,102 +1302,40 @@ def traceInTimedSeq(seq: list[pt], timeStamp: list[float], ts: float, te: float)
 
     return trace
 
-# Movement in line-shape ======================================================
-def locOnPolyExt(poly: poly, startPt: pt, dist: int|float, reverseFlag: bool=False, dimension: str = 'XY') -> pt:
-    perimeter = calPolygonPerimeter(poly)
-    while(dist > perimeter):
-        dist -= perimeter
-
-    seq = [startPt]
-    startID = len(poly) + 1
-
-    if (dimension == 'XY'):
-        for i in range(len(poly) - 1):
-            if (abs(distEuclideanXY(poly[i], poly[i + 1]) - distEuclideanXY(poly[i], startPt) - distEuclideanXY(startPt, poly[i + 1])) <= CONST_EPSILON):
-                startID = i + 1
-                break
-        if (startID == len(poly) + 1):
-            if (abs(distEuclideanXY(poly[0], poly[-1]) - distEuclideanXY(poly[0], startPt) - distEuclideanXY(startPt, poly[-1])) <= CONST_EPSILON):
-                startID = 0
-            else:
-                raise UnsupportedInputError("ERROR: `startPt` should be on the boundary of `poly`")
-    elif (dimension == 'LatLon'):
-        for i in range(len(poly) - 1):
-            if (abs(distLatLon(poly[i], poly[i + 1]) - distLatLon(poly[i], startPt) - distLatLon(startPt, poly[i + 1])) <= CONST_EPSILON):
-                startID = i + 1
-                break
-        if (startID == len(poly) + 1):
-            if (abs(distLatLon(poly[0], poly[-1]) - distLatLon(poly[0], startPt) - distLatLon(startPt, poly[-1])) <= CONST_EPSILON):
-                startID = 0
-            else:
-                raise UnsupportedInputError("ERROR: `startPt` should be on the boundary of `poly`")
-    else:
-        raise UnsupportedInputError("ERROR: options for parameter `dimension` includes ['XY', 'LatLon']")
-
-    if (not reverseFlag):
-        for i in range(startID, len(poly)):
-            seq.append(poly[i])
-        for i in range(startID):
-            seq.append(poly[i])
-        seq.append(startPt)
-    else:
-        for i in range(startID, len(poly)):
-            seq.insert(0, poly[i])
-        for i in range(startID):
-            seq.insert(0, poly[i])
-        seq.insert(0, startPt) 
-
-    loc = locInSeq(seq, dist, dimension)
-
-    return loc
-
-def traceOnPolyExt(poly: poly, startPt: pt, endPt:pt, dist: int|float, reverseFlag: bool=False) -> list[pt]:
-    return trace
-
 def locInSeq(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
     """Given a list of lat/lon coordinates, and a traveling mileage, returns the coordinate"""
-
     # Initialize ==============================================================
     inPathFlag = False
     accDist = 0
     preLoc = []
     nextLoc = []
-
     # Find segment ============================================================
     for i in range(0, len(seq) - 1):
         if (dimension == 'LatLon'):
-            accDist += distLatLon(seq[i], seq[i + 1])
+            accDist += distLatLon(seq[i], seq[i + 1])['dist']
         elif (dimension == 'XY'):
-            accDist += distEuclideanXY(seq[i], seq[i + 1])
+            accDist += distEuclideanXY(seq[i], seq[i + 1])['dist']
         if (accDist > dist):
             preLoc = seq[i]
             nextLoc = seq[i + 1]
             inPathFlag = True
             break
-
     if (inPathFlag == False):
         raise UnsupportedInputError("ERROR: `dist` is longer than the length of `seq`")
-
     # Find location on the segment ============================================
     remainDist = accDist - dist
     segDist = 0
     if (dimension == 'LatLon'):
-        segDist = distLatLon(preLoc, nextLoc)
+        segDist = distLatLon(preLoc, nextLoc)['dist']
     elif (dimension == 'XY'):
-        segDist = distEuclideanXY(preLoc, nextLoc)
+        segDist = distEuclideanXY(preLoc, nextLoc)['dist']
     if (segDist <= CONST_EPSILON):
         raise ZeroDivisionError
     lat = nextLoc[0] + (remainDist / segDist) * (preLoc[0] - nextLoc[0])
     lon = nextLoc[1] + (remainDist / segDist) * (preLoc[1] - nextLoc[1])
     return (lat, lon)
 
-# Area calculation ====
-def calPolygonPerimeter(poly: poly) -> float:
-    p = 0
-    for i in range(-1, len(poly) - 1):
-        p += distEuclideanXY(poly[i], poly[i + 1])
-    return p
-
+# Area calculation ============================================================
 def calTriangleAreaEdge(a: float, b: float, c: float) -> float:
     # Using Heron's Formula ===================================================
     s = (a / 2 + b / 2 + c / 2)
@@ -1238,7 +1351,22 @@ def calTriangleAreaXY(pt1: pt, pt2: pt, pt3: pt) -> float:
     area = abs(val)
     return area
 
-def calPolygonAreaLatLon(polyLatLon: poly) -> float:
+def calPolyPerimeterXY(poly: poly) -> float:
+    p = 0
+    for i in range(-1, len(poly) - 1):
+        p += distEuclideanXY(poly[i], poly[i + 1])['dist']
+    return p
+
+def calPolyAreaXY(poly: poly) -> float:
+    lstTriangle = tripy.earclip(poly)
+
+    # Weight them and make draws ==============================================
+    area = 0
+    for i in range(len(lstTriangle)):
+        area += calTriangleAreaXY(lstTriangle[i][0], lstTriangle[i][1], lstTriangle[i][2])
+    return area
+
+def calPolyAreaLatLon(polyLatLon: poly) -> float:
     """Returns the area surrounded by polyLatLon on the Earth"""
 
     # Additional packages =====================================================
@@ -1258,11 +1386,10 @@ def calPolygonAreaLatLon(polyLatLon: poly) -> float:
 
     return area
 
-
-def headingXY(pt1: pt, pt2: pt) -> float:    
+# Locationing of points =======================================================
+def headingXY(pt1: pt, pt2: pt) -> float:
     vec = (pt2[0] - pt1[0], pt2[1] - pt1[1])
     (_, vDeg) = vecXY2Polar(vec)
-
     return vDeg
 
 def headingLatLon(pt1: pt, pt2: pt) -> float:
@@ -1274,7 +1401,6 @@ def headingLatLon(pt1: pt, pt2: pt) -> float:
     lon1 = math.radians(lon1)
     lat2 = math.radians(lat2)
     lon2 = math.radians(lon2)
-    
     dLon = lon2 - lon1
     if abs(dLon) > math.pi:
         if dLon > 0.0:
@@ -1285,7 +1411,6 @@ def headingLatLon(pt1: pt, pt2: pt) -> float:
     tan2 = math.tan(lat2 / 2.0 + math.pi / 4.0)
     phi = math.log(tan2 / tan1)
     deg = (math.degrees(math.atan2(dLon, phi)) + 360.0) % 360.0
-    
     return deg
 
 def ptInDistXY(pt: pt, direction: int|float, dist: int|float):
@@ -1300,149 +1425,20 @@ def ptInDistLatLon(pt: pt, direction: int|float, distMeters: int|float):
     newLoc = list(geopy.distance.distance(meters=distMeters).destination(point=pt, bearing=direction))[:2]
     return newLoc
 
-def getTau(
-    nodes: dict, 
-    edges: dict,
-    depotID: int|str = 0,
-    nodeIDs: list|str = 'All',
-    serviceTime: float = 0
-    ) -> dict:
-
-    # Define tau ==============================================================
-    tau = {}
-    if (type(edges) != dict or 'method' not in edges):
-        raise MissingParameterError(ERROR_MISSING_EDGES)
-
-    if (edges['method'] == 'Euclidean'):
-        ratio = 1 if 'ratio' not in edges else edges['ratio']
-        tau = _getTauEuclidean(nodes, nodeIDs, ratio)
-    elif (edges['method'] == 'LatLon'):
-        ratio = 1 if 'ratio' not in edges else edges['ratio']
-        tau = _getTauLatLon(nodes, nodeIDs, speed=ratio)
-    elif (edges['method'] == 'Manhatten'):
-        ratio = 1 if 'ratio' not in edges else edges['ratio']
-        tau = _getTauManhatten(nodes, nodeIDs, ratio)
-    elif (edges['method'] == 'Dictionary'):
-        if ('dictionary' not in edges or edges['dictionary'] == None):
-            raise MissingParameterError("'dictionary' is not specified")
-        for p in edges['dictionary']:
-            ratio = 1 if 'ratio' not in edges else edges['ratio']
-            tau[p] = edges['dictionary'][p] * ratio
-    elif (edges['method'] == 'Grid'):
-        if ('grid' not in edges or edges['grid'] == None):
-            raise MissingParameterError("'grid' is not specified")
-        if ('column' not in edges['grid'] or 'row' not in edges['grid']):
-            raise MissingParameterError("'column' and 'row' need to be specified in 'grid'")
-        tau = _getTauGrid(nodes, nodeIDs, edges['grid'])
-    else:
-        raise UnsupportedInputError(ERROR_MISSING_EDGES)        
-
-    # Service time ============================================================
-    if (depotID != None and serviceTime != None and serviceTime > 0):
-        for (i, j) in tau:
-            if (i != depotID and j != depotID and i != j):
-                tau[i, j] += serviceTime
-            elif (i == depotID or j == depotID and i != j):
-                tau[i, j] += serviceTime / 2 
-
-    return tau
-
-def _getTauEuclidean(nodes: dict, nodeIDs: list|str, speed = 1):
-    # Define nodeIDs ==========================================================
-    if (type(nodeIDs) is not list):
-        if (nodeIDs == 'All'):
-            nodeIDs = []
-            for i in nodes:
-                nodeIDs.append(i)
-    # Get tau =================================================================
-    tau = {}
-    for i in nodeIDs:
-        for j in nodeIDs:
-            if (i != j):
-                t = distEuclideanXY(nodes[i]['loc'], nodes[j]['loc']) / speed
-                tau[i, j] = t
-                tau[j, i] = t
-            else:
-                tau[i, j] = CONST_EPSILON
-                tau[j, i] = CONST_EPSILON
-    return tau
-
-def _getTauManhatten(nodes: dict, nodeIDs: list|str, speed = 1):
-    # Define nodeIDs ==========================================================
-    if (type(nodeIDs) is not list):
-        if (nodeIDs == 'All'):
-            nodeIDs = []
-            for i in nodes:
-                nodeIDs.append(i)
-
-    # Get tau =================================================================
-    tau = {}
-    for i in nodeIDs:
-        for j in nodeIDs:
-            if (i != j):
-                t = distManhattenXY(nodes[i]['loc'], nodes[j]['loc']) / speed
-                tau[i, j] = t
-                tau[j, i] = t
-            else:
-                tau[i, j] = CONST_EPSILON
-                tau[j, i] = CONST_EPSILON
-    return tau
-
-def _getTauLatLon(nodes: dict, nodeIDs: list|str, distUnit = 'meter', speed = 1):
-    # Define nodeIDs ==========================================================
-    if (type(nodeIDs) is not list):
-        if (nodeIDs == 'All'):
-            nodeIDs = []
-            for i in nodes:
-                nodeIDs.append(i)
-
-    # Get tau =================================================================
-    tau = {}
-    for i in nodeIDs:
-        for j in nodeIDs:
-            if (i != j):
-                t = distLatLon(nodes[i]['loc'], nodes[j]['loc'], distUnit) / speed
-                tau[i, j] = t
-                tau[j, i] = t
-            else:
-                tau[i, j] = CONST_EPSILON
-                tau[j, i] = CONST_EPSILON
-    return tau
-
-def _getTauGrid(nodes: dict, nodeIDs: list|str, grid: dict):
-    # Define nodeIDs ==========================================================
-    if (type(nodeIDs) is not list):
-        if (nodeIDs == 'All'):
-            nodeIDs = []
-            for i in nodes:
-                nodeIDs.append(i)
-
-    # Get tau =================================================================
-    tau = {}
-    for i in nodeIDs:
-        for j in nodeIDs:
-            if (i != j):
-                t = gridPathFinding(grid = grid, startCoord = nodes[i]['loc'], endCoord = nodes[j]['loc'])['dist']
-                tau[i, j] = t
-                tau[j, i] = t
-            else:
-                tau[i, j] = 0
-                tau[j, i] = 0
-    return tau
-
+# Sort nodes ==================================================================
 def nodeSeqByDist(nodes: dict, refLoc: pt, nodeIDs: list|str = 'All') -> list:
-    # Define nodeIDs ==========================================================
+    # Define nodeIDs
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
             nodeIDs = []
             for i in nodes:
                 nodeIDs.append(i)
 
-    # Sort distance ===========================================================
+    # Sort distance
     sortedSeq = []
     sortedSeqHeap = []
     for n in nodeIDs:
-        dist = distEuclideanXY(refLoc, nodes[n]['loc'])
+        dist = distEuclideanXY(refLoc, nodes[n]['loc'])['dist']
         heapq.heappush(sortedSeqHeap, (dist, n))
     while (len(sortedSeqHeap) > 0):
         sortedSeq.append(heapq.heappop(sortedSeqHeap)[1])  
@@ -1451,27 +1447,27 @@ def nodeSeqByDist(nodes: dict, refLoc: pt, nodeIDs: list|str = 'All') -> list:
 
 def nodeSeqBySweeping(nodes: dict, nodeIDs: list|str = 'All', centerLoc: None|pt = None, isClockwise: bool = True, initDeg: float = 0) -> list:
     """Given a set of locations, and a center point, gets the sequence from sweeping"""
-    # Define nodeIDs ==========================================================
+    # Define nodeIDs
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
             nodeIDs = []
             for i in nodes:
                 nodeIDs.append(i)
 
-    # Initialize centroid =====================================================
+    # Initialize centroid
     if (centerLoc == None):
         lstNodeLoc = []
         for n in nodeIDs:
             lstNodeLoc.append(shapely.Point(nodes[n]['loc'][0], nodes[n]['loc'][1]))
         centerLoc = list(shapely.centroid(shapely.MultiPoint(points = lstNodeLoc)))
 
-    # Initialize heap =========================================================
+    # Initialize heap
     degHeap = []
     centerLocNodes = []
     
-    # Build heap ==============================================================
+    # Build heap
     for n in nodeIDs:
-        dist = distEuclideanXY(nodes[n]['loc'], centerLoc)
+        dist = distEuclideanXY(nodes[n]['loc'], centerLoc)['dist']
         # If the nodes are too close, separate it/them
         if (dist <= CONST_EPSILON):
             centerLocNodes.append(n)
@@ -1491,10 +1487,400 @@ def nodeSeqBySweeping(nodes: dict, nodeIDs: list|str = 'All', centerLoc: None|pt
                 evalDeg += 360
             heapq.heappush(degHeap, (evalDeg, dist, n))
 
-    # Sweep ===================================================================
+    # Sweep
     sweepSeq = []
     while (len(degHeap)):
         sweepSeq.append(heapq.heappop(degHeap)[2])
     sweepSeq.extend(centerLocNodes)
 
     return sweepSeq
+
+def nodeSeqByScanning(nodes: dict, direction: float=0) -> list:
+    return
+
+# Create distance matrix ======================================================
+def distMatrix(nodes: dict, edges: dict, depotID: int|str = 0, nodeIDs: list|str = 'All', serviceTime: float = 0) -> dict:
+    # Define tau ==============================================================
+    tau = {}
+    if (type(edges) != dict or 'method' not in edges):
+        raise MissingParameterError(ERROR_MISSING_EDGES)
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = []
+            for i in nodes:
+                nodeIDs.append(i)
+
+    if (edges['method'] == 'Euclidean'):
+        ratio = 1 if 'ratio' not in edges else edges['ratio']
+        tau = _distMatrixEuclideanXY(nodes, nodeIDs, ratio)
+    elif (edges['method'] == 'EuclideanBarrier'):
+        if ('polys' not in edges or edges['polys'] == None):
+            warings.warning("WARNING: No barrier provided.")
+            tau = _distMatrixEuclideanXY(nodes, nodeIDs)
+        else:
+            tau = _distMatrixBtwPolysXY(nodes, nodeIDs, edges['polys'], edges['polyVG'])
+    elif (edges['method'] == 'LatLon'):
+        ratio = 1 if 'ratio' not in edges else edges['ratio']
+        tau = _distMatrixLatLon(nodes, nodeIDs, speed=ratio)
+    elif (edges['method'] == 'Manhatten'):
+        ratio = 1 if 'ratio' not in edges else edges['ratio']
+        tau = _distMatrixManhattenXY(nodes, nodeIDs, ratio)
+    elif (edges['method'] == 'Dictionary'):
+        if ('dictionary' not in edges or edges['dictionary'] == None):
+            raise MissingParameterError("'dictionary' is not specified")
+        for p in edges['dictionary']:
+            ratio = 1 if 'ratio' not in edges else edges['ratio']
+            tau[p] = edges['dictionary'][p] * ratio
+    elif (edges['method'] == 'Grid'):
+        if ('grid' not in edges or edges['grid'] == None):
+            raise MissingParameterError("'grid' is not specified")
+        if ('column' not in edges['grid'] or 'row' not in edges['grid']):
+            raise MissingParameterError("'column' and 'row' need to be specified in 'grid'")
+        tau = _distMatrixGrid(nodes, nodeIDs, edges['grid'])
+    else:
+        raise UnsupportedInputError(ERROR_MISSING_EDGES)        
+
+    # Service time ============================================================
+    if (depotID != None and serviceTime != None and serviceTime > 0):
+        for (i, j) in tau:
+            if (i != depotID and j != depotID and i != j):
+                tau[i, j] += serviceTime
+            elif (i == depotID or j == depotID and i != j):
+                tau[i, j] += serviceTime / 2 
+
+    return tau
+
+def _distMatrixEuclideanXY(nodes: dict, nodeIDs: list, speed = 1):
+    tau = {}
+    for i in nodeIDs:
+        for j in nodeIDs:
+            if (i != j):
+                t = distEuclideanXY(nodes[i]['loc'], nodes[j]['loc'])['dist'] / speed
+                tau[i, j] = t
+                tau[j, i] = t
+            else:
+                tau[i, j] = CONST_EPSILON
+                tau[j, i] = CONST_EPSILON
+    return tau
+
+def _distMatrixManhattenXY(nodes: dict, nodeIDs: list, speed = 1):
+    tau = {}
+    for i in nodeIDs:
+        for j in nodeIDs:
+            if (i != j):
+                t = distManhattenXY(nodes[i]['loc'], nodes[j]['loc'])['dist'] / speed
+                tau[i, j] = t
+                tau[j, i] = t
+            else:
+                tau[i, j] = CONST_EPSILON
+                tau[j, i] = CONST_EPSILON
+    return tau
+
+def _distMatrixLatLon(nodes: dict, nodeIDs: list, distUnit = 'meter', speed = 1):
+    tau = {}
+    for i in nodeIDs:
+        for j in nodeIDs:
+            if (i != j):
+                t = distLatLon(nodes[i]['loc'], nodes[j]['loc'], distUnit)['dist'] / speed
+                tau[i, j] = t
+                tau[j, i] = t
+            else:
+                tau[i, j] = CONST_EPSILON
+                tau[j, i] = CONST_EPSILON
+    return tau
+
+def _distMatrixGrid(nodes: dict, nodeIDs: list, grid: dict):
+    tau = {}
+    for i in nodeIDs:
+        for j in nodeIDs:
+            if (i != j):
+                t = distOnGrid(pt1 = nodes[i]['loc'], pt2 = nodes[j]['loc'], grid = grid)['dist']
+                tau[i, j] = t
+                tau[j, i] = t
+            else:
+                tau[i, j] = CONST_EPSILON
+                tau[j, i] = CONST_EPSILON
+    return tau
+
+def _distMatrixBtwPolysXY(nodes: dict, nodeIDs: list, polys: polys, polyVG: dict=None):
+    tau = {}
+    for i in nodeIDs:
+        for j in nodeIDs:
+            if (i != j):
+                t = distBtwPolysXY(pt1 = nodes[i]['loc'], pt2 = nodes[j]['loc'], polys = polys, polyVG = polyVG)['dist']
+                tau[i, j] = t
+                tau[j, i] = t
+            else:
+                tau[i, j] = CONST_EPSILON
+                tau[j, i] = CONST_EPSILON
+    return tau
+
+# Distance calculation ========================================================
+def distEuclideanXY(pt1: pt, pt2: pt) -> dict:
+    """Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number"""
+    return {
+        'dist': math.sqrt((pt1[0] - pt2[0]) ** 2 + (pt1[1] - pt2[1]) ** 2),
+        'path': [pt1, pt2]
+    }
+
+def distManhattenXY(pt1: pt, pt2: pt) -> dict:
+    """Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number"""
+    return {
+        'dist': abs(pt1[0] - pt2[0]) + abs(pt1[1] - pt2[1]),
+        'path': [pt1, (pt1[0], pt2[1]), pt2]
+    }
+
+def distBtwPolysXY(pt1:pt, pt2:pt, polys:polys, polyVG:dict=None) -> dict:
+    # Reference: Computational Geometry: Algorithms and Applications Third Edition
+    # By Mark de Berg et al. Page 326 - 330
+    # With some modifications
+
+    # First check if start pt or end pt is in one of the polygons =============
+    startPtGeo = shapely.Point(pt1)
+    endPtGeo = shapely.Point(pt2)
+    for poly in polys:
+        polyGeo = shapely.Polygon(poly)
+        if (polyGeo.contains(startPtGeo)):
+            raise OverlapError("Point (%s, %s) is inside `polys` when it is not suppose to." % (pt1[0], pt1[1]))
+        if (polyGeo.contains(endPtGeo)):
+            raise OverlapError("Point (%s, %s) is inside `polys` when it is not suppose to." % (pt2[0], pt2[1]))
+
+    # Quick checkout ==========================================================
+    visibleDirectly = True
+    for poly in polys:
+        if (isSegIntPoly([pt1, pt2], poly)):
+            visibleDirectly = False
+            break
+    if (visibleDirectly):
+        return ['s', 'e']
+
+    # Create visible graph for polys ==========================================
+    if (polyVG == None):      
+        for p in range(len(polys)):
+            polys[p] = [polys[p][i] for i in range(len(polys[p])) if distEuclideanXY(polys[p][i], polys[p][i - 1])['dist'] > CONST_EPSILON]
+        polyVG = polysVisibleGraph(polys)
+
+    # Create a visible graph ==================================================
+    # NOTE: startPt可视的vertices将不需要测试是不是相互之间可视，同样地，可视endPt的vertices之间也不需要可视
+    vertices = {}
+    for p in polyVG:
+        vertices[p] = {
+            'loc': polyVG[p]['loc'],
+            'visible': [i for i in polyVG[p]['visible']]
+        }
+    vertices['s'] = {'loc': pt1, 'visible': []}
+    Ws = ptsVisible('s', polys, {'s': {'loc': pt1, 'visible': []}})
+    vertices['s']['visible'] = Ws
+    vertices['e'] = {'loc': pt2, 'visible': []}
+    We = ptsVisible('e', polys, {'e': {'loc': pt2, 'visible': []}})
+    vertices['e']['visible'] = We
+
+    # Find shortest path ======================================================
+    vg = nx.Graph()
+    for v in vertices:
+        vg.add_node(v)
+    for v in vertices:
+        for e in vertices[v]['visible']:
+            vg.add_edge(v, e, weight=distEuclideanXY(vertices[v]['loc'], vertices[e]['loc'])['dist'])
+    sp = nx.dijkstra_path(vg, 's', 'e')
+
+    dist = 0
+    for i in range(len(sp) - 1):
+        dist += distEuclideanXY(vertices[sp[i]]['loc'], vertices[sp[i + 1]]['loc'])['dist']
+
+    return {
+        'dist': dist,
+        'path': [vertices[wp]['loc'] for wp in sp]
+    }
+
+def distLatLon(pt1: pt, pt2: pt, distUnit: str = 'meter') -> dict:
+    """Gives a Euclidean distance based on two lat/lon coords, if two coordinates are the same, return a small number"""
+    
+    # Get radius as in distUnit ===============================================
+    R = None
+    if (distUnit in ['mile', 'mi']):
+        R = CONST_EARTH_RADIUS_MILES
+    elif (distUnit in ['meter', 'm']):
+        R = CONST_EARTH_RADIUS_METERS
+    elif (distUnit in ['kilometer', 'km']):
+        R = CONST_EARTH_RADIUS_METERS / 1000
+    else:
+        raise UnsupportedInputError("ERROR: Unrecognized distance unit, options are 'mile', 'meter', 'kilometer'")
+
+    # Calculate distance ======================================================
+    (lat1, lon1) = pt1
+    (lat2, lon2) = pt2
+    phi1, phi2 = math.radians(lat1), math.radians(lat2) 
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    return {
+        'dist': 2 * R * math.atan2(math.sqrt(a), math.sqrt(1 - a)),
+        'path': [pt1, pt2]
+    }
+
+def distOnGrid(pt1: pt, pt2: pt, grid: dict, algo: dict = {'method': 'A*', 'measure': 'Manhatten'}) -> dict:
+    """Given two coordinates on the grid, finds the 'shortest' path to travel
+
+    Parameters
+    ----------
+
+    grid: dictionary, required, default as None
+        The environment of a grid area, in the following format:
+            >>> grid = {
+            ...     'column': col, # Number of columns,
+            ...     'row': row, # Number of rows,
+            ...     'barriers': barriers, # A list of coordinates,
+            ... }
+    pt1: 2-tuple|2-list, required
+        Starting location on the grid
+    pt2: 2-tuple|2-list, required
+        Ending location on the grid 
+    algo: dictionary, required, default as {'method': 'A*', 'distMeasure': 'Manhatten'}
+        The algorithm configuration. For example
+        1) A*
+            >>> algo = {
+            ...     'method': A*,
+            ...     'measure': 'Manhatten', # Options: 'Manhatten', 'Euclidean'
+            ... }
+
+    Returns
+    -------
+    dictionary
+        A path on the given grid, in the following formatt::
+            >>> res = {
+            ...     'dist': dist,
+            ...     'path': path,
+            ... }
+
+    """
+
+    # Decode ==================================================================
+    column = grid['column']
+    row = grid['row']
+    barriers = grid['barriers']
+    res = None
+
+    # Call path finding =======================================================
+    if (algo['method'] == 'A*'):
+        if ('measure' not in algo or algo['measure'] not in ['Manhatten', 'Euclidean']):
+            warnings.warn("WARNING: Set distance measurement to be default as 'Manhatten")
+        res = _distOnGridAStar(column, row, barriers, pt1, pt2, algo['measure'])
+    else:
+        print("Error: Incorrect or not available grid path finding option!")
+    return res
+
+def _distOnGridAStar(column, row, barriers, pt1, pt2, distMeasure):
+    # Heuristic measure ==================================================-
+    def _calManhattenDist(coord1, coord2):
+        return abs(coord1[0] - coord2[0]) + abs(coord1[1] - coord2[1])
+    def _calEuclideanDist(coord1, coord2):
+        return math.sqrt((coord1[0] - coord2[0])**2 + (coord1[1] - coord2[1])**2)
+
+    # Initialize grid ====================================================-
+    # Evaluate value f(n) = g(n) + h(n)
+    gridStatus = {}
+    for col in range(column):
+        for ro in range(row):
+            if ((col, ro) not in barriers):
+                # Content in the dictionary (g(n), h(n), fromCoord)
+                # At this stage, no need to calculate h(n) 
+                gridStatus[(col, ro)] = (None, None, None)
+            else:
+                gridStatus[(col, ro)] = 'block'
+    if (distMeasure == 'Manhatten'):
+        gridStatus[pt1] = (0, _calManhattenDist(pt1, pt2), None)
+    elif (distMeasure == 'Euclidean'):
+        gridStatus[pt1] = (0, _calEuclideanDist(pt1, pt2), None)
+    gridStatus[pt2] = (None, 0, None)
+
+    # Open/close set ======================================================
+    openList = [pt1]
+    closeList = [i for i in barriers]
+
+    # Find smallest Fn ====================================================
+    def _findSmallestFnGrid():
+        bestFn = None
+        bestCoord = None
+        for coord in openList:
+            if (gridStatus[coord] != None
+                and gridStatus[coord] != 'block' 
+                and (bestFn == None or gridStatus[coord][0] + gridStatus[coord][1] < bestFn)):
+                bestFn = gridStatus[coord][0] + gridStatus[coord][1]
+                bestCoord = coord
+        if (bestCoord != None):
+            return bestCoord
+        else:
+            raise
+
+    # For each grid in open set, update g(n) ==============================
+    while (len(openList) > 0):
+        tmpOpenList = []
+        coord = _findSmallestFnGrid()
+        # Up
+        upCoord = (coord[0], coord[1] + 1)
+        if (coord[1] + 1 < row and gridStatus[upCoord] != None and gridStatus[upCoord] != 'block' and upCoord not in closeList):
+            if (gridStatus[upCoord][0] == None or gridStatus[upCoord][0] > gridStatus[coord][0] + 1):
+                if (distMeasure == 'Manhatten'):
+                    gridStatus[upCoord] = (gridStatus[coord][0] + 1, _calManhattenDist(upCoord, pt2), coord)
+                if (distMeasure == 'Euclidean'):
+                    gridStatus[upCoord] = (gridStatus[coord][0] + 1, _calEuclideanDist(upCoord, pt2), coord)
+                if (upCoord == pt2):
+                    break
+                else:
+                    tmpOpenList.append(upCoord)
+        # Down
+        downCoord = (coord[0], coord[1] - 1)
+        if (coord[1] - 1 >= 0 and gridStatus[downCoord] != None and gridStatus[downCoord] != 'block' and downCoord not in closeList):
+            if (gridStatus[downCoord][0] == None or gridStatus[downCoord][0] > gridStatus[coord][0] + 1):
+                if (distMeasure == 'Manhatten'):
+                    gridStatus[downCoord] = (gridStatus[coord][0] + 1, _calManhattenDist(downCoord, pt2), coord)
+                if (distMeasure == 'Euclidean'):
+                    gridStatus[downCoord] = (gridStatus[coord][0] + 1, _calEuclideanDist(downCoord, pt2), coord)
+                if (downCoord == pt2):
+                    break
+                else:
+                    tmpOpenList.append(downCoord)
+        # Left
+        leftCoord = (coord[0] - 1, coord[1])
+        if (coord[0] - 1 >= 0 and gridStatus[leftCoord] != None and gridStatus[leftCoord] != 'block' and leftCoord not in closeList):
+            if (gridStatus[leftCoord][0] == None or gridStatus[leftCoord][0] > gridStatus[coord][0] + 1):
+                if (distMeasure == 'Manhatten'):
+                    gridStatus[leftCoord] = (gridStatus[coord][0] + 1, _calManhattenDist(leftCoord, pt2), coord)
+                if (distMeasure == 'Euclidean'):
+                    gridStatus[leftCoord] = (gridStatus[coord][0] + 1, _calEuclideanDist(leftCoord, pt2), coord)
+                if (leftCoord == pt2):
+                    break
+                else:
+                    tmpOpenList.append(leftCoord)
+        # Right
+        rightCoord = (coord[0] + 1, coord[1])
+        if (coord[0] + 1 < column and gridStatus[rightCoord] != None and gridStatus[rightCoord] != 'block' and rightCoord not in closeList):
+            if (gridStatus[rightCoord][0] == None or gridStatus[rightCoord][0] > gridStatus[coord][0] + 1):
+                if (distMeasure == 'Manhatten'):
+                    gridStatus[rightCoord] = (gridStatus[coord][0] + 1, _calManhattenDist(rightCoord, pt2), coord)
+                if (distMeasure == 'Euclidean'):
+                    gridStatus[rightCoord] = (gridStatus[coord][0] + 1, _calEuclideanDist(rightCoord, pt2), coord)
+                if (rightCoord == pt2):
+                    break
+                else:
+                    tmpOpenList.append(rightCoord)
+        openList.remove(coord)
+        openList.extend(tmpOpenList)
+        closeList.append(coord)
+
+    # Recover path ========================================================
+    path = []
+    curCoord = pt2
+    finishReconstructFlag = True
+    while (finishReconstructFlag):
+        finishReconstructFlag = False
+        path.insert(0, curCoord)
+        curCoord = gridStatus[curCoord][2]
+        if (curCoord != None):
+            finishReconstructFlag = True
+    return {
+        'dist': len(path) - 1,
+        'path': path
+    }
+

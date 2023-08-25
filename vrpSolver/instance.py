@@ -306,7 +306,7 @@ def _rndPtRoadNetworkPolyLatLon(N: int, road: dict, poly: poly, roadClass: str |
         # Check if this road is inside polygon
         if (includedFlag):
             for i in range(len(road[rID]['shape']) - 1):
-                roadLength += distLatLon(road[rID]['shape'][i], road[rID]['shape'][i + 1])
+                roadLength += distLatLon(road[rID]['shape'][i], road[rID]['shape'][i + 1])['dist']
             lengths.append(roadLength)            
         else:
             lengths.append(0)
@@ -350,14 +350,14 @@ def _rndPtRoadNetworkCircleLatLon(N: int, road: dict, radius: float, center: pt,
         roadLength = 0
         includedFlag = False
         for i in range(len(road[rID]['shape'])):
-            if (road[rID]['class'] in roadClass and distLatLon(road[rID]['shape'][i], center) <= radius):
+            if (road[rID]['class'] in roadClass and distLatLon(road[rID]['shape'][i], center) <= radius)['dist']:
                 includedFlag = True
                 break
 
         # Check if this road is inside polygon
         if (includedFlag):
             for i in range(len(road[rID]['shape']) - 1):
-                roadLength += distLatLon(road[rID]['shape'][i], road[rID]['shape'][i + 1])
+                roadLength += distLatLon(road[rID]['shape'][i], road[rID]['shape'][i + 1])['dist']
             lengths.append(roadLength)            
         else:
             lengths.append(0)
@@ -381,7 +381,7 @@ def _rndPtRoadNetworkCircleLatLon(N: int, road: dict, radius: float, center: pt,
             edgeLength = lengths[idx]
             edgeDist = random.uniform(0, 1) * edgeLength
             (lat, lon) = locInSeq(road[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
-            if (distLatLon([lat, lon], center) <= radius):
+            if (distLatLon([lat, lon], center)['dist'] <= radius):
                 insideFlag = True
         nodeLocs.append((lat, lon))
 
