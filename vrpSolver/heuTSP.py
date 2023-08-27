@@ -133,7 +133,7 @@ def heuTSP(
         raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
 
     # Define tau ==============================================================
-    tau = distMatrix(nodes, edges, depotID, nodeIDs, serviceTime)
+    tau, pathLoc = distMatrix(nodes, edges, depotID, nodeIDs, serviceTime)
 
     # Check symmetric =========================================================
     asymFlag = False
@@ -242,6 +242,7 @@ def heuTSP(
     return {
         'ofv': ofv,
         'consOfv': consOfv,
+        'algo': algo,
         'seq': seq,
         'serviceTime': serviceTime
     }

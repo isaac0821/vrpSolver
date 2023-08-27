@@ -1386,7 +1386,7 @@ def calPolyAreaLatLon(polyLatLon: poly) -> float:
 
     return area
 
-# Locationing of points =======================================================
+# Location of points ==========================================================
 def headingXY(pt1: pt, pt2: pt) -> float:
     vec = (pt2[0] - pt1[0], pt2[1] - pt1[1])
     (_, vDeg) = vecXY2Polar(vec)
@@ -1502,6 +1502,7 @@ def nodeSeqByScanning(nodes: dict, direction: float=0) -> list:
 def distMatrix(nodes: dict, edges: dict, depotID: int|str = 0, nodeIDs: list|str = 'All', serviceTime: float = 0) -> dict:
     # Define tau ==============================================================
     tau = {}
+    pathLoc = {}
     if (type(edges) != dict or 'method' not in edges):
         raise MissingParameterError(ERROR_MISSING_EDGES)
     if (type(nodeIDs) is not list):
@@ -1512,19 +1513,19 @@ def distMatrix(nodes: dict, edges: dict, depotID: int|str = 0, nodeIDs: list|str
 
     if (edges['method'] == 'Euclidean'):
         ratio = 1 if 'ratio' not in edges else edges['ratio']
-        tau = _distMatrixEuclideanXY(nodes, nodeIDs, ratio)
+        tau, pathLoc = _distMatrixEuclideanXY(nodes, nodeIDs, ratio)
     elif (edges['method'] == 'EuclideanBarrier'):
         if ('polys' not in edges or edges['polys'] == None):
             warings.warning("WARNING: No barrier provided.")
-            tau = _distMatrixEuclideanXY(nodes, nodeIDs)
+            tau, pathLoc = _distMatrixEuclideanXY(nodes, nodeIDs)
         else:
-            tau = _distMatrixBtwPolysXY(nodes, nodeIDs, edges['polys'], edges['polyVG'])
+            tau, pathLoc = _distMatrixBtwPolysXY(nodes, nodeIDs, edges['polys'], edges['polyVG'])
     elif (edges['method'] == 'LatLon'):
         ratio = 1 if 'ratio' not in edges else edges['ratio']
-        tau = _distMatrixLatLon(nodes, nodeIDs, speed=ratio)
+        tau, pathLoc = _distMatrixLatLon(nodes, nodeIDs, speed=ratio)
     elif (edges['method'] == 'Manhatten'):
         ratio = 1 if 'ratio' not in edges else edges['ratio']
-        tau = _distMatrixManhattenXY(nodes, nodeIDs, ratio)
+        tau, pathLoc = _distMatrixManhattenXY(nodes, nodeIDs, ratio)
     elif (edges['method'] == 'Dictionary'):
         if ('dictionary' not in edges or edges['dictionary'] == None):
             raise MissingParameterError("'dictionary' is not specified")
@@ -1536,7 +1537,7 @@ def distMatrix(nodes: dict, edges: dict, depotID: int|str = 0, nodeIDs: list|str
             raise MissingParameterError("'grid' is not specified")
         if ('column' not in edges['grid'] or 'row' not in edges['grid']):
             raise MissingParameterError("'column' and 'row' need to be specified in 'grid'")
-        tau = _distMatrixGrid(nodes, nodeIDs, edges['grid'])
+        tau, pathLoc = _distMatrixGrid(nodes, nodeIDs, edges['grid'])
     else:
         raise UnsupportedInputError(ERROR_MISSING_EDGES)        
 
@@ -1548,72 +1549,97 @@ def distMatrix(nodes: dict, edges: dict, depotID: int|str = 0, nodeIDs: list|str
             elif (i == depotID or j == depotID and i != j):
                 tau[i, j] += serviceTime / 2 
 
-    return tau
+    return tau, pathLoc
 
 def _distMatrixEuclideanXY(nodes: dict, nodeIDs: list, speed = 1):
     tau = {}
+    pathLoc = {}
     for i in nodeIDs:
         for j in nodeIDs:
             if (i != j):
-                t = distEuclideanXY(nodes[i]['loc'], nodes[j]['loc'])['dist'] / speed
-                tau[i, j] = t
-                tau[j, i] = t
+                d = distEuclideanXY(nodes[i]['loc'], nodes[j]['loc']) / speed
+                tau[i, j] = d['dist']
+                tau[j, i] = d['dist']
+                pathLoc[i, j] = d['path']
+                pathLoc[j, i] = d['path']
             else:
                 tau[i, j] = CONST_EPSILON
                 tau[j, i] = CONST_EPSILON
-    return tau
+                pathLoc[i, j] = []
+                pathLoc[j, i] = []
+    return tau, pathLoc
 
 def _distMatrixManhattenXY(nodes: dict, nodeIDs: list, speed = 1):
     tau = {}
+    pathLoc = {}
     for i in nodeIDs:
         for j in nodeIDs:
             if (i != j):
-                t = distManhattenXY(nodes[i]['loc'], nodes[j]['loc'])['dist'] / speed
-                tau[i, j] = t
-                tau[j, i] = t
+                d = distManhattenXY(nodes[i]['loc'], nodes[j]['loc']) / speed
+                tau[i, j] = d['dist']
+                tau[j, i] = d['dist']
+                pathLoc[i, j] = d['path']
+                pathLoc[j, i] = d['path']
             else:
                 tau[i, j] = CONST_EPSILON
                 tau[j, i] = CONST_EPSILON
-    return tau
-
+                pathLoc[i, j] = []
+                pathLoc[j, i] = []
+    return tau, pathLoc
 def _distMatrixLatLon(nodes: dict, nodeIDs: list, distUnit = 'meter', speed = 1):
     tau = {}
+    pathLoc = {}
     for i in nodeIDs:
         for j in nodeIDs:
             if (i != j):
-                t = distLatLon(nodes[i]['loc'], nodes[j]['loc'], distUnit)['dist'] / speed
-                tau[i, j] = t
-                tau[j, i] = t
+                d = distLatLon(nodes[i]['loc'], nodes[j]['loc'], distUnit) / speed
+                tau[i, j] = d['dist']
+                tau[j, i] = d['dist']
+                pathLoc[i, j] = d['path']
+                pathLoc[j, i] = d['path']
             else:
                 tau[i, j] = CONST_EPSILON
                 tau[j, i] = CONST_EPSILON
-    return tau
+                pathLoc[i, j] = []
+                pathLoc[j, i] = []
+    return tau, pathLoc
 
 def _distMatrixGrid(nodes: dict, nodeIDs: list, grid: dict):
     tau = {}
+    pathLoc = {}
     for i in nodeIDs:
         for j in nodeIDs:
             if (i != j):
-                t = distOnGrid(pt1 = nodes[i]['loc'], pt2 = nodes[j]['loc'], grid = grid)['dist']
-                tau[i, j] = t
-                tau[j, i] = t
+                d = distOnGrid(pt1 = nodes[i]['loc'], pt2 = nodes[j]['loc'], grid = grid)
+                tau[i, j] = d['dist']
+                tau[j, i] = d['dist']
+                pathLoc[i, j] = d['path']
+                pathLoc[j, i] = d['path']
             else:
                 tau[i, j] = CONST_EPSILON
                 tau[j, i] = CONST_EPSILON
-    return tau
+                pathLoc[i, j] = []
+                pathLoc[j, i] = []
+    return tau, pathLoc
+
 
 def _distMatrixBtwPolysXY(nodes: dict, nodeIDs: list, polys: polys, polyVG: dict=None):
     tau = {}
+    pathLoc = {}
     for i in nodeIDs:
         for j in nodeIDs:
             if (i != j):
-                t = distBtwPolysXY(pt1 = nodes[i]['loc'], pt2 = nodes[j]['loc'], polys = polys, polyVG = polyVG)['dist']
-                tau[i, j] = t
-                tau[j, i] = t
+                d = distBtwPolysXY(pt1 = nodes[i]['loc'], pt2 = nodes[j]['loc'], polys = polys, polyVG = polyVG)
+                tau[i, j] = d['dist']
+                tau[j, i] = d['dist']
+                pathLoc[i, j] = d['path']
+                pathLoc[j, i] = d['path']
             else:
                 tau[i, j] = CONST_EPSILON
                 tau[j, i] = CONST_EPSILON
-    return tau
+                pathLoc[i, j] = []
+                pathLoc[j, i] = []
+    return tau, pathLoc
 
 # Distance calculation ========================================================
 def distEuclideanXY(pt1: pt, pt2: pt) -> dict:

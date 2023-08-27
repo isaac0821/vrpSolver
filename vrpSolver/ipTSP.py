@@ -125,7 +125,7 @@ def ipTSP(
         raise OutOfRangeError("ERROR: COPT option supports 'DFJ_Lazy' formulations", )
 
     # Define tau ==============================================================
-    tau = distMatrix(nodes, edges, depotID, nodeIDs, serviceTime)
+    tau, pathLoc = distMatrix(nodes, edges, depotID, nodeIDs, serviceTime)
 
     # Solve by different formulations =========================================
     tsp = None
