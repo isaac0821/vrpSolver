@@ -948,7 +948,6 @@ def _ipTSPCOPTLazyCuts(nodeIDs, tau, outputFlag, timeLimit, env):
 def ipTSPEx(
     nodes: dict, 
     predefinedArcs: list[list[tuple[int|str]]] = [],
-    predefinedVisitOrder: list[list[list[tuple[int|str]]]] = [],
     edges: dict = {'method': "Euclidean", 'ratio': 1},
     fml: str = 'DFJ_Lazy', 
     solver: dict = {'solver': 'Gurobi', 'timeLimit': None, 'gapTolerance': None, 'outputFlag': False, 'env': None},
@@ -1054,7 +1053,7 @@ def ipTSPEx(
         raise OutOfRangeError("ERROR: COPT option supports 'DFJ_Lazy' formulations", )
 
     # Define tau ==============================================================
-    tau = getTau(nodes, edges, depotID, nodeIDs, serviceTime)
+    tau, pathLoc = getTau(nodes, edges, depotID, nodeIDs, serviceTime)
 
     # Solve by different formulations =========================================
     tspEx = None

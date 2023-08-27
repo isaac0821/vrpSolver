@@ -1557,9 +1557,9 @@ def _distMatrixEuclideanXY(nodes: dict, nodeIDs: list, speed = 1):
     for i in nodeIDs:
         for j in nodeIDs:
             if (i != j):
-                d = distEuclideanXY(nodes[i]['loc'], nodes[j]['loc']) / speed
-                tau[i, j] = d['dist']
-                tau[j, i] = d['dist']
+                d = distEuclideanXY(nodes[i]['loc'], nodes[j]['loc'])
+                tau[i, j] = d['dist'] / speed
+                tau[j, i] = d['dist'] / speed
                 pathLoc[i, j] = d['path']
                 pathLoc[j, i] = d['path']
             else:
@@ -1575,9 +1575,9 @@ def _distMatrixManhattenXY(nodes: dict, nodeIDs: list, speed = 1):
     for i in nodeIDs:
         for j in nodeIDs:
             if (i != j):
-                d = distManhattenXY(nodes[i]['loc'], nodes[j]['loc']) / speed
-                tau[i, j] = d['dist']
-                tau[j, i] = d['dist']
+                d = distManhattenXY(nodes[i]['loc'], nodes[j]['loc'])
+                tau[i, j] = d['dist'] / speed
+                tau[j, i] = d['dist'] / speed
                 pathLoc[i, j] = d['path']
                 pathLoc[j, i] = d['path']
             else:
@@ -1592,9 +1592,9 @@ def _distMatrixLatLon(nodes: dict, nodeIDs: list, distUnit = 'meter', speed = 1)
     for i in nodeIDs:
         for j in nodeIDs:
             if (i != j):
-                d = distLatLon(nodes[i]['loc'], nodes[j]['loc'], distUnit) / speed
-                tau[i, j] = d['dist']
-                tau[j, i] = d['dist']
+                d = distLatLon(nodes[i]['loc'], nodes[j]['loc'], distUnit)
+                tau[i, j] = d['dist'] / speed
+                tau[j, i] = d['dist'] / speed
                 pathLoc[i, j] = d['path']
                 pathLoc[j, i] = d['path']
             else:

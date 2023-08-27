@@ -395,7 +395,8 @@ def _consTSPChristofides(depotID, tau):
 
     return seq
 
-def _consTSPCycleCover():
+def _consTSPCycleCover(depotID, tau):
+    raise VrpSolverNotAvailableError("ERROR: vrpSolver has not implement this method yet")
     return seq
 
 def _impTSP2Opts(nodeIDs, tau, initSeq, asymFlag):
@@ -485,3 +486,202 @@ def _impTSP2Opts(nodeIDs, tau, initSeq, asymFlag):
         'oriRevOfv': oriRevOfv,
     }
 
+def heuTSPEx(
+    nodes: dict, 
+    predefinedArcs: list[list[tuple[int|str]]] = [],
+    edges: dict = {'method': "Euclidean", 'ratio': 1},
+    algo: dict = {'cons': 'NearestNeighbor', 'impv': '2Opt'},
+    depotID: int|str = 0,
+    nodeIDs: list[int|str]|str = 'All',
+    serviceTime: float = 0,
+    ) -> dict|None:
+
+    
+    # Sanity check ============================================================
+    if (nodes == None or type(nodes) != dict):
+        raise MissingParameterError(ERROR_MISSING_NODES)
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = [i for i in nodes]
+        else:
+            for i in nodeIDs:
+                if (i not in nodes):
+                    raise OutOfRangeError("ERROR: Node %s is not in `nodes`." % i)
+    if ((type(nodeIDs) == list and depotID not in nodeIDs)
+        or (nodeIDs == 'All' and depotID not in nodes)):
+        raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
+
+    # Define tau ==============================================================
+    tau, pathLoc = distMatrix(nodes, edges, depotID, nodeIDs, serviceTime)
+
+    # Check symmetric =========================================================
+    asymFlag = False
+    for (i, j) in tau:
+        if (tau[i, j] != tau[j, i]):
+            asymFlag = True
+            break
+
+    mustGo = {}
+    for arcs in predefinedArcs:
+        for arc in arcs:
+            if (arc[0] not in mustGo):
+                mustGo[arc[0]] = arc[1]
+            if (arc[1] not in mustGo):
+                mustGo[arc[1]] = arc[0]
+
+
+    if (algo == None or 'cons' not in algo or 'impv' not in algo):
+        raise MissingParameterError("ERROR: Not supported (for now)")
+
+    seq = []
+    # Neighborhood based heuristic, including nearest neighborhood, k-nearest neighborhood, and furthest neighborhood
+    if (algo['cons'] == 'NearestNeighbor'):
+        seq = _consTSPExkNearestNeighbor(depotID, nodeIDs, tau, mustGo, 1)
+
+    # Cleaning seq before local improving =================================
+    ofv = calSeqCostMatrix(tau, seq, closeFlag = False)
+    revOfv = None if not asymFlag else calSeqCostMatrix(tau, [seq[len(seq) - i - 1] for i in range(len(seq))], closeFlag = False)
+    consOfv = ofv
+
+    # Local improvment phase ==============================================
+    # NOTE: For the local improvement, try every local search operator provided in a greedy way
+    if ('impv' in algo and algo['impv'] != None and algo['impv'] != []):
+        canImproveFlag = True
+        while (canImproveFlag):
+            canImproveFlag = False
+            # Try 2Opts
+            if (not canImproveFlag and (algo['impv'] == '2Opt' or '2Opt' in algo['impv'])):
+                imp = _impTSPEx2Opts(nodeIDs, tau, seq, asymFlag, mustGo)
+                if (imp['improvedFlag']):
+                    canImproveFlag = True
+                    seq = imp['impSeq']
+                    ofv = imp['oriOfv']
+                    revOfv = imp['oriRevOfv']
+    return {
+        'ofv': ofv,
+        'consOfv': consOfv,
+        'algo': algo,
+        'seq': seq,
+        'serviceTime': serviceTime
+    }
+
+def _consTSPExkNearestNeighbor(depotID, nodeIDs, tau, mustGo, k = 1):
+    # Initialize ----------------------------------------------------------
+    seq = [depotID]
+    remain = [nodeIDs[i] for i in range(len(nodeIDs)) if nodeIDs[i] != depotID]
+    # Accumulate seq ------------------------------------------------------
+    while (len(remain) > 0):
+        currentNodeID = seq[-1]
+
+        if (currentNodeID in mustGo and mustGo[currentNodeID] not in seq):
+            nextNodeID = mustGo[currentNodeID]
+        else:
+            # Sort the distance from current node to the rest of nodes
+            sortedSeqHeap = []
+            for n in remain:
+                if ((currentNodeID, n) in tau):
+                    dist = tau[currentNodeID, n]
+                    heapq.heappush(sortedSeqHeap, (dist, n))
+
+            # Get the kth of sorted node and append it to seq
+            nextNodeID = None
+            for _ in range(k):
+                if (len(sortedSeqHeap) > 0):
+                    nextNodeID = heapq.heappop(sortedSeqHeap)[1]
+        seq.append(nextNodeID)
+
+        # Update remain
+        remain.remove(nextNodeID)
+    seq.append(depotID)
+    return seq
+
+def _impTSPEx2Opts(nodeIDs, tau, initSeq, asymFlag, mustGo):
+    # Initialize ==============================================================
+    improvedFlag = False
+    impSeq = [i for i in initSeq]
+
+    # Initialize accDist/accRevDist ===========================================
+    # FIXME: accDist and accRevDist can be improved, but not necessary right now
+    # Accumulated distance from depot
+    d = 0
+    accDist = []
+    for i in range(len(impSeq) - 1):
+        accDist.append(d)
+        if (d != None and (impSeq[i], impSeq[i + 1]) in tau):
+            d += tau[impSeq[i], impSeq[i + 1]]
+        else:
+            d = None
+    accDist.append(d)
+    oriOfv = accDist[-1]
+
+    # Accumulated distance to depot (reversed seq)
+    revD = 0
+    accRevDist = []
+    if (asymFlag):
+        for i in range(len(impSeq) - 1):
+            accRevDist.insert(0, revD)
+            if (revD != None and (impSeq[len(impSeq) - i - 1], impSeq[len(impSeq) - i - 2]) in tau):
+                revD += tau[impSeq[len(impSeq) - i - 1], impSeq[len(impSeq) - i - 2]]
+            else:
+                revD = None
+    accRevDist.insert(0, revD)
+    oriRevOfv = accRevDist[0]
+
+    # Main iteration ==========================================================
+    # Needs rewrite, when calculating dist, avoid repeated calculation
+    if (len(impSeq) >= 4):
+        # Try 2-opt
+        can2OptFlag = True
+        while (can2OptFlag):
+            can2OptFlag = False
+            # Try 2Opt
+            for i in range(len(impSeq) - 2):
+                for j in range(i + 2, len(impSeq) - 1):
+                    canTryFlag = ((impSeq[i] not in mustGo and impSeq[j] not in mustGo)
+                        or (impSeq[i] in mustGo and mustGo[impSeq[i]] == impSeq[j])
+                        or (impSeq[j] in mustGo and mustGo[impSeq[j]] == impSeq[i]))
+                    if canTryFlag:
+                        opt = exchange2Arcs(
+                            route = impSeq, 
+                            tau = tau, 
+                            i = i, 
+                            j = j, 
+                            accDist = accDist,
+                            accRevDist = accRevDist,
+                            asymFlag = asymFlag)
+                        if (opt != None and opt['deltaCost'] + CONST_EPSILON < 0):
+                            can2OptFlag = True
+                            improvedFlag = True
+                            impSeq = opt['route']
+                            oriOfv = opt['newCost']
+                            oriRevOfv = opt['newRevCost']
+
+                            d = 0
+                            accDist = []
+                            for i in range(len(impSeq) - 1):
+                                accDist.append(d)
+                                if (d != None and (impSeq[i], impSeq[i + 1]) in tau):
+                                    d += tau[impSeq[i], impSeq[i + 1]]
+                                else:
+                                    d = None
+                            accDist.append(d)
+                            oriOfv = accDist[-1]
+
+                            revD = 0
+                            accRevDist = []
+                            if (asymFlag):
+                                for i in range(len(impSeq) - 1):
+                                    accRevDist.insert(0, revD)
+                                    if (revD != None and (impSeq[len(impSeq) - i - 1], impSeq[len(impSeq) - i - 2]) in tau):
+                                        revD += tau[impSeq[len(impSeq) - i - 1], impSeq[len(impSeq) - i - 2]]
+                                    else:
+                                        revD = None
+                            accRevDist.insert(0, revD)
+                            oriRevOfv = accRevDist[0]
+                            break
+    return {
+        'impSeq': impSeq,
+        'improvedFlag': improvedFlag,
+        'oriOfv': oriOfv,
+        'oriRevOfv': oriRevOfv,
+    }
