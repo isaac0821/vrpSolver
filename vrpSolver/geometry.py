@@ -622,6 +622,37 @@ def intRay2Ray(ray1: line, ray2: line) -> dict:
             'interiorFlag': True
         }
 
+def crossSeg2Seg(seg1: line, seg2: line) -> list[list[pt]] | None:
+    """Given two line segments return the line segments that are crossed by each other"""
+
+    intSeg = intSeg2Seg(seg1, seg2)
+
+    if (intSeg['status'] == 'Cross'):
+        segs = []
+        if (intSeg['interiorFlag'] == True):
+            segs.append([seg1[0], intSeg['intersect']])
+            segs.append([intSeg['intersect'], seg1[1]])
+            segs.append([seg2[0], intSeg['intersect']])
+            segs.append([intSeg['intersect'], seg2[1]])
+        else:
+            if (is2PtsSame(seg1[0], intSeg['intersect'])):
+                segs.append(seg1)
+            elif (is2PtsSame(seg1[1], intSeg['intersect'])):
+                segs.append(seg1)
+            else:
+                segs.append([seg1[0], intSeg['intersect']])
+                segs.append([intSeg['intersect'], seg1[1]])
+            if (is2PtsSame(seg2[0], intSeg['intersect'])):
+                segs.append(seg2)
+            elif (is2PtsSame(seg2[1], intSeg['intersect'])):
+                segs.append(seg2)
+            else:
+                segs.append([seg2[0], intSeg['intersect']])
+                segs.append([intSeg['intersect'], seg2[1]])
+        return segs
+    else:
+        return None
+
 # Line-shape versus Line-shape ===================================================
 def isLineIntLine(line1: line, line2: line) -> bool:
     """Is two line intersect with each other"""
