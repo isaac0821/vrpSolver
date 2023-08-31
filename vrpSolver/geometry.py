@@ -4,6 +4,7 @@ import math
 import tripy
 
 import shapely
+from shapely.geometry import mapping
 import networkx as nx
 
 from .error import *
@@ -624,9 +625,7 @@ def intRay2Ray(ray1: line, ray2: line) -> dict:
 
 def crossSeg2Seg(seg1: line, seg2: line) -> list[list[pt]] | None:
     """Given two line segments return the line segments that are crossed by each other"""
-
     intSeg = intSeg2Seg(seg1, seg2)
-
     if (intSeg['status'] == 'Cross'):
         segs = []
         if (intSeg['interiorFlag'] == True):
@@ -651,7 +650,7 @@ def crossSeg2Seg(seg1: line, seg2: line) -> list[list[pt]] | None:
                 segs.append([intSeg['intersect'], seg2[1]])
         return segs
     else:
-        return None
+        return [seg1, seg2]
 
 # Line-shape versus Line-shape ===================================================
 def isLineIntLine(line1: line, line2: line) -> bool:
@@ -892,6 +891,92 @@ def isSegIntPoly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, 
 def isRayIntPoly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, interiorOnly: bool=False) -> bool:
     """Is a ray intersect with a polygon"""
     intSp = intRay2Poly(ray, poly, polyShapely)
+    # 若只输出了一个字典，按字典判断
+    if (isinstance(intSp, dict)):
+        return (intSp['status'] == 'Cross' 
+            and not (interiorOnly and not intSp['interiorFlag']))
+    elif (isinstance(intSp, list)):
+        for intPt in intSp:
+            trueWhen = (intPt['status'] == 'Cross' 
+                and not (interiorOnly and not intPt['interiorFlag']))
+            if (trueWhen):
+                return True    
+        return False
+
+# Poly vs poly ================================================================
+def intPoly2Poly(poly1: poly, poly2: poly, poly1Shapely: shapely.Polygon=None, poly2Shapely: shapely.Polygon=None):
+    if (poly1Shapely == None):
+        poly1Shapely = shapely.Polygon([p for p in poly1])
+    if (poly2Shapely == None):
+        poly2Shapely = shapely.Polygon([p for p in poly2])
+
+    intShape = shapely.intersection(poly1Shapely, poly2Shapely)
+    intType = shapely.get_type_id(intShape)
+
+    # Point
+    if (intType == 0):
+        return {
+            'status': 'Cross',
+            'intersect': (intShape.x, intShape.y),
+            'intersectType': 'Point',
+            'interiorFlag': False
+        }
+    # LineString
+    elif (intType == 1):
+        return {
+            'status': 'Cross',
+            'intersect': [intShape.coords[0], intShape.coords[1]],
+            'intersectType': 'Segment',
+            'interiorFlag': False
+        }
+    # Polygon
+    elif (intType == 3 and not intShape.is_empty):
+        return {
+            'status': 'Cross',
+            'intersect': [i for i in mapping(intShape)['coordinates'][0]],
+            'intersectType': 'Polygon',
+            'interiorFlag': True
+        }
+    # MultiPoint/MultiLineString/MultiPolygon/Geometrycollection
+    elif (intType in [4, 5, 6, 7]):
+        intSp = []
+        for g in intShape.geoms:
+            intG = shapely.get_type_id(g)
+            # Point
+            if (intG == 0):
+                intSp.append({
+                    'status': 'Cross',
+                    'intersect': (g.x, g.y),
+                    'intersectType': 'Point',
+                    'interiorFlag': False
+                })
+            # LineString
+            elif (intG == 1):
+                intSp.append({
+                    'status': 'Cross',
+                    'intersect': [g.coords[0], g.coords[1]],
+                    'intersectType': 'Segment',
+                    'interiorFlag': False
+                })
+            # Polygon
+            elif (intG == 3):
+                intSp.append({
+                    'status': 'Cross',
+                    'intersect': [i for i in mapping(g)['coordinates'][0]],
+                    'intersectType': 'Polygon',
+                    'interiorFlag': True
+                })
+        return intSp
+    else:
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None,
+            'interiorFlag': None
+        }
+
+def isPolyIntPoly(poly1: poly, poly2: poly, poly1Shapely: shapely.Polygon=None, poly2Shapely: shapely.Polygon=None, interiorOnly: bool=False) -> bool:
+    intSp = intPoly2Poly(poly1, poly2, poly1Shapely, poly2Shapely)
     # 若只输出了一个字典，按字典判断
     if (isinstance(intSp, dict)):
         return (intSp['status'] == 'Cross' 

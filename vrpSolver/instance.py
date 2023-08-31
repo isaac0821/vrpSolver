@@ -182,13 +182,13 @@ def rndPlainNodes(
     elif (distr['method'] == 'RoadNetworkPolyLatLon'):
         if ('polyLatLon' not in distr):
             raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `distr`, which indicates a polygon / a list of polygons in the Euclidean space")
-        elif ('RoadNetwork' not in distr):
+        elif ('roadNetwork' not in distr):
             raise MissingParameterError("ERROR: Missing required key 'RoadNetwork' in field `distr`. Need to provide the road network where the nodes are generated.")
         elif ('roadClass' not in distr):
             warnings.warn("WARNING: Set 'roadClass' to be default as ['residential']")
         nodeLocs = _rndPtRoadNetworkPolyLatLon(
             N if N != None else len(nodeIDs),
-            distr['RoadNetwork'], 
+            distr['roadNetwork'], 
             distr['polyLatLon'],
             distr['roadClass'] if 'roadClass' in distr else ['residential'])
         for n in range(len(nodeIDs)):
@@ -200,13 +200,13 @@ def rndPlainNodes(
     elif (distr['method'] == 'RoadNetworkCircleLatLon'):
         if ('centerLatLon' not in distr or 'radiusInMeters' not in distr):
             raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `distr`.")
-        elif ('RoadNetwork' not in distr):
+        elif ('roadNetwork' not in distr):
             raise MissingParameterError("ERROR: Missing required key 'RoadNetwork' in field `distr`. Need to provide the road network where the nodes are generated.")
         elif ('roadClass' not in distr):
             warnings.warn("WARNING: Set 'roadClass' to be default as ['residential']")
         nodeLocs = _rndPtRoadNetworkCircleLatLon(
             N if N != None else len(nodeIDs),
-            distr['RoadNetwork'], 
+            distr['roadNetwork'], 
             distr['radiusInMeters'],
             distr['centerLatLon'],
             distr['roadClass'] if 'roadClass' in distr else ['residential'])
@@ -300,7 +300,7 @@ def _rndPtRoadNetworkPolyLatLon(N: int, road: dict, poly: poly, roadClass: str |
                 includedFlag = True
             else:
                 for i in range(len(road[rID]['shape'])):
-                    if (isPtOnPoly(road[rID]['shape'][i], poly)):
+                    if (isPtInPoly(road[rID]['shape'][i], poly)):
                         includedFlag = True
                         break
         # Check if this road is inside polygon
@@ -336,7 +336,7 @@ def _rndPtRoadNetworkPolyLatLon(N: int, road: dict, poly: poly, roadClass: str |
                 edgeLength = lengths[idx]
                 edgeDist = random.uniform(0, 1) * edgeLength
                 (lat, lon) = locInSeq(road[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
-                if (isPtOnPoly([lat, lon], poly)):
+                if (isPtInPoly([lat, lon], poly)):
                     insideFlag = True
         nodeLocs.append((lat, lon))
 

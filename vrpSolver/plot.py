@@ -296,13 +296,13 @@ def plotArcs(
             for i in arcs:
                 if (not xyReverseFlag):
                     allX.append(arcs[i]['arc'][0][0])
-                    allX.append(arcs[i]['arc'][0][1])
-                    allY.append(arcs[i]['arc'][1][0])
+                    allX.append(arcs[i]['arc'][1][0])
+                    allY.append(arcs[i]['arc'][0][1])
                     allY.append(arcs[i]['arc'][1][1])
                 else:
                     allX.append(arcs[i]['arc'][0][1])
-                    allX.append(arcs[i]['arc'][0][0])
-                    allY.append(arcs[i]['arc'][1][1])
+                    allX.append(arcs[i]['arc'][1][1])
+                    allY.append(arcs[i]['arc'][0][0])
                     allY.append(arcs[i]['arc'][1][0])
             
             if (xMin == None):
@@ -343,13 +343,13 @@ def plotArcs(
         x1, y1, x2, y2 = 0, 0, 0, 0
         if (not xyReverseFlag):
             x1 = arcs[i]['arc'][0][0]
-            y1 = arcs[i]['arc'][0][1]
             x2 = arcs[i]['arc'][1][0]
+            y1 = arcs[i]['arc'][0][1]
             y2 = arcs[i]['arc'][1][1]
         else:
             x1 = arcs[i]['arc'][0][1]
-            y1 = arcs[i]['arc'][0][0]
             x2 = arcs[i]['arc'][1][1]
+            y1 = arcs[i]['arc'][0][0]
             y2 = arcs[i]['arc'][1][0]
         dx = x2 - x1
         dy = y2 - y1
@@ -781,7 +781,11 @@ def plotPolygon(
         y.append(poly[0][1])
     else:
         x.append(poly[0][1])
-        y.append(poly[0][0])        
+        y.append(poly[0][0])
+
+    if (abs(x[-1] - x[0]) > CONST_EPSILON):
+        x.append(x[0])
+        y.append(y[0])
 
     # Plot ====================================================================
     if (edgeColor == 'Random'):
