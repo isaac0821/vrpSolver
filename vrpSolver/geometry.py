@@ -1702,6 +1702,7 @@ def _distMatrixManhattenXY(nodes: dict, nodeIDs: list, speed = 1):
                 pathLoc[i, j] = []
                 pathLoc[j, i] = []
     return tau, pathLoc
+
 def _distMatrixLatLon(nodes: dict, nodeIDs: list, distUnit = 'meter', speed = 1):
     tau = {}
     pathLoc = {}
@@ -1737,7 +1738,6 @@ def _distMatrixGrid(nodes: dict, nodeIDs: list, grid: dict):
                 pathLoc[i, j] = []
                 pathLoc[j, i] = []
     return tau, pathLoc
-
 
 def _distMatrixBtwPolysXY(nodes: dict, nodeIDs: list, polys: polys, polyVG: dict=None):
     tau = {}

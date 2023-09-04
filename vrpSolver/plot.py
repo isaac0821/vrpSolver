@@ -1078,8 +1078,8 @@ def plotRoadNetwork(
 
 def plotGantt(
     gantt: list[dict],
-    group: dict|None = None, 
-    phase: list[dict] = None,
+    group: list[dict] | None = None, 
+    phase: list[dict] | None = None,
     xlabel: str = "Time",
     ylabel: str = "",
     ganttHeight: float = 0.8,
@@ -1089,19 +1089,16 @@ def plotGantt(
     groupSeparaterLinewidth: float = 0.5,
     phaseSeparater: str = "--",
     phaseSeparaterLinewidth: float = 0.5,
-    startTime:  "Start time of Gantt, default to be 0, if None, use the earliest time in `gantt`" = 0,
-    endTime:    "End time of Gantt, default to be None, if None, use the latest time in `gantt`" = None,
-    showTail:   "Show the latest time of all gantt blocks" = True,
-    fig:        "Based matplotlib figure object" = None, 
-    ax:         "Based matplotlib ax object" = None,
-    figSize:    "Size of the figure, in (width, height)" = (12, 5),
-    saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None,
-    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
-                 recommended to turn off if generate a batch of images" = True
+    startTime: float = 0,
+    endTime: float|None = None,
+    showTail: bool = True,
+    fig = None, 
+    ax = None,
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    showGridFlag: bool = False,
+    saveFigPath: str|None = None,
+    showFig: bool = True
     ) -> "Given a Gantt dictionary, plot Gantt":
-
-    raise VrpSolverNotAvailableError("ERROR: The `plotGantt()` function is under rewriting.")
 
     """Given a Gantt dictionary, plot a Gantt chart
 
@@ -1111,22 +1108,28 @@ def plotGantt(
         A list of dictionaries, each represents a gantt block, in the following format\
             >>> gantt = [{
             ...     'entityID': entityID, 
-            ...     'timeWindow': [startTime, endTime], or 
-            ...         'timeStamps': [timeStamp1, timeStamp2, ..., timeStampN], 
+            ...     'timeWindow': [startTime, endTime], 
             ...     'desc': (optional) description of the window,
             ...     'color': (optional, default as 'random') color, 
             ...     'style': (optional, default as 'solid') 'solid' 
             ... }, ... ]
-    group: dictionary, optional, default None
+    group: list of dictionaries, optional, default []
         Groups of entityIDs, in the following format
-            >>> group[groupID] = {
+            >>> group = [{
             ...     'title': groupTitle,
             ...     'entities': [entityID1, entityID2, ...],
             ...     'showFlag': True,
             ...     'backgroundColor': 'gray',
             ...     'backgroundOpacity': 0.5
-            ... }
-    phase: list of dictionaries, optional, default None
+            ... }, ... ]
+    phase: list of dictionaries, optional, default []
+        A list of phases, in the following format
+            >>> phase = [{
+            ...     'title': phaseTitle,
+            ...     'timeWindow': [startTime, endTime],
+            ...     'backgroundColor': 'gray',
+            ...     'backgroundOpacity': 0.5
+            ... }, ... ]
     xlabel: string, optional, default "Time"
         The label of x-axis
     ylabel: string, optional, default ""
@@ -1137,6 +1140,8 @@ def plotGantt(
         See `fig`
     figSize: 2-tuple, optional, default as (None, 5)
         Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.    
+    showGridFlag: bool, optional, default as False
+        True if turn the grids on.
     saveFigPath: string, optional, default as None
         The path for exporting image if provided
     showFig: bool, optional, default as True
@@ -1202,6 +1207,23 @@ def plotGantt(
     elif (entities == None):
         entities = [i for i in entList]
 
+    if (group == None or group == []):
+        group = [{
+            'title': "",
+            'entities': [],
+            'showFlag': True,
+            'backgroundColor': None,
+            'backgroundOpacity': 0
+        }]
+        for g in gantt:
+            if (g['entityID'] not in group[0]['entities']):
+                group[0]['entities'].append(g['entityID'])
+    else:
+        for g in gantt:
+            
+
+
+
     # If no based matplotlib figure, define fig size ==========================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
@@ -1235,7 +1257,7 @@ def plotGantt(
     ax.set_xlabel(xlabel)
 
     # Grids ===================================================================
-    if (gridFlag):
+    if (showGridFlag):
         ax.grid(b = True, linestyle=':')
 
     # Loop through `gantt` and draw gantt =====================================
