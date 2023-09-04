@@ -1084,19 +1084,22 @@ def plotGantt(
     ylabel: str = "",
     ganttHeight: float = 0.8,
     ganttLinewidth: float = 1.0,
-    groupSpace: float = 0.5,
-    groupSeparater: str = "-",
-    groupSeparaterLinewidth: float = 0.5,
-    phaseSeparater: str = "--",
-    phaseSeparaterLinewidth: float = 0.5,
+    ganttBlockHeight: float = 1.0,
+    groupSeparatorHeight: float = 0.5,
+    groupSeparatorStyle: str = "-",
+    groupSeparatorLinewidth: float = 0.5,
+    groupSeparatorColor: str = 'gray',
+    phaseSeparatorStyle: str = "--",
+    phaseSeparatorLinewidth: float = 0.5,
+    phaseSeparatorColor: str = 'gray',
     startTime: float = 0,
     endTime: float|None = None,
-    showTail: bool = True,
     fig = None, 
     ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (12, 5), 
     showGridFlag: bool = False,
     saveFigPath: str|None = None,
+    showTailFlag: bool = True,
     showFig: bool = True
     ) -> "Given a Gantt dictionary, plot Gantt":
 
@@ -1155,58 +1158,20 @@ def plotGantt(
     # Pre-calculate ===========================================================
     realStart = None
     realEnd = None
-    entList = []
     for g in gantt:
-        if (g['entityID'] not in entList):
-            entList.append(g['entityID'])
-        if ('timeWindow' in g):
-            if (realStart == None or realStart > g['timeWindow'][0]):
-                realStart = g['timeWindow'][0]
-            if (realEnd == None or realEnd < g['timeWindow'][1]):
-                realEnd = g['timeWindow'][1]
-        elif ('timeStamps' in g):
-            if (realStart == None or realStart > g['timeStamps'][0]):
-                realStart = g['timeStamps'][0]
-            if (realEnd == None or realEnd < g['timeStamps'][-1]):
-                realEnd = g['timeStamps'][-1]
+        if ('entityID' not in g or 'timeWindow' not in g):
+            raise MissingParameterError("ERROR: Missing 'entityID' and 'timeWindow' in gantt.")
 
-    # Check overwritten fields ================================================
+        if (realStart == None or realStart > g['timeWindow'][0]):
+            realStart = g['timeWindow'][0]
+        if (realEnd == None or realEnd < g['timeWindow'][1]):
+            realEnd = g['timeWindow'][1]
     if (startTime == None):
         startTime = realStart
     if (endTime == None):
         endTime = realEnd
 
     # Arrange entities ========================================================
-    numGroup = None              
-    if (entities != None):
-        # Check inputs
-        groupFlag = False
-        for e in entities:
-            if (type(e) == list):
-                groupFlag = True
-                numGroup = len(entities)
-                break
-        # If the type of entities is List of Lists, the entities are grouped
-        if (groupFlag == True):
-            groupEntities = []
-            for el in entities:
-                if (type(el) != list):
-                    msgError(ERROR_INCOR_GANTT_ENTITYGROUP)
-                    return
-                for e in el:
-                    groupEntities.append(e)
-                groupEntities.append(None)
-            groupEntities = groupEntities[:-1] # Remove the last None
-            entities = [i for i in groupEntities]
-        notFound = []
-        for e in entities:            
-            if (e not in entList and e != None):
-                notFound.append("\"" + str(e) + "\"")
-        if (len(notFound) > 0):
-            warnings.warn(ERROR_INCOR_GANTT_MISSENT + ": " + list2String(notFound))            
-    elif (entities == None):
-        entities = [i for i in entList]
-
     if (group == None or group == []):
         group = [{
             'title': "",
@@ -1218,92 +1183,145 @@ def plotGantt(
         for g in gantt:
             if (g['entityID'] not in group[0]['entities']):
                 group[0]['entities'].append(g['entityID'])
-    else:
-        for g in gantt:
-            
 
+    entities = []
+    for g in group:
+        if (g['showFlag']):
+            entities.extend(g['entities'])
+            entities.append(None)
+    if (entities[-1] == None):
+        entities = entities[:-1]
+    entities.reverse()
 
+    totalHeight = len([i for i in entities if i != None]) * ganttBlockHeight + len([i for i in entities if i == None]) * groupSeparatorHeight
+    yAcc = 0.5 * ganttBlockHeight
+    yticks = [0.5 * ganttBlockHeight]
+    for i in range(1, len(entities)):        
+        if (entities[i - 1] != None and entities[i] != None):
+            yAcc += ganttBlockHeight
+            yticks.append(yAcc)
+        elif (entities[i - 1] == None or entities[i] == None):
+            yAcc += 0.5 * groupSeparatorHeight + 0.5 * ganttBlockHeight
+            yticks.append(yAcc)
 
     # If no based matplotlib figure, define fig size ==========================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
-        fig.set_figheight(figSize[1])
-        fig.set_figwidth(figSize[0])
-        ax.set_xlim(startTime, endTime + (endTime - startTime) * 0.05)
-        ax.set_ylim(-0.25, len(entities) + 0.5)
-
-    # Set axis ================================================================
-    entities.reverse()
-    if (groupDivider != None and len(groupLabel) > 0):
-        groupLabel.reverse()
-    yticks = []
-    pos = 0.5
-    groupIndex = 0
-    for i in range(len(entities)):
-        yticks.append(pos)
-        if (entities[i] != None):
-            pos += 1
+        width = 0
+        height = 0
+        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
+            width = 5 * ((endTime - startTime) / totalHeight)
+            height = 5
+        elif (figSize != None and figSize[0] != None and figSize[1] == None):
+            width = figSize[0]
+            height = figSize[0] * (totalHeight / (endTime - startTime))
+        elif (figSize != None and figSize[0] == None and figSize[1] != None):
+            width = figSize[1] * ((endTime - startTime) / totalHeight)
+            height = figSize[1]
         else:
-            if (groupDivider != None):
-                ax.plot((startTime, endTime + (endTime - startTime) * 0.05), (pos - 0.25, pos - 0.25), linestyle = groupDivider, color = groupDividerColor, linewidth=linewidth)
-                if (groupLabel != None and len(groupLabel) == numGroup):
-                    ax.annotate(groupLabel[groupIndex + 1], (endTime + (endTime - startTime) * 0.05, pos - 0.1), horizontalalignment='right')
-                    groupIndex += 1
-            pos += 0.5
+            (width, height) = figSize
+        if (isinstance(fig, plt.Figure)):
+            fig.set_figwidth(width)
+            fig.set_figheight(height)
+            ax.set_xlim(startTime, endTime + (endTime - startTime) * 0.05)
+            ax.set_ylim(0, totalHeight)
     ax.set_yticks(yticks)   
     ax.set_yticklabels(entities)
     ax.set_ylabel(ylabel)
-    entities.reverse()
     ax.set_xlabel(xlabel)
+
+    # Separate groups =========================================================
+    groupColor = []
+    groupOpacity = []
+    groupTitle = []
+    for i in range(len(group)):
+        if (group[i]['showFlag']):
+            if (group[i]['backgroundColor'] != 'Random'):
+                groupColor.append(group[i]['backgroundColor'])
+            else:
+                groupColor.append(colorRandom())
+            groupOpacity.append(group[i]['backgroundOpacity'])
+            groupTitle.append(group[i]['title'])
+    groupStyle = []
+    yS = 0
+    yE = 0
+    for i in range(len(entities)):
+        if (entities[i] == None):
+            yE = yticks[i]
+            groupStyle.append([yS, yE])
+            yS = yticks[i]
+    # if (len(group) > 1):
+    groupStyle.append([yS, yticks[-1] + 0.5 * ganttBlockHeight])
+    for g in range(len(groupStyle)):
+        s = groupStyle[g][0]
+        e = groupStyle[g][1]
+        ax.fill([startTime, startTime, endTime + (endTime - startTime) * 0.05, endTime + (endTime - startTime) * 0.05, startTime], 
+            [s, e, e, s, s], color=groupColor[g], alpha=groupOpacity[g])
+        ax.annotate(groupTitle[g], (endTime + (endTime - startTime) * 0.05, e), ha='right', va='top')
+
+    # Plot phases =============================================================
+    phaseSep = []
+    phaseAnchor = []
+    phaseTitle = []
+    if (phase != None and phase != []):
+        if (phaseSeparatorStyle != None):
+            for i in range(1, len(phase)):
+                sep = phase[i - 1]['timeWindow'][1] + (phase[i]['timeWindow'][0] - phase[i - 1]['timeWindow'][1]) / 2
+                ax.plot([sep, sep], [0, totalHeight], color = phaseSeparatorColor, linewidth = phaseSeparatorLinewidth, linestyle = phaseSeparatorStyle)
+            ax.plot([phase[-1]['timeWindow'][1], phase[-1]['timeWindow'][1]], [0, totalHeight], color = phaseSeparatorColor, linewidth = phaseSeparatorLinewidth, linestyle = phaseSeparatorStyle)
+        for i in range(len(phase)):
+            if (phase[i]['backgroundColor'] != None):
+                ax.fill([phase[i]['timeWindow'][0], phase[i]['timeWindow'][0], phase[i]['timeWindow'][1], phase[i]['timeWindow'][1], phase[i]['timeWindow'][0]], 
+                    [0, totalHeight, totalHeight, 0, 0], 
+                    color=phase[i]['backgroundColor'] if phase[i]['backgroundColor'] != 'Random' else colorRandom(), 
+                    alpha=phase[i]['backgroundOpacity'])
+                ax.annotate(phase[i]['title'], (phase[i]['timeWindow'][0] + (phase[i]['timeWindow'][1] - phase[i]['timeWindow'][0]) / 2, totalHeight), ha='center', va='bottom')
+
+    # Plot each gantt block ===================================================
+    for i in range(len(entities)):
+        if (entities[i] != None):
+            center = yticks[i]
+            top = None
+            bottom = yticks[i] - ganttHeight / 2
+            ent = [g for g in gantt if g['entityID'] == entities[i]]
+            for g in ent:
+                s = g['timeWindow'][0]
+                e = g['timeWindow'][1]
+                x = [s, s, e, e, s]
+
+                if ('desc' not in g or ('descPosition' in g and g['descPosition'] == 'Inside')):
+                    top = yticks[i] + ganttHeight / 2
+                else:
+                    top = yticks[i] + ganttHeight / 4
+
+                y = [bottom, top, top, bottom, bottom]
+                ax.plot(x, y, color = 'black', linewidth = ganttLinewidth)
+                if ('color' in g or g['color'] != 'random'):
+                    ax.fill(x, y, color = g['color'], linewidth = ganttLinewidth)
+                else:
+                    rndColor = colorRandom()
+                    ax.fill(x, y, color = rndColor, linewidth = ganttLinewidth)
+
+                if ('desc' in g):
+                    if ('descPosition' not in g or g['descPosition'] == 'Top'):
+                        ax.annotate(g['desc'], (s + ganttHeight / 8, top + ganttHeight / 8))
+                    elif ('descPosition' in g and g['descPosition'] == 'Inside'):
+                        ax.annotate(g['desc'], (s + ganttHeight / 8, bottom + ganttHeight / 8))
+                if (g['style'] != 'solid'):
+                    ax.fill(x, y, hatch = g['style'], fill=False, linewidth = ganttLinewidth)
+        elif (groupSeparatorStyle != None):
+            center = yticks[i]
+            ax.plot((startTime, endTime + (endTime - startTime) * 0.05), (center, center), linestyle = groupSeparatorStyle, linewidth = groupSeparatorLinewidth, color = groupSeparatorColor)
+
+    # Show time span ==========================================================
+    if (showTailFlag):
+        xTicks = list(ax.get_xticks())
+        xTicks.append(realEnd)
+        ax.set_xticks(xTicks)  
 
     # Grids ===================================================================
     if (showGridFlag):
         ax.grid(b = True, linestyle=':')
-
-    # Loop through `gantt` and draw gantt =====================================
-    for g in gantt:
-        if (g['entityID'] in entities):
-            bottom = yticks[len(yticks) - 1 - entities.index(g['entityID'])] - blockHeight / 2
-            top = yticks[len(yticks) - 1 - entities.index(g['entityID'])] + blockHeight / 4
-            if ('timeWindow' in g):
-                s = g['timeWindow'][0]
-                e = g['timeWindow'][1]
-                x = [s, s, e, e, s]
-                y = [bottom, top, top, bottom, bottom]
-                ax.plot(x, y, color = 'black', linewidth = linewidth)
-                if (g['color'] != 'random'):
-                    ax.fill(x, y, color = g['color'], linewidth = linewidth)
-                else:
-                    rndColor = colorRandom()
-                    ax.fill(x, y, color = rndColor, linewidth = linewidth)
-                if ('descPosition' not in g or g['descPosition'] == 0):
-                    ax.annotate(g['desc'], (s + blockHeight / 4, top + blockHeight / 8))
-                elif (g['descPosition'] == 1):
-                    ax.annotate(g['desc'], (s + blockHeight / 4, bottom + blockHeight / 8))
-                if (g['style'] != 'solid'):
-                    ax.fill(x, y, hatch = g['style'], fill=False, linewidth = linewidth)
-            elif ('timeStamps' in g):
-                for i in range(len(g['timeStamps']) - 1):
-                    s = g['timeStamps'][i]
-                    e = g['timeStamps'][i + 1]
-                    x = [s, s, e, e, s]
-                    y = [bottom, top, top, bottom, bottom]
-                    ax.plot(x, y, color = 'black', linewidth = linewidth)
-                    ax.annotate(g['desc'][i], (s, top + blockHeight / 8))
-                    if (g['color'] != 'random'):
-                        ax.fill(x, y, color = g['color'], linewidth = linewidth)
-                    else:
-                        rndColor = colorRandom()
-                        ax.fill(x, y, color = rndColor, linewidth = linewidth)
-                    if (g['style'] != 'solid'):
-                        ax.fill(x, y, hatch = g['style'], fill=False, linewidth = linewidth)
-                ax.annotate(g['desc'][-1], (g['timeStamps'][-1], top + blockHeight / 8))
-
-    # Show time span ==========================================================
-    if (showTail):
-        xTicks = list(ax.get_xticks())
-        xTicks.append(realEnd)
-        ax.set_xticks(xTicks)  
 
     # Fix height if fig, ax are not provided ==================================
     if (fig == None or ax == None):
@@ -1314,4 +1332,5 @@ def plotGantt(
         fig.savefig(saveFigPath)
     if (not showFig):
         plt.close(fig)
+
     return fig, ax
