@@ -1,52 +1,184 @@
 import math
 from .error import *
 
-class Ring():
-    def _init__(self, l:list=[]):
-        self.element = [i for i in l]
+class RouteNode(object):
+    def __init__(self, key: int, value=None, prev: 'RouteNode'=None, next: 'RouteNode'=None):
+        self.key = key
+        self.value = value if value != None else key
+        self.prev = prev if prev != None else RouteNilNode()
+        self.next = next if next != None else RouteNilNode()
+        # self.distFromHead = None
+        # self.distToTail = None
+        # self.distToHead = None
+        # self.distFromTail = None
 
-    def append(self, ele):
-        self.element.append(ele)
+    @property
+    def isNil(self):
+        return False
 
-    def between(self, s, e):
-        btw = []
-        if (s not in self.element):
-            raise KeyNotExistError(s)
-        if (e not in self.element):
-            raise KeyNotExistError(e)
-        idxS = self.element.index(s)
-        idxE = self.element.index(e)
+    def __repr__(self):
+        s =("{key: " + str(self.key) + ", "
+            + "value: " + str(self.value) + ", "
+            + "prev: " + (str(self.prev.key) if (not self.prev.isNil) else "None") + ", "
+            + "next: " + (str(self.next.key) if (not self.next.isNil) else "None") + "}\n")
+        return s
 
-        if (idxS < idxE):
-            for i in range(idxS, idxE):
-                btw.append(self.element[i])
+class RouteNilNode(RouteNode):
+    def __init__(self):
+        return
+
+    @property
+    def isNil(self):
+        return True
+
+class Route():
+    def __init__(self, tau, asymFlag=False):
+        self.head = RouteNilNode()
+        self.tau = tau
+        self.dist = 0
+        self._revDist = 0
+        self.asymFlag = asymFlag
+        self.count = 0
+
+    @property
+    def isEmpty(self):
+        if (self.head.isNil):
+            return True
         else:
-            for i in range(idxS, len(self.element)):
-                btw.append(self.element[i])
-            for i in range(idxE):
-                btw.append(self.element[i])
-        return btw
+            return False
 
-    def remove(self, ele):
-        self.element.remove(ele)
-
-    def next(self, ele):
-        if (ele not in self.element):
-            raise KeyNotExistError(ele)
-        idx = self.element.index(ele)
-        if (idx == len(self.element) - 1):
-            return self.element[0]
+    @property
+    def revDist(self):
+        if (asymFlag):
+            return _revDist
         else:
-            return self.element[idx + 1]
+            return dist
 
-    def prev(self, ele):
-        if (ele not in self.element):
-            raise KeyNotExistError(ele)
-        idx = self.element.index(ele)
-        if (idx == 0):
-            return self.element[-1]
+    def traverse(self):
+        route = []
+        cur = self.head
+        while (not cur.isNil):
+            route.append(cur)
+            cur = cur.next
+            if (cur.key == self.head.key):
+                break
+        return route
+
+    def reverse(self):
+        tra = self.traverse()
+        for n in tra:
+            n.prev, n.next = n.next, n.prev
+        if (asymFlag):
+            self.dist, self._revDist = self._revDist, self.dist
+        return
+
+    def reverseBetween(self, startKey, endKey):
+        if (startKey == endKey):
+            return
+        tra = self.queryBetween(startKey, endKey)
+        startPrev = tra[0].prev
+        endNext = tra[-1].next
+        for n in tra:
+            n.prev, n.next = n.next, n.prev
+        tra[-1].prev = startPrev
+        tra[0].next = endNext
+        return
+
+    def query(self, key):
+        if (self.head.isNil):
+            raise EmptyError("ERROR: The route is empty.")
+        cur = self.head
+        trvFlag = False
+        while (not trvFlag):
+            if (cur.key == key):
+                return cur
+            else:
+                cur = cur.next
+                if (cur.key == self.head.key):
+                    trvFlag = True
+        if (trvFlag):
+            return RouteNilNode()
+
+    def queryBetween(self, startKey, endKey):
+        if (self.head.isNil):
+            raise EmptyError("ERROR: The route is empty.")
+        cur = self.query(startKey)
+        if (cur.isNil):
+            return []
+        trvFlag = False
+        q = [cur]
+        while (not trvFlag):
+            if (cur.key == endKey):
+                return q
+            else:
+                cur = cur.next
+                q.append(cur)
+                if (cur.key == endKey):
+                    trvFlag = True
+        return q
+
+    def insert(self, key, n):
+        if (n.isNil):
+            raise EmptyError("ERROR: Cannot insert an empty node.")
+        if (self.head.isNil):
+            self.head = n
+            n.next = n
+            n.prev = n
+            self.dist = 0
+            if (asymFlag):
+                self._revDist = 0
+            self.count = 1
         else:
-            return self.element[idx - 1]
+            m = self.query(key)
+            if (n.isNil):
+                raise KeyNotExistError("ERROR: %s does not exist." % key)
+            self.dist += self.tau[m.key, n.key] + self.tau[n.key, m.next.key] - self.tau[m.key, m.next.key]
+            if (asymFlag):
+                self._revDist += self.tau[m.next.key, n.key] + self.tau[n.key, m.key] - self.tau[m.next.key, m.key]
+            m.next.prev = n
+            n.prev = m
+            n.next = m.next
+            m.next = n            
+            self.count += 1
+        return
+
+    def append(self, n):
+        if (n.isNil):
+            raise EmptyError("ERROR: Cannot insert an empty node.")
+        if (self.head.isNil):
+            self.head = n
+            self.tail = n
+            n.next = n
+            n.prev = n
+            self.dist = 0
+            if (asymFlag):
+                self._revDist = 0
+            self.count = 1
+        else:
+            return self.insert(self.head.prev.key, n)
+
+    def remove(self, key):
+        if (self.head.isNil):
+            raise EmptyError("ERROR: The route is empty.")
+        n = self.query(key)
+        if (n.isNil):
+            raise KeyNotExistError("ERROR: %s does not exist." % key)
+        self.dist += self.tau[n.prev.key, n.next.key] - self.tau[n.prev.key, n.key] - self.tau[n.key, n.next.key]
+        n.prev.next = n.next
+        n.next.prev = n.prev
+        self.count -= 1
+
+    def exchange2Arcs(self, keyI, keyJ, asymFlag=False):
+        """Exchange two arcs: [nI, nI.next] and [nJ, nJ.next]
+
+        Before: ... --> nI -> nI.next --> ...abcd... --> nJ      -> nJ.next --> ...
+        After:  ... --> nI -> nJ      --> ...dcba... --> nI.next -> nJ.next --> ...
+
+        """
+
+        nI = None
+        nJ = None
+
 
 class BSTreeNode(object):
     def __init__(self, key:int, value, parent:'BSTreeNode'=None, left:'BSTreeNode'=None, right:'BSTreeNode'=None):

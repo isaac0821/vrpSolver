@@ -133,7 +133,7 @@ def heuTSP(
         raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
 
     # Define tau ==============================================================
-    tau, pathLoc = distMatrix(nodes, edges, depotID, nodeIDs, serviceTime)
+    tau, pathLoc = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
 
     # Check symmetric =========================================================
     asymFlag = False
@@ -215,7 +215,7 @@ def heuTSP(
 
     # Randomly create a sequence
     elif (algo['cons'] == 'Random'):
-        seq = _consTSPRandomSeq(depotID, nodeIDs, tau)
+        seq = _consTSPRandom(depotID, nodeIDs, tau)
     
     else:
         raise UnsupportedInputError(ERROR_MISSING_TSP_ALGO)
@@ -314,7 +314,7 @@ def _consTSPSweep(nodes, depotID, nodeIDs, tau):
 
     return seq
 
-def _consTSPRandomSeq(depotID, nodeIDs, tau):
+def _consTSPRandom(depotID, nodeIDs, tau):
     # Get random seq ------------------------------------------------------
     seq = [i for i in nodeIDs if i != depotID]
     random.shuffle(seq)
@@ -512,7 +512,7 @@ def heuTSPEx(
         raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
 
     # Define tau ==============================================================
-    tau, pathLoc = distMatrix(nodes, edges, depotID, nodeIDs, serviceTime)
+    tau, pathLoc = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
 
     # Check symmetric =========================================================
     asymFlag = False

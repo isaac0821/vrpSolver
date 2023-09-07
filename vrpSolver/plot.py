@@ -899,23 +899,33 @@ def plotRoadNetwork(
     roads: dict,
     roadWidth: dict[str,float]|float = {
             'motorway': 2,
+            'motorway_link': 2,
             'truck': 1.5,
+            'truck_link': 1.5,
             'primary': 1.2,
+            'primary_link': 1.2,
             'secondary': 1,
+            'secondary_link': 1,
             'tertiary': 1,
+            'tertiary_link': 1,
             'residential': 0.8,
             'others': 0.8
         },
     roadColors: dict[str,str]|str = {
             'motorway': 'red',
+            'motorway_link': 'red',
             'truck': 'orange',
+            'truck_link': 'orange',
             'primary': 'orange',
+            'primary_link': 'orange',
             'secondary': 'orange',
+            'secondary_link': 'orange',
             'tertiary': 'orange',
+            'tertiary_link': 'orange',
             'residential': 'green',
             'others': 'gray'
         },
-    roadShowFlags: dict[str, bool]|str|bool = 'All',
+    roadShowFlags: list[str, bool]|str|bool = 'All',
     bldColors: dict[str,str]|str = {
             'building': 'yellow',
             'commercial': 'yellow',
@@ -925,7 +935,7 @@ def plotRoadNetwork(
             'industrial': 'orange',
             'manufacture': 'orange'
         },
-    bldShowFlags: dict[str, bool]|str|bool = False,
+    bldShowFlags: list[str, bool]|str|bool = False,
     fig = None,
     ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
@@ -1015,9 +1025,8 @@ def plotRoadNetwork(
     # Plot roads ==============================================================
     for road in roads['road']:
         if (roadShowFlags == 'All' or roadShowFlags == True 
-            or (type(roadShowFlags) == dict 
-                and roads['road'][road]['class'] in roadShowFlags 
-                and roadShowFlags[roads['road'][road]['class']] == True)):
+            or (type(roadShowFlags) == list 
+                and roads['road'][road]['class'] in roadShowFlags)):
             x = []
             y = []
             for pt in roads['road'][road]['shape']:
@@ -1044,9 +1053,8 @@ def plotRoadNetwork(
     # Plot buildings ==========================================================
     for building in roads['building']:
         if (bldShowFlags == 'All' or bldShowFlags == True
-            or (type(bldShowFlags) == dict
-                and roads['building'][building]['type'] in bldShowFlags
-                and bldShowFlags[roads['building'][building]['type']] == True)):
+            or (type(bldShowFlags) == list
+                and roads['building'][building]['type'] in bldShowFlags)):
             x = []
             y = []
             color = None
@@ -1230,7 +1238,7 @@ def plotGantt(
     ax.set_ylabel(ylabel)
     ax.set_xlabel(xlabel)
 
-    # Separate groups =========================================================
+    # Plot groups =============================================================
     groupColor = []
     groupOpacity = []
     groupTitle = []
@@ -1250,7 +1258,6 @@ def plotGantt(
             yE = yticks[i]
             groupStyle.append([yS, yE])
             yS = yticks[i]
-    # if (len(group) > 1):
     groupStyle.append([yS, yticks[-1] + 0.5 * ganttBlockHeight])
     for g in range(len(groupStyle)):
         s = groupStyle[g][0]
@@ -1288,12 +1295,10 @@ def plotGantt(
                 s = g['timeWindow'][0]
                 e = g['timeWindow'][1]
                 x = [s, s, e, e, s]
-
                 if ('desc' not in g or ('descPosition' in g and g['descPosition'] == 'Inside')):
                     top = yticks[i] + ganttHeight / 2
                 else:
                     top = yticks[i] + ganttHeight / 4
-
                 y = [bottom, top, top, bottom, bottom]
                 ax.plot(x, y, color = 'black', linewidth = ganttLinewidth)
                 if ('color' in g or g['color'] != 'random'):
@@ -1301,7 +1306,6 @@ def plotGantt(
                 else:
                     rndColor = colorRandom()
                     ax.fill(x, y, color = rndColor, linewidth = ganttLinewidth)
-
                 if ('desc' in g):
                     if ('descPosition' not in g or g['descPosition'] == 'Top'):
                         ax.annotate(g['desc'], (s + ganttHeight / 8, top + ganttHeight / 8))
