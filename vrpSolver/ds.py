@@ -1,16 +1,29 @@
 import math
 from .error import *
 
+class CloseEnoughRouteNode(object):
+    def __init__(self, key: int, coord:list[float|int]=None, prev: 'CloseEnoughRouteNode'=None, next: 'CloseEnoughRouteNode'=None):
+        self.key = key
+        self.coord = coord
+    
+    @property
+    def isNil(self):
+        return False
+
+class CloseEnoughRouteNilNode(CloseEnoughRouteNode):
+    def __init__(self):
+        return
+
+    @property
+    def isNil(self):
+        return True
+
 class RouteNode(object):
     def __init__(self, key: int, value=None, prev: 'RouteNode'=None, next: 'RouteNode'=None):
         self.key = key
         self.value = value if value != None else key
         self.prev = prev if prev != None else RouteNilNode()
         self.next = next if next != None else RouteNilNode()
-        # self.distFromHead = None
-        # self.distToTail = None
-        # self.distToHead = None
-        # self.distFromTail = None
 
     @property
     def isNil(self):
@@ -20,7 +33,7 @@ class RouteNode(object):
         s =("{key: " + str(self.key) + ", "
             + "value: " + str(self.value) + ", "
             + "prev: " + (str(self.prev.key) if (not self.prev.isNil) else "None") + ", "
-            + "next: " + (str(self.next.key) if (not self.next.isNil) else "None") + "}\n")
+            + "next: " + (str(self.next.key) if (not self.next.isNil) else "None") + "} ")
         return s
 
 class RouteNilNode(RouteNode):
@@ -31,7 +44,7 @@ class RouteNilNode(RouteNode):
     def isNil(self):
         return True
 
-class Route():
+class Route(object):
     def __init__(self, tau, asymFlag=False):
         self.head = RouteNilNode()
         self.tau = tau
@@ -39,6 +52,9 @@ class Route():
         self._revDist = 0
         self.asymFlag = asymFlag
         self.count = 0
+
+    def __repr__(self):
+        return self.traverse().__repr__()
 
     @property
     def isEmpty(self):
@@ -49,10 +65,10 @@ class Route():
 
     @property
     def revDist(self):
-        if (asymFlag):
-            return _revDist
+        if (self.asymFlag):
+            return self._revDist
         else:
-            return dist
+            return self.dist
 
     def traverse(self):
         route = []
@@ -68,7 +84,7 @@ class Route():
         tra = self.traverse()
         for n in tra:
             n.prev, n.next = n.next, n.prev
-        if (asymFlag):
+        if (self.asymFlag):
             self.dist, self._revDist = self._revDist, self.dist
         return
 
@@ -78,10 +94,32 @@ class Route():
         tra = self.queryBetween(startKey, endKey)
         startPrev = tra[0].prev
         endNext = tra[-1].next
+
+        # Calculate reverse distance
+        s2eDist = 0
+        e2sDist = 0
+        if (self.asymFlag):
+            cur = tra[0]
+            while (cur != tra[-1]):
+                s2eDist += self.tau[cur.key, cur.next.key]
+                e2sDist += self.tau[cur.next.key, cur.key]
+                cur = cur.next
+
+        # Change pointers
         for n in tra:
             n.prev, n.next = n.next, n.prev
         tra[-1].prev = startPrev
         tra[0].next = endNext
+        startPrev.next = tra[-1]
+        endNext.prev = tra[0]
+
+        # Update distances
+        self.dist += (self.tau[startPrev.key, tra[-1].key] + self.tau[tra[0].key, endNext] 
+            - self.tau[startPrev.key, tra[0].key] - self.tau[tau[-1].key, endNext.key])
+        if (self.asymFlag):
+            self._revDist += (self.tau[startPrev.key, tra[-1].key] + self.tau[tra[0].key, endNext] 
+            - self.tau[startPrev.key, tra[0].key] - self.tau[tau[-1].key, endNext.key])
+            self._revDist += e2sDist - s2eDist
         return
 
     def query(self, key):
@@ -125,15 +163,15 @@ class Route():
             n.next = n
             n.prev = n
             self.dist = 0
-            if (asymFlag):
+            if (self.asymFlag):
                 self._revDist = 0
             self.count = 1
         else:
             m = self.query(key)
-            if (n.isNil):
+            if (m.isNil):
                 raise KeyNotExistError("ERROR: %s does not exist." % key)
             self.dist += self.tau[m.key, n.key] + self.tau[n.key, m.next.key] - self.tau[m.key, m.next.key]
-            if (asymFlag):
+            if (self.asymFlag):
                 self._revDist += self.tau[m.next.key, n.key] + self.tau[n.key, m.key] - self.tau[m.next.key, m.key]
             m.next.prev = n
             n.prev = m
@@ -151,7 +189,7 @@ class Route():
             n.next = n
             n.prev = n
             self.dist = 0
-            if (asymFlag):
+            if (self.asymFlag):
                 self._revDist = 0
             self.count = 1
         else:
@@ -164,21 +202,59 @@ class Route():
         if (n.isNil):
             raise KeyNotExistError("ERROR: %s does not exist." % key)
         self.dist += self.tau[n.prev.key, n.next.key] - self.tau[n.prev.key, n.key] - self.tau[n.key, n.next.key]
+        if (self.asymFlag):
+            self._revDist += self.tau[n.next.key, n.prev.key] - self.tau[n.key, n.prev.key] - self.tau[n.next.key, n.key]
         n.prev.next = n.next
         n.next.prev = n.prev
         self.count -= 1
 
-    def exchange2Arcs(self, keyI, keyJ, asymFlag=False):
-        """Exchange two arcs: [nI, nI.next] and [nJ, nJ.next]
+    def swapNext(self, key):
+        n = self.query(key)
+        nPrev = n.prev
+        nNext = n.next
+        nNNext = n.next.next
 
-        Before: ... --> nI -> nI.next --> ...abcd... --> nJ      -> nJ.next --> ...
-        After:  ... --> nI -> nJ      --> ...dcba... --> nI.next -> nJ.next --> ...
+        # Pointers
+        nPrev.next = nNext
+        n.prev = nNext
+        n.next = nNNext
+        nNext.prev = nPrev
+        nNext.next = n
+        nNNext.prev = n
 
-        """
+        # Calculate dist
+        self.dist += (self.tau[nPrev.key, nNext.key] + self.tau[nNext.key, n.key] + self.tau[n.key, nNNext.key]
+                    - self.tau[nPrev.key, n.key] - self.tau[n.key, nNext.key] - self.tau[nNext.key, nNNext.key])
+        if (self.asymFlag):
+            self._revDist += (self.tau[nNNext.key, n.key] + self.tau[n.key, nNext.key] + self.tau[nNext.key, nPrev.key]
+                            - self.tau[nNNext.key, nNext.key] + self.tau[nNext.key, n.key] - self.tau[n.key, nPrev.key])
 
-        nI = None
-        nJ = None
+    def cheapestInsert(self, n):
+        # First, insert it after self.head
+        # Before: ... --> head -> xxx -> head.next --> ...
+        # After:  ... --> head ->  n  -> head.next --> ...
+        self.insert(self.head.key, n)
+        sofarCheapestCost = self.dist if not self.asymFlag else min(self.dist, self._revDist)
+        print(sofarCheapestCost)
+        sofarCheapestKey = self.head.key
 
+        if (self.count <= 2):
+            return
+        cur = self.head
+        trvFlag = True
+        while (trvFlag):
+            self.swapNext(n.key)
+            cur = cur.next
+            newCost = self.dist if not self.asymFlag else min(self.dist, self._revDist)
+            print(newCost)
+            if (newCost < sofarCheapestCost):
+                print("Update")
+                sofarCheapestCost = newCost
+                sofarCheapestKey = cur.key
+            if (cur.key == self.head.key):
+                trvFlag = False
+        self.remove(n.key)
+        self.insert(sofarCheapestKey, n)
 
 class BSTreeNode(object):
     def __init__(self, key:int, value, parent:'BSTreeNode'=None, left:'BSTreeNode'=None, right:'BSTreeNode'=None):
