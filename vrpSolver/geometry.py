@@ -2058,8 +2058,7 @@ def _distOnGridAStar(column, row, barriers, pt1, pt2, distMeasure):
 def distRoadNetwork(pt1: pt, pt2: pt, roadnetwork: dict, roadnetworkNG: dict=None):
     return
 
-# Poly 2 poly related =========================================================
-
+# CETSP related ===============================================================
 def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, lod: float=CONST_EPSILON):
 
     """Given a list of points, each belongs to a neighborhood of a node, find the shortest path between each steps
@@ -2211,6 +2210,5 @@ def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, lod: float=CONST_EPSILON
     return {
         'sp': sp,
         'path': path,
-        'dist': dist,
-        'polyRings': polyRings
+        'dist': dist
     }
