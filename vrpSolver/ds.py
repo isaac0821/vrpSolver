@@ -2,7 +2,7 @@ import math
 from .error import *
 
 class CloseEnoughRouteNode(object):
-    def __init__(self, key: int, coord:list[float|int]=None, prev: 'CloseEnoughRouteNode'=None, next: 'CloseEnoughRouteNode'=None):
+    def __init__(self, key, coord:list[float|int]=None, prev: 'CloseEnoughRouteNode'=None, next: 'CloseEnoughRouteNode'=None):
         self.key = key
         self.coord = coord
     
@@ -18,8 +18,112 @@ class CloseEnoughRouteNilNode(CloseEnoughRouteNode):
     def isNil(self):
         return True
 
+class RingNode(object):
+    def __init__(self, key, value=None, prev: 'RingNode' = None, next: 'RingNode' = None):
+        self.key = key
+        self.value = value if value != None else key
+        self.prev = prev if prev != None else RingNilNode()
+        self.next = next if next != None else RingNilNode()
+
+    @property
+    def isNil(self):
+        return False
+
+    def __repr__(self):
+        s =("{key: " + str(self.key) + ", "
+            + "value: " + str(self.value) + ", "
+            + "prev: " + (str(self.prev.key) if (not self.prev.isNil) else "None") + ", "
+            + "next: " + (str(self.next.key) if (not self.next.isNil) else "None") + "} ")
+        return s
+
+class RingNilNode(RingNode):
+    def __init__(self):
+        return
+
+    @property
+    def isNil(self):
+        return True
+
+class Ring(object):
+    def __init__(self):
+        self.head = RingNilNode()
+        self.count = 0
+
+    @property
+    def isEmpty(self):
+        if (self.head.isNil):
+            return True
+        else:
+            return False
+
+    def query(self, key) -> "RingNode":
+        if (self.head.isNil):
+            raise EmptyError("ERROR: The route is empty.")
+        cur = self.head
+        trvFlag = False
+        while (not trvFlag):
+            if (cur.key == key):
+                return cur
+            else:
+                cur = cur.next
+                if (cur.key == self.head.key):
+                    trvFlag = True
+        if (trvFlag):
+            return RingNilNode()
+
+    def traverse(self, closeFlag=False) -> list:
+        route = []
+        cur = self.head
+        while (not cur.isNil):
+            route.append(cur)
+            cur = cur.next
+            if (cur.key == self.head.key):
+                break
+        if (closeFlag):
+            route.append(self.head)
+        return route
+
+    def insert(self, key, n):
+        if (n.isNil):
+            raise EmptyError("ERROR: Cannot insert an empty node.")
+        if (self.head.isNil):
+            self.head = n
+            n.next = n
+            n.prev = n
+            self.count += 1
+        else:
+            m = self.query(key)
+            if (m.isNil):
+                raise KeyNotExistError("ERROR: %s does not exist." % key)
+            m.next.prev = n
+            n.prev = m
+            n.next = m.next
+            m.next = n
+            self.count += 1
+
+    def append(self, n):
+        if (n.isNil):
+            raise EmptyError("ERROR: Cannot insert an empty node.")
+        if (self.head.isNil):
+            self.head = n
+            n.next = n
+            n.prev = n
+            self.count += 1
+        else:
+            return self.insert(self.head.prev.key, n)
+
+    def remove(self, key):
+        if (self.head.isNil):
+            raise EmptyError("ERROR: The route is empty.")
+        n = self.query(key)
+        if (n.isNil):
+            raise KeyNotExistError("ERROR: %s does not exist." % key)
+        n.prev.next = n.next
+        n.next.prev = n.prev
+        self.count -= 1
+
 class RouteNode(object):
-    def __init__(self, key: int, value=None, prev: 'RouteNode'=None, next: 'RouteNode'=None):
+    def __init__(self, key, value=None, prev: 'RouteNode'=None, next: 'RouteNode'=None):
         self.key = key
         self.value = value if value != None else key
         self.prev = prev if prev != None else RouteNilNode()
@@ -70,7 +174,7 @@ class Route(object):
         else:
             return self.dist
 
-    def traverse(self):
+    def traverse(self, closeFlag=False) -> list:
         route = []
         cur = self.head
         while (not cur.isNil):
@@ -78,6 +182,8 @@ class Route(object):
             cur = cur.next
             if (cur.key == self.head.key):
                 break
+        if (closeFlag):
+            route.append(self.head)
         return route
 
     def reverse(self):
@@ -94,7 +200,6 @@ class Route(object):
         tra = self.queryBetween(startKey, endKey)
         startPrev = tra[0].prev
         endNext = tra[-1].next
-
         # Calculate reverse distance
         s2eDist = 0
         e2sDist = 0
@@ -104,7 +209,6 @@ class Route(object):
                 s2eDist += self.tau[cur.key, cur.next.key]
                 e2sDist += self.tau[cur.next.key, cur.key]
                 cur = cur.next
-
         # Change pointers
         for n in tra:
             n.prev, n.next = n.next, n.prev
@@ -112,17 +216,16 @@ class Route(object):
         tra[0].next = endNext
         startPrev.next = tra[-1]
         endNext.prev = tra[0]
-
         # Update distances
         self.dist += (self.tau[startPrev.key, tra[-1].key] + self.tau[tra[0].key, endNext] 
             - self.tau[startPrev.key, tra[0].key] - self.tau[tau[-1].key, endNext.key])
         if (self.asymFlag):
             self._revDist += (self.tau[startPrev.key, tra[-1].key] + self.tau[tra[0].key, endNext] 
-            - self.tau[startPrev.key, tra[0].key] - self.tau[tau[-1].key, endNext.key])
+                - self.tau[startPrev.key, tra[0].key] - self.tau[tau[-1].key, endNext.key])
             self._revDist += e2sDist - s2eDist
         return
 
-    def query(self, key):
+    def query(self, key) -> "RouteNode":
         if (self.head.isNil):
             raise EmptyError("ERROR: The route is empty.")
         cur = self.head
@@ -137,7 +240,7 @@ class Route(object):
         if (trvFlag):
             return RouteNilNode()
 
-    def queryBetween(self, startKey, endKey):
+    def queryBetween(self, startKey, endKey) -> list:
         if (self.head.isNil):
             raise EmptyError("ERROR: The route is empty.")
         cur = self.query(startKey)
@@ -185,7 +288,6 @@ class Route(object):
             raise EmptyError("ERROR: Cannot insert an empty node.")
         if (self.head.isNil):
             self.head = n
-            self.tail = n
             n.next = n
             n.prev = n
             self.dist = 0
@@ -213,7 +315,6 @@ class Route(object):
         nPrev = n.prev
         nNext = n.next
         nNNext = n.next.next
-
         # Pointers
         nPrev.next = nNext
         n.prev = nNext
@@ -221,7 +322,6 @@ class Route(object):
         nNext.prev = nPrev
         nNext.next = n
         nNNext.prev = n
-
         # Calculate dist
         self.dist += (self.tau[nPrev.key, nNext.key] + self.tau[nNext.key, n.key] + self.tau[n.key, nNNext.key]
                     - self.tau[nPrev.key, n.key] - self.tau[n.key, nNext.key] - self.tau[nNext.key, nNNext.key])
@@ -235,7 +335,6 @@ class Route(object):
         # After:  ... --> head ->  n  -> head.next --> ...
         self.insert(self.head.key, n)
         sofarCheapestCost = self.dist if not self.asymFlag else min(self.dist, self._revDist)
-        print(sofarCheapestCost)
         sofarCheapestKey = self.head.key
 
         if (self.count <= 2):
@@ -246,15 +345,43 @@ class Route(object):
             self.swapNext(n.key)
             cur = cur.next
             newCost = self.dist if not self.asymFlag else min(self.dist, self._revDist)
-            print(newCost)
             if (newCost < sofarCheapestCost):
-                print("Update")
                 sofarCheapestCost = newCost
                 sofarCheapestKey = cur.key
             if (cur.key == self.head.key):
                 trvFlag = False
         self.remove(n.key)
         self.insert(sofarCheapestKey, n)
+        if (self.asymFlag and self.dist > self._revDist):
+            self.reverse()
+
+    def largestRemoval(self, noRemoval=None) -> int:
+        if (noRemoval == None):
+            noRemoval = [self.head.key]
+        bestRemovalCost = self.dist if not self.asymFlag else max(self.dist, self._revDist)
+        bestRemovalKey = None
+        cur = self.head
+        trvFlag = True
+        while (trvFlag):
+            cur = cur.next
+            if (cur.key not in noRemoval):
+                newDist = (self.dist + self.tau[cur.prev.key, cur.next.key] 
+                    - self.tau[cur.prev.key, cur.key] - self.tau[cur.key, cur.next.key])
+                if (self.asymFlag):
+                    newRevDist = (self._revDist + self.tau[cur.next.key, cur.prev.key]
+                        - self.tau[cur.next.key, cur.key] - self.tau[cur.key, cur.prev.key])
+                    newDist = min(newDist, newRevDist)
+                if (newDist < bestRemovalCost):
+                    bestRemovalCost = newDist
+                    bestRemovalKey = cur.key
+            if (cur.key == self.head.key):
+                trvFlag = False
+        self.remove(bestRemovalKey)
+        return bestRemovalKey
+
+    def localImprove(self):
+
+        return
 
 class BSTreeNode(object):
     def __init__(self, key:int, value, parent:'BSTreeNode'=None, left:'BSTreeNode'=None, right:'BSTreeNode'=None):

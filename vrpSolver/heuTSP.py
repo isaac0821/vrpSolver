@@ -22,7 +22,8 @@ def heuTSP(
     algo: dict = {'cons': 'Insertion', 'impv': '2opt'}, 
     depotID: int | str = 0, 
     nodeIDs: list[int | str] | str = 'All', 
-    serviceTime: float = 0
+    serviceTime: float = 0,
+    returnRouteObjectFlag = False
     ) -> dict | None:
 
     """Use heuristic methods to find suboptimal TSP solution
@@ -104,6 +105,8 @@ def heuTSP(
         The following are two options: 1) 'All', all nodes will be visited, 2) A list of node IDs to be visited.
     serviceTime: float, optional, default as 0
         The service time needed at each location.
+    returnRouteObjectFlag: bool, optional, default as False
+        If true, in the 'seq' field of output, return the Route() object instead of a list
 
     Returns
     -------
@@ -143,9 +146,13 @@ def heuTSP(
             break
 
     # Construction heuristics =================================================
-    # NOTE: Output format: seq = [depotID, xx, xx, xx, depotID]
+    # NOTE: Output of this phase should be a Route() object
     if (algo == None or ('cons' not in algo and 'impv' not in algo)):
         raise MissingParameterError(ERROR_MISSING_TSP_ALGO)
+
+    nodeObj = {}
+    for n in nodeIDs:
+        nodeObj[n] = RouteNode(n)
 
     seq = None
     # An initial solution is given
@@ -158,7 +165,9 @@ def heuTSP(
             notInNodeIDs = [v for v in algo['initSeq'] if v not in nodeIDs]
             if (len(notInNodeIDs) > 0):
                 raise OutOfRangeError("ERROR: The following nodes in 'initSeq' is not in `nodeIDs`: %s" % list2String(notInNodeIDs))
-        seq = [i for i in algo['initSeq']]
+        seq = Route(tau, asymFlag)
+        for i in algo['initSeq']:
+            seq.append(nodeObj[n])
 
     # Insertion heuristic
     elif (algo['cons'] == 'Insertion'):
@@ -176,22 +185,27 @@ def heuTSP(
                         farthestID = n
                         farthestDist = tau[depotID, n]
             initSeq = [depotID, farthestID, depotID]
-            seq = _consTSPInsertion(nodeIDs, initSeq, tau)
+            seq = _consTSPInsertion(nodeIDs, initSeq, tau, asymFlag)
         else:
             notInNodeIDs = [v for v in algo['initSeq'] if v not in nodeIDs]
             if (len(notInNodeIDs) > 0):
                 raise OutOfRangeError("ERROR: The following nodes in 'initSeq' is not in `nodeIDs`: %s" % list2String(notInNodeIDs))
             else:
-                seq = _consTSPInsertion(nodeIDs, algo['initSeq'], tau)
+                seq = _consTSPInsertion(nodeIDs, algo['initSeq'], tau, asymFlag)
     
     # Neighborhood based heuristic, including nearest neighborhood, k-nearest neighborhood, and furthest neighborhood
     elif (algo['cons'] == 'NearestNeighbor'):
+        nnSeq = None
         if ('k' not in algo or algo['k'] == 1):
-            seq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, 1)
+            nnSeq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, 1)
         elif (algo['k'] == -1):
-            seq = _consTSPFarthestNeighbor(depotID, nodeIDs, tau)
+            nnSeq = _consTSPFarthestNeighbor(depotID, nodeIDs, tau)
         elif (algo['k'] >= 1):
-            seq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, algo['k'])
+            nnSeq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, algo['k'])
+
+        seq = Route(tau, asymFlag)
+        for i in nnSeq:
+            seq.append(nodeObj[n])
 
     # Sweep heurisitic
     elif (algo['cons'] == 'Sweep'):
@@ -226,6 +240,7 @@ def heuTSP(
     consOfv = ofv
 
     # Local improvment phase ==============================================
+    # NOTE: Local improvement phase operates by class methods
     # NOTE: For the local improvement, try every local search operator provided in a greedy way
     if ('impv' in algo and algo['impv'] != None and algo['impv'] != []):
         canImproveFlag = True
@@ -322,38 +337,22 @@ def _consTSPRandom(depotID, nodeIDs, tau):
     seq.append(depotID)
     return seq
 
-def _consTSPInsertion(nodeIDs, initSeq, tau):
+def _consTSPInsertion(nodeIDs, initSeq, tau, asymFlag):
     # Initialize ----------------------------------------------------------
+    routeNodes = {}
+    for n in nodeIDs:
+        routeNodes[n] = RouteNode(key = n, value = n)
+    route = Route(tau, asymFlag)
+
     # NOTE: initSeq should starts and ends with depotID
-    seq = [i for i in initSeq]
-    insertDict = {}
-    if (len(nodeIDs) < 1):
-        return {
-            'ofv': 0,
-            'seq': None
-        }
-    unInserted = [i for i in nodeIDs if i not in seq]
-    # Try insertion one by one --------------------------------------------
-    while (len(unInserted) > 0):
-        bestCus = None
-        bestCost = None
-        bestInsertionIndex = 0
-        for cus in unInserted:
-            for i in range(1, len(seq)):
-                if ((seq[i - 1], cus, seq[i]) not in insertDict):
-                    insertDict[(seq[i - 1], cus, seq[i])] = (
-                        tau[seq[i - 1], cus] 
-                        + tau[cus, seq[i]] 
-                        - (tau[seq[i - 1], seq[i]] if seq[i - 1] != seq[i] else 0))
-                cost = insertDict[(seq[i - 1], cus, seq[i])]
-                if (bestCost == None or bestCost > cost):
-                    bestCost = cost
-                    bestCus = cus
-                    bestInsertionIndex = i
-        if (bestCost != None):
-            seq.insert(bestInsertionIndex, bestCus)
-            unInserted.remove(bestCus)
-    return seq
+    for n in initSeq[:-1]:
+        route.append(routeNodes[n])
+
+    unInserted = [i for i in nodeIDs if i not in initSeq[:-1]]
+    for n in unInserted:
+        route.cheapestInsert(routeNodes[n])
+
+    return route
     
 def _consTSPChristofides(depotID, tau):
     G = nx.Graph()

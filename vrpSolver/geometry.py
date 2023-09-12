@@ -904,7 +904,7 @@ def isRayIntPoly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, 
         return False
 
 # Poly vs poly ================================================================
-def intPoly2Poly(poly1: poly, poly2: poly, poly1Shapely: shapely.Polygon=None, poly2Shapely: shapely.Polygon=None):
+def intPoly2Poly(poly1: poly=None, poly2: poly=None, poly1Shapely: shapely.Polygon=None, poly2Shapely: shapely.Polygon=None):
     if (poly1Shapely == None):
         poly1Shapely = shapely.Polygon([p for p in poly1])
     if (poly2Shapely == None):
@@ -975,7 +975,7 @@ def intPoly2Poly(poly1: poly, poly2: poly, poly1Shapely: shapely.Polygon=None, p
             'interiorFlag': None
         }
 
-def isPolyIntPoly(poly1: poly, poly2: poly, poly1Shapely: shapely.Polygon=None, poly2Shapely: shapely.Polygon=None, interiorOnly: bool=False) -> bool:
+def isPolyIntPoly(poly1: poly=None, poly2: poly=None, poly1Shapely: shapely.Polygon=None, poly2Shapely: shapely.Polygon=None, interiorOnly: bool=False) -> bool:
     intSp = intPoly2Poly(poly1, poly2, poly1Shapely, poly2Shapely)
     # 若只输出了一个字典，按字典判断
     if (isinstance(intSp, dict)):
@@ -991,21 +991,47 @@ def isPolyIntPoly(poly1: poly, poly2: poly, poly1Shapely: shapely.Polygon=None, 
 
 # Distance from Point to Object ===============================================
 def distPt2Line(pt: pt, line: line) -> float:
-    return
+    foot = ptFoot2Line(pt, line)
+    return distEuclideanXY(pt, foot)
 
 def distPt2Seg(pt: pt, seg: line) -> float:
-    return
+    foot = ptFoot2Line(pt, seg)
+    if (isPtOnSeg(foot)):
+        return distEuclideanXY(pt, foot)
+    else:
+        return min(distEuclideanXY(pt, seg[0]), distEuclideanXY(pt, seg[1]))
 
 def distPt2Ray(pt: pt, ray: line) -> float:
-    return
+    foot = ptFoot2Line(pt, ray)
+    if (isPtOnRay(foot)):
+        return distEuclideanXY(pt, foot)
+    else:
+        return distEuclideanXY(pt, ray[0])
 
 def distPt2Seq(pt: pt, seq: list[pt]) -> float:
-    return
+    # FIXME: stupid way, needs improvement
+    if (len(seq) == 2):
+        return distPt2Seg(pt, seq)
 
-def distPt2Poly(pt: pt, poly: poly) -> float:
-    return
+    dist2Seg = []
+    for p in seq:
+        dist2Seg.append(distEuclideanXY(pt, p))
+    minIndex = dist2Seg.index(min(dist2Seg))
+    if (minIndex == 0):
+        return distPt2Seg(pt, [seq[0], seq[1]])
+    elif (minIndex == len(dist2Seg) - 1):
+        return distPt2Seg(pt, [seq[-2], seq[-1]])
+    else:
+        return min(distPt2Seg(pt, [seq[minIndex], seq[minIndex + 1]]),
+                dist2Seg(pt, [seq[minIndex], seq[minIndex - 1]]))
 
-# Axis mapping ================================================================ 
+def distPt2Poly(pt: pt, poly: poly=None, polyShapely: shapely.Polygon=None) -> float:
+    if (polyShapely == None):
+        polyShapely = shapely.Polygon([p for p in poly])
+    ptShapely = shapely.Point(pt)
+    return shapely.distance(ptShapely, polyShapely)
+
+# Dimension mapping ===========================================================
 def vecPolar2XY(vecPolar: pt) -> pt:
 
     """Given vector's norm and its degree to North, convert it into a 2-tuple vector
@@ -1138,7 +1164,7 @@ def polysVisibleGraph(polys:polys) -> dict:
                 vg[(p, e)]['visible'].append(w)
     return vg
 
-def ptsVisible(v:int|str|tuple, polys:polys, notOnPolyV:dict|None=None, knownVG:dict={}) -> list:
+def ptsVisible(v:int|str|tuple, polys:polys, standalonePts:dict|None=None, knownVG:dict={}) -> list:
     vertices = {}
     polyVertices = []
     for p in range(len(polys)):
@@ -1148,12 +1174,12 @@ def ptsVisible(v:int|str|tuple, polys:polys, notOnPolyV:dict|None=None, knownVG:
                 'visible': []
             }
             polyVertices.append((p, e))
-    if (notOnPolyV != None):
-        if (v not in notOnPolyV):
-            raise MissingParameterError("ERROR: Cannot find `v` in `polys` or `notOnPolyV`")
+    if (standalonePts != None):
+        if (v not in standalonePts):
+            raise MissingParameterError("ERROR: Cannot find `v` in `polys` or `standalonePts`")
         else:
             vertices[v] = {
-                'loc': notOnPolyV[v]['loc'],
+                'loc': standalonePts[v]['loc'],
                 'visible': []
             }
 
@@ -2031,3 +2057,160 @@ def _distOnGridAStar(column, row, barriers, pt1, pt2, distMeasure):
 
 def distRoadNetwork(pt1: pt, pt2: pt, roadnetwork: dict, roadnetworkNG: dict=None):
     return
+
+# Poly 2 poly related =========================================================
+
+def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, lod: float=CONST_EPSILON):
+
+    """Given a list of points, each belongs to a neighborhood of a node, find the shortest path between each steps
+
+    Parameters
+    ----------
+
+    polys: list of polygons, required
+        A list of polygons to be visited
+    solver: string, optional, default AVAIL_SOLVER
+        The commercial solver used to solve the minimum cost flow problem
+
+    """
+
+    # First, create a ring, to help keying each extreme points of polygons
+    tau = {}
+
+    # Initialize
+    G = nx.Graph()
+    polyRings = []
+
+    for poly in polys:
+        polyRing = Ring()
+        for i in range(len(poly)):
+            polyRing.append(RingNode(i, poly[i]))
+        polyRings.append(polyRing)
+
+    # startPt to the first polygon
+    cur = polyRings[0].head
+    while (True):
+        d = distEuclideanXY(startPt, cur.value)['dist']
+        tau['s', (0, cur.key)] = d
+        G.add_edge('s', (0, cur.key), weight = d)
+        cur = cur.next
+        if (cur.key == polyRings[0].head.key):
+            break
+
+    # If more than one polygon btw startPt and endPt
+    for i in range(len(polys) - 1):
+        curI = polyRings[i].head
+        while (True):
+            curJ = polyRings[i + 1].head
+            while (True):
+                d = distEuclideanXY(curI.value, curJ.value)['dist']
+                tau[(i, curI.key), (i + 1, curJ.key)] = d
+                G.add_edge((i, curI.key), (i + 1, curJ.key), weight = d)
+                curJ = curJ.next
+                if (curJ.key == polyRings[i + 1].head.key):
+                    break
+            curI = curI.next
+            if (curI.key == polyRings[i].head.key):
+                break
+
+    # last polygon to endPt
+    cur = polyRings[-1].head
+    while (True):
+        d = distEuclideanXY(cur.value, endPt)['dist']
+        tau[(len(polys) - 1, cur.key), 'e'] = d
+        G.add_edge((len(polys) - 1, cur.key), 'e', weight = d)
+        cur = cur.next
+        if (cur.key == polyRings[len(polys) - 1].head.key):
+            break
+
+    sp = nx.dijkstra_path(G, 's', 'e')
+
+    dist = distEuclideanXY(startPt, polyRings[sp[1][0]].query(sp[1][1]).value)['dist']
+    for i in range(1, len(sp) - 2):
+        dist += tau[(sp[i][0], sp[i][1]), (sp[i + 1][0], sp[i + 1][1])]
+    dist += distEuclideanXY(polyRings[sp[-2][0]].query(sp[-2][1]).value, endPt)['dist']
+    
+    # Find detailed location
+    refineFlag = True
+    iterNum = 0
+    while (refineFlag):
+        for i in range(1, len(sp) - 1):
+            # Find current shortest intersecting point
+            polyIdx = sp[i][0]
+            exPtIdx = sp[i][1]
+
+            # Insert two new points before and after this point
+            p = polyRings[polyIdx].query(exPtIdx)
+            pPrev = p.prev
+            pNext = p.next
+
+            pPrevMidLoc = [(pPrev.value[0] + (p.value[0] - pPrev.value[0]) / 2), (pPrev.value[1] + (p.value[1] - pPrev.value[1]) / 2)]
+            pPrevMid = RingNode(polyRings[polyIdx].count, pPrevMidLoc)
+            pNextMidLoc = [(p.value[0] + (pNext.value[0] - p.value[0]) / 2), (p.value[1] + (pNext.value[1] - p.value[1]) / 2)]
+            pNextMid = RingNode(polyRings[polyIdx].count + 1, pNextMidLoc)
+
+            polyRings[polyIdx].insert(p.key, pNextMid)
+            polyRings[polyIdx].insert(pPrev.key, pPrevMid)
+
+        # Simplify the graph
+        G = nx.Graph()
+
+        # New start
+        startPolyPt = polyRings[sp[1][0]].query(sp[1][1])
+        startNearPt = [startPolyPt.prev.prev, startPolyPt.prev, startPolyPt, startPolyPt.next, startPolyPt.next.next]
+        for p in startNearPt:
+            d = distEuclideanXY(startPt, p.value)['dist']
+            G.add_edge('s', (0, p.key), weight = d)
+
+        # In between
+        for i in range(1, len(sp) - 2):
+            polyIdx = sp[i][0]
+            polyNextIdx = sp[i + 1][0]
+            exPtIdx = sp[i][1]
+            exPtNextIdx = sp[i + 1][1]
+
+            ptI = polyRings[polyIdx].query(exPtIdx)
+            ptNearI = [ptI.prev.prev, ptI.prev, ptI, ptI.next, ptI.next.next]
+            ptJ = polyRings[polyNextIdx].query(exPtNextIdx)
+            ptNearJ = [ptJ.prev.prev, ptJ.prev, ptJ, ptJ.next, ptJ.next.next]
+            for kI in ptNearI:
+                for kJ in ptNearJ:
+                    d = None
+                    if (((polyIdx, kI.key), (polyNextIdx, kJ.key)) in tau):
+                        d = tau[((polyIdx, kI.key), (polyNextIdx, kJ.key))]
+                    else:
+                        d = distEuclideanXY(kI.value, kJ.value)['dist']
+                        tau[((polyIdx, kI.key), (polyNextIdx, kJ.key))] = d
+                    G.add_edge((polyIdx, kI.key), (polyNextIdx, kJ.key), weight = d)
+
+        # New end
+        endPolyPt = polyRings[sp[-2][0]].query(sp[-2][1])
+        endNearPt = [endPolyPt.prev.prev, endPolyPt.prev, endPolyPt, endPolyPt.next, endPolyPt.next.next]
+        for p in endNearPt:
+            d = distEuclideanXY(p.value, endPt)['dist']
+            G.add_edge((len(polys) - 1, p.key), 'e', weight = d)
+
+        sp = nx.dijkstra_path(G, 's', 'e')
+
+        newDist = distEuclideanXY(startPt, polyRings[sp[1][0]].query(sp[1][1]).value)['dist']
+        for i in range(1, len(sp) - 2):
+            newDist += tau[(sp[i][0], sp[i][1]), (sp[i + 1][0], sp[i + 1][1])]
+        newDist += distEuclideanXY(polyRings[sp[-2][0]].query(sp[-2][1]).value, endPt)['dist']
+
+        if (abs(newDist - dist) <= lod):
+            refineFlag = False
+
+        dist = newDist
+
+    path = [startPt]
+    for p in sp:
+        if (p != 's' and p != 'e'):
+            path.append(polyRings[p[0]].query(p[1]).value)
+    path.append(endPt)
+
+    return {
+        'sp': sp,
+        'path': path,
+        'dist': dist,
+        'polyRings': polyRings
+    }
