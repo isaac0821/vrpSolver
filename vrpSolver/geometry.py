@@ -1493,12 +1493,6 @@ def calTriangleAreaXY(pt1: pt, pt2: pt, pt3: pt) -> float:
     area = abs(val)
     return area
 
-def calPolyPerimeterXY(poly: poly) -> float:
-    p = 0
-    for i in range(-1, len(poly) - 1):
-        p += distEuclideanXY(poly[i], poly[i + 1])['dist']
-    return p
-
 def calPolyAreaXY(poly: poly) -> float:
     lstTriangle = tripy.earclip(poly)
 
@@ -1512,7 +1506,10 @@ def calPolyAreaLatLon(polyLatLon: poly) -> float:
     """Returns the area surrounded by polyLatLon on the Earth"""
 
     # Additional packages =====================================================
-    from pyproj import Geod
+    try:
+        from pyproj import Geod
+    except:
+        raise ImportError
 
     # Create polygon ==========================================================
     # NOTE: shapely is in [lon, lat] format
@@ -1527,6 +1524,12 @@ def calPolyAreaLatLon(polyLatLon: poly) -> float:
     area = abs(geod.geometry_area_perimeter(polygon)[0])
 
     return area
+
+def calPolyPerimeterXY(poly: poly) -> float:
+    p = 0
+    for i in range(-1, len(poly) - 1):
+        p += distEuclideanXY(poly[i], poly[i + 1])['dist']
+    return p
 
 # Location of points ==========================================================
 def headingXY(pt1: pt, pt2: pt) -> float:
@@ -1702,8 +1705,8 @@ def _matrixDistEuclideanXY(nodes: dict, nodeIDs: list, speed = 1):
                 d = distEuclideanXY(nodes[i]['loc'], nodes[j]['loc'])
                 tau[i, j] = d['dist'] / speed
                 tau[j, i] = d['dist'] / speed
-                pathLoc[i, j] = d['path']
-                pathLoc[j, i] = d['path']
+                pathLoc[i, j] = [nodes[i]['loc'], nodes[j]['loc']]
+                pathLoc[j, i] = [nodes[j]['loc'], nodes[i]['loc']]
             else:
                 tau[i, j] = CONST_EPSILON
                 tau[j, i] = CONST_EPSILON
@@ -1721,7 +1724,7 @@ def _matrixDistManhattenXY(nodes: dict, nodeIDs: list, speed = 1):
                 tau[i, j] = d['dist'] / speed
                 tau[j, i] = d['dist'] / speed
                 pathLoc[i, j] = d['path']
-                pathLoc[j, i] = d['path']
+                pathLoc[j, i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
             else:
                 tau[i, j] = CONST_EPSILON
                 tau[j, i] = CONST_EPSILON
@@ -1738,8 +1741,8 @@ def _matrixDistLatLon(nodes: dict, nodeIDs: list, distUnit = 'meter', speed = 1)
                 d = distLatLon(nodes[i]['loc'], nodes[j]['loc'], distUnit)
                 tau[i, j] = d['dist'] / speed
                 tau[j, i] = d['dist'] / speed
-                pathLoc[i, j] = d['path']
-                pathLoc[j, i] = d['path']
+                pathLoc[i, j] = [nodes[i]['loc'], nodes[j]['loc']]
+                pathLoc[j, i] = [nodes[j]['loc'], nodes[i]['loc']]
             else:
                 tau[i, j] = CONST_EPSILON
                 tau[j, i] = CONST_EPSILON
@@ -1757,7 +1760,7 @@ def _matrixDistGrid(nodes: dict, nodeIDs: list, grid: dict):
                 tau[i, j] = d['dist']
                 tau[j, i] = d['dist']
                 pathLoc[i, j] = d['path']
-                pathLoc[j, i] = d['path']
+                pathLoc[j, i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
             else:
                 tau[i, j] = CONST_EPSILON
                 tau[j, i] = CONST_EPSILON
@@ -1775,7 +1778,7 @@ def _matrixDistBtwPolysXY(nodes: dict, nodeIDs: list, polys: polys, polyNG: dict
                 tau[i, j] = d['dist']
                 tau[j, i] = d['dist']
                 pathLoc[i, j] = d['path']
-                pathLoc[j, i] = d['path']
+                pathLoc[j, i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
             else:
                 tau[i, j] = CONST_EPSILON
                 tau[j, i] = CONST_EPSILON
@@ -2058,7 +2061,15 @@ def _distOnGridAStar(column, row, barriers, pt1, pt2, distMeasure):
 def distRoadNetwork(pt1: pt, pt2: pt, roadnetwork: dict, roadnetworkNG: dict=None):
     return
 
+# Arc polys related ===========================================================
+def circleIntCircle(circle1: circle, circle2: circle):
+    arcPoly = []
+    return arcPoly
+
 # CETSP related ===============================================================
+def arcPoly2ArcPolyPath(startPt: pt, endPt: pt, arcPolys: arcPolys):
+    return
+
 def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, lod: float=CONST_EPSILON):
 
     """Given a list of points, each belongs to a neighborhood of a node, find the shortest path between each steps
@@ -2208,7 +2219,8 @@ def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, lod: float=CONST_EPSILON
     path.append(endPt)
 
     return {
-        'sp': sp,
+        # 'sp': sp,
         'path': path,
         'dist': dist
     }
+

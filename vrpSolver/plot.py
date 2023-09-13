@@ -16,12 +16,6 @@ def plotNodes(
     nodeColor: str = 'Random',
     nodeMarker: str = 'o',
     nodeMarkersize: float = 1,
-    neighborColor: str|None = 'gray',
-    neighborOpacity: float = 0.5,
-    neighborEntranceWidth: float = 1.2,
-    neighborEntranceColor: str = 'black',
-    neighborInboundColor: str = 'orange',
-    neighborOutboundColor: str = 'green',
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
@@ -131,40 +125,6 @@ def plotNodes(
 
     # Draw nodes ==============================================================
     for n in nodes:
-        # If node has neighbor, plot the neighbor color first -----------------
-        if ('neighbor' in nodes[n] and neighborColor != None):
-            fig, ax = plotPolygon(
-                fig = fig,
-                ax = ax,
-                poly = nodes[n]['neighbor'],
-                edgeWidth = 1,
-                edgeColor = 'black',
-                fillColor = neighborColor,
-                opacity = neighborOpacity,
-                xyReverseFlag = xyReverseFlag,
-                showAxis = showAxis,
-                fillStyle = '///')
-            if ('entrance' in nodes[n]):
-                for ent in nodes[n]['entrance']:
-                    entColor = 'black'
-                    if ('allow' not in ent):
-                        entColor = 'black'
-                    elif (ent['allow'] == 'Both'):
-                        entColor = neighborEntranceColor
-                    elif (ent['allow'] == 'Inbound'):
-                        entColor = neighborInboundColor
-                    elif (ent['allow'] == 'Outbound'):
-                        entColor = neighborOutboundColor
-                    fig, ax = plotLocSeq(
-                        fig = fig,
-                        ax = ax,
-                        locSeq = ent['polyline'],
-                        lineColor = entColor,
-                        lineWidth = neighborEntranceWidth,
-                        arrowFlag = False,
-                        xyReverseFlag = xyReverseFlag,
-                        showAxis = showAxis)
-
         # Define color --------------------------------------------------------
         color = None
         if ('color' in nodes[n]):
@@ -228,12 +188,6 @@ def plotArcs(
     startColor: str = 'black',
     endColor: str = 'black',
     bothEndSize: int|float = 2.0,
-    neighborColor: str = 'gray',
-    neighborOpacity: float = 0.5,
-    neighborEntranceWidth: float = 1.2,
-    neighborEntranceColor: str = 'black',
-    neighborInboundColor: str = 'orange',
-    neighborOutboundColor: str = 'green',
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
@@ -376,39 +330,6 @@ def plotArcs(
         if ('va' in arcs[i]):
             va = arcs[i]['va']
         ax.annotate(lbl, (x1 + dx / 2, y1 + dy / 2), ha=ha, va=va)
-        if ('neighbor' in arcs[i] and neighborColor != None):
-            fig, ax = plotPolygon(
-                fig = fig,
-                ax = ax,
-                poly = arcs[i]['neighbor'],
-                edgeWidth = 1,
-                edgeColor = 'black',
-                fillColor = neighborColor,
-                opacity = neighborOpacity,
-                xyReverseFlag = xyReverseFlag,
-                showAxis = showAxis,
-                fillStyle = '///')
-            if ('entrance' in arcs[i]):
-                for ent in arcs[i]['entrance']:
-                    entColor = 'black'
-                    if ('allow' not in ent):
-                        entColor = 'black'
-                    elif (ent['allow'] == 'Both'):
-                        entColor = neighborEntranceColor
-                    elif (ent['allow'] == 'Inbound'):
-                        entColor = neighborInboundColor
-                    elif (ent['allow'] == 'Outbound'):
-                        entColor = neighborOutboundColor
-                    fig, ax = plotLocSeq(
-                        fig = fig,
-                        ax = ax,
-                        locSeq = ent['polyline'],
-                        lineColor = entColor,
-                        lineWidth = neighborEntranceWidth,
-                        arrowFlag = False,
-                        xyReverseFlag = xyReverseFlag,
-                        showAxis = showAxis)
-                    ax.annotate(ent['setID'], ent['polyline'][int(len(ent['polyline']) / 2)], ha=ha, va=va)
 
     # Axis on and off =========================================================
     if (not showAxis):
@@ -808,6 +729,24 @@ def plotPolygon(
     if (not showFig):
         plt.close(fig)
 
+    return fig, ax
+
+def plotArcSegs(
+    arcSegs: list[arcSeg],
+    arcSegColor: str = 'Random',
+    arcSegWidth: float = 1.0,
+    xyReverseFlag: bool = False,
+    fig = None,
+    ax = None,
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ): 
+    return fig, ax
+
+def plotArcPoly():
     return fig, ax
 
 def plotProvinceMap(

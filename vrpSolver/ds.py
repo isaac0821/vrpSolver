@@ -1,23 +1,6 @@
 import math
 from .error import *
 
-class CloseEnoughRouteNode(object):
-    def __init__(self, key, coord:list[float|int]=None, prev: 'CloseEnoughRouteNode'=None, next: 'CloseEnoughRouteNode'=None):
-        self.key = key
-        self.coord = coord
-    
-    @property
-    def isNil(self):
-        return False
-
-class CloseEnoughRouteNilNode(CloseEnoughRouteNode):
-    def __init__(self):
-        return
-
-    @property
-    def isNil(self):
-        return True
-
 class RingNode(object):
     def __init__(self, key, value=None, prev: 'RingNode' = None, next: 'RingNode' = None):
         self.key = key
@@ -47,7 +30,7 @@ class RingNilNode(RingNode):
 class Ring(object):
     def __init__(self):
         self.head = RingNilNode()
-        self.count = 0
+        self._count = 0
 
     @property
     def isEmpty(self):
@@ -55,6 +38,16 @@ class Ring(object):
             return True
         else:
             return False
+
+    @property
+    def count(self):
+        return self._count
+
+    def __repr__(self):
+        return self.traverse().__repr__()
+
+    def rehead(self, key):
+        self.head = self.query(key)
 
     def query(self, key) -> "RingNode":
         if (self.head.isNil):
@@ -90,8 +83,10 @@ class Ring(object):
             self.head = n
             n.next = n
             n.prev = n
-            self.count += 1
+            self._count += 1
         else:
+            if (not self.query(n.key).isNil):
+                raise KeyExistError("ERROR: %s already in the route." % n.key)
             m = self.query(key)
             if (m.isNil):
                 raise KeyNotExistError("ERROR: %s does not exist." % key)
@@ -99,7 +94,7 @@ class Ring(object):
             n.prev = m
             n.next = m.next
             m.next = n
-            self.count += 1
+            self._count += 1
 
     def append(self, n):
         if (n.isNil):
@@ -108,7 +103,7 @@ class Ring(object):
             self.head = n
             n.next = n
             n.prev = n
-            self.count += 1
+            self._count += 1
         else:
             return self.insert(self.head.prev.key, n)
 
@@ -120,25 +115,14 @@ class Ring(object):
             raise KeyNotExistError("ERROR: %s does not exist." % key)
         n.prev.next = n.next
         n.next.prev = n.prev
-        self.count -= 1
+        self._count -= 1
 
-class RouteNode(object):
+class RouteNode(RingNode):
     def __init__(self, key, value=None, prev: 'RouteNode'=None, next: 'RouteNode'=None):
         self.key = key
         self.value = value if value != None else key
         self.prev = prev if prev != None else RouteNilNode()
         self.next = next if next != None else RouteNilNode()
-
-    @property
-    def isNil(self):
-        return False
-
-    def __repr__(self):
-        s =("{key: " + str(self.key) + ", "
-            + "value: " + str(self.value) + ", "
-            + "prev: " + (str(self.prev.key) if (not self.prev.isNil) else "None") + ", "
-            + "next: " + (str(self.next.key) if (not self.next.isNil) else "None") + "} ")
-        return s
 
 class RouteNilNode(RouteNode):
     def __init__(self):
@@ -148,24 +132,14 @@ class RouteNilNode(RouteNode):
     def isNil(self):
         return True
 
-class Route(object):
+class Route(Ring):
     def __init__(self, tau, asymFlag=False):
         self.head = RouteNilNode()
         self.tau = tau
         self.dist = 0
         self._revDist = 0
         self.asymFlag = asymFlag
-        self.count = 0
-
-    def __repr__(self):
-        return self.traverse().__repr__()
-
-    @property
-    def isEmpty(self):
-        if (self.head.isNil):
-            return True
-        else:
-            return False
+        self._count = 0
 
     @property
     def revDist(self):
@@ -173,18 +147,6 @@ class Route(object):
             return self._revDist
         else:
             return self.dist
-
-    def traverse(self, closeFlag=False) -> list:
-        route = []
-        cur = self.head
-        while (not cur.isNil):
-            route.append(cur)
-            cur = cur.next
-            if (cur.key == self.head.key):
-                break
-        if (closeFlag):
-            route.append(self.head)
-        return route
 
     def reverse(self):
         tra = self.traverse()
@@ -268,8 +230,10 @@ class Route(object):
             self.dist = 0
             if (self.asymFlag):
                 self._revDist = 0
-            self.count = 1
+            self._count = 1
         else:
+            if (not self.query(n.key).isNil):
+                raise KeyExistError("ERROR: %s already in the route." % n.key)
             m = self.query(key)
             if (m.isNil):
                 raise KeyNotExistError("ERROR: %s does not exist." % key)
@@ -280,7 +244,7 @@ class Route(object):
             n.prev = m
             n.next = m.next
             m.next = n            
-            self.count += 1
+            self._count += 1
         return
 
     def append(self, n):
@@ -293,7 +257,7 @@ class Route(object):
             self.dist = 0
             if (self.asymFlag):
                 self._revDist = 0
-            self.count = 1
+            self._count = 1
         else:
             return self.insert(self.head.prev.key, n)
 
@@ -308,7 +272,7 @@ class Route(object):
             self._revDist += self.tau[n.next.key, n.prev.key] - self.tau[n.key, n.prev.key] - self.tau[n.next.key, n.key]
         n.prev.next = n.next
         n.next.prev = n.prev
-        self.count -= 1
+        self._count -= 1
 
     def swapNext(self, key):
         n = self.query(key)
@@ -329,6 +293,24 @@ class Route(object):
             self._revDist += (self.tau[nNNext.key, n.key] + self.tau[n.key, nNext.key] + self.tau[nNext.key, nPrev.key]
                             - self.tau[nNNext.key, nNext.key] + self.tau[nNext.key, n.key] - self.tau[n.key, nPrev.key])
 
+    def swap(self, keyI, keyJ):
+        nI = self.query(keyI)
+        nJ = self.query(keyJ)
+        pI = nI.prev
+        sI = nI.next
+        pJ = nJ.prev
+        sJ = nJ.next
+        if (nI.next.key == keyJ):
+            return swapNext(keyI)
+        nI.prev, nJ.prev = nJ.prev, nI.prev
+        nI.next, nJ.next = nJ.next, nI.next
+
+        self.dist += (self.tau[pI.key, nJ.key] + self.tau[nJ.key, sI.key] + self.tau[pJ.key, nI.key] + self.tau[nI.key, sJ.key]
+            - self.tau[pI.key, nI.key] - self.tau[nI.key, sI.key] - self.tau[pJ.key, nJ.key] - self.tau[nJ.key, sJ.key])
+        if (self.asymFlag):
+            self._revDist += (self.tau[sJ.key, nI.key] + self.tau[nI.key, pJ.key] + self.tau[sI.key, nJ.key] + self.tau[nJ.key, pI.key]
+                - self.tau[sJ.key, nJ.key] - self.tau[nJ.key, pJ.key] - self.tau[sI.key, nI.key] - self.tau[nI.key, pI.key])
+
     def cheapestInsert(self, n):
         # First, insert it after self.head
         # Before: ... --> head -> xxx -> head.next --> ...
@@ -337,7 +319,7 @@ class Route(object):
         sofarCheapestCost = self.dist if not self.asymFlag else min(self.dist, self._revDist)
         sofarCheapestKey = self.head.key
 
-        if (self.count <= 2):
+        if (self._count <= 2):
             return
         cur = self.head
         trvFlag = True
@@ -379,9 +361,46 @@ class Route(object):
         self.remove(bestRemovalKey)
         return bestRemovalKey
 
-    def localImprove(self):
+    def twoOpt(self):
+        # NOTE: FXXK! Why this is so hard? It should not be that difficult
+        if (self._count <= 4):
+            return
 
-        return
+        nI = self.head 
+        nJ = nI.next.next
+        sofarBestDist = self.dist if not self.asymFlag else min(self.dist, self._revDist)
+
+        canImproveFlag = True
+        while (canImproveFlag):
+            canImproveFlag = False
+
+
+            
+
+        # canImproveFlag = True
+        # while (canImproveFlag):
+        #     canImproveFlag = False
+
+        #     for M in range(self._count):
+        #         nJKey = nJ.key
+        #         for N in range(self._count):
+        #             self.swapNext(nJKey)
+        #             print([i.key for i in self.traverse(closeFlag=True)])
+        #             newDist = self.dist if not self.asymFlag else min(self.dist, self._revDist)
+        #             if (newDist < sofarBestDist):
+        #                 sofarBestDist = newDist
+        #                 canImproveFlag = True
+        #                 print("Update", nI.key, nJKey)
+        #                 break
+        #         if (canImproveFlag):
+        #             break
+        #         else:
+        #             nJ = nJ.next
+        #     if (canImproveFlag):
+        #         nI = self.head
+        #     else:
+        #         nI = nI.next
+            
 
 class BSTreeNode(object):
     def __init__(self, key:int, value, parent:'BSTreeNode'=None, left:'BSTreeNode'=None, right:'BSTreeNode'=None):
@@ -417,22 +436,22 @@ class BSTree(object):
         self.nil = BSTreeNilNode()
         self.root = self.nil
 
-
     def __repr__(self):
         tr = self.traverse()
         return str(tr)
 
     @property
-    def count(self):
-        return len(self.traverse())
-
-    @property
     def isEmpty(self):
         return self.root == self.nil
+
+    @property
+    def count(self):
+        return len(self.traverse())
 
     # Query using key
     def query(self, key:int):
         return self._search(self.root, key)
+    
     def _search(self, n, key:int):
         if (n.isNil):
             return self.nil
@@ -462,33 +481,6 @@ class BSTree(object):
             if (not n.isNil):
                 rightTraverse(n.right)
                 traverse.append(n)
-                rightTraverse(n.left)
-            return
-        if (mode == 'Left'):
-            leftTraverse(self.root)
-        elif (mode == 'Mid'):
-            midTraverse(self.root)
-        elif (mode == 'Right'):
-            rightTraverse(self.root)
-        return traverse
-    def traverseValue(self, mode='Left'):
-        traverse = []
-        def leftTraverse(n):
-            if (not n.isNil):
-                leftTraverse(n.left)
-                traverse.append(n.value)
-                leftTraverse(n.right)
-            return
-        def midTraverse(n):
-            if (not n.isNil):
-                traverse.append(n.value)
-                midTraverse(n.left)                
-                midTraverse(n.right)
-            return
-        def rightTraverse(n):
-            if (not n.isNil):
-                rightTraverse(n.right)
-                traverse.append(n.value)
                 rightTraverse(n.left)
             return
         if (mode == 'Left'):
@@ -531,6 +523,7 @@ class BSTree(object):
             return self._delete(n)
         else:
             raise KeyNotExistError("ERROR: Cannot find key %s in BST" % key)
+    
     def _delete(self, n:BSTreeNode):
         # Replace node u with node v in this previous location
         def _replace(u, v):
@@ -566,6 +559,7 @@ class BSTree(object):
             return self._prev(n)
         else:
             raise KeyNotExistError("ERROR: Cannot find key %s in BST" % key)
+    
     def _prev(self, n):
         if (not n.left.isNil):
             return self.max(n.left)
@@ -583,6 +577,7 @@ class BSTree(object):
             return self._next(n)
         else:
             raise KeyNotExistError("ERROR: Cannot find key %s in BST" % key)
+    
     def _next(self, n):
         if (n.right.isNil):
             return self.min(n.right)
@@ -675,7 +670,6 @@ class RedBlackTree(BSTree):
         self.nil = RedBlackTreeNilNode()
         self.root = self.nil    
 
-    # Insertion
     def insert(self, z):
         if (z.isNil):
             raise EmptyError("ERROR: cannot insert a Nil node to the tree.")
@@ -856,29 +850,16 @@ class IntervalTree(RedBlackTree):
         self.root = self.nil
 
     def querySingular(self, t) -> list[IntervalTreeNode]:
-
         return
 
     def queryInterval(self, ts, te) -> list[IntervalTreeNode]:
-
         return
 
-    def earliestNext(self, t) -> float:
-        en = float('inf')
-        invs = self.querySingular(t)
-        if (isinstance(invs, IntervalTreeNode)):
-            en = t
-        else:
-            en = t
-
-        return en
-
-    @property
-    def isSelfOverlapped(self):
+    def earliestNextInterval(self, t) -> IntervalTreeNode:
         return
-    def _checkOverlap(self, n) -> bool:
-        if (n.left.isNil and n.right.isNil):
-            return False
+
+    def earliestNextAvailable(self, t) -> float:
+        return
 
     def _search(self, n, t):
         if (n == self.nil):

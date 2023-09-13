@@ -136,7 +136,7 @@ def heuTSP(
         raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
 
     # Define tau ==============================================================
-    tau, pathLoc = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
+    tau, path = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
 
     # Check symmetric =========================================================
     asymFlag = False
@@ -152,11 +152,11 @@ def heuTSP(
 
     nodeObj = {}
     for n in nodeIDs:
-        nodeObj[n] = RouteNode(n)
+        nodeObj[n] = RouteNode(n, value=nodes[n]['loc'])
 
-    seq = None
+    seq = Route(tau, asymFlag)
     # An initial solution is given
-    if ('cons' not in algo):
+    if ('cons' not in algo or algo['cons'] == 'Initial' or algo['cons'] == None):
         if ('initSeq' not in algo):
             raise MissingParameterError("ERROR: Need 'initSeq' for local improvement")
         elif (len(algo['initSeq']) != len(nodeIDs) + 1):
@@ -165,9 +165,8 @@ def heuTSP(
             notInNodeIDs = [v for v in algo['initSeq'] if v not in nodeIDs]
             if (len(notInNodeIDs) > 0):
                 raise OutOfRangeError("ERROR: The following nodes in 'initSeq' is not in `nodeIDs`: %s" % list2String(notInNodeIDs))
-        seq = Route(tau, asymFlag)
-        for i in algo['initSeq']:
-            seq.append(nodeObj[n])
+        for i in algo['initSeq'][:-1]:
+            seq.append(nodeObj[i])
 
     # Insertion heuristic
     elif (algo['cons'] == 'Insertion'):
@@ -202,23 +201,22 @@ def heuTSP(
             nnSeq = _consTSPFarthestNeighbor(depotID, nodeIDs, tau)
         elif (algo['k'] >= 1):
             nnSeq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, algo['k'])
-
-        seq = Route(tau, asymFlag)
         for i in nnSeq:
-            seq.append(nodeObj[n])
+            seq.append(nodeObj[i])
 
     # Sweep heurisitic
     elif (algo['cons'] == 'Sweep'):
-        seq = _consTSPSweep(nodes, depotID, nodeIDs, tau)
+        sweepSeq = _consTSPSweep(nodes, depotID, nodeIDs, tau)
+        for i in sweepSeq:
+            seq.append(nodeObj[i])
+        seq.rehead(depotID)
 
     # Christofides Algorithm, guaranteed <= 1.5 * optimal
     elif (algo['cons'] == 'Christofides'):
         if (not asymFlag):
-            weightArcs = []
-            for (i, j) in tau:
-                if (i != None and j != None and i < j):
-                    weightArcs.append((i, j, tau[i, j]))
-            seq = _consTSPChristofides(depotID, tau)
+            cfSeq = _consTSPChristofides(depotID, tau)
+            for i in cfSeq:
+                seq.append(nodeObj[i])
         else:
             raise UnsupportedInputError("ERROR: 'Christofides' algorithm is not designed for Asymmetric TSP")
 
@@ -229,36 +227,35 @@ def heuTSP(
 
     # Randomly create a sequence
     elif (algo['cons'] == 'Random'):
-        seq = _consTSPRandom(depotID, nodeIDs, tau)
-    
+        rndSeq = _consTSPRandom(depotID, nodeIDs, tau)
+        for i in rndSeq:
+            seq.append(nodeObj[i])
+        seq.rehead(depotID)
     else:
         raise UnsupportedInputError(ERROR_MISSING_TSP_ALGO)
 
     # Cleaning seq before local improving =================================
-    ofv = calSeqCostMatrix(tau, seq, closeFlag = False)
-    revOfv = None if not asymFlag else calSeqCostMatrix(tau, [seq[len(seq) - i - 1] for i in range(len(seq))], closeFlag = False)
-    consOfv = ofv
+    consOfv = seq.dist
 
     # Local improvment phase ==============================================
     # NOTE: Local improvement phase operates by class methods
     # NOTE: For the local improvement, try every local search operator provided in a greedy way
     if ('impv' in algo and algo['impv'] != None and algo['impv'] != []):
-        canImproveFlag = True
-        while (canImproveFlag):
-            canImproveFlag = False
-            # Try 2Opts
-            if (not canImproveFlag and (algo['impv'] == '2Opt' or '2Opt' in algo['impv'])):
-                imp = _impTSP2Opts(nodeIDs, tau, seq, asymFlag)
-                if (imp['improvedFlag']):
-                    canImproveFlag = True
-                    seq = imp['impSeq']
-                    ofv = imp['oriOfv']
-                    revOfv = imp['oriRevOfv']
+        seq.twoOpt()
+
+    ofv = seq.dist
+    nodeSeq = [n.key for n in seq.traverse(closeFlag = True)]
+
+    shapepoints = []
+    for i in range(len(nodeSeq) - 1):
+        shapepoints.extend(path[nodeSeq[i], nodeSeq[i + 1]])
+
     return {
         'ofv': ofv,
         'consOfv': consOfv,
         'algo': algo,
-        'seq': seq,
+        'seq': nodeSeq,
+        'shapepoints': shapepoints,
         'serviceTime': serviceTime
     }
 
@@ -286,7 +283,6 @@ def _consTSPkNearestNeighbor(depotID, nodeIDs, tau, k = 1):
 
         # Update remain
         remain.remove(nextNodeID)
-    seq.append(depotID)
     return seq
 
 def _consTSPFarthestNeighbor(depotID, nodeIDs, tau):
@@ -308,7 +304,6 @@ def _consTSPFarthestNeighbor(depotID, nodeIDs, tau):
                     nextLeng = tau[seq[-1], n]
         seq.append(nextID)
         remain.remove(nextID)
-    seq.append(depotID)
     return seq
 
 def _consTSPSweep(nodes, depotID, nodeIDs, tau):
@@ -317,24 +312,12 @@ def _consTSPSweep(nodes, depotID, nodeIDs, tau):
         nodes = nodes, 
         nodeIDs = nodeIDs,
         centerLoc = nodes[depotID]['loc'])
-
-    startIndex = 0
-    seq = []
-    for k in range(len(sweep)):
-        if (sweep[k] == depotID):
-            startIndex = k
-    seq.extend([sweep[k] for k in range(startIndex, len(sweep))])
-    seq.extend([sweep[k] for k in range(0, startIndex)])
-    seq.append(0)
-
-    return seq
+    return sweep
 
 def _consTSPRandom(depotID, nodeIDs, tau):
     # Get random seq ------------------------------------------------------
-    seq = [i for i in nodeIDs if i != depotID]
+    seq = [i for i in nodeIDs]
     random.shuffle(seq)
-    seq.insert(0, depotID)
-    seq.append(depotID)
     return seq
 
 def _consTSPInsertion(nodeIDs, initSeq, tau, asymFlag):
@@ -390,7 +373,6 @@ def _consTSPChristofides(depotID, tau):
             seq.append(i[0])
         if (i[1] not in seq):
             seq.append(i[1])
-    seq.append(seq[0])
 
     return seq
 

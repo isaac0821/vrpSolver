@@ -203,6 +203,7 @@ def ipTSP(
 
     # Add service time info ===================================================
     tsp['serviceTime'] = serviceTime
+    tsp['solver'] = solver['solver']
 
     return tsp
 
