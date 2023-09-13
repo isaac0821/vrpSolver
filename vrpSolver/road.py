@@ -1,6 +1,7 @@
 import geojson
 import math
 import shapely
+import networkx as nx
 
 from .const import *
 from .geometry import *
@@ -87,26 +88,17 @@ def createRoadNetworkFromGeoJSON(
                 # Speed of road
                 if ("maxspeed" in gj["features"][i]["properties"]):
                     road[roadID]['maxspeed'] = gj["features"][i]["properties"]["maxspeed"]
+                else:
+                    road[roadID]['maxspeed'] = 30 # [mph]
 
                 # Is it one-way
                 if ("oneway" in gj["features"][i]["properties"]):
                     road[roadID]['oneway'] = gj["features"][i]["properties"]["oneway"]    
+                else:
+                    road[roadID]['oneway'] = False
 
                 # Road class
-                if (gj["features"][i]["properties"]["highway"] in ['motorway', 'motorway_link']):
-                    road[roadID]['class'] = 'motorway'
-                elif (gj["features"][i]["properties"]["highway"] in ['truck', 'truck_link']):
-                    road[roadID]['class'] = 'truck'
-                elif (gj["features"][i]["properties"]["highway"] in ['primary', 'primary_link']):
-                    road[roadID]['class'] = 'primary'
-                elif (gj["features"][i]["properties"]["highway"] in ['secondary', 'secondary_link']):
-                    road[roadID]['class'] = 'secondary'
-                elif (gj["features"][i]["properties"]["highway"] in ['tertiary', 'tertiary_link']):
-                    road[roadID]['class'] = 'tertiary'
-                elif (gj["features"][i]["properties"]["highway"] in ['residential']):
-                    road[roadID]['class'] = 'residential'
-                else:
-                    road[roadID]['class'] = gj["features"][i]["properties"]["highway"]
+                road[roadID]['class'] = gj["features"][i]["properties"]["highway"]
                 
                 roadID += 1
 
@@ -135,11 +127,10 @@ def createRoadNetworkFromGeoJSON(
                 buildingID += 1
 
     # Fix the position ========================================================
-    minX = -math.inf
-    maxX = math.inf
-    minY = -math.inf
-    maxY = math.inf
-
+    minX = None
+    maxX = None
+    minY = None
+    maxY = None
     for r in road:
         for p in road[r]['shape']:
             if (minX == None or p[0] < minX):
@@ -150,7 +141,6 @@ def createRoadNetworkFromGeoJSON(
                 minY = p[1]
             if (maxY == None or p[1] > maxY):
                 maxY = p[1]
-
     if (exportType == 'Mercator'):
         for r in road:
             for p in road[r]['shape']:
@@ -169,3 +159,11 @@ def createRoadNetworkFromGeoJSON(
         'road': road,
         'building': building
     }
+
+def createGraphFromRoadNetwork(
+    roadnetwork: dict,
+    boundaryLatLon: poly|None = None):
+
+    rg = nx.Graph()    
+
+    return rg

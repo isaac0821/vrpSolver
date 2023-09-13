@@ -1,4 +1,4 @@
-__version__ = "0.0.55"
+__version__ = "0.0.56"
 __author__ = "Lan Peng"
 
 '''
@@ -63,55 +63,47 @@ __author__ = "Lan Peng"
 # v0.0.52 - 05172022 - Minor fixes
 # v0.0.53 - 07112022 - Improve solution quality of 2Opts for TSP
 # v0.0.54 - 07112022 - Minor fixes
-# v0.0.55 - 20230525 - Remove most of unstable functions
+# v0.0.55 - 05252023 - Remove most of unstable functions
 #                    - Add Error exceptions
 #                    - Remove weather related functions: Not routing related
 #                    - Remove PMS functions: Not routing related
 #                    - Remove warehouse functions: Not directed related to VRP, the grid-based VRP remains in the package
 #                    - Docstrings for key `public` functions
 #                    - Redo a lot of stuff with shapely
-#                    - Redo a lot of stuff with NetworkX
+#                    - Redo a lot of stuff with networkX
+# v0.0.56 - 07122023 - CVRP functions
+#                    - Integrate CETSP
+# =============================================================================
+
+
+# A few SE tips/notes =========================================================
+# 1. Avoid nested if/for for more than three levels
+# 2. A function should not be more than one page in length
+# 3. Variables start with lower-case, classes names start with upper-case
+# 4. NEVER use variable start with `my-` or `tmp-`, that is lame
 # =============================================================================
 '''
 
-# Constants and messages
+# Constants, messages, and basic modules
 from .const import *
 from .msg import *
 from .error import *
+from .common import *
+from .color import *
 
 # Data
 from .province import *
-
-# Data structure definition
-# from .ds import *
+from .road import *
 
 # Basic modules
-from .common import *
+from .ds import *
 from .plot import *
 from .instance import *
-from .color import *
 from .calculate import *
 
 # Geometry
 from .geometry import *
-# from .relation import *
-from .road import *
-
-# Graph/network algorithms
-from .graph import *
 
 # TSP
-from .operator import *
 from .ipTSP import *
 from .heuTSP import *
-
-# VRP
-# from .ipVRP import *
-# from .heuVRP import *
-
-# from .CVRPTW import *
-# from .cgCVRPTW import *
-
-# Post optimization
-# from .stat import *
-

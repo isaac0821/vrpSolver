@@ -11,6 +11,10 @@ from .const import *
 pt = list[float] | tuple[float, float]
 poly = list[list[float]] | list[tuple[float, float]]
 polys = list[list[list[float]]] | list[list[tuple[float, float]]]
+circle = tuple[pt, float]
+arcSeg = list[pt] | tuple[pt, pt, pt|None]
+arcPoly = list[arcSeg]
+arcPolys = list[arcPoly]
 line = list[pt]
 
 def saveDictionary(obj, name: str) -> None:
@@ -58,14 +62,6 @@ def iterSeq(seqL, i, direction):
         return i - i if i > 0 else seqL - 1
     else:
         return None
-
-def insideInterval(val: float, interval: list[float | None]) -> bool:
-    [s, e] = interval
-    if (s != None and val < s):
-        return False
-    if (e != None and val > e):
-        return False
-    return True
 
 def listSetMinus(a, b):
     return [v for v in a if v not in b]

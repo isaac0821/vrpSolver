@@ -1,6 +1,4 @@
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
-from matplotlib.animation import PillowWriter
 
 from .common import *
 from .color import *
@@ -10,6 +8,7 @@ from .error import *
 
 # History =====================================================================
 # 20230518 - `plotNodes()` now will plot the neighborhood of nodes
+# 20230624 - Rename functions `plotArcs()`, `plotLocSeq()`, `plotNodeSeq()`
 # =============================================================================
 
 def plotNodes(
@@ -17,13 +16,12 @@ def plotNodes(
     nodeColor: str = 'Random',
     nodeMarker: str = 'o',
     nodeMarkersize: float = 1,
-    neighborColor: str|None = 'gray',
-    neighborOpacity: float = 0.5,
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
     boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
     ):
@@ -51,6 +49,8 @@ def plotNodes(
         If nodes have 'neighbor' label, will plot the neighbor area in this color
     neighborOpacity: float, optional, default 0.5
         The opacity of neighborhood.
+    neighborEntranceColor: str, optional, default 'black', 
+        The color of neighbor entrance
     xyReverseFlag: bool, optional, default False
         True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
     fig: matplotlib object, optional, defaut None
@@ -78,24 +78,27 @@ def plotNodes(
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
-        allX = []
-        allY = []
-        for i in nodes:
-            if (not xyReverseFlag):
-                allX.append(nodes[i]['loc'][0])
-                allY.append(nodes[i]['loc'][1])
-            else:
-                allX.append(nodes[i]['loc'][1])
-                allY.append(nodes[i]['loc'][0])
+        # Adjust bounding box
         (xMin, xMax, yMin, yMax) = boundingBox
-        if (xMin == None):
-            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
-        if (xMax == None):
-            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
-        if (yMin == None):
-            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
-        if (yMax == None):
-            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+        if (xMin == None or xMax == None or yMin == None or yMax == None):
+            allX = []
+            allY = []
+            for i in nodes:
+                if (not xyReverseFlag):
+                    allX.append(nodes[i]['loc'][0])
+                    allY.append(nodes[i]['loc'][1])
+                else:
+                    allX.append(nodes[i]['loc'][1])
+                    allY.append(nodes[i]['loc'][0])        
+            if (xMin == None):
+                xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
+            if (xMax == None):
+                xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
+            if (yMin == None):
+                yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
+            if (yMax == None):
+                yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+        # Adjust width and height
         width = 0
         height = 0
         if (figSize == None or (figSize[0] == None and figSize[1] == None)):
@@ -122,18 +125,6 @@ def plotNodes(
 
     # Draw nodes ==============================================================
     for n in nodes:
-        # If node has neighbor, plot the neighbor color first -----------------
-        if ('neighbor' in nodes[n] and neighborColor != None):
-            fig, ax = plotPolygon(
-                fig = fig,
-                ax = ax,
-                poly = nodes[n]['neighbor'],
-                edgeWidth = 1,
-                edgeColor = 'black',
-                fillColor = neighborColor,
-                opacity = neighborOpacity,
-                fillStyle = '///')
-
         # Define color --------------------------------------------------------
         color = None
         if ('color' in nodes[n]):
@@ -167,7 +158,17 @@ def plotNodes(
         else:
             lbl = nodes[n]['label']
 
-        ax.annotate(lbl, (x, y))
+        ha = 'left'
+        if ('ha' in nodes[n]):
+            ha = nodes[n]['ha']
+        va = 'top'
+        if ('va' in nodes[n]):
+            va = nodes[n]['va']
+        ax.annotate(lbl, (x, y), ha=ha, va=va)
+
+    # Axis on and off =========================================================
+    if (not showAxis):
+        plt.axis('off')
 
     # Save figure =============================================================
     if (saveFigPath != None and isinstance(fig, plt.Figure)):
@@ -178,18 +179,21 @@ def plotNodes(
     return fig, ax
 
 def plotArcs(
-    nodes: dict, 
-    arcs: list[line],
+    arcs: dict,
     arcColor: str = 'Random',
-    arcWidth: float = 1,
+    arcWidth: float = 1.0,
     arrowFlag: bool = True,
-    arrowHeadWidth: float = 0.1,
-    arrowHeadLength: float = 0.2,
+    arrowHeadWidth: float = 2.0,
+    arrowHeadLength: float = 3.0,
+    startColor: str = 'black',
+    endColor: str = 'black',
+    bothEndSize: int|float = 2.0,
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
     boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
     ):
@@ -199,20 +203,7 @@ def plotArcs(
     Parameters
     ----------
 
-    nodes: dictionary, required
-        The coordinates and other attributions of the nodes to be plotted, in the following format::
-            >>> nodes = {
-            ...     nodeID1: {
-            ...         'loc': (x, y),
-            ...         'marker': 'r',    # Optional, default as 'o'
-            ...         'markersize': 2,  # Optional, default as None
-            ...         'color': 'red',   # Optional, default as 'Random'
-            ...         'size': 3,        # Optional, default as 3
-            ...         'fontsize': 3,    # Optional, default as 3
-            ...         'neighbor': poly, # Optional, indicate if need to display the neighborhood
-            ...     }, # ...
-            ... }
-    arcs: list[line], required
+    arcs: dict, required
         A set of arcs, each arc is defined by two points
     arcColor: string, optional, default 'Random'
         Color of arcs
@@ -223,8 +214,8 @@ def plotArcs(
     arrowHeadWidth: float, optional, default 0.1
         Width of arrow head
     arrowHeadLength: float, optional, default 0.2
-        Lengtho of arrow head
-    fig: matplotlib object, optional, defaut None
+        Length of arrow head
+    fig: matplotlib object, optional, default None
         `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
     ax: matplotlib object, optional, default None
         See `fig`
@@ -245,36 +236,38 @@ def plotArcs(
     """
 
     # Check for required fields ===============================================
-    if (nodes == None):
-        raise MissingParameterError(ERROR_MISSING_NODES)
     if (arcs == None):
         raise MissingParameterError("ERROR: Missing required field `arcs`.")
 
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
-        allX = []
-        allY = []
-        for i in arcs:
-            if (not xyReverseFlag):
-                allX.append(nodes[i[0]]['loc'][0])
-                allY.append(nodes[i[0]]['loc'][1])
-                allX.append(nodes[i[1]]['loc'][0])
-                allY.append(nodes[i[1]]['loc'][1])
-            else:
-                allX.append(nodes[i[0]]['loc'][1])
-                allY.append(nodes[i[0]]['loc'][0])
-                allX.append(nodes[i[1]]['loc'][1])
-                allY.append(nodes[i[1]]['loc'][0])
+        # Adjust bounding box
         (xMin, xMax, yMin, yMax) = boundingBox
-        if (xMin == None):
-            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
-        if (xMax == None):
-            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
-        if (yMin == None):
-            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
-        if (yMax == None):
-            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+        if (xMin == None or xMax == None or yMin == None or yMax == None):
+            allX = []
+            allY = []
+            for i in arcs:
+                if (not xyReverseFlag):
+                    allX.append(arcs[i]['arc'][0][0])
+                    allX.append(arcs[i]['arc'][1][0])
+                    allY.append(arcs[i]['arc'][0][1])
+                    allY.append(arcs[i]['arc'][1][1])
+                else:
+                    allX.append(arcs[i]['arc'][0][1])
+                    allX.append(arcs[i]['arc'][1][1])
+                    allY.append(arcs[i]['arc'][0][0])
+                    allY.append(arcs[i]['arc'][1][0])
+            
+            if (xMin == None):
+                xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
+            if (xMax == None):
+                xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
+            if (yMin == None):
+                yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
+            if (yMax == None):
+                yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+        # Adjust width and height
         width = 0
         height = 0
         if (figSize == None or (figSize[0] == None and figSize[1] == None)):
@@ -300,17 +293,18 @@ def plotArcs(
             ax.set_ylim(yMin, yMax)
 
     # Draw arcs ===============================================================
-    for arc in arcs:
+    for i in arcs:
+        x1, y1, x2, y2 = 0, 0, 0, 0
         if (not xyReverseFlag):
-            x1 = nodes[arc[0]]['loc'][0]
-            y1 = nodes[arc[0]]['loc'][1]
-            x2 = nodes[arc[1]]['loc'][0]
-            y2 = nodes[arc[1]]['loc'][1]
+            x1 = arcs[i]['arc'][0][0]
+            x2 = arcs[i]['arc'][1][0]
+            y1 = arcs[i]['arc'][0][1]
+            y2 = arcs[i]['arc'][1][1]
         else:
-            x1 = nodes[arc[0]]['loc'][1]
-            y1 = nodes[arc[0]]['loc'][0]
-            x2 = nodes[arc[1]]['loc'][1]
-            y2 = nodes[arc[1]]['loc'][0]
+            x1 = arcs[i]['arc'][0][1]
+            x2 = arcs[i]['arc'][1][1]
+            y1 = arcs[i]['arc'][0][0]
+            y2 = arcs[i]['arc'][1][0]
         dx = x2 - x1
         dy = y2 - y1
         if (arcColor == 'Random'):
@@ -323,6 +317,24 @@ def plotArcs(
             if (arrowFlag):
                 ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=arcColor)
 
+        ax.plot(x1, y1, color = startColor, marker = 'o', markersize = bothEndSize)
+        ax.plot(x2, y2, color = endColor, marker = 'o', markersize = bothEndSize)
+        if ('label' not in arcs[i]):
+            lbl = i
+        else:
+            lbl = arcs[i]['label']
+        ha = 'left'
+        if ('ha' in arcs[i]):
+            ha = arcs[i]['ha']
+        va = 'top'
+        if ('va' in arcs[i]):
+            va = arcs[i]['va']
+        ax.annotate(lbl, (x1 + dx / 2, y1 + dy / 2), ha=ha, va=va)
+
+    # Axis on and off =========================================================
+    if (not showAxis):
+        plt.axis('off')
+
     # Save figure =============================================================
     if (saveFigPath != None and isinstance(fig, plt.Figure)):
         fig.savefig(saveFigPath)
@@ -331,11 +343,10 @@ def plotArcs(
 
     return fig, ax
 
-def plotRoute(
-    nodes: dict, 
-    route: list[int|str],
+def plotLocSeq(
+    locSeq: list[pt],
     lineColor: str = 'Random',
-    lineWidth: float = 1,
+    lineWidth: float = 1.0,
     arrowFlag: bool = True,
     arrowHeadWidth: float = 0.1,
     arrowHeadLength: float = 0.2,
@@ -344,126 +355,31 @@ def plotRoute(
     ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
     boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
-    saveFigPath: str|None = None,
-    showFig: bool = True
-    ):
-
-    """Draw arcs
-
-    Parameters
-    ----------
-
-    nodes: dictionary, required
-        The coordinates and other attributions of the nodes to be plotted, in the following format::
-            >>> nodes = {
-            ...     nodeID1: {
-            ...         'loc': (x, y),
-            ...         'marker': 'r',    # Optional, default as 'o'
-            ...         'markersize': 2,  # Optional, default as None
-            ...         'color': 'red',   # Optional, default as 'Random'
-            ...         'size': 3,        # Optional, default as 3
-            ...         'fontsize': 3,    # Optional, default as 3
-            ...         'neighbor': poly, # Optional, indicate if need to display the neighborhood
-            ...     }, # ...
-            ... }
-    arcs: list[line], optional, default None
-        A set of arcs, each arc is defined by two points
-    arcColor: string, optional, default 'Random'
-        Color of arcs
-    arcWidth: float, optional, default 1
-        Width of arcs
-    arrowFlag: bool, optional, default True
-        True if plot arrows
-    arrowHeadWidth: float, optional, default 0.1
-        Width of arrow head
-    arrowHeadLength: float, optional, default 0.2
-        Lengtho of arrow head
-    xyReverseFlag: bool, optional, default False
-        True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
-    fig: matplotlib object, optional, defaut None
-        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
-    ax: matplotlib object, optional, default None
-        See `fig`
-    figSize: 2-tuple, optional, default as (None, 5)
-        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
-    boundingBox: 4-tuple, optional, default as (None, None, None, None)
-        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
-    saveFigPath: string, optional, default as None
-        The path for exporting image if provided
-    showFig: bool, optional, default as True
-        True if show the figure in Juypter Notebook environment
-
-    Returns
-    -------
-    fig, ax: matplotlib.pyplot object
-    """
-
-    # Create arcs =============================================================
-    if (route == None):
-        raise MissingParameterError("ERROR: Missing required field `route`.")
-    arcs = []
-    for i in range(len(route) - 1):
-        arcs.append([route[i], route[i + 1]])
-
-    # Color ===================================================================
-    if (lineColor == 'Random'):
-        lineColor = colorRandom()
-
-    # Call plotArcs ===========================================================
-    fig, ax = plotArcs(
-        fig = fig,
-        ax = ax,
-        nodes = nodes,
-        arcs = arcs,
-        arcColor = lineColor,
-        arcWidth = lineWidth,
-        arrowFlag = arrowFlag,
-        arrowHeadWidth = arrowHeadWidth,
-        arrowHeadLength = arrowHeadLength,
-        xyReverseFlag = xyReverseFlag,
-        figSize = figSize,
-        boundingBox = boundingBox,
-        saveFigPath = saveFigPath,
-        showFig = showFig)
-
-    return fig, ax
-
-def plotSeq(
-    seq: list[pt],
-    arcColor: str = 'Random',
-    arcWidth: float = 1,
-    arrowFlag: bool = True,
-    arrowHeadWidth: float = 0.1,
-    arrowHeadLength: float = 0.2,
-    xyReverseFlag: bool = False,
-    fig = None,
-    ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
     ):
     
-    """Draw arcs
+    """Given a list of coordinates, plot a open polyline by sequences.
 
     Parameters
     ----------
 
-    seq: list[pt], optional, default None
-        A list of points to form a sequence
-    arcColor: string, optional, default 'Random'
-        Color of arcs
-    arcWidth: float, optional, default 1
-        Width of arcs
+    locSeq: list[pt], required
+        A list of coordinates to form a sequence
+    lineColor: string, optional, default 'Random'
+        Color of lines
+    lineWidth: float, optional, default 1
+        Width of lines
     arrowFlag: bool, optional, default True
         True if plot arrows
     arrowHeadWidth: float, optional, default 0.1
         Width of arrow head
     arrowHeadLength: float, optional, default 0.2
-        Lengtho of arrow head
+        Length of arrow head
     xyReverseFlag: bool, optional, default False
         True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
-    fig: matplotlib object, optional, defaut None
+    fig: matplotlib object, optional, default None
         `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
     ax: matplotlib object, optional, default None
         See `fig`
@@ -482,15 +398,15 @@ def plotSeq(
     """
 
     # Check for required fields ===============================================
-    if (seq == None):
-        raise MissingParameterError("ERROR: Missing required field `seq`.")
+    if (locSeq == None):
+        raise MissingParameterError("ERROR: Missing required field `locSeq`.")
 
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
         allX = []
         allY = []
-        for i in seq:
+        for i in locSeq:
             if (not xyReverseFlag):
                 allX.append(i[0])
                 allY.append(i[1])
@@ -530,32 +446,141 @@ def plotSeq(
             ax.set_xlim(xMin, xMax)
             ax.set_ylim(yMin, yMax)
 
-    # Draw arcs ===============================================================
-    if (arcColor == 'Random'):
-        arcColor = colorRandom() 
-    for i in range(len(seq) - 1):
-        arc = [seq[i], seq[i + 1]]
+    # Draw lines ===============================================================
+    if (lineColor == 'Random'):
+        lineColor = colorRandom() 
+    for i in range(len(locSeq) - 1):
+        line = [locSeq[i], locSeq[i + 1]]
         if (not xyReverseFlag):
-            x1 = arc[0][0]
-            y1 = arc[0][1]
-            x2 = arc[1][0]
-            y2 = arc[1][1]
+            x1 = line[0][0]
+            y1 = line[0][1]
+            x2 = line[1][0]
+            y2 = line[1][1]
         else:
-            x1 = arc[0][1]
-            y1 = arc[0][0]
-            x2 = arc[1][1]
-            y2 = arc[1][0]
+            x1 = line[0][1]
+            y1 = line[0][0]
+            x2 = line[1][1]
+            y2 = line[1][0]
         dx = x2 - x1
         dy = y2 - y1
-        ax.plot([x1, x2], [y1, y2], color = arcColor)
+        ax.plot([x1, x2], [y1, y2], color = lineColor, linewidth=lineWidth)
         if (arrowFlag):
-            ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=arcColor)
+            ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=lineWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=lineColor)
+
+    # Axis on and off =========================================================
+    if (not showAxis):
+        plt.axis('off')
 
     # Save figure =============================================================
     if (saveFigPath != None and isinstance(fig, plt.Figure)):
         fig.savefig(saveFigPath)
     if (not showFig):
         plt.close(fig)
+
+    return fig, ax
+
+def plotNodeSeq(
+    nodes: dict, 
+    nodeSeq: list[int|str],
+    lineColor: str = 'Random',
+    lineWidth: float = 1,
+    arrowFlag: bool = True,
+    arrowHeadWidth: float = 0.1,
+    arrowHeadLength: float = 0.2,
+    xyReverseFlag: bool = False,
+    fig = None,
+    ax = None,
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ):
+
+    """Given a `nodes` dictionary and a sequence of node IDs, plot a route that visits each node by IDs.
+
+    Parameters
+    ----------
+
+    nodes: dictionary, required
+        The coordinates and other attributions of the nodes to be plotted, in the following format::
+            >>> nodes = {
+            ...     nodeID1: {
+            ...         'loc': (x, y),
+            ...         'marker': 'r',    # Optional, default as 'o'
+            ...         'markersize': 2,  # Optional, default as None
+            ...         'color': 'red',   # Optional, default as 'Random'
+            ...         'size': 3,        # Optional, default as 3
+            ...         'fontsize': 3,    # Optional, default as 3
+            ...         'neighbor': poly, # Optional, indicate if need to display the neighborhood
+            ...     }, # ...
+            ... }
+    nodeSeq: list[int|str], required
+        A list of nodeIDs which will form a visiting sequence
+    arcColor: string, optional, default 'Random'
+        Color of arcs
+    arcWidth: float, optional, default 1
+        Width of arcs
+    arrowFlag: bool, optional, default True
+        True if plot arrows
+    arrowHeadWidth: float, optional, default 0.1
+        Width of arrow head
+    arrowHeadLength: float, optional, default 0.2
+        Length of arrow head
+    xyReverseFlag: bool, optional, default False
+        True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
+    fig: matplotlib object, optional, default None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
+    figSize: 2-tuple, optional, default as (None, 5)
+        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
+    boundingBox: 4-tuple, optional, default as (None, None, None, None)
+        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
+    saveFigPath: string, optional, default as None
+        The path for exporting image if provided
+    showFig: bool, optional, default as True
+        True if show the figure in Juypter Notebook environment
+
+    Returns
+    -------
+    fig, ax: matplotlib.pyplot object
+    """
+
+    # Create arcs =============================================================
+    if (nodeSeq == None):
+        raise MissingParameterError("ERROR: Missing required field `nodeSeq`.")
+    arcs = []
+    for i in range(len(nodeSeq) - 1):
+        arcs.append([nodeSeq[i], nodeSeq[i + 1]])
+
+    # Color ===================================================================
+    if (lineColor == 'Random'):
+        lineColor = colorRandom()
+
+    # Call plotArcs ===========================================================
+
+    locSeq = []
+    for n in nodeSeq:
+        if (n not in nodes):
+            raise UnsupportedInputError("ERROR: Cannot find %s in nodes" % n)
+        locSeq.append(nodes[n]['loc'])
+
+    fig, ax = plotLocSeq(
+        fig = fig,
+        ax = ax,
+        locSeq = locSeq,
+        lineColor = lineColor,
+        lineWidth = lineWidth,
+        arrowFlag = arrowFlag,
+        arrowHeadWidth = arrowHeadWidth,
+        arrowHeadLength = arrowHeadLength,
+        xyReverseFlag = xyReverseFlag,
+        figSize = figSize,
+        boundingBox = boundingBox,
+        showAxis = showAxis,
+        saveFigPath = saveFigPath,
+        showFig = showFig)
 
     return fig, ax
 
@@ -571,6 +596,7 @@ def plotPolygon(
     ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
     boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
     ):
@@ -676,7 +702,11 @@ def plotPolygon(
         y.append(poly[0][1])
     else:
         x.append(poly[0][1])
-        y.append(poly[0][0])        
+        y.append(poly[0][0])
+
+    if (abs(x[-1] - x[0]) > CONST_EPSILON):
+        x.append(x[0])
+        y.append(y[0])
 
     # Plot ====================================================================
     if (edgeColor == 'Random'):
@@ -689,12 +719,34 @@ def plotPolygon(
         else:
             ax.fill(x, y, facecolor=fillColor, edgecolor=edgeColor, hatch=fillStyle, linewidth=edgeWidth, alpha=opacity)
 
+    # Axis on and off =========================================================
+    if (not showAxis):
+        plt.axis('off')
+
     # Save figure =============================================================
     if (saveFigPath != None and isinstance(fig, plt.Figure)):
         fig.savefig(saveFigPath)
     if (not showFig):
         plt.close(fig)
 
+    return fig, ax
+
+def plotArcSegs(
+    arcSegs: list[arcSeg],
+    arcSegColor: str = 'Random',
+    arcSegWidth: float = 1.0,
+    xyReverseFlag: bool = False,
+    fig = None,
+    ax = None,
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ): 
+    return fig, ax
+
+def plotArcPoly():
     return fig, ax
 
 def plotProvinceMap(
@@ -708,10 +760,10 @@ def plotProvinceMap(
     fig = None,
     ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
     ):
-
 
     """Draw arcs
 
@@ -777,240 +829,42 @@ def plotProvinceMap(
             xyReverseFlag = True,
             figSize=figSize,
             saveFigPath=saveFigPath,
+            showAxis = showAxis,
             showFig=showFig)
 
     return fig, ax
 
-def plotGantt(
-    fig:        "Based matplotlib figure object" = None, 
-    ax:         "Based matplotlib ax object" = None,
-    gantt:      "List of dictionaries, each represents a gantt block, in the following format\
-                [{\
-                    'entityID': entityID, \
-                    'timeWindow': [startTime, endTime], or \
-                        'timeStamps': [timeStamp1, timeStamp2, ..., timeStampN], \
-                    'desc': (optional) description of the window,\
-                    'descPos': (optional, default as 0, left-above) \
-                        0 - left-above, \
-                        1 - left-inside, \
-                        2 - middle-above, \
-                        3 - middle-inside,\
-                    'color': (optional, default as 'random') color, \
-                    'style': (optional, default as 'solid') 'solid' \
-                }, ... ]\
-                " = None,
-    group:      "List of groups of entityIDs, in the following format\
-                [{\
-                    'groupID': groupID, \
-                    'entityIDList': [entityID1, entityID2, ...], \
-                }, ... {\
-                }]" = None,
-    gridFlag:   "True if turn on the grid as background" = True,
-    labelFlag:  "True if add label of entities on Gantt chart" = True,
-    linewidth:  "The width of Gantt block borders" = 1,
-    xlabel:     "xlabel of the gantt" = "Time",
-    ylabel:     "ylabel of the gantt" = "",
-    groupDivider: "Line style of dividing groups of gantt" = None,
-    groupDividerColor: "Line color of dividing groups of gantt" = 'black',
-    blockwidth: "The width of Gantt block" = 0.8,
-    entities:   "1) None, takes the entities in `gantt` \
-                 2) List of strings, the Gantt chart will be drawn in this order, \
-                 3) List of lists (strings), the Gantt chart will be drawn in groups" = None,
-    groupLabel: "List of group labels, should match with `entities`" = None,
-    startTime:  "Start time of Gantt, default to be 0, if None, use the earliest time in `gantt`" = 0,
-    endTime:    "End time of Gantt, default to be None, if None, use the latest time in `gantt`" = None,
-    showTail:   "Show the latest time of all gantt blocks" = True,
-    figSize:    "Size of the figure, in (width, height)" = (12, 5),
-    saveFigPath:"1) None, if not exporting image, or \
-                 2) String, the path for exporting image" = None,
-    showFig:    "True if shows the figure in environment such as Jupyter Notebook, \
-                 recommended to turn off if generate a batch of images" = True
-    ) -> "Given a Gantt dictionary, plot Gantt":
-
-    # Check for required fields ===============================================
-    if (gantt == None):
-        msgError(ERROR_MISSING_GANTT)
-        return
-
-    # Pre-calculate ===========================================================
-    realStart = None
-    realEnd = None
-    entList = []
-    for g in gantt:
-        if (g['entityID'] not in entList):
-            entList.append(g['entityID'])
-        if ('timeWindow' in g):
-            if (realStart == None or realStart > g['timeWindow'][0]):
-                realStart = g['timeWindow'][0]
-            if (realEnd == None or realEnd < g['timeWindow'][1]):
-                realEnd = g['timeWindow'][1]
-        elif ('timeStamps' in g):
-            if (realStart == None or realStart > g['timeStamps'][0]):
-                realStart = g['timeStamps'][0]
-            if (realEnd == None or realEnd < g['timeStamps'][-1]):
-                realEnd = g['timeStamps'][-1]
-
-    # Check overwritten fields ================================================
-    if (startTime != None):
-        startTime = startTime
-    else:
-        startTime = realStart
-
-    if (endTime != None):
-        endTime = endTime
-    else:
-        endTime = realEnd
-
-    # Arrange entities ========================================================
-    numGroup = None              
-    if (entities != None):
-        # Check inputs
-        groupFlag = False
-        for e in entities:
-            if (type(e) == list):
-                groupFlag = True
-                numGroup = len(entities)
-                break
-        # If the type of entities is List of Lists, the entities are grouped
-        if (groupFlag == True):
-            groupEntities = []
-            for el in entities:
-                if (type(el) != list):
-                    msgError(ERROR_INCOR_GANTT_ENTITYGROUP)
-                    return
-                for e in el:
-                    groupEntities.append(e)
-                groupEntities.append(None)
-            groupEntities = groupEntities[:-1] # Remove the last None
-            entities = [i for i in groupEntities]
-        notFound = []
-        for e in entities:            
-            if (e not in entList and e != None):
-                notFound.append("\"" + str(e) + "\"")
-        if (len(notFound) > 0):
-            warnings.warn(ERROR_INCOR_GANTT_MISSENT + ": " + list2String(notFound))            
-    elif (entities == None):
-        entities = [i for i in entList]
-
-    # If no based matplotlib figure, define fig size ==========================
-    if (fig == None or ax == None):
-        fig, ax = plt.subplots()
-        fig.set_figheight(figSize[1])
-        fig.set_figwidth(figSize[0])
-        ax.set_xlim(startTime, endTime + (endTime - startTime) * 0.05)
-        ax.set_ylim(-0.25, len(entities) + 0.5)
-
-    # Set axis ================================================================
-    entities.reverse()
-    if (groupDivider != None and len(groupLabel) > 0):
-        groupLabel.reverse()
-    yticks = []
-    pos = 0.5
-    groupIndex = 0
-    for i in range(len(entities)):
-        yticks.append(pos)
-        if (entities[i] != None):
-            pos += 1
-        else:
-            if (groupDivider != None):
-                ax.plot((startTime, endTime + (endTime - startTime) * 0.05), (pos - 0.25, pos - 0.25), linestyle = groupDivider, color = groupDividerColor, linewidth=linewidth)
-                if (groupLabel != None and len(groupLabel) == numGroup):
-                    ax.annotate(groupLabel[groupIndex + 1], (endTime + (endTime - startTime) * 0.05, pos - 0.1), horizontalalignment='right')
-                    groupIndex += 1
-            pos += 0.5
-    ax.set_yticks(yticks)   
-    ax.set_yticklabels(entities)
-    ax.set_ylabel(ylabel)
-    entities.reverse()
-    ax.set_xlabel(xlabel)
-
-    # Grids ===================================================================
-    if (gridFlag):
-        ax.grid(b = True, linestyle=':')
-
-    # Loop through `gantt` and draw gantt =====================================
-    for g in gantt:
-        if (g['entityID'] in entities):
-            bottom = yticks[len(yticks) - 1 - entities.index(g['entityID'])] - blockwidth / 2
-            top = 0
-            if (labelFlag == True):
-                top = yticks[len(yticks) - 1 - entities.index(g['entityID'])] + blockwidth / 4
-            else:
-                top = yticks[len(yticks) - 1 - entities.index(g['entityID'])] + blockwidth / 2
-            if ('timeWindow' in g):
-                s = g['timeWindow'][0]
-                e = g['timeWindow'][1]
-                x = [s, s, e, e, s]
-                y = [bottom, top, top, bottom, bottom]
-                ax.plot(x, y, color = 'black', linewidth = linewidth)
-                if (g['color'] != 'random'):
-                    ax.fill(x, y, color = g['color'], linewidth = linewidth)
-                else:
-                    rndColor = colorRandom()
-                    ax.fill(x, y, color = rndColor, linewidth = linewidth)
-                if (labelFlag == True):
-                    if ('descPosition' not in g or g['descPosition'] == 0):
-                        ax.annotate(g['desc'], (s + blockwidth / 4, top + blockwidth / 8))
-                    elif (g['descPosition'] == 1):
-                        ax.annotate(g['desc'], (s + blockwidth / 4, bottom + blockwidth / 8))
-                if (g['style'] != 'solid'):
-                    ax.fill(x, y, hatch = g['style'], fill=False, linewidth = linewidth)
-            elif ('timeStamps' in g):
-                for i in range(len(g['timeStamps']) - 1):
-                    s = g['timeStamps'][i]
-                    e = g['timeStamps'][i + 1]
-                    x = [s, s, e, e, s]
-                    y = [bottom, top, top, bottom, bottom]
-                    ax.plot(x, y, color = 'black', linewidth = linewidth)
-                    ax.annotate(g['desc'][i], (s, top + blockwidth / 8))
-                    if (g['color'] != 'random'):
-                        ax.fill(x, y, color = g['color'], linewidth = linewidth)
-                    else:
-                        rndColor = colorRandom()
-                        ax.fill(x, y, color = rndColor, linewidth = linewidth)
-                    if (g['style'] != 'solid'):
-                        ax.fill(x, y, hatch = g['style'], fill=False, linewidth = linewidth)
-                if (labelFlag == True):
-                    ax.annotate(g['desc'][-1], (g['timeStamps'][-1], top + blockwidth / 8))
-
-    # Show time span ==========================================================
-    if (showTail):
-        xTicks = list(ax.get_xticks())
-        xTicks.append(realEnd)
-        ax.set_xticks(xTicks)  
-
-    # Fix height if fig, ax are not provided ==================================
-    if (fig == None or ax == None):
-        fig.set_figheight(5 * max(pos))
-
-    # Save figure =============================================================
-    if (saveFigPath != None):
-        fig.savefig(saveFigPath)
-    if (not showFig):
-        plt.close(fig)
-    return fig, ax
-
-def plotRoadNetwork2D(
+def plotRoadNetwork(
     roads: dict,
     roadWidth: dict[str,float]|float = {
             'motorway': 2,
+            'motorway_link': 2,
             'truck': 1.5,
+            'truck_link': 1.5,
             'primary': 1.2,
+            'primary_link': 1.2,
             'secondary': 1,
+            'secondary_link': 1,
             'tertiary': 1,
+            'tertiary_link': 1,
             'residential': 0.8,
             'others': 0.8
         },
     roadColors: dict[str,str]|str = {
             'motorway': 'red',
+            'motorway_link': 'red',
             'truck': 'orange',
+            'truck_link': 'orange',
             'primary': 'orange',
+            'primary_link': 'orange',
             'secondary': 'orange',
+            'secondary_link': 'orange',
             'tertiary': 'orange',
+            'tertiary_link': 'orange',
             'residential': 'green',
             'others': 'gray'
         },
-    roadShowFlags: dict[str, bool]|str|bool = 'All',
+    roadShowFlags: list[str, bool]|str|bool = 'All',
     bldColors: dict[str,str]|str = {
             'building': 'yellow',
             'commercial': 'yellow',
@@ -1020,11 +874,12 @@ def plotRoadNetwork2D(
             'industrial': 'orange',
             'manufacture': 'orange'
         },
-    bldShowFlags: dict[str, bool]|str|bool = False,
+    bldShowFlags: list[str, bool]|str|bool = False,
     fig = None,
     ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
     boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
     ): 
@@ -1109,9 +964,8 @@ def plotRoadNetwork2D(
     # Plot roads ==============================================================
     for road in roads['road']:
         if (roadShowFlags == 'All' or roadShowFlags == True 
-            or (type(roadShowFlags) == dict 
-                and roads['road'][road]['class'] in roadShowFlags 
-                and roadShowFlags[roads['road'][road]['class']] == True)):
+            or (type(roadShowFlags) == list 
+                and roads['road'][road]['class'] in roadShowFlags)):
             x = []
             y = []
             for pt in roads['road'][road]['shape']:
@@ -1138,9 +992,8 @@ def plotRoadNetwork2D(
     # Plot buildings ==========================================================
     for building in roads['building']:
         if (bldShowFlags == 'All' or bldShowFlags == True
-            or (type(bldShowFlags) == dict
-                and roads['building'][building]['type'] in bldShowFlags
-                and bldShowFlags[roads['building'][building]['type']] == True)):
+            or (type(bldShowFlags) == list
+                and roads['building'][building]['type'] in bldShowFlags)):
             x = []
             y = []
             color = None
@@ -1158,7 +1011,264 @@ def plotRoadNetwork2D(
                     color = 'gray'
             ax.fill(x, y, facecolor=color)
 
-    plt.close(fig)
+    # Axis on and off =========================================================
+    if (not showAxis):
+        plt.axis('off')
+
+    # Save figure =============================================================
+    if (saveFigPath != None):
+        fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
+
+    return fig, ax
+
+def plotGantt(
+    gantt: list[dict],
+    group: list[dict] | None = None, 
+    phase: list[dict] | None = None,
+    xlabel: str = "Time",
+    ylabel: str = "",
+    ganttHeight: float = 0.8,
+    ganttLinewidth: float = 1.0,
+    ganttBlockHeight: float = 1.0,
+    groupSeparatorHeight: float = 0.5,
+    groupSeparatorStyle: str = "-",
+    groupSeparatorLinewidth: float = 0.5,
+    groupSeparatorColor: str = 'gray',
+    phaseSeparatorStyle: str = "--",
+    phaseSeparatorLinewidth: float = 0.5,
+    phaseSeparatorColor: str = 'gray',
+    startTime: float = 0,
+    endTime: float|None = None,
+    fig = None, 
+    ax = None,
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (12, 5), 
+    showGridFlag: bool = False,
+    saveFigPath: str|None = None,
+    showTailFlag: bool = True,
+    showFig: bool = True
+    ) -> "Given a Gantt dictionary, plot Gantt":
+
+    """Given a Gantt dictionary, plot a Gantt chart
+
+    Parameters
+    ----------
+    gantt: list of dictionaries, required
+        A list of dictionaries, each represents a gantt block, in the following format\
+            >>> gantt = [{
+            ...     'entityID': entityID, 
+            ...     'timeWindow': [startTime, endTime], 
+            ...     'desc': (optional) description of the window,
+            ...     'color': (optional, default as 'random') color, 
+            ...     'style': (optional, default as 'solid') 'solid' 
+            ... }, ... ]
+    group: list of dictionaries, optional, default []
+        Groups of entityIDs, in the following format
+            >>> group = [{
+            ...     'title': groupTitle,
+            ...     'entities': [entityID1, entityID2, ...],
+            ...     'showFlag': True,
+            ...     'backgroundColor': 'gray',
+            ...     'backgroundOpacity': 0.5
+            ... }, ... ]
+    phase: list of dictionaries, optional, default []
+        A list of phases, in the following format
+            >>> phase = [{
+            ...     'title': phaseTitle,
+            ...     'timeWindow': [startTime, endTime],
+            ...     'backgroundColor': 'gray',
+            ...     'backgroundOpacity': 0.5
+            ... }, ... ]
+    xlabel: string, optional, default "Time"
+        The label of x-axis
+    ylabel: string, optional, default ""
+        The label of y-axis
+    fig: matplotlib object, optional, default None
+        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
+    ax: matplotlib object, optional, default None
+        See `fig`
+    figSize: 2-tuple, optional, default as (None, 5)
+        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.    
+    showGridFlag: bool, optional, default as False
+        True if turn the grids on.
+    saveFigPath: string, optional, default as None
+        The path for exporting image if provided
+    showFig: bool, optional, default as True
+        True if show the figure in Juypter Notebook environment
+    """
+
+    # Check for required fields ===============================================
+    if (gantt == None):
+        raise MissingParameterError(ERROR_MISSING_GANTT)
+
+    # Pre-calculate ===========================================================
+    realStart = None
+    realEnd = None
+    for g in gantt:
+        if ('entityID' not in g or 'timeWindow' not in g):
+            raise MissingParameterError("ERROR: Missing 'entityID' and 'timeWindow' in gantt.")
+
+        if (realStart == None or realStart > g['timeWindow'][0]):
+            realStart = g['timeWindow'][0]
+        if (realEnd == None or realEnd < g['timeWindow'][1]):
+            realEnd = g['timeWindow'][1]
+    if (startTime == None):
+        startTime = realStart
+    if (endTime == None):
+        endTime = realEnd
+
+    # Arrange entities ========================================================
+    if (group == None or group == []):
+        group = [{
+            'title': "",
+            'entities': [],
+            'showFlag': True,
+            'backgroundColor': None,
+            'backgroundOpacity': 0
+        }]
+        for g in gantt:
+            if (g['entityID'] not in group[0]['entities']):
+                group[0]['entities'].append(g['entityID'])
+
+    entities = []
+    for g in group:
+        if (g['showFlag']):
+            entities.extend(g['entities'])
+            entities.append(None)
+    if (entities[-1] == None):
+        entities = entities[:-1]
+    entities.reverse()
+
+    totalHeight = len([i for i in entities if i != None]) * ganttBlockHeight + len([i for i in entities if i == None]) * groupSeparatorHeight
+    yAcc = 0.5 * ganttBlockHeight
+    yticks = [0.5 * ganttBlockHeight]
+    for i in range(1, len(entities)):        
+        if (entities[i - 1] != None and entities[i] != None):
+            yAcc += ganttBlockHeight
+            yticks.append(yAcc)
+        elif (entities[i - 1] == None or entities[i] == None):
+            yAcc += 0.5 * groupSeparatorHeight + 0.5 * ganttBlockHeight
+            yticks.append(yAcc)
+
+    # If no based matplotlib figure, define fig size ==========================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        width = 0
+        height = 0
+        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
+            width = 5 * ((endTime - startTime) / totalHeight)
+            height = 5
+        elif (figSize != None and figSize[0] != None and figSize[1] == None):
+            width = figSize[0]
+            height = figSize[0] * (totalHeight / (endTime - startTime))
+        elif (figSize != None and figSize[0] == None and figSize[1] != None):
+            width = figSize[1] * ((endTime - startTime) / totalHeight)
+            height = figSize[1]
+        else:
+            (width, height) = figSize
+        if (isinstance(fig, plt.Figure)):
+            fig.set_figwidth(width)
+            fig.set_figheight(height)
+            ax.set_xlim(startTime, endTime + (endTime - startTime) * 0.05)
+            ax.set_ylim(0, totalHeight)
+    ax.set_yticks(yticks)   
+    ax.set_yticklabels(entities)
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
+
+    # Plot groups =============================================================
+    groupColor = []
+    groupOpacity = []
+    groupTitle = []
+    for i in range(len(group)):
+        if (group[i]['showFlag']):
+            if (group[i]['backgroundColor'] != 'Random'):
+                groupColor.append(group[i]['backgroundColor'])
+            else:
+                groupColor.append(colorRandom())
+            groupOpacity.append(group[i]['backgroundOpacity'])
+            groupTitle.append(group[i]['title'])
+    groupStyle = []
+    yS = 0
+    yE = 0
+    for i in range(len(entities)):
+        if (entities[i] == None):
+            yE = yticks[i]
+            groupStyle.append([yS, yE])
+            yS = yticks[i]
+    groupStyle.append([yS, yticks[-1] + 0.5 * ganttBlockHeight])
+    for g in range(len(groupStyle)):
+        s = groupStyle[g][0]
+        e = groupStyle[g][1]
+        ax.fill([startTime, startTime, endTime + (endTime - startTime) * 0.05, endTime + (endTime - startTime) * 0.05, startTime], 
+            [s, e, e, s, s], color=groupColor[g], alpha=groupOpacity[g])
+        ax.annotate(groupTitle[g], (endTime + (endTime - startTime) * 0.05, e), ha='right', va='top')
+
+    # Plot phases =============================================================
+    phaseSep = []
+    phaseAnchor = []
+    phaseTitle = []
+    if (phase != None and phase != []):
+        if (phaseSeparatorStyle != None):
+            for i in range(1, len(phase)):
+                sep = phase[i - 1]['timeWindow'][1] + (phase[i]['timeWindow'][0] - phase[i - 1]['timeWindow'][1]) / 2
+                ax.plot([sep, sep], [0, totalHeight], color = phaseSeparatorColor, linewidth = phaseSeparatorLinewidth, linestyle = phaseSeparatorStyle)
+            ax.plot([phase[-1]['timeWindow'][1], phase[-1]['timeWindow'][1]], [0, totalHeight], color = phaseSeparatorColor, linewidth = phaseSeparatorLinewidth, linestyle = phaseSeparatorStyle)
+        for i in range(len(phase)):
+            if (phase[i]['backgroundColor'] != None):
+                ax.fill([phase[i]['timeWindow'][0], phase[i]['timeWindow'][0], phase[i]['timeWindow'][1], phase[i]['timeWindow'][1], phase[i]['timeWindow'][0]], 
+                    [0, totalHeight, totalHeight, 0, 0], 
+                    color=phase[i]['backgroundColor'] if phase[i]['backgroundColor'] != 'Random' else colorRandom(), 
+                    alpha=phase[i]['backgroundOpacity'])
+                ax.annotate(phase[i]['title'], (phase[i]['timeWindow'][0] + (phase[i]['timeWindow'][1] - phase[i]['timeWindow'][0]) / 2, totalHeight), ha='center', va='bottom')
+
+    # Plot each gantt block ===================================================
+    for i in range(len(entities)):
+        if (entities[i] != None):
+            center = yticks[i]
+            top = None
+            bottom = yticks[i] - ganttHeight / 2
+            ent = [g for g in gantt if g['entityID'] == entities[i]]
+            for g in ent:
+                s = g['timeWindow'][0]
+                e = g['timeWindow'][1]
+                x = [s, s, e, e, s]
+                if ('desc' not in g or ('descPosition' in g and g['descPosition'] == 'Inside')):
+                    top = yticks[i] + ganttHeight / 2
+                else:
+                    top = yticks[i] + ganttHeight / 4
+                y = [bottom, top, top, bottom, bottom]
+                ax.plot(x, y, color = 'black', linewidth = ganttLinewidth)
+                if ('color' in g or g['color'] != 'random'):
+                    ax.fill(x, y, color = g['color'], linewidth = ganttLinewidth)
+                else:
+                    rndColor = colorRandom()
+                    ax.fill(x, y, color = rndColor, linewidth = ganttLinewidth)
+                if ('desc' in g):
+                    if ('descPosition' not in g or g['descPosition'] == 'Top'):
+                        ax.annotate(g['desc'], (s + ganttHeight / 8, top + ganttHeight / 8))
+                    elif ('descPosition' in g and g['descPosition'] == 'Inside'):
+                        ax.annotate(g['desc'], (s + ganttHeight / 8, bottom + ganttHeight / 8))
+                if (g['style'] != 'solid'):
+                    ax.fill(x, y, hatch = g['style'], fill=False, linewidth = ganttLinewidth)
+        elif (groupSeparatorStyle != None):
+            center = yticks[i]
+            ax.plot((startTime, endTime + (endTime - startTime) * 0.05), (center, center), linestyle = groupSeparatorStyle, linewidth = groupSeparatorLinewidth, color = groupSeparatorColor)
+
+    # Show time span ==========================================================
+    if (showTailFlag):
+        xTicks = list(ax.get_xticks())
+        xTicks.append(realEnd)
+        ax.set_xticks(xTicks)  
+
+    # Grids ===================================================================
+    if (showGridFlag):
+        ax.grid(b = True, linestyle=':')
+
+    # Fix height if fig, ax are not provided ==================================
+    if (fig == None or ax == None):
+        fig.set_figheight(5 * max(pos))
 
     # Save figure =============================================================
     if (saveFigPath != None):
