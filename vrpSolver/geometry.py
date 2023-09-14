@@ -1644,7 +1644,7 @@ def nodeSeqByScanning(nodes: dict, direction: float=0) -> list:
     return
 
 # Create distance matrix ======================================================
-def matrixDist(nodes: dict, edges: dict = {'method': 'Eulidean'}, depotID: int|str = 0, nodeIDs: list|str = 'All', serviceTime: float = 0) -> dict:
+def matrixDist(nodes: dict, edges: dict = {'method': 'Euclidean'}, depotID: int|str = 0, nodeIDs: list|str = 'All', serviceTime: float = 0) -> dict:
     # Define tau
     tau = {}
     pathLoc = {}

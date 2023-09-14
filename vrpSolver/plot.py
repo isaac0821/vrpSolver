@@ -735,6 +735,7 @@ def plotArcSegs(
     arcSegs: list[arcSeg],
     arcSegColor: str = 'Random',
     arcSegWidth: float = 1.0,
+    lod: int = 30,
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
@@ -744,6 +745,68 @@ def plotArcSegs(
     saveFigPath: str|None = None,
     showFig: bool = True
     ): 
+
+    # Check for required fields ===============================================
+    if (arcSegs == None):
+        raise MissingParameterError("ERROR: Missing required field `arcSegs`.")
+    
+    locSeqs = []
+    for arcSeg in arcSegs:
+        locSeq = []
+        headingStart = headingXY(arcSeg[2], arcSeg[1])
+        headingEnd = headingXY(arcSeg[2], arcSeg[0])
+        R = distEuclideanXY(arcSeg[2], arcSeg[1])
+
+        for i in range(lod + 1):
+            deg = headingStart + i * (headingEnd - headingStart) / lod
+            locSeq.append(ptInDistXY(arcSeg[2], deg, R))
+
+
+    # If no based matplotlib figure provided, define boundary =================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        allX = []
+        allY = []
+        for pt in poly:
+            if (not xyReverseFlag):
+                allX.append(pt[0])
+                allY.append(pt[1])
+            else:
+                allX.append(pt[1])
+                allY.append(pt[0])
+        (xMin, xMax, yMin, yMax) = boundingBox
+        if (xMin == None):
+            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
+        if (xMax == None):
+            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
+        if (yMin == None):
+            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
+        if (yMax == None):
+            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+        width = 0
+        height = 0
+        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
+            if (xMax - xMin > yMax - yMin):
+                width = 5
+                height = 5 * ((yMax - yMin) / (xMax - xMin))
+            else:
+                width = 5 * ((xMax - xMin) / (yMax - yMin))
+                height = 5
+        elif (figSize != None and figSize[0] != None and figSize[1] == None):
+            width = figSize[0]
+            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
+        elif (figSize != None and figSize[0] == None and figSize[1] != None):
+            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
+            height = figSize[1]
+        else:
+            (width, height) = figSize
+
+        if (isinstance(fig, plt.Figure)):
+            fig.set_figwidth(width)
+            fig.set_figheight(height)
+            ax.set_xlim(xMin, xMax)
+            ax.set_ylim(yMin, yMax)
+
     return fig, ax
 
 def plotArcPoly():
