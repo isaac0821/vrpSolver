@@ -99,7 +99,6 @@ from .road import *
 from .ds import *
 from .plot import *
 from .instance import *
-from .calculate import *
 
 # Geometry
 from .geometry import *

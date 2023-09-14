@@ -1137,12 +1137,15 @@ def ptLatLon2XYMercator(ptLatLon: pt) -> pt:
     return ptXY
 
 # Polys =======================================================================
-def polysUnionAll(polys:polys, returnShaplelyObj:bool=False) -> list:
+def polysUnionAll(polys:polys=None, polysShapely: list[shapely.Polygon]=None, returnShaplelyObj:bool=False) -> list:
     """Given a list of polygons which could be intersecting to each other, return unioned polygons that are not intersecting"""
-    polyShape = []
-    for p in polys:
-        polyShape.append(shapely.Polygon(p))
-    unionAll = shapely.union_all(polyShape)
+    if (polys == None and polysShapely == None):
+        raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
+    if (polysShapely == None):
+        polysShapely = []
+        for p in polys:
+            polysShapely.append(shapely.Polygon(p))
+    unionAll = shapely.union_all(polysShapely)
     if (returnShaplelyObj):
         return unionAll
 

@@ -361,47 +361,6 @@ class Route(Ring):
         self.remove(bestRemovalKey)
         return bestRemovalKey
 
-    def twoOpt(self):
-        # NOTE: FXXK! Why this is so hard? It should not be that difficult
-        if (self._count <= 4):
-            return
-
-        nI = self.head 
-        nJ = nI.next.next
-        sofarBestDist = self.dist if not self.asymFlag else min(self.dist, self._revDist)
-
-        canImproveFlag = True
-        while (canImproveFlag):
-            canImproveFlag = False
-
-
-            
-
-        # canImproveFlag = True
-        # while (canImproveFlag):
-        #     canImproveFlag = False
-
-        #     for M in range(self._count):
-        #         nJKey = nJ.key
-        #         for N in range(self._count):
-        #             self.swapNext(nJKey)
-        #             print([i.key for i in self.traverse(closeFlag=True)])
-        #             newDist = self.dist if not self.asymFlag else min(self.dist, self._revDist)
-        #             if (newDist < sofarBestDist):
-        #                 sofarBestDist = newDist
-        #                 canImproveFlag = True
-        #                 print("Update", nI.key, nJKey)
-        #                 break
-        #         if (canImproveFlag):
-        #             break
-        #         else:
-        #             nJ = nJ.next
-        #     if (canImproveFlag):
-        #         nI = self.head
-        #     else:
-        #         nI = nI.next
-            
-
 class BSTreeNode(object):
     def __init__(self, key:int, value, parent:'BSTreeNode'=None, left:'BSTreeNode'=None, right:'BSTreeNode'=None):
         self.key = key

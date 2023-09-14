@@ -5,6 +5,7 @@ from .color import *
 from .msg import *
 from .province import *
 from .error import *
+from .geometry import *
 
 # History =====================================================================
 # 20230518 - `plotNodes()` now will plot the neighborhood of nodes
@@ -584,7 +585,7 @@ def plotNodeSeq(
 
     return fig, ax
 
-def plotPolygon(
+def plotPoly(
     poly: poly, 
     edgeWidth: float = 0.5,
     edgeColor: str|None = 'Random',
@@ -753,27 +754,29 @@ def plotArcSegs(
     locSeqs = []
     for arcSeg in arcSegs:
         locSeq = []
-        headingStart = headingXY(arcSeg[2], arcSeg[1])
-        headingEnd = headingXY(arcSeg[2], arcSeg[0])
-        R = distEuclideanXY(arcSeg[2], arcSeg[1])
-
+        startHeading = headingXY(arcSeg[2], arcSeg[1])
+        endheading = headingXY(arcSeg[2], arcSeg[0])
+        startR = distEuclideanXY(arcSeg[2], arcSeg[1])['dist']
+        endR = distEuclideanXY(arcSeg[2], arcSeg[0])['dist']
         for i in range(lod + 1):
-            deg = headingStart + i * (headingEnd - headingStart) / lod
+            deg = startHeading + i * (endheading - startHeading) / lod
+            R = startR + i * (endR - startR) / lod
             locSeq.append(ptInDistXY(arcSeg[2], deg, R))
-
+        locSeqs.append(locSeq)
 
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
         allX = []
         allY = []
-        for pt in poly:
-            if (not xyReverseFlag):
-                allX.append(pt[0])
-                allY.append(pt[1])
-            else:
-                allX.append(pt[1])
-                allY.append(pt[0])
+        for seq in locSeqs:
+            for pt in seq:
+                if (not xyReverseFlag):
+                    allX.append(pt[0])
+                    allY.append(pt[1])
+                else:
+                    allX.append(pt[1])
+                    allY.append(pt[0])
         (xMin, xMax, yMin, yMax) = boundingBox
         if (xMin == None):
             xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
@@ -807,9 +810,80 @@ def plotArcSegs(
             ax.set_xlim(xMin, xMax)
             ax.set_ylim(yMin, yMax)
 
+    for seq in locSeqs:
+        fig, ax = plotLocSeq(
+            fig = fig,
+            ax = ax,
+            locSeq = seq,
+            lineColor = arcSegColor,
+            lineWidth = arcSegWidth,
+            arrowFlag = False,
+            xyReverseFlag = xyReverseFlag,
+            figSize = figSize,
+            boundingBox = (xMin, xMax, yMin, yMax))
+
+    # Axis on and off =========================================================
+    if (not showAxis):
+        plt.axis('off')
+
+    # Save figure =============================================================
+    if (saveFigPath != None and isinstance(fig, plt.Figure)):
+        fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
     return fig, ax
 
-def plotArcPoly():
+def plotArcPoly(
+    arcPoly: arcPoly, 
+    arcSegColor: str|None = 'Random',
+    arcSegWidth: float = 0.5,
+    lod = 30,
+    fillColor: str|None = None,
+    fillStyle: str = "///",
+    opacity: float = 0.5,
+    xyReverseFlag: bool = False,    
+    fig = None,
+    ax = None,
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ):
+
+    # Check for required fields ===============================================
+    if (arcPoly == None):
+        raise MissingParameterError("ERROR: Missing required field `arcPoly`.")
+
+    locSeqs = []
+    for arcSeg in arcSegs:
+        locSeq = []
+        startHeading = headingXY(arcSeg[2], arcSeg[1])
+        endheading = headingXY(arcSeg[2], arcSeg[0])
+        startR = distEuclideanXY(arcSeg[2], arcSeg[1])['dist']
+        endR = distEuclideanXY(arcSeg[2], arcSeg[0])['dist']
+        for i in range(lod + 1):
+            deg = startHeading + i * (endheading - startHeading) / lod
+            R = startR + i * (endR - startR) / lod
+            locSeq.append(ptInDistXY(arcSeg[2], deg, R))
+        locSeqs.extend(locSeq)
+
+    fig, ax = plotPoly(
+        fig = fig,
+        ax = ax,
+        poly = locSeqs, 
+        edgeWidth = arcSegWidth,
+        edgeColor = arcSegColor,
+        fillColor = fillColor,
+        fillStyle = fillStyle,
+        opacity = opacity,
+        xyReverseFlag = xyReverseFlag,
+        figSize = figSize, 
+        boundingBox = boundingBox,
+        showAxis = showAxis,
+        saveFigPath = saveFigPath,
+        showFig = showFig)
+
     return fig, ax
 
 def plotProvinceMap(
@@ -832,7 +906,6 @@ def plotProvinceMap(
 
     Parameters
     ----------
-
 
     country: string, required, default 'U.S.'
         Country of the province
@@ -880,7 +953,7 @@ def plotProvinceMap(
                 prvPoly = usState[usStateAbbr[prv]]
         else:
             raise VrpSolverNotAvailableError("Error: %s is not included yet, please stay tune." % country) 
-        fig, ax = plotPolygon(
+        fig, ax = plotPoly(
             fig = fig,
             ax = ax,
             poly = prvPoly,
