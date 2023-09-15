@@ -1,5 +1,6 @@
 import math
 from .error import *
+from .const import *
 
 class RingNode(object):
     def __init__(self, key, value=None, prev: 'RingNode' = None, next: 'RingNode' = None):
@@ -7,6 +8,12 @@ class RingNode(object):
         self.value = value if value != None else key
         self.prev = prev if prev != None else RingNilNode()
         self.next = next if next != None else RingNilNode()
+
+    def clone(self):
+        newObj = RingNode(self.key, self.value)
+        newObj.prev = self.prev
+        newObj.next = self.next
+        return newObj
 
     @property
     def isNil(self):
@@ -154,7 +161,6 @@ class Route(Ring):
             n.prev, n.next = n.next, n.prev
         if (self.asymFlag):
             self.dist, self._revDist = self._revDist, self.dist
-        return
 
     def reverseBetween(self, startKey, endKey):
         if (startKey == endKey):
@@ -185,7 +191,6 @@ class Route(Ring):
             self._revDist += (self.tau[startPrev.key, tra[-1].key] + self.tau[tra[0].key, endNext] 
                 - self.tau[startPrev.key, tra[0].key] - self.tau[tau[-1].key, endNext.key])
             self._revDist += e2sDist - s2eDist
-        return
 
     def query(self, key) -> "RouteNode":
         if (self.head.isNil):
@@ -272,6 +277,8 @@ class Route(Ring):
             self._revDist += self.tau[n.next.key, n.prev.key] - self.tau[n.key, n.prev.key] - self.tau[n.next.key, n.key]
         n.prev.next = n.next
         n.next.prev = n.prev
+        if (self.head.key == key):
+            self.head = n.next
         self._count -= 1
 
     def swapNext(self, key):
@@ -294,22 +301,54 @@ class Route(Ring):
                             - self.tau[nNNext.key, nNext.key] + self.tau[nNext.key, n.key] - self.tau[n.key, nPrev.key])
 
     def swap(self, keyI, keyJ):
+        if (keyI == keyJ):
+            raise KeyExistError("ERROR: Cannot swap itself")
+        # Old: = = = i j k l m n = = = | -> swap(j, m)
+        # New: = = = i m k l j n = = =
         nI = self.query(keyI)
         nJ = self.query(keyJ)
-        pI = nI.prev
-        sI = nI.next
-        pJ = nJ.prev
-        sJ = nJ.next
         if (nI.next.key == keyJ):
-            return swapNext(keyI)
-        nI.prev, nJ.prev = nJ.prev, nI.prev
-        nI.next, nJ.next = nJ.next, nI.next
+            return self.swapNext(keyI)
+        if (nI.next.next.key == keyJ):
+            # Old: = = pI nI nX nJ sJ = =
+            # New: = = pI nJ nX nI sJ = =
+            pI = nI.prev
+            nX = nI.next
+            sJ = nJ.next
+            pI.next = nJ
+            nJ.prev = pI
+            nJ.next = nX
+            nX.prev = nJ
+            nX.next = nI
+            nI.prev = nX
+            nI.next = sJ
+            sJ.prev = nI
+            self.dist += (self.tau[pI.key, nJ.key] + self.tau[nJ.key, nX.key] + self.tau[nX.key, nI.key] + self.tau[nI.key, sJ.key]
+                - self.tau[pI.key, nI.key] - self.tau[nI.key, nX.key] - self.tau[nX.key, nJ.key] - self.tau[nJ.key, sJ.key])
+            if (self.asymFlag):
+                self._revDist += (self.tau[sJ.key, nI.key] + self.tau[nI.key, nX.key] + self.tau[nX.key, nJ.key] + self.tau[nJ.key, pI.key]
+                    - self.tau[sJ.key, nJ.key] - self.tau[nJ.key, nX.key] - self.tau[nX.key, nI.key] - self.tau[nI.key, pI.key])
 
-        self.dist += (self.tau[pI.key, nJ.key] + self.tau[nJ.key, sI.key] + self.tau[pJ.key, nI.key] + self.tau[nI.key, sJ.key]
-            - self.tau[pI.key, nI.key] - self.tau[nI.key, sI.key] - self.tau[pJ.key, nJ.key] - self.tau[nJ.key, sJ.key])
-        if (self.asymFlag):
-            self._revDist += (self.tau[sJ.key, nI.key] + self.tau[nI.key, pJ.key] + self.tau[sI.key, nJ.key] + self.tau[nJ.key, pI.key]
-                - self.tau[sJ.key, nJ.key] - self.tau[nJ.key, pJ.key] - self.tau[sI.key, nI.key] - self.tau[nI.key, pI.key])
+        else:
+            # Old: = = pI nI sI x x x pJ nJ sJ = =
+            # New: = = pI nJ sI x x x pJ nI sJ = =
+            pI = nI.prev
+            sI = nI.next
+            pJ = nJ.prev
+            sJ = nJ.next            
+            pI.next = nJ
+            nJ.prev = pI
+            nJ.next = sI
+            sI.prev = nJ
+            pJ.next = nI
+            nI.prev = pJ
+            nI.next = sJ
+            sJ.prev = nI
+            self.dist += (self.tau[pI.key, nJ.key] + self.tau[nJ.key, sI.key] + self.tau[pJ.key, nI.key] + self.tau[nI.key, sJ.key]
+                - self.tau[pI.key, nI.key] - self.tau[nI.key, sI.key] - self.tau[pJ.key, nJ.key] - self.tau[nJ.key, sJ.key])
+            if (self.asymFlag):
+                self._revDist += (self.tau[sJ.key, nI.key] + self.tau[nI.key, pJ.key] + self.tau[sI.key, nJ.key] + self.tau[nJ.key, pI.key]
+                    - self.tau[sJ.key, nJ.key] - self.tau[nJ.key, pJ.key] - self.tau[sI.key, nI.key] - self.tau[nI.key, pI.key])
 
     def cheapestInsert(self, n):
         # First, insert it after self.head
@@ -318,7 +357,6 @@ class Route(Ring):
         self.insert(self.head.key, n)
         sofarCheapestCost = self.dist if not self.asymFlag else min(self.dist, self._revDist)
         sofarCheapestKey = self.head.key
-
         if (self._count <= 2):
             return
         cur = self.head
@@ -337,7 +375,7 @@ class Route(Ring):
         if (self.asymFlag and self.dist > self._revDist):
             self.reverse()
 
-    def largestRemoval(self, noRemoval=None) -> int:
+    def findLargestRemoval(self, noRemoval=None) -> int:
         if (noRemoval == None):
             noRemoval = [self.head.key]
         bestRemovalCost = self.dist if not self.asymFlag else max(self.dist, self._revDist)
@@ -358,8 +396,108 @@ class Route(Ring):
                     bestRemovalKey = cur.key
             if (cur.key == self.head.key):
                 trvFlag = False
-        self.remove(bestRemovalKey)
         return bestRemovalKey
+
+    def impvRemovalReinsert(self):
+        testedFlag = {}
+        cur = self.head
+        impvedFlag = False
+        canImpvFlag = True
+        while (canImpvFlag):
+            if (cur.key not in testedFlag):
+                testedFlag[cur.key] = False            
+            # print(cur.key, testedFlag[cur.key])
+            if (testedFlag[cur.key] == False):
+                canLocImpvFlag = False
+                nextNode = cur.next            
+                curKey = cur.key
+                curPrev = cur.prev.key
+                curNext = cur.next.key
+                curCopy = cur.clone()
+                self.remove(curKey)         
+                self.cheapestInsert(curCopy)
+                new = self.query(cur.key)
+                newPrev = new.prev.key
+                newNext = new.next.key
+                # print("Remove: ", curKey, " btw ", curPrev, " and ", curNext, " Reinsert: btw ", newPrev, " and ", newNext)
+                # print([i.key for i in self.traverse(closeFlag=True)], self.dist)
+                if (curPrev != newPrev or curNext != newNext):
+                    # print(curKey, "can improve")
+                    canLocImpvFlag = True
+                if (canLocImpvFlag):
+                    impvedFlag = True
+                    testedFlag[curKey] = False
+                    testedFlag[newPrev] = False
+                    testedFlag[newNext] = False
+                    testedFlag[curPrev] = False
+                    testedFlag[curNext] = False
+                    cur = nextNode
+                else:
+                    testedFlag[curKey] = True
+                    cur = cur.next
+            else:
+                cur = cur.next                
+            if (min(testedFlag.values()) == True):
+                # print("Allgood")
+                canImpvFlag = False
+        return impvedFlag
+
+        # bestRemovalKey = self.findLargestRemoval()
+        # removalPrevKey = self.query(bestRemovalKey).prev.key            
+        # nodeToBeRemoval = self.query(bestRemovalKey).clone()
+        # self.remove(bestRemovalKey)
+        # self.cheapestInsert(nodeToBeRemoval)
+        # if (self.query(bestRemovalKey).prev.key == removalPrevKey):
+        #     return False
+        # else:
+        #     return True
+
+    def impv2Swap(self):
+        nI = self.head.next
+        sofarBestDist = self.dist if not self.asymFlag else min(self.dist, self._revDist)
+        # print([i.key for i in self.traverse(closeFlag=True)], sofarBestDist, sofarBestDist, "----------------------")
+        
+        while (nI.key != self.head.key):
+            # 1. First attempt - 1 swap
+            # Old: = = = i j k l m n = = = | -> swap(i, j) 
+            # 2. Follow-up attempts
+            # New: = = = j i k l m n = = = | -> swap(i, k) -> swap(j, k)
+            # New: = = = k j i l m n = = = | -> swap(i, l) -> swap(k, l)
+            # New: = = = l j k i m n = = = | -> swap(i, m) -> swap(l, m)
+            # New: = = = m j k l i n = = = | -> swap(i, n) -> swap(m, n)
+            # 3. Recover to initial status
+            # New: = = = n j k l m i = = = | -> swap(i, n)
+            # Old: = = = i j k l m n = = = 
+
+            # 1. First attempt
+            prevIKey = nI.next.key
+            nINextKey = None
+            nIKey = nI.key
+            nJKey = nI.next.key
+            self.swapNext(nI.key)
+            newDist = self.dist if not self.asymFlag else min(self.dist, self._revDist)
+            # print([i.key for i in self.traverse(closeFlag=True)], newDist, sofarBestDist, "swapNext: ", nIKey, nJKey)
+            if (newDist < sofarBestDist):
+                sofarBestDist = newDist
+                return True            
+
+            # 2. Follow-up attempts
+            for _ in range(self._count - 2):                
+                nINextKey = nI.next.key
+                self.swapNext(nI.key)
+                self.swap(prevIKey, nINextKey)
+                newDist = self.dist if not self.asymFlag else min(self.dist, self._revDist)
+                # print([i.key for i in self.traverse(closeFlag=True)], newDist, sofarBestDist, "swapNext: ", nI.key, nINextKey, "swap: ", prevIKey, nINextKey)
+                if (newDist < sofarBestDist):
+                    sofarBestDist = newDist
+                    return True
+                prevIKey = nINextKey
+
+            # 3. Recover to initial status
+            self.swapNext(nI.key)
+            # print([i.key for i in self.traverse(closeFlag=True)], newDist, sofarBestDist)
+            nI = nI.next
+        return False
 
 class BSTreeNode(object):
     def __init__(self, key:int, value, parent:'BSTreeNode'=None, left:'BSTreeNode'=None, right:'BSTreeNode'=None):

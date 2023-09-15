@@ -241,7 +241,15 @@ def heuTSP(
     # NOTE: Local improvement phase operates by class methods
     # NOTE: For the local improvement, try every local search operator provided in a greedy way
     if ('impv' in algo and algo['impv'] != None and algo['impv'] != []):
-        seq.twoOpt()
+        canImpvFlag = True
+        while (canImpvFlag):
+            canImpvFlag = False
+
+            if (not canImpvFlag):
+                canImpvFlag = seq.impv2Swap()
+
+            if (not canImpvFlag):
+                canImpvFlag = seq.impvRemovalReinsert()
 
     ofv = seq.dist
     nodeSeq = [n.key for n in seq.traverse(closeFlag = True)]
@@ -255,6 +263,7 @@ def heuTSP(
         'consOfv': consOfv,
         'algo': algo,
         'seq': nodeSeq,
+        'seqRoute': seq,
         'shapepoints': shapepoints,
         'serviceTime': serviceTime
     }
