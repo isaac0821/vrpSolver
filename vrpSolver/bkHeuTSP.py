@@ -219,73 +219,6 @@ def bkheuTSP(
         'serviceTime': serviceTime
     }
 
-def _bkconsTSPkNearestNeighbor(depotID, nodeIDs, tau, k = 1):
-    # Initialize ----------------------------------------------------------
-    seq = [depotID]
-    remain = [nodeIDs[i] for i in range(len(nodeIDs)) if nodeIDs[i] != depotID]
-    # Accumulate seq ------------------------------------------------------
-    while (len(remain) > 0):
-        currentNodeID = seq[-1]
-
-        # Sort the distance from current node to the rest of nodes
-        sortedSeqHeap = []
-        for n in remain:
-            if ((currentNodeID, n) in tau):
-                dist = tau[currentNodeID, n]
-                heapq.heappush(sortedSeqHeap, (dist, n))
-
-        # Get the kth of sorted node and append it to seq
-        nextNodeID = None
-        for _ in range(k):
-            if (len(sortedSeqHeap) > 0):
-                nextNodeID = heapq.heappop(sortedSeqHeap)[1]
-        seq.append(nextNodeID)
-
-        # Update remain
-        remain.remove(nextNodeID)
-    seq.append(depotID)
-    return seq
-
-def _bkconsTSPFarthestNeighbor(depotID, nodeIDs, tau):
-    # Initialize ----------------------------------------------------------
-    seq = [depotID]
-    remain = [nodeIDs[i] for i in range(len(nodeIDs)) if nodeIDs[i] != depotID]
-    # Accumulate seq ------------------------------------------------------
-    while (len(remain) > 0):
-        nextLeng = None
-        nextID = None
-        for n in remain:
-            if ((n, seq[-1]) in tau):
-                if (nextLeng == None or tau[n, seq[-1]] > nextLeng):
-                    nextID = n
-                    nextLeng = tau[n, seq[-1]]
-            elif ((seq[-1], n) in tau):
-                if (nextLeng == None or tau[seq[-1], n] > nextLeng):
-                    nextID = n
-                    nextLeng = tau[seq[-1], n]
-        seq.append(nextID)
-        remain.remove(nextID)
-    seq.append(depotID)
-    return seq
-
-def _bkconsTSPSweep(nodes, depotID, nodeIDs, tau):
-    # Sweep seq -----------------------------------------------------------
-    sweep = getSweepSeq(
-        nodes = nodes, 
-        nodeIDs = nodeIDs,
-        centerLoc = nodes[depotID]['loc'])
-
-    startIndex = 0
-    seq = []
-    for k in range(len(sweep)):
-        if (sweep[k] == depotID):
-            startIndex = k
-    seq.extend([sweep[k] for k in range(startIndex, len(sweep))])
-    seq.extend([sweep[k] for k in range(0, startIndex)])
-    seq.append(0)
-
-    return seq
-
 def _bkconsTSPRandomSeq(depotID, nodeIDs, tau):
     # Get random seq ------------------------------------------------------
     seq = [i for i in nodeIDs if i != depotID]
@@ -325,44 +258,6 @@ def _bkconsTSPInsertion(nodeIDs, initSeq, tau):
         if (bestCost != None):
             seq.insert(bestInsertionIndex, bestCus)
             unInserted.remove(bestCus)
-    return seq
-    
-def _bkconsTSPChristofides(depotID, weightArcs, matchingAlgo):
-    # Create MST ----------------------------------------------------------
-    mst = graphMST(
-        weightArcs = weightArcs,
-        exportAs = 'Arcs')['mst']
-    mstAsTree = graphArcs2AdjList(mst['mst'])
-
-    # Derive subgraph of odd degree vertices ------------------------------
-    oddDegrees = []
-    for node in mstAsTree:
-        if (len(mstAsTree[node]) % 2 != 0):
-            oddDegrees.append(node)
-    subGraph = []
-    for arc in weightArcs:
-        if (arc[0] in oddDegrees and arc[1] in oddDegrees):
-            subGraph.append(arc)
-
-    # Find minimum cost matching of the subgraph --------------------------
-    minMatching = graphMatching(
-        weightArcs = subGraph, 
-        algo = matchingAlgo,
-        mType = 'Minimize')['matching']
-
-    # Add them back to create a new graph ---------------------------------
-    newGraph = []
-    for arc in minMatching:
-        newGraph.append(arc)
-    for arc in mst:
-        newGraph.append(arc)
-
-    # Traverse graph and get seq ------------------------------------------
-    seq = graphTraversal(
-        arcs = newGraph, 
-        oID = depotID)['seq']
-    seq.append(depotID)
-
     return seq
 
 def _bkimpTSP2Opts(nodeIDs, tau, initSeq, asymFlag):

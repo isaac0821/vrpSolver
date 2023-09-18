@@ -2071,6 +2071,7 @@ def circleIntCircle(circle1: circle, circle2: circle):
 
 # CETSP related ===============================================================
 def arcPoly2ArcPolyPath(startPt: pt, endPt: pt, arcPolys: arcPolys):
+    # NOTE: Can wait
     return
 
 def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, lod: float=CONST_EPSILON):
@@ -2222,7 +2223,6 @@ def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, lod: float=CONST_EPSILON
     path.append(endPt)
 
     return {
-        # 'sp': sp,
         'path': path,
         'dist': dist
     }

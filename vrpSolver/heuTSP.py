@@ -245,11 +245,15 @@ def heuTSP(
         while (canImpvFlag):
             canImpvFlag = False
 
-            if (not canImpvFlag):
-                canImpvFlag = seq.impv2Swap()
+            # if (not canImpvFlag):
+            #     canImpvFlag = seq.impv2Swap()
+
+            # if (not canImpvFlag):
+            #     canImpvFlag = seq.impvRemovalReinsert()
+
 
             if (not canImpvFlag):
-                canImpvFlag = seq.impvRemovalReinsert()
+                canImpvFlag = seq.impv2Opt()
 
     ofv = seq.dist
     nodeSeq = [n.key for n in seq.traverse(closeFlag = True)]
@@ -263,7 +267,7 @@ def heuTSP(
         'consOfv': consOfv,
         'algo': algo,
         'seq': nodeSeq,
-        'seqRoute': seq,
+        # 'seqRoute': seq,
         'shapepoints': shapepoints,
         'serviceTime': serviceTime
     }

@@ -125,7 +125,7 @@ def ipTSP(
         raise OutOfRangeError("ERROR: COPT option supports 'DFJ_Lazy' formulations", )
 
     # Define tau ==============================================================
-    tau, pathLoc = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
+    tau, path = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
 
     # Solve by different formulations =========================================
     tsp = None
@@ -204,6 +204,11 @@ def ipTSP(
     # Add service time info ===================================================
     tsp['serviceTime'] = serviceTime
     tsp['solver'] = solver['solver']
+
+    shapepoints = []
+    for i in range(len(truckSeq) - 1):
+        shapepoints.extend(path[truckSeq[i], truckSeq[i + 1]])
+    tsp['shapepoints'] = shapepoints
 
     return tsp
 
@@ -1054,7 +1059,7 @@ def ipTSPEx(
         raise OutOfRangeError("ERROR: COPT option supports 'DFJ_Lazy' formulations", )
 
     # Define tau ==============================================================
-    tau, pathLoc = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
+    tau, path = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
 
     # Solve by different formulations =========================================
     tspEx = None
@@ -1099,6 +1104,11 @@ def ipTSPEx(
 
     # Add service time info ===================================================
     tspEx['serviceTime'] = serviceTime
+
+    shapepoints = []
+    for i in range(len(truckSeq) - 1):
+        shapepoints.extend(path[truckSeq[i], truckSeq[i + 1]])
+    tspEx['shapepoints'] = shapepoints
 
     return tspEx
 
