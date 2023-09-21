@@ -19,7 +19,7 @@ from .msg import *
 def heuTSP(
     nodes: dict, 
     edges: dict = {'method': "Euclidean", 'ratio': 1}, 
-    algo: dict = {'cons': 'Insertion', 'impv': '2opt'}, 
+    method: dict = {'cons': 'Insertion', 'impv': '2Opt'}, 
     depotID: int | str = 0, 
     nodeIDs: list[int | str] | str = 'All', 
     serviceTime: float = 0,
@@ -65,37 +65,37 @@ def heuTSP(
             ...     'method': 'Grid',
             ...     'grid': grid
             ... }
-    algo: dictionary, required, default as {'cons': 'Insertion', 'impv': '2opt'}
+    method: dictionary, required, default as {'cons': 'Insertion', 'impv': '2opt'}
         The algorithm configuration. Includes two phases, use 'cons' to specify constructive heuristic, and 'impv' to specify local improvement heurisitc::
             1) (default) Insertion
-            >>> algo = {
+            >>> method = {
             ...     'cons': 'Insertion',
             ...     'initSeq': initSeq, # An initial sequence, defalt [depotID]
             ...     'impv': '2Opt' # Options are: 'Reinsert', '2Opt', can select multiple methods by collecting them into a list, e.g. ['Reinsert', '2Opt']
             ... }
             2) Nearest neighborhood / k-nearest neighborhood
-            >>> algo = {
+            >>> method = {
             ...     'cons': 'NearestNeighbor',
             ...     'k': 1, # 1: nearest neighbor, 2 ~ K: k-nearest neighbor, -1: farthest neighbor 
             ... }
             3) Sweep
-            >>> algo = {
+            >>> method = {
             ...     'cons': 'Sweep'
             ... }
             4) (not available) Christofides
-            >>> algo = {
+            >>> method = {
             ...     'cons': 'Christofides'
             ... }
             5) (not available) Cycle cover, particular for Asymmetric TSP
-            >>> algo = {
+            >>> method = {
             ...     'cons': 'CycleCover'
             ... }
             6) Random sequence
-            >>> algo = {
+            >>> method = {
             ...     'cons': 'Random'
             ... }
             7) Given sequence for further local improvements
-            >>> algo = {
+            >>> method = {
             ...     'cons': None, # or skip this
             ...     'initSeq': initSeq, # An initial sequence, cannot be None in this case
             ... }
@@ -147,7 +147,7 @@ def heuTSP(
 
     # Construction heuristics =================================================
     # NOTE: Output of this phase should be a Route() object
-    if (algo == None or ('cons' not in algo and 'impv' not in algo)):
+    if (method == None or ('cons' not in method and 'impv' not in method)):
         raise MissingParameterError(ERROR_MISSING_TSP_ALGO)
 
     nodeObj = {}
@@ -156,22 +156,22 @@ def heuTSP(
 
     seq = Route(tau, asymFlag)
     # An initial solution is given
-    if ('cons' not in algo or algo['cons'] == 'Initial' or algo['cons'] == None):
-        if ('initSeq' not in algo):
+    if ('cons' not in method or method['cons'] == 'Initial' or method['cons'] == None):
+        if ('initSeq' not in method):
             raise MissingParameterError("ERROR: Need 'initSeq' for local improvement")
-        elif (len(algo['initSeq']) != len(nodeIDs) + 1):
+        elif (len(method['initSeq']) != len(nodeIDs) + 1):
             raise UnsupportedInputError("ERROR: Length of 'initSeq' is incorrect, check if the sequence starts and ends with `depotID`")
         else:
-            notInNodeIDs = [v for v in algo['initSeq'] if v not in nodeIDs]
+            notInNodeIDs = [v for v in method['initSeq'] if v not in nodeIDs]
             if (len(notInNodeIDs) > 0):
                 raise OutOfRangeError("ERROR: The following nodes in 'initSeq' is not in `nodeIDs`: %s" % list2String(notInNodeIDs))
-        for i in algo['initSeq'][:-1]:
+        for i in method['initSeq'][:-1]:
             seq.append(nodeObj[i])
 
     # Insertion heuristic
-    elif (algo['cons'] == 'Insertion'):
+    elif (method['cons'] == 'Insertion'):
         initSeq = None
-        if ('initSeq' not in algo):   
+        if ('initSeq' not in method):   
             farthestDist = -1
             farthestID = None
             for n in nodeIDs:
@@ -186,33 +186,33 @@ def heuTSP(
             initSeq = [depotID, farthestID, depotID]
             seq = _consTSPInsertion(nodeIDs, initSeq, tau, asymFlag)
         else:
-            notInNodeIDs = [v for v in algo['initSeq'] if v not in nodeIDs]
+            notInNodeIDs = [v for v in method['initSeq'] if v not in nodeIDs]
             if (len(notInNodeIDs) > 0):
                 raise OutOfRangeError("ERROR: The following nodes in 'initSeq' is not in `nodeIDs`: %s" % list2String(notInNodeIDs))
             else:
-                seq = _consTSPInsertion(nodeIDs, algo['initSeq'], tau, asymFlag)
+                seq = _consTSPInsertion(nodeIDs, method['initSeq'], tau, asymFlag)
     
     # Neighborhood based heuristic, including nearest neighborhood, k-nearest neighborhood, and furthest neighborhood
-    elif (algo['cons'] == 'NearestNeighbor'):
+    elif (method['cons'] == 'NearestNeighbor'):
         nnSeq = None
-        if ('k' not in algo or algo['k'] == 1):
+        if ('k' not in method or method['k'] == 1):
             nnSeq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, 1)
-        elif (algo['k'] == -1):
+        elif (method['k'] == -1):
             nnSeq = _consTSPFarthestNeighbor(depotID, nodeIDs, tau)
-        elif (algo['k'] >= 1):
-            nnSeq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, algo['k'])
+        elif (method['k'] >= 1):
+            nnSeq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, method['k'])
         for i in nnSeq:
             seq.append(nodeObj[i])
 
     # Sweep heurisitic
-    elif (algo['cons'] == 'Sweep'):
+    elif (method['cons'] == 'Sweep'):
         sweepSeq = _consTSPSweep(nodes, depotID, nodeIDs, tau)
         for i in sweepSeq:
             seq.append(nodeObj[i])
         seq.rehead(depotID)
 
     # Christofides Algorithm, guaranteed <= 1.5 * optimal
-    elif (algo['cons'] == 'Christofides'):
+    elif (method['cons'] == 'Christofides'):
         if (not asymFlag):
             cfSeq = _consTSPChristofides(depotID, tau)
             for i in cfSeq:
@@ -221,12 +221,12 @@ def heuTSP(
             raise UnsupportedInputError("ERROR: 'Christofides' algorithm is not designed for Asymmetric TSP")
 
     # Cycle Cover Algorithm, specially designed for Asymmetric TSP
-    elif (algo['cons'] == 'CycleCover'):
+    elif (method['cons'] == 'CycleCover'):
         raise VrpSolverNotAvailableError("ERROR: 'CycleCover' algorithm is not available yet, please stay tune")
         seq = _consTSPCycleCover(depotID, nodeIDs, tau)
 
     # Randomly create a sequence
-    elif (algo['cons'] == 'Random'):
+    elif (method['cons'] == 'Random'):
         rndSeq = _consTSPRandom(depotID, nodeIDs, tau)
         for i in rndSeq:
             seq.append(nodeObj[i])
@@ -240,7 +240,7 @@ def heuTSP(
     # Local improvment phase ==============================================
     # NOTE: Local improvement phase operates by class methods
     # NOTE: For the local improvement, try every local search operator provided in a greedy way
-    if ('impv' in algo and algo['impv'] != None and algo['impv'] != []):
+    if ('impv' in method and method['impv'] != None and method['impv'] != []):
         canImpvFlag = True
         while (canImpvFlag):
             canImpvFlag = False
@@ -252,7 +252,7 @@ def heuTSP(
             #     canImpvFlag = seq.impvRemovalReinsert()
 
 
-            if (not canImpvFlag):
+            if (not canImpvFlag and '2Opt' in method['impv']):
                 canImpvFlag = seq.impv2Opt()
 
     ofv = seq.dist
@@ -265,9 +265,9 @@ def heuTSP(
     return {
         'ofv': ofv,
         'consOfv': consOfv,
-        'algo': algo,
+        'method': method,
         'seq': nodeSeq,
-        # 'seqRoute': seq,
+        'seqRouteObj': None if not returnRouteObjectFlag else seq,
         'shapepoints': shapepoints,
         'serviceTime': serviceTime
     }
@@ -393,98 +393,11 @@ def _consTSPCycleCover(depotID, tau):
     raise VrpSolverNotAvailableError("ERROR: vrpSolver has not implement this method yet")
     return seq
 
-def _impTSP2Opts(nodeIDs, tau, initSeq, asymFlag):
-    # Initialize ==============================================================
-    improvedFlag = False
-    impSeq = [i for i in initSeq]
-
-    # Initialize accDist/accRevDist ===========================================
-    # FIXME: accDist and accRevDist can be improved, but not necessary right now
-    # Accumulated distance from depot
-    d = 0
-    accDist = []
-    for i in range(len(impSeq) - 1):
-        accDist.append(d)
-        if (d != None and (impSeq[i], impSeq[i + 1]) in tau):
-            d += tau[impSeq[i], impSeq[i + 1]]
-        else:
-            d = None
-    accDist.append(d)
-    oriOfv = accDist[-1]
-
-    # Accumulated distance to depot (reversed seq)
-    revD = 0
-    accRevDist = []
-    if (asymFlag):
-        for i in range(len(impSeq) - 1):
-            accRevDist.insert(0, revD)
-            if (revD != None and (impSeq[len(impSeq) - i - 1], impSeq[len(impSeq) - i - 2]) in tau):
-                revD += tau[impSeq[len(impSeq) - i - 1], impSeq[len(impSeq) - i - 2]]
-            else:
-                revD = None
-    accRevDist.insert(0, revD)
-    oriRevOfv = accRevDist[0]
-
-    # Main iteration ==========================================================
-    # Needs rewrite, when calculating dist, avoid repeated calculation
-    if (len(impSeq) >= 4):
-        # Try 2-opt
-        can2OptFlag = True
-        while (can2OptFlag):
-            can2OptFlag = False
-            # Try 2Opt
-            for i in range(len(impSeq) - 2):
-                for j in range(i + 2, len(impSeq) - 1):
-                    opt = exchange2Arcs(
-                        route = impSeq, 
-                        tau = tau, 
-                        i = i, 
-                        j = j, 
-                        accDist = accDist,
-                        accRevDist = accRevDist,
-                        asymFlag = asymFlag)
-                    if (opt != None and opt['deltaCost'] + CONST_EPSILON < 0):
-                        can2OptFlag = True
-                        improvedFlag = True
-                        impSeq = opt['route']
-                        oriOfv = opt['newCost']
-                        oriRevOfv = opt['newRevCost']
-
-                        d = 0
-                        accDist = []
-                        for i in range(len(impSeq) - 1):
-                            accDist.append(d)
-                            if (d != None and (impSeq[i], impSeq[i + 1]) in tau):
-                                d += tau[impSeq[i], impSeq[i + 1]]
-                            else:
-                                d = None
-                        accDist.append(d)
-                        oriOfv = accDist[-1]
-
-                        revD = 0
-                        accRevDist = []
-                        if (asymFlag):
-                            for i in range(len(impSeq) - 1):
-                                accRevDist.insert(0, revD)
-                                if (revD != None and (impSeq[len(impSeq) - i - 1], impSeq[len(impSeq) - i - 2]) in tau):
-                                    revD += tau[impSeq[len(impSeq) - i - 1], impSeq[len(impSeq) - i - 2]]
-                                else:
-                                    revD = None
-                        accRevDist.insert(0, revD)
-                        oriRevOfv = accRevDist[0]
-                        break
-    return {
-        'impSeq': impSeq,
-        'improvedFlag': improvedFlag,
-        'oriOfv': oriOfv,
-        'oriRevOfv': oriRevOfv,
-    }
-
 def heuTSPEx(
     nodes: dict, 
     predefinedArcs: list[list[tuple[int|str]]] = [],
     edges: dict = {'method': "Euclidean", 'ratio': 1},
-    algo: dict = {'cons': 'NearestNeighbor', 'impv': '2Opt'},
+    method: dict = {'cons': 'NearestNeighbor', 'impv': '2Opt'},
     depotID: int|str = 0,
     nodeIDs: list[int|str]|str = 'All',
     serviceTime: float = 0,
@@ -524,12 +437,12 @@ def heuTSPEx(
                 mustGo[arc[1]] = arc[0]
 
 
-    if (algo == None or 'cons' not in algo or 'impv' not in algo):
+    if (method == None or 'cons' not in method or 'impv' not in method):
         raise MissingParameterError("ERROR: Not supported (for now)")
 
     seq = []
     # Neighborhood based heuristic, including nearest neighborhood, k-nearest neighborhood, and furthest neighborhood
-    if (algo['cons'] == 'NearestNeighbor'):
+    if (method['cons'] == 'NearestNeighbor'):
         seq = _consTSPExkNearestNeighbor(depotID, nodeIDs, tau, mustGo, 1)
 
     # Cleaning seq before local improving =================================
@@ -539,12 +452,12 @@ def heuTSPEx(
 
     # Local improvment phase ==============================================
     # NOTE: For the local improvement, try every local search operator provided in a greedy way
-    if ('impv' in algo and algo['impv'] != None and algo['impv'] != []):
+    if ('impv' in method and method['impv'] != None and method['impv'] != []):
         canImproveFlag = True
         while (canImproveFlag):
             canImproveFlag = False
             # Try 2Opts
-            if (not canImproveFlag and (algo['impv'] == '2Opt' or '2Opt' in algo['impv'])):
+            if (not canImproveFlag and (method['impv'] == '2Opt' or '2Opt' in method['impv'])):
                 imp = _impTSPEx2Opts(nodeIDs, tau, seq, asymFlag, mustGo)
                 if (imp['improvedFlag']):
                     canImproveFlag = True
@@ -554,7 +467,7 @@ def heuTSPEx(
     return {
         'ofv': ofv,
         'consOfv': consOfv,
-        'algo': algo,
+        'method': method,
         'seq': seq,
         'serviceTime': serviceTime
     }

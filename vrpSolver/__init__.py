@@ -106,4 +106,3 @@ from .geometry import *
 # TSP
 from .ipTSP import *
 from .heuTSP import *
-from .bkHeuTSP import *
