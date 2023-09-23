@@ -20,8 +20,8 @@ from .error import *
 def rndPlainNodes(
     N: int|None = None, 
     nodeIDs: list[int|str] = [], 
-    distr: dict = {
-            'method': 'UniformSquareXY', 
+    method: dict = {
+            'distr': 'UniformSquareXY', 
             'xRange': (0, 100), 
             'yRange': (0, 100)
         }
@@ -36,48 +36,48 @@ def rndPlainNodes(
         Number of locations/vertices/customers to be randomly created
     nodeIDs: list, optional, default None
         Alternative input parameter of `N`. A list of node IDs, `N` will be overwritten if `nodeIDs` is given
-    distr: dictionary, optional, default {'method': 'UniformSquareXY', 'xRange': (0, 100), 'yRange': (0, 100)}
+    method: dictionary, optional, default {'distr': 'UniformSquareXY', 'xRange': (0, 100), 'yRange': (0, 100)}
         Spatial distribution of nodes, options are as following:
             1) (default) Uniformly sample from a square on the Euclidean space
-            >>> distr = {
-            ...     'method': 'UniformSquareXY', 
+            >>> method = {
+            ...     'distr': 'UniformSquareXY', 
             ...     'xRange': (0, 100), # A 2-tuple with minimum/maximum range of x, default as (0, 100), 
             ...     'yRange': (0, 100), # A 2-tuple with minimum/maximum range of y, default as (0, 100), 
             ... }
             2) Uniformly sample from a given polygon on the Euclidean space
-            >>> distr = {
-            ...     'method': 'UniformPolyXY', 
+            >>> method = {
+            ...     'distr': 'UniformPolyXY', 
             ...     'polyXY': poly, # polygon of the area, (no holes)
             ...     'polyXYs': polys, # alternative option for 'polyXY', as a list of polygons 
             ... }
             3) Uniformly sample from a circle on the Euclidean space
-            >>> distr = {
-            ...     'method': 'UniformCircleXY',
+            >>> method = {
+            ...     'distr': 'UniformCircleXY',
             ...     'centerXY': (0, 0), # centering location, default as (0, 0), 
             ...     'radius': 100, # radius of the circle , default as 100
             ... }
             4) Uniformly sample from a given polygon by lat/lon
-            >>> distr = {
-            ...     'method': 'UniformPolyLatLon', 
+            >>> method = {
+            ...     'distr': 'UniformPolyLatLon', 
             ...     'polyLatLon': polygon of the area, (no holes)
             ...     'polyLatLons': alternative option for 'polyLatLon', as a list of polygons 
             ... }
             5) Uniformly sample from a given circle by lat/lon,
-            >>> distr = {
-            ...     'method': 'UniformCircleLatLon', 
+            >>> method = {
+            ...     'distr': 'UniformCircleLatLon', 
             ...     'centerLatLon': required, centering location in lat/lon, 
             ...     'radiusInMeters': radius of the circle in meters 
             ... }
             6) Uniformly generate from a given polygon on a road network
-            >>> distr = {
-            ...     'method': 'RoadNetworkPolyLatLon'
+            >>> method = {
+            ...     'distr': 'RoadNetworkPolyLatLon'
             ...     'RoadNetwork': list of arcs that can be sampled 
             ...     'polyLatLon': nodes should generated within the polygon, if not provided, will consider the entire network, 
             ...     'roadClass': list of classes that can be sampled 
             ... }
             7) Uniformly generate from a given circle on a road network
-            >>> distr = {
-            ...     'method': 'RoadNetworkCircleLatLon', 
+            >>> method = {
+            ...     'distr': 'RoadNetworkCircleLatLon', 
             ...     'RoadNetwork': list of arcs that can be sampled 
             ...     'centerLatLon': [lat, lon], 
             ...     'radiusInMeters': radius in [m] 
@@ -95,9 +95,9 @@ def rndPlainNodes(
     Raises
     ------
     MissingParameterError
-        Missing `distr` field or values in `distr`.
+        Missing `method` field or values in `method`.
     UnsupportedInputError
-        Option is not supported for `distr['method']`
+        Option is not supported for `method['distr']`
     NotAvailableError
         Functions/options that are not ready yet.
     EmptyError
@@ -105,7 +105,7 @@ def rndPlainNodes(
     """
 
     # Sanity checks ===========================================================
-    if (distr == None or 'method' not in distr):
+    if (method == None or 'distr' not in method):
         raise MissingParameterError(ERROR_MISSING_NODES_DISTR)
 
     nodes = {}
@@ -116,104 +116,105 @@ def rndPlainNodes(
 
     # Generate instance =======================================================
     # Uniformly sample from a square on the Euclidean space
-    if (distr['method'] == 'UniformSquareXY'):
+    if (method['distr'] == 'UniformSquareXY'):
         xRange = None
         yRange = None
-        if ('xRange' not in distr or 'yRange' not in distr):
+        if ('xRange' not in method or 'yRange' not in method):
             xRange = [0, 100]
             yRange = [0, 100]
             warnings.warn("WARNING: Set sampled area to be default as a (0, 100) x (0, 100) square")
         else:
-            xRange = [float(distr['xRange'][0]), float(distr['xRange'][1])]
-            yRange = [float(distr['yRange'][0]), float(distr['yRange'][1])]
+            xRange = [float(method['xRange'][0]), float(method['xRange'][1])]
+            yRange = [float(method['yRange'][0]), float(method['yRange'][1])]
         for n in nodeIDs:
             nodes[n] = {
                 'loc': _rndPtUniformSquareXY(xRange, yRange)
             }
 
     # Uniformly sample from a polygon/a list of polygons on the Euclidean space
-    elif (distr['method'] == 'UniformPolyXY'):
-        if ('polyXY' not in distr and 'polyXYs' not in distr):
-            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `distr`, which indicates a polygon / a list of polygons in the Euclidean space")
-        if ('polyXY' in distr):
+    elif (method['distr'] == 'UniformPolyXY'):
+        if ('polyXY' not in method and 'polyXYs' not in method):
+            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `method`, which indicates a polygon / a list of polygons in the Euclidean space")
+        if ('polyXY' in method):
             for n in nodeIDs:
                 nodes[n] = {
-                    'loc': _rndPtUniformPolyXY(distr['polyXY'])
+                    'loc': _rndPtUniformPolyXY(method['polyXY'])
                 }
-        elif ('polyXYs' in distr):
+        elif ('polyXYs' in method):
             for n in nodeIDs:
                 nodes[n] = {
-                    'loc': _rndPtUniformPolyXYs(distr['polyXYs'])
+                    'loc': _rndPtUniformPolyXYs(method['polyXYs'])
                 }
 
     # Uniformly sample from a circle on the Euclidean space
-    elif (distr['method'] == 'UniformCircleXY'):
+    elif (method['distr'] == 'UniformCircleXY'):
         centerXY = None
         radius = None
-        if ('centerXY' not in distr or 'radius' not in distr):
+        if ('centerXY' not in method or 'radius' not in method):
             centerXY = (0, 0)
             radius = 100
             warnings.warn("WARNING: Set sample area to be default as a circle with radius of 100 centering at (0, 0)")
         else:
-            centerXY = distr['centerXY']
-            radius = distr['radius']
+            centerXY = method['centerXY']
+            radius = method['radius']
         for n in nodeIDs:
             nodes[n] = {
                 'loc': _rndPtUniformCircleXY(radius, centerXY)
             }
 
     # Uniformly sample from a polygon by lat/lon
-    elif (distr['method'] == 'UniformPolyLatLon'):
-        if ('polyLatLon' not in distr and 'polyLatLons' not in distr):
-            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `distr`, which indicates a polygon / a list of polygons in the Euclidean space")
+    elif (method['distr'] == 'UniformPolyLatLon'):
+        if ('polyLatLon' not in method and 'polyLatLons' not in method):
+            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `method`, which indicates a polygon / a list of polygons in the Euclidean space")
         # TODO: Mercator projection
         raise VrpSolverNotAvailableError("ERROR: 'UniformPolyLatLon' is not available yet, please stay tune.")
 
     # Uniformly sample from a circle by lat/lon
-    elif (distr['method'] == 'UniformCircleLatLon'):
-        if ('centerLatLon' not in distr or 'radiusInMeters' not in distr):
-            raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `distr`.")
+    elif (method['distr'] == 'UniformCircleLatLon'):
+        if ('centerLatLon' not in method or 'radiusInMeters' not in method):
+            raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `method`.")
         for n in nodeIDs:
             nodes[n] = {
-                'loc': _rndPtUniformCircleLatLon(distr['radiusInMeters'], distr['centerLatLon'])
+                'loc': _rndPtUniformCircleLatLon(method['radiusInMeters'], method['centerLatLon'])
             }
 
     # Uniformly sample from the roads/streets within a polygon/a list of polygons from given road networks
-    elif (distr['method'] == 'RoadNetworkPolyLatLon'):
-        if ('polyLatLon' not in distr):
-            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `distr`, which indicates a polygon / a list of polygons in the Euclidean space")
-        elif ('roadNetwork' not in distr):
-            raise MissingParameterError("ERROR: Missing required key 'RoadNetwork' in field `distr`. Need to provide the road network where the nodes are generated.")
-        elif ('roadClass' not in distr):
+    elif (method['distr'] == 'RoadNetworkPolyLatLon'):
+        if ('polyLatLon' not in method):
+            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `method`, which indicates a polygon / a list of polygons in the Euclidean space")
+        elif ('roadNetwork' not in method):
+            raise MissingParameterError("ERROR: Missing required key 'RoadNetwork' in field `method`. Need to provide the road network where the nodes are generated.")
+        elif ('roadClass' not in method):
             warnings.warn("WARNING: Set 'roadClass' to be default as ['residential']")
         nodeLocs = _rndPtRoadNetworkPolyLatLon(
             N if N != None else len(nodeIDs),
-            distr['roadNetwork'], 
-            distr['polyLatLon'],
-            distr['roadClass'] if 'roadClass' in distr else ['residential'])
+            method['roadNetwork'], 
+            method['polyLatLon'],
+            method['roadClass'] if 'roadClass' in method else ['residential'])
         for n in range(len(nodeIDs)):
             nodes[nodeIDs[n]] = {
                 'loc': nodeLocs[n]
             }
 
     # Uniformly sample from the roads/streets within a circle from given road network
-    elif (distr['method'] == 'RoadNetworkCircleLatLon'):
-        if ('centerLatLon' not in distr or 'radiusInMeters' not in distr):
-            raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `distr`.")
-        elif ('roadNetwork' not in distr):
-            raise MissingParameterError("ERROR: Missing required key 'RoadNetwork' in field `distr`. Need to provide the road network where the nodes are generated.")
-        elif ('roadClass' not in distr):
+    elif (method['distr'] == 'RoadNetworkCircleLatLon'):
+        if ('centerLatLon' not in method or 'radiusInMeters' not in method):
+            raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `method`.")
+        elif ('roadNetwork' not in method):
+            raise MissingParameterError("ERROR: Missing required key 'RoadNetwork' in field `method`. Need to provide the road network where the nodes are generated.")
+        elif ('roadClass' not in method):
             warnings.warn("WARNING: Set 'roadClass' to be default as ['residential']")
         nodeLocs = _rndPtRoadNetworkCircleLatLon(
             N if N != None else len(nodeIDs),
-            distr['roadNetwork'], 
-            distr['radiusInMeters'],
-            distr['centerLatLon'],
-            distr['roadClass'] if 'roadClass' in distr else ['residential'])
+            method['roadNetwork'], 
+            method['radiusInMeters'],
+            method['centerLatLon'],
+            method['roadClass'] if 'roadClass' in method else ['residential'])
         for n in range(len(nodeIDs)):
             nodes[nodeIDs[n]] = {
                 'loc': nodeLocs[n]
             }
+    
     else:
         raise UnsupportedInputError(ERROR_MISSING_NODES_DISTR)
 
@@ -387,11 +388,163 @@ def _rndPtRoadNetworkCircleLatLon(N: int, road: dict, radius: float, center: pt,
 
     return nodeLocs
 
+def rndTimeWindowsNodes(
+    nodes: dict,
+    nodeIDs: list[int|str]|str = 'All',
+    method: dict = {
+            'mode': 'RandomStartInt',
+            'startTW': [0, 100],
+            'endLimit': float('inf')
+        }
+    ) -> dict:
+
+    """Add 'startTime', 'endTime' fields for given nodes
+
+    """
+
+    # Sanity check ============================================================
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = [i for i in nodes]
+        else:
+            for i in nodeIDs:
+                if (i not in nodes):
+                    raise OutOfRangeError("ERROR: Node %s is not in `nodes`." % i)
+
+    if (method == None or 'mode' not in method):
+        raise MissingParameterError("ERROR: Missing required field `method`, or missing required key 'mode' in `method`.")
+    
+    if (method['mode'] == 'RandomStartInt'):
+        if ('startTW' not in method or type(method['startTW']) not in [list, tuple] or len(method['startTW']) != 2):
+            raise MissingParameterError("ERROR: Missing required key 'startTW' in `method` or incorrect format.")
+        startTW = list(method['startTW'])
+
+        endLimit = None
+        if ('endLimit' not in method):
+            endLimit = float('inf')
+        else:
+            endLimit = method['endLimit']
+        if (startTW[1] > endLimit):
+            warnings.warn("WARNING: Start time cannot be later than end time, auto adjust last posible start time to be 'endLimie'")
+            startTW[1] = endLimit
+
+        for n in nodeIDs:
+            start = random.randrange(int(startTW[0]), int(startTW[1]))
+            nodes[n]['timeWindow'] = [start, endLimit]
+
+    elif (method['mode'] == 'RandomStart'):
+        startTW = None
+        if ('startTW' not in method or type(method['startTW']) not in [list, tuple] or len(method['startTW']) != 2):
+            raise MissingParameterError("ERROR: Missing required key 'startTW' in `method` or incorrect format.")
+        startTW = list(method['startTW'])
+
+        endLimit = None
+        if ('endLimit' not in method):
+            endLimit = float('inf')
+        else:
+            endLimit = method['endLimit']
+        if (startTW[1] > endLimit):
+            warnings.warn("WARNING: Start time cannot be later than end time, auto adjust last posible start time to be 'endLimie'")
+            startTW[1] = endLimit
+
+        for n in nodeIDs:
+            start = startTW[0] + (startTW[1] - startTW[0]) * random.random()
+            nodes[n]['timeWindow'] = [start, endLimit]
+
+    elif (method['mode'] == 'Random'):
+        if ('timeWindow' not in method or type(method['timeWindow']) not in [list, tuple] or len(method['timeWindow']) != 2):
+            raise MissingParameterError("ERROR: Missing required key 'timeWindow' in `method` or incorrect format.")
+        timeWindow = method['timeWindow']
+
+        if (timeWindow[0] >= timeWindow[1]):
+            raise UnsupportedInputError("ERROR: End time should be later than start time.")
+
+        for n in nodeIDs:
+            rnd1 = timeWindow[0] + (timeWindow[1] - timeWindow[0]) * random.random()
+            rnd2 = timeWindow[0] + (timeWindow[1] - timeWindow[0]) * random.random()
+            startTime = min(rnd1, rnd2)
+            endTime = max(rnd1, rnd2)
+            nodes[n]['timeWindow'] = [startTime, endTime]
+
+    elif (method['mode'] == 'RandomInt'):
+        if ('timeWindow' not in method or type(method['timeWindow']) not in [list, tuple] or len(method['timeWindow']) != 2):
+            raise MissingParameterError("ERROR: Missing required key 'timeWindow' in `method` or incorrect format.")
+        timeWindow = method['timeWindow']
+
+        if (timeWindow[0] >= timeWindow[1]):
+            raise UnsupportedInputError("ERROR: End time should be later than start time.")
+
+        for n in nodeIDs:
+            rnd1 = random.randrange(timeWindow[0], timeWindow[1])
+            rnd2 = random.randrange(timeWindow[0], timeWindow[1])
+            startTime = min(rnd1, rnd2)
+            endTime = max(rnd1, rnd2)
+            nodes[n]['timeWindow'] = [startTime, endTime]
+
+    else:
+        raise UnsupportedInputError("ERROR: Unsupported option for `method`. Supported 'mode' includes: 'Random', 'RandomInt', 'RandomStart', 'RandomStartInt'.")
+
+    return nodes
+
+def rndDemandNodes(
+    nodes: dict,
+    nodeIDs: list[int|str]|str = 'All',
+    method: dict = {
+            'mode': 'RandomInt',
+            'range': [0, 100]
+        }
+    ) -> dict:
+
+    """Assign 'demand' for given nodes
+
+    """
+
+    # Sanity check ============================================================
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = [i for i in nodes]
+        else:
+            for i in nodeIDs:
+                if (i not in nodes):
+                    raise OutOfRangeError("ERROR: Node %s is not in `nodes`." % i)
+
+    if (method == None or 'mode' not in method):
+        raise MissingParameterError("ERROR: Missing required field `method`, or missing required key 'mode' in `method`.")
+
+    if (method['mode'] == 'Random'):
+        if ('range' not in method or type(method['range']) not in [list, tuple] or len(method['range']) != 2):
+            raise MissingParameterError("ERROR: Missing required key 'range' in `method` or incorrect format.")
+        Range = method['range']
+
+        if (Range[0] >= Range[1]):
+            raise UnsupportedInputError("ERROR: Upper range should be greater than lower range.")
+
+        for n in nodeIDs:
+            rnd = Range[0] + (Range[1] - Range[0]) * random.random()
+            nodes[n]['demand'] = rnd
+
+    elif (method['mode'] == 'RandomInt'):
+        if ('range' not in method or type(method['range']) not in [list, tuple] or len(method['range']) != 2):
+            raise MissingParameterError("ERROR: Missing required key 'range' in `method` or incorrect format.")
+        Range = method['range']
+
+        if (Range[0] >= Range[1]):
+            raise UnsupportedInputError("ERROR: Upper range should be greater than lower range.")
+
+        for n in nodeIDs:
+            rnd = random.randrange(Range[0], Range[1])
+            nodes[n]['demand'] = rnd
+
+    else:
+        raise UnsupportedInputError("ERROR: Unsupported option for `method`. Supported 'mode' includes: 'Random', and 'RandomInt'.")
+
+    return nodes
+
 def rndPlainArcs(
     A: int|None = None,
     arcIDs: list[int|str] = [],
-    distr: dict = {
-            'method': 'UniformLengthInSquareXY',
+    method: dict = {
+            'distr': 'UniformLengthInSquareXY',
             'xRange': (0, 100),
             'yRange': (0, 100),
             'minLen': 0,
@@ -408,11 +561,11 @@ def rndPlainArcs(
         Number of arcs to be visited
     arcIDs: list, optional, default None
         Alternative input parameter of `A`. A list of arc IDs, `A` will be overwritten if `arcIDs` is given
-    distr: dictionary, optional, default {'method': 'UniformLengthInSquareXY', 'xRange': (0, 100), 'yRange': (0, 100), 'minLen': 0, 'maxLen': 10}
+    method: dictionary, optional, default {'distr': 'UniformLengthInSquareXY', 'xRange': (0, 100), 'yRange': (0, 100), 'minLen': 0, 'maxLen': 10}
         Spatial distribution of arcs, optional are as following:
         1) (default) Uniformly sample from a square on the Euclidean space, with uniformly selected length
-        >>> distr = {
-        ...     'method': 'UniformLengthInSquareXY',
+        >>> method = {
+        ...     'distr': 'UniformLengthInSquareXY',
         ...     'xRange': (0, 100),
         ...     'yRange': (0, 100),
         ...     'minLen': 0,
@@ -422,7 +575,7 @@ def rndPlainArcs(
     """
 
     # Sanity check ============================================================
-    if (distr == None or 'method' not in distr):
+    if (method == None or 'distr' not in method):
         raise MissingParameterError(ERROR_MISSING_ARCS_DISTR)
 
     arcs = {}
@@ -432,21 +585,21 @@ def rndPlainArcs(
         arcIDs = [i for i in range(A)]
 
     # Generate instance =======================================================
-    if (distr['method'] == 'UniformLengthInSquareXY'):
-        if ('minLen' not in distr or 'maxLen' not in distr):
-            raise MissingParameterError("ERROR: Missing required field 'minLen' and/or 'maxLen' in `distr`")
+    if (method['distr'] == 'UniformLengthInSquareXY'):
+        if ('minLen' not in method or 'maxLen' not in method):
+            raise MissingParameterError("ERROR: Missing required field 'minLen' and/or 'maxLen' in `method`")
         xRange = None
         yRange = None
-        if ('xRange' not in distr or 'yRange' not in distr):
+        if ('xRange' not in method or 'yRange' not in method):
             xRange = [0, 100]
             yRange = [0, 100]
             warnings.warn("WARNING: Set sample area to be default as a (0, 100) x (0, 100) square")
         else:
-            xRange = [float(distr['xRange'][0]), float(distr['xRange'][1])]
-            yRange = [float(distr['yRange'][0]), float(distr['yRange'][1])]
+            xRange = [float(method['xRange'][0]), float(method['xRange'][1])]
+            yRange = [float(method['yRange'][0]), float(method['yRange'][1])]
         for n in arcIDs:
             arcs[n] = {
-                'arc': _rndArcUniformSquareXY(xRange, yRange, distr['minLen'], distr['maxLen'])
+                'arc': _rndArcUniformSquareXY(xRange, yRange, method['minLen'], method['maxLen'])
             }
     else:
         raise UnsupportedInputError(ERROR_MISSING_ARCS_DISTR)

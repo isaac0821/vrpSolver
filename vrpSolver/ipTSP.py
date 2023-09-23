@@ -17,9 +17,17 @@ from .geometry import *
 
 def ipTSP(
     nodes: dict, 
-    edges: dict = {'method': "Euclidean", 'ratio': 1},
-    fml: str = 'DFJ_Lazy', 
-    solver: dict = {'solver': 'Gurobi', 'timeLimit': None, 'gapTolerance': None, 'outputFlag': False, 'env': None},
+    edges: dict = {
+        'method': "Euclidean", 
+        'ratio': 1
+    },
+    method: dict = {
+        'fml': 'DFJ_Lazy',
+        'solver': 'Gurobi',
+        'timeLimit': None,
+        'outputFlag': None,
+        'env': None
+    },
     depotID: int|str = 0,
     nodeIDs: list[int|str]|str = 'All',
     serviceTime: float = 0,
@@ -64,21 +72,14 @@ def ipTSP(
             ...     'method': 'Grid',
             ...     'grid': grid
             ... }
-    fml: string, required, default as 'DFJ_Lazy'
-        The IP formulation used for solving TSP. The options are as follows:
-            1) 'DFJ_Lazy'
-            2) 'DFJ_Plainloop'
-            3) 'MTZ'
-            4) 'MultiCommodityFlow' (Only for demonstration, not practical)
-            5) 'ShortestPath' (Only for demonstration, not practical)
-            6) 'QAP' (Only for demonstration, extremely not practical)
-    solver: dictionary, required, default as {'solver': 'Gurobi', 'timeLimit': None, 'gapTolerance': None, 'outputFlag': False}
+    method: dictionary, required, default as {'solver': 'Gurobi', 'timeLimit': None, 'gapTolerance': None, 'outputFlag': False}
         The settings for the MILP solver, right now Gurobi supports all formulation and COPT supports 'DFJ_Lazy', the format is as following:
-            >>> solver = {
+            >>> method = {
+            ...     'fml': 'DFJ_Lazy',
             ...     'solver': 'Gurobi',
             ...     'timeLimit': timeLimit, # Time limit in seconds, for 'DFJ_Plainloop' is the total time limit
             ...     'gapTolerance': gapTolerance,
-            ...     'outputFlag': False # Turn off solver log output by default
+            ...     'outputFlag': False # Turn off method log output by default
             ... }
     depotID: int or string, required, default as 0
         The ID of depot.
@@ -117,73 +118,73 @@ def ipTSP(
     if ((type(nodeIDs) == list and depotID not in nodeIDs)
         or (nodeIDs == 'All' and depotID not in nodes)):
         raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
-    if (solver == None or 'solver' not in solver):
-        raise MissingParameterError("ERROR: Missing required field `solver`.")
-    elif (solver['solver'] == 'Gurobi' and fml not in ['DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', 'QAP']):
+    if (method == None or 'solver' not in method):
+        raise MissingParameterError("ERROR: Missing required field `method`.")
+    elif (method['solver'] == 'Gurobi' and method['fml'] not in ['DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', 'QAP']):
         raise OutOfRangeError("ERROR: Gurobi option supports 'DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', and 'QAP' formulations", )
-    elif (solver['solver'] == 'COPT' and fml not in ['DFJ_Lazy']):
+    elif (method['solver'] == 'COPT' and method['fml'] not in ['DFJ_Lazy']):
         raise OutOfRangeError("ERROR: COPT option supports 'DFJ_Lazy' formulations", )
 
     # Define tau ==============================================================
-    tau, pathLoc = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
+    tau, path = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
 
     # Solve by different formulations =========================================
     tsp = None
-    if (solver['solver'] == 'Gurobi'):
-        if (fml == 'DFJ_Lazy'):
+    if (method['solver'] == 'Gurobi'):
+        if (method['fml'] == 'DFJ_Lazy'):
             tsp = _ipTSPGurobiLazyCuts(
                 nodeIDs, 
                 tau, 
-                solver['outputFlag'] if 'outputFlag' in solver else None, 
-                solver['timeLimit'] if 'timeLimit' in solver else None, 
-                solver['gapTolerance'] if 'gapTolerance' in solver else None)
-        elif (fml == 'DFJ_Plainloop'):
+                method['outputFlag'] if 'outputFlag' in method else None, 
+                method['timeLimit'] if 'timeLimit' in method else None, 
+                method['gapTolerance'] if 'gapTolerance' in method else None)
+        elif (method['fml'] == 'DFJ_Plainloop'):
             tsp = _ipTSPGurobiPlainLoop(
                 nodeIDs, 
                 tau, 
-                solver['outputFlag'] if 'outputFlag' in solver else None, 
-                solver['timeLimit'] if 'timeLimit' in solver else None, 
-                solver['gapTolerance'] if 'gapTolerance' in solver else None)
-        elif (fml == 'MTZ'):
+                method['outputFlag'] if 'outputFlag' in method else None, 
+                method['timeLimit'] if 'timeLimit' in method else None, 
+                method['gapTolerance'] if 'gapTolerance' in method else None)
+        elif (method['fml'] == 'MTZ'):
             tsp = _ipTSPGurobiMTZ(
                 nodeIDs, 
                 tau, 
-                solver['outputFlag'] if 'outputFlag' in solver else None, 
-                solver['timeLimit'] if 'timeLimit' in solver else None, 
-                solver['gapTolerance'] if 'gapTolerance' in solver else None)
-        elif (fml == 'ShortestPath'):
+                method['outputFlag'] if 'outputFlag' in method else None, 
+                method['timeLimit'] if 'timeLimit' in method else None, 
+                method['gapTolerance'] if 'gapTolerance' in method else None)
+        elif (method['fml'] == 'ShortestPath'):
             tsp = _ipTSPGurobiShortestPath(
                 nodeIDs, 
                 tau, 
-                solver['outputFlag'] if 'outputFlag' in solver else None, 
-                solver['timeLimit'] if 'timeLimit' in solver else None, 
-                solver['gapTolerance'] if 'gapTolerance' in solver else None)
-        elif (fml == 'MultiCommodityFlow'):
+                method['outputFlag'] if 'outputFlag' in method else None, 
+                method['timeLimit'] if 'timeLimit' in method else None, 
+                method['gapTolerance'] if 'gapTolerance' in method else None)
+        elif (method['fml'] == 'MultiCommodityFlow'):
             tsp = _ipTSPGurobiMultiCommodityFlow(
                 nodeIDs, 
                 tau, 
-                solver['outputFlag'] if 'outputFlag' in solver else None, 
-                solver['timeLimit'] if 'timeLimit' in solver else None, 
-                solver['gapTolerance'] if 'gapTolerance' in solver else None)
-        elif (fml == 'QAP'):
+                method['outputFlag'] if 'outputFlag' in method else None, 
+                method['timeLimit'] if 'timeLimit' in method else None, 
+                method['gapTolerance'] if 'gapTolerance' in method else None)
+        elif (method['fml'] == 'QAP'):
             tsp = _ipTSPGurobiQAP(
                 nodeIDs, 
                 tau, 
-                solver['outputFlag'] if 'outputFlag' in solver else None, 
-                solver['timeLimit'] if 'timeLimit' in solver else None, 
-                solver['gapTolerance'] if 'gapTolerance' in solver else None)    
-    elif (solver['solver'] == 'COPT'):
-        if (fml == 'DFJ_Lazy'):
+                method['outputFlag'] if 'outputFlag' in method else None, 
+                method['timeLimit'] if 'timeLimit' in method else None, 
+                method['gapTolerance'] if 'gapTolerance' in method else None)    
+    elif (method['solver'] == 'COPT'):
+        if (method['fml'] == 'DFJ_Lazy'):
             tsp = _ipTSPCOPTLazyCuts(
                 nodeIDs, 
                 tau, 
-                solver['outputFlag'] if 'outputFlag' in solver else None, 
-                solver['timeLimit'] if 'timeLimit' in solver else None,
-                solver['env'] if 'env' in solver else None)
+                method['outputFlag'] if 'outputFlag' in method else None, 
+                method['timeLimit'] if 'timeLimit' in method else None,
+                method['env'] if 'env' in method else None)
     if (tsp == None):
         raise UnsupportedInputError("ERROR: Incorrect or not available TSP formulation option!")
     
-    tsp['fml'] = fml
+    tsp['fml'] = method['fml']
 
     # Fix the sequence to make it start from the depot ========================
     startIndex = 0
@@ -203,7 +204,12 @@ def ipTSP(
 
     # Add service time info ===================================================
     tsp['serviceTime'] = serviceTime
-    tsp['solver'] = solver['solver']
+    tsp['solver'] = method['solver']
+
+    shapepoints = []
+    for i in range(len(truckSeq) - 1):
+        shapepoints.extend(path[truckSeq[i], truckSeq[i + 1]])
+    tsp['shapepoints'] = shapepoints
 
     return tsp
 
@@ -949,9 +955,18 @@ def _ipTSPCOPTLazyCuts(nodeIDs, tau, outputFlag, timeLimit, env):
 def ipTSPEx(
     nodes: dict, 
     predefinedArcs: list[list[tuple[int|str]]] = [],
-    edges: dict = {'method': "Euclidean", 'ratio': 1},
-    fml: str = 'DFJ_Lazy', 
-    solver: dict = {'solver': 'Gurobi', 'timeLimit': None, 'gapTolerance': None, 'outputFlag': False, 'env': None},
+    edges: dict = {
+        'method': "Euclidean", 
+        'ratio': 1
+    },
+    method: dict = {
+        'fml': 'DFJ_Lazy',
+        'solver': 'Gurobi', 
+        'timeLimit': None, 
+        'gapTolerance': None, 
+        'outputFlag': False, 
+        'env': None
+    },
     depotID: int|str = 0,
     nodeIDs: list[int|str]|str = 'All',
     serviceTime: float = 0,
@@ -998,16 +1013,14 @@ def ipTSPEx(
             ... }
     predefinedArcs: list[list[tuple[int|str]]], optional, default None
         A set of arcs that are predetermined. For example, ``predefinedArcs = [[(1, 2), (2, 1)], [(3, 4)]]'' means arc (1, 2) or (2, 1) is included in the TSP route, and arc (3, 4) is included as well
-    fml: string, required, default as 'DFJ_Lazy'
-        The IP formulation used for solving TSP with predefined arcs. The options are as follows:
-            1) 'DFJ_Lazy'
-    solver: dictionary, required, default as {'solver': 'Gurobi', 'timeLimit': None, 'gapTolerance': None, 'outputFlag': False}
-        The settings for the MILP solver, right now Gurobi supports all formulation and COPT supports 'DFJ_Lazy', the format is as following:
-            >>> solver = {
+    method: dictionary, required, default as {'solver': 'Gurobi', 'timeLimit': None, 'gapTolerance': None, 'outputFlag': False}
+        The settings for the MILP method, right now Gurobi supports all formulation and COPT supports 'DFJ_Lazy', the format is as following:
+            >>> method = {
+            ...     'fml': 'DFJ_Lazy',
             ...     'solver': 'Gurobi',
             ...     'timeLimit': timeLimit, # Time limit in seconds, for 'DFJ_Plainloop' is the total time limit
             ...     'gapTolerance': gapTolerance,
-            ...     'outputFlag': False # Turn off solver log output by default
+            ...     'outputFlag': False # Turn off method log output by default
             ... }
     depotID: int or string, required, default as 0
         The ID of depot.
@@ -1046,40 +1059,40 @@ def ipTSPEx(
     if ((type(nodeIDs) == list and depotID not in nodeIDs)
         or (nodeIDs == 'All' and depotID not in nodes)):
         raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
-    if (solver == None or 'solver' not in solver):
-        raise MissingParameterError("ERROR: Missing required field `solver`.")
-    elif (solver['solver'] == 'Gurobi' and fml not in ['DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', 'QAP']):
+    if (method == None or 'solver' not in method):
+        raise MissingParameterError("ERROR: Missing required field `method`.")
+    elif (method['solver'] == 'Gurobi' and method['fml'] not in ['DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', 'QAP']):
         raise OutOfRangeError("ERROR: Gurobi option supports 'DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', and 'QAP' formulations", )
-    elif (solver['solver'] == 'COPT' and fml not in ['DFJ_Lazy']):
+    elif (method['solver'] == 'COPT' and method['fml'] not in ['DFJ_Lazy']):
         raise OutOfRangeError("ERROR: COPT option supports 'DFJ_Lazy' formulations", )
 
     # Define tau ==============================================================
-    tau, pathLoc = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
+    tau, path = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
 
     # Solve by different formulations =========================================
     tspEx = None
-    if (solver['solver'] == 'Gurobi'):
-        if (fml == 'DFJ_Lazy'):
+    if (method['solver'] == 'Gurobi'):
+        if (method['fml'] == 'DFJ_Lazy'):
             tspEx = _ipTSPExGurobiLazyCuts(
                 nodeIDs, 
                 predefinedArcs,
                 tau, 
-                solver['outputFlag'] if 'outputFlag' in solver else None, 
-                solver['timeLimit'] if 'timeLimit' in solver else None, 
-                solver['gapTolerance'] if 'gapTolerance' in solver else None) 
-    elif (solver['solver'] == 'COPT'):
-        if (fml == 'DFJ_Lazy'):
+                method['outputFlag'] if 'outputFlag' in method else None, 
+                method['timeLimit'] if 'timeLimit' in method else None, 
+                method['gapTolerance'] if 'gapTolerance' in method else None) 
+    elif (method['solver'] == 'COPT'):
+        if (method['fml'] == 'DFJ_Lazy'):
             tspEx = _ipTSPExCOPTLazyCuts(
                 nodeIDs, 
                 predefinedArcs,
                 tau, 
-                solver['outputFlag'] if 'outputFlag' in solver else None, 
-                solver['timeLimit'] if 'timeLimit' in solver else None,
-                solver['env'] if 'env' in solver else None)
+                method['outputFlag'] if 'outputFlag' in method else None, 
+                method['timeLimit'] if 'timeLimit' in method else None,
+                method['env'] if 'env' in method else None)
     if (tspEx == None):
         raise UnsupportedInputError("ERROR: Incorrect or not available TSP formulation option!")
     
-    tspEx['fml'] = fml
+    tspEx['fml'] = method['fml']
 
     # Fix the sequence to make it start from the depot ========================
     startIndex = 0
@@ -1099,6 +1112,11 @@ def ipTSPEx(
 
     # Add service time info ===================================================
     tspEx['serviceTime'] = serviceTime
+
+    shapepoints = []
+    for i in range(len(truckSeq) - 1):
+        shapepoints.extend(path[truckSeq[i], truckSeq[i + 1]])
+    tspEx['shapepoints'] = shapepoints
 
     return tspEx
 
