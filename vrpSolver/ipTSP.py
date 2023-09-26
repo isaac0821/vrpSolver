@@ -266,6 +266,7 @@ def _ipTSPGurobiLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
 
     # TSP with callback =======================================================
     TSP.optimize(subtourelim)
+    # TSP.write("T.lp")
 
     # Reconstruct solution ====================================================
     ofv = None

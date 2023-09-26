@@ -1168,6 +1168,7 @@ def polysVisibleGraph(polys:polys) -> dict:
     return vg
 
 def ptsVisible(v:int|str|tuple, polys:polys, standalonePts:dict|None=None, knownVG:dict={}) -> list:
+    # NOTE: 该函数不需要你使用shapely
     vertices = {}
     polyVertices = []
     for p in range(len(polys)):
@@ -1338,6 +1339,16 @@ def ptsVisible(v:int|str|tuple, polys:polys, standalonePts:dict|None=None, known
             if (not T.query((min(vIdxWiPrev, vIdxWi), max(vIdxWiPrev, vIdxWi))).isNil):
                 T.delete((min(vIdxWiPrev, vIdxWi), max(vIdxWiPrev, vIdxWi)))
     return W
+
+def ptPolyCenter(poly: poly=None, polyShapely: shapely.Polygon=None) -> pt:
+    if (poly == None and polyShapely == None):
+        raise MissingParameterError("ERROR: Missing required field 'poly' or 'polyShapely'.")
+    if (polyShapely == None):
+        polyShapely = shapely.Polygon(poly)
+
+    ptShapely = shapely.centroid(polyShapely)
+    center = (ptShapely.x, ptShapely.y)
+    return center
 
 # Time seq related ============================================================
 def locInTimedSeq(seq: list[pt], timeStamp: list[float], t: float) -> pt:
@@ -2163,8 +2174,8 @@ def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, lod: float=CONST_EPSILON
             pNextMidLoc = [(p.value[0] + (pNext.value[0] - p.value[0]) / 2), (p.value[1] + (pNext.value[1] - p.value[1]) / 2)]
             pNextMid = RingNode(polyRings[polyIdx].count + 1, pNextMidLoc)
 
-            polyRings[polyIdx].insert(p.key, pNextMid)
-            polyRings[polyIdx].insert(pPrev.key, pPrevMid)
+            polyRings[polyIdx].insert(p, pNextMid)
+            polyRings[polyIdx].insert(pPrev, pPrevMid)
 
         # Simplify the graph
         G = nx.Graph()

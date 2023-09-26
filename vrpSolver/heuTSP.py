@@ -244,14 +244,6 @@ def heuTSP(
         canImpvFlag = True
         while (canImpvFlag):
             canImpvFlag = False
-
-            # if (not canImpvFlag):
-            #     canImpvFlag = seq.impv2Swap()
-
-            # if (not canImpvFlag):
-            #     canImpvFlag = seq.impvRemovalReinsert()
-
-
             if (not canImpvFlag and '2Opt' in method['impv']):
                 canImpvFlag = seq.impv2Opt()
 

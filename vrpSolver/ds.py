@@ -378,7 +378,6 @@ class Route(Ring):
         oriHeadKey = self.head.key
         nI = self.head.next
         sofarBestDist = self.dist if not self.asymFlag else min(self.dist, self._revDist)
-        # print([i.key for i in self.traverse(closeFlag=True)], sofarBestDist, sofarBestDist, "----------------------")
         improvedFlag = False
         canImpvFlag = True
         while (canImpvFlag):
@@ -410,10 +409,8 @@ class Route(Ring):
                 nINext = nI.next
                 self.swapNext(nINext)
                 newDist = self.dist if not self.asymFlag else min(self.dist, self._revDist)
-                # print([i.key for i in self.traverse(closeFlag=True)], newDist, sofarBestDist, nI.key, "SwapNext: ", nINext.next.key)
                 if (newDist < sofarBestDist):
                     sofarBestDist = newDist
-                    # print("Improved")
                     self.rehead(oriHeadKey)
                     canImpvFlag = True
                     improvedFlag = True
@@ -425,10 +422,8 @@ class Route(Ring):
                     self.remove(nJXNext)
                     self.insert(nI, nJXNext)
                     newDist = self.dist if not self.asymFlag else min(self.dist, self._revDist)
-                    # print([i.key for i in self.traverse(closeFlag=True)], newDist, sofarBestDist, nI.key, "RemoveAndInsert: ", nJXNext.key)
                     if (newDist < sofarBestDist):
                         sofarBestDist = newDist
-                        # print("Improved")
                         self.rehead(oriHeadKey)
                         canImpvFlag = True
                         improvedFlag = True
@@ -441,7 +436,6 @@ class Route(Ring):
                 self.swapNext(nJXNext)
                 self.reverse()
                 self.rehead(oriHeadKey)
-                # print([i.key for i in self.traverse(closeFlag=True)], newDist, sofarBestDist, nI.key, "Recover")
                 
                 nI = nI.next
         return improvedFlag

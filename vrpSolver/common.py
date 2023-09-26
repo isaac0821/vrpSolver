@@ -37,43 +37,6 @@ def rndPick(coefficients: list[int | float]) -> int:
             break
     return idx
 
-def binary2StartEndPair(l, trueValue = True):
-    p = []
-    start = None
-    if (l[0] == trueValue):
-        start = 0
-    for i in range(len(l)):
-        if (l[i] == trueValue):
-            if (start == None):
-                start = i
-        else:
-            if (start != None):
-                p.append([start, i - 1])
-                start = None
-    if (l[-1] == trueValue):
-        if (start != None):
-            p.append([start, len(l) - 1])
-    return p
-
-def iterSeq(seqL, i, direction):
-    if (direction == 'next'):
-        return i + 1 if i < seqL - 1 else 0
-    elif (direction == 'prev'):
-        return i - i if i > 0 else seqL - 1
-    else:
-        return None
-
-def listSetMinus(a, b):
-    return [v for v in a if v not in b]
-
-def listSetIntersect(a, b):
-    return [v for v in a if v in b]
-
-def listSetUnion(a, b):
-    l = [v for v in a]
-    l.extend([v for v in b if v not in a])
-    return l
-
 def list2String(l):
     listString = "["
     listString += ', '.join([list2String(elem) if type(elem) == list else str(elem) for elem in l.copy()])
