@@ -14,6 +14,7 @@ from .geometry import *
 
 def plotNodes(
     nodes: dict, 
+    locFieldName = 'loc',
     nodeColor: str = 'Random',
     nodeMarker: str = 'o',
     nodeMarkersize: float = 1,
@@ -36,7 +37,6 @@ def plotNodes(
             >>> nodes = {
             ...     nodeID1: {
             ...         'loc': (x, y),
-            ...         'neighbor': poly, # Optional, indicate if need to display the neighborhood
             ...         'marker': 'r',    # Optional, default as 'o'
             ...         'markersize': 2,  # Optional, default as None
             ...         'color': 'red',   # Optional, default as 'Random'
@@ -86,11 +86,11 @@ def plotNodes(
             allY = []
             for i in nodes:
                 if (not xyReverseFlag):
-                    allX.append(nodes[i]['loc'][0])
-                    allY.append(nodes[i]['loc'][1])
+                    allX.append(nodes[i][locFieldName][0])
+                    allY.append(nodes[i][locFieldName][1])
                 else:
-                    allX.append(nodes[i]['loc'][1])
-                    allY.append(nodes[i]['loc'][0])        
+                    allX.append(nodes[i][locFieldName][1])
+                    allY.append(nodes[i][locFieldName][0])        
             if (xMin == None):
                 xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
             if (xMax == None):
@@ -145,11 +145,11 @@ def plotNodes(
         x = None
         y = None
         if (not xyReverseFlag):
-            x = nodes[n]['loc'][0]
-            y = nodes[n]['loc'][1]
+            x = nodes[n][locFieldName][0]
+            y = nodes[n][locFieldName][1]
         else:
-            x = nodes[n]['loc'][1]
-            y = nodes[n]['loc'][0]
+            x = nodes[n][locFieldName][1]
+            y = nodes[n][locFieldName][0]
         if (nodeMarkersize == None):
             ax.plot(x, y, color = color, marker = nodeMarker)
         else:
@@ -181,6 +181,7 @@ def plotNodes(
 
 def plotArcs(
     arcs: dict,
+    arcFieldName = 'arc',
     arcColor: str = 'Random',
     arcWidth: float = 1.0,
     arrowFlag: bool = True,
@@ -250,15 +251,15 @@ def plotArcs(
             allY = []
             for i in arcs:
                 if (not xyReverseFlag):
-                    allX.append(arcs[i]['arc'][0][0])
-                    allX.append(arcs[i]['arc'][1][0])
-                    allY.append(arcs[i]['arc'][0][1])
-                    allY.append(arcs[i]['arc'][1][1])
+                    allX.append(arcs[i][arcFieldName][0][0])
+                    allX.append(arcs[i][arcFieldName][1][0])
+                    allY.append(arcs[i][arcFieldName][0][1])
+                    allY.append(arcs[i][arcFieldName][1][1])
                 else:
-                    allX.append(arcs[i]['arc'][0][1])
-                    allX.append(arcs[i]['arc'][1][1])
-                    allY.append(arcs[i]['arc'][0][0])
-                    allY.append(arcs[i]['arc'][1][0])
+                    allX.append(arcs[i][arcFieldName][0][1])
+                    allX.append(arcs[i][arcFieldName][1][1])
+                    allY.append(arcs[i][arcFieldName][0][0])
+                    allY.append(arcs[i][arcFieldName][1][0])
             
             if (xMin == None):
                 xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
@@ -297,15 +298,15 @@ def plotArcs(
     for i in arcs:
         x1, y1, x2, y2 = 0, 0, 0, 0
         if (not xyReverseFlag):
-            x1 = arcs[i]['arc'][0][0]
-            x2 = arcs[i]['arc'][1][0]
-            y1 = arcs[i]['arc'][0][1]
-            y2 = arcs[i]['arc'][1][1]
+            x1 = arcs[i][arcFieldName][0][0]
+            x2 = arcs[i][arcFieldName][1][0]
+            y1 = arcs[i][arcFieldName][0][1]
+            y2 = arcs[i][arcFieldName][1][1]
         else:
-            x1 = arcs[i]['arc'][0][1]
-            x2 = arcs[i]['arc'][1][1]
-            y1 = arcs[i]['arc'][0][0]
-            y2 = arcs[i]['arc'][1][0]
+            x1 = arcs[i][arcFieldName][0][1]
+            x2 = arcs[i][arcFieldName][1][1]
+            y1 = arcs[i][arcFieldName][0][0]
+            y2 = arcs[i][arcFieldName][1][0]
         dx = x2 - x1
         dy = y2 - y1
         if (arcColor == 'Random'):
@@ -483,6 +484,7 @@ def plotLocSeq(
 def plotNodeSeq(
     nodes: dict, 
     nodeSeq: list[int|str],
+    locFieldName: str = 'loc',
     lineColor: str = 'Random',
     lineWidth: float = 1,
     arrowFlag: bool = True,
@@ -565,7 +567,7 @@ def plotNodeSeq(
     for n in nodeSeq:
         if (n not in nodes):
             raise UnsupportedInputError("ERROR: Cannot find %s in nodes" % n)
-        locSeq.append(nodes[n]['loc'])
+        locSeq.append(nodes[n][locFieldName])
 
     fig, ax = plotLocSeq(
         fig = fig,
@@ -592,7 +594,7 @@ def plotPoly(
     fillColor: str|None = None,
     fillStyle: str = "///",
     opacity: float = 0.5,
-    xyReverseFlag: bool = False,    
+    xyReverseFlag: bool = False,
     fig = None,
     ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
@@ -602,7 +604,7 @@ def plotPoly(
     showFig: bool = True
     ):
 
-    """Draw arcs
+    """Draw a polygon
 
     Parameters
     ----------
@@ -732,11 +734,16 @@ def plotPoly(
 
     return fig, ax
 
-def plotArcSegs(
-    arcSegs: list[arcSeg],
-    arcSegColor: str = 'Random',
-    arcSegWidth: float = 1.0,
-    lod: int = 30,
+def plotPolys(
+    polys: dict,
+    polyFieldName: str = 'poly',
+    showAnchorFlag: bool = True,
+    anchorFieldName: str = 'anchor',
+    edgeWidth: float = 0.5,
+    edgeColor: str|None = 'Random',
+    fillColor: str|None = None,
+    fillStyle: str = "///",
+    opacity: float = 0.5,
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
@@ -745,38 +752,25 @@ def plotArcSegs(
     showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
-    ): 
+    ):
 
-    # Check for required fields ===============================================
-    if (arcSegs == None):
-        raise MissingParameterError("ERROR: Missing required field `arcSegs`.")
-    
-    locSeqs = []
-    for arcSeg in arcSegs:
-        locSeq = []
-        startHeading = headingXY(arcSeg[2], arcSeg[1])
-        endheading = headingXY(arcSeg[2], arcSeg[0])
-        startR = distEuclideanXY(arcSeg[2], arcSeg[1])['dist']
-        endR = distEuclideanXY(arcSeg[2], arcSeg[0])['dist']
-        for i in range(lod + 1):
-            deg = startHeading + i * (endheading - startHeading) / lod
-            R = startR + i * (endR - startR) / lod
-            locSeq.append(ptInDistXY(arcSeg[2], deg, R))
-        locSeqs.append(locSeq)
+    # Sanity check ============================================================
+    if (type(polys) != dict):
+        raise UnsupportedInputError("ERROR: `polys` is a dictionary, to plot an individual polygon, please use plotPoly() instead.")
 
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
         allX = []
         allY = []
-        for seq in locSeqs:
-            for pt in seq:
+        for p in polys:
+            for i in polys[p][polyFieldName]:
                 if (not xyReverseFlag):
-                    allX.append(pt[0])
-                    allY.append(pt[1])
+                    allX.append(i[0])
+                    allY.append(i[1])
                 else:
-                    allX.append(pt[1])
-                    allY.append(pt[0])
+                    allX.append(i[1])
+                    allY.append(i[0])
         (xMin, xMax, yMin, yMax) = boundingBox
         if (xMin == None):
             xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
@@ -810,17 +804,33 @@ def plotArcSegs(
             ax.set_xlim(xMin, xMax)
             ax.set_ylim(yMin, yMax)
 
-    for seq in locSeqs:
-        fig, ax = plotLocSeq(
+    # First, plot polygons ====================================================
+    for p in polys:
+        fig, ax = plotPoly(
             fig = fig,
             ax = ax,
-            locSeq = seq,
-            lineColor = arcSegColor,
-            lineWidth = arcSegWidth,
-            arrowFlag = False,
+            poly = polys[p][polyFieldName],
+            edgeWidth = edgeWidth,
+            edgeColor = edgeColor,
+            fillColor = fillColor,
+            fillStyle = fillStyle,
+            opacity = opacity,
             xyReverseFlag = xyReverseFlag,
-            figSize = figSize,
-            boundingBox = (xMin, xMax, yMin, yMax))
+            figSize = figSize)
+
+    # Next, plot anchors ======================================================
+    if (showAnchorFlag):
+        for p in polys:
+            if ('label' not in polys[p]):
+                lbl = p
+            else:
+                lbl = polys[p]['label']
+            ha = 'center'
+            va = 'center'
+            ct = polys[p]['anchor']
+            if (xyReverseFlag):
+                ct = [ct[1], ct[0]]
+            ax.annotate(lbl, ct, ha=ha, va=va)
 
     # Axis on and off =========================================================
     if (not showAxis):
@@ -831,58 +841,6 @@ def plotArcSegs(
         fig.savefig(saveFigPath)
     if (not showFig):
         plt.close(fig)
-    return fig, ax
-
-def plotArcPoly(
-    arcPoly: arcPoly, 
-    arcSegColor: str|None = 'Random',
-    arcSegWidth: float = 0.5,
-    lod = 30,
-    fillColor: str|None = None,
-    fillStyle: str = "///",
-    opacity: float = 0.5,
-    xyReverseFlag: bool = False,    
-    fig = None,
-    ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
-    showAxis: bool = True,
-    saveFigPath: str|None = None,
-    showFig: bool = True
-    ):
-
-    # Check for required fields ===============================================
-    if (arcPoly == None):
-        raise MissingParameterError("ERROR: Missing required field `arcPoly`.")
-
-    locSeqs = []
-    for arcSeg in arcSegs:
-        locSeq = []
-        startHeading = headingXY(arcSeg[2], arcSeg[1])
-        endheading = headingXY(arcSeg[2], arcSeg[0])
-        startR = distEuclideanXY(arcSeg[2], arcSeg[1])['dist']
-        endR = distEuclideanXY(arcSeg[2], arcSeg[0])['dist']
-        for i in range(lod + 1):
-            deg = startHeading + i * (endheading - startHeading) / lod
-            R = startR + i * (endR - startR) / lod
-            locSeq.append(ptInDistXY(arcSeg[2], deg, R))
-        locSeqs.extend(locSeq)
-
-    fig, ax = plotPoly(
-        fig = fig,
-        ax = ax,
-        poly = locSeqs, 
-        edgeWidth = arcSegWidth,
-        edgeColor = arcSegColor,
-        fillColor = fillColor,
-        fillStyle = fillStyle,
-        opacity = opacity,
-        xyReverseFlag = xyReverseFlag,
-        figSize = figSize, 
-        boundingBox = boundingBox,
-        showAxis = showAxis,
-        saveFigPath = saveFigPath,
-        showFig = showFig)
 
     return fig, ax
 
@@ -942,31 +900,40 @@ def plotProvinceMap(
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
     
+    prvPoly = {}
     if (type(province) == str):
         province = [province]
     for prv in province:
-        prvPoly = []
         if (country == 'U.S.'):
             if prv in usState:
-                prvPoly = usState[prv]
+                ct = ptPolyCenter(usState[prv])
+                prvPoly[prv] = {
+                    'anchor': ct,
+                    'poly': usState[prv]
+                }                
             elif prv in usStateAbbr:
-                prvPoly = usState[usStateAbbr[prv]]
+                ct = ptPolyCenter(usState[usStateAbbr[prv]])
+                prvPoly[prv] = {
+                    'anchor': ct,
+                    'poly': usState[usStateAbbr[prv]]
+                }
         else:
             raise VrpSolverNotAvailableError("Error: %s is not included yet, please stay tune." % country) 
-        fig, ax = plotPoly(
-            fig = fig,
-            ax = ax,
-            poly = prvPoly,
-            edgeWidth = edgeWidth,
-            edgeColor = edgeColor,
-            fillColor = fillColor,
-            fillStyle = fillStyle,
-            opacity = opacity,
-            xyReverseFlag = True,
-            figSize=figSize,
-            saveFigPath=saveFigPath,
-            showAxis = showAxis,
-            showFig=showFig)
+    fig, ax = plotPolys(
+        fig = fig,
+        ax = ax,
+        polys = prvPoly,
+        showAnchorFlag = True,
+        edgeWidth = edgeWidth,
+        edgeColor = edgeColor,
+        fillColor = fillColor,
+        fillStyle = fillStyle,
+        opacity = opacity,
+        xyReverseFlag = True,
+        figSize=figSize,
+        saveFigPath=saveFigPath,
+        showAxis = showAxis,
+        showFig=showFig)
 
     return fig, ax
 

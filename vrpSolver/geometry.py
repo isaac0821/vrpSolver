@@ -23,7 +23,7 @@ def is2PtsSame(pt1: pt, pt2: pt) -> bool:
     return True
 
 def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt) -> bool | None:
-    """Are three given pts in a clock-wise order, None as they are colliner"""
+    """Are three given pts in a clock-wise order, None as they are collinear"""
     if (is2PtsSame(pt1, pt2) or is2PtsSame(pt2, pt3) or is2PtsSame(pt1, pt3)):
         # If points are overlapped, return None as collinear
         return None
@@ -1678,7 +1678,7 @@ def matrixDist(nodes: dict, edges: dict = {'method': 'Euclidean'}, depotID: int|
             warings.warning("WARNING: No barrier provided.")
             tau, pathLoc = _matrixDistEuclideanXY(nodes, nodeIDs)
         else:
-            tau, pathLoc = _matrixDistBtwPolysXY(nodes, nodeIDs, edges['polys'], edges['polyNG'])
+            tau, pathLoc = _matrixDistBtwPolysXY(nodes, nodeIDs, edges['polys'])
     elif (edges['method'] == 'LatLon'):
         ratio = 1 if 'ratio' not in edges else edges['ratio']
         tau, pathLoc = _matrixDistLatLon(nodes, nodeIDs, speed=ratio)
@@ -1782,13 +1782,15 @@ def _matrixDistGrid(nodes: dict, nodeIDs: list, grid: dict):
                 pathLoc[j, i] = []
     return tau, pathLoc
 
-def _matrixDistBtwPolysXY(nodes: dict, nodeIDs: list, polys: polys, polyNG: dict=None):
+def _matrixDistBtwPolysXY(nodes: dict, nodeIDs: list, polys: polys):
     tau = {}
     pathLoc = {}
+    vg = polysVisibleGraph(polys)
+
     for i in nodeIDs:
         for j in nodeIDs:
             if (i != j):
-                d = distBtwPolysXY(pt1 = nodes[i]['loc'], pt2 = nodes[j]['loc'], polys = polys, polyNG = polyNG)
+                d = distBtwPolysXY(pt1 = nodes[i]['loc'], pt2 = nodes[j]['loc'], polys = polys, polyNG = vg)
                 tau[i, j] = d['dist']
                 tau[j, i] = d['dist']
                 pathLoc[i, j] = d['path']
@@ -1840,7 +1842,10 @@ def distBtwPolysXY(pt1:pt, pt2:pt, polys:polys, polyNG:dict=None) -> dict:
             visibleDirectly = False
             break
     if (visibleDirectly):
-        return ['s', 'e']
+        return {
+            'dist': distEuclideanXY(pt1, pt2)['dist'],
+            'path': [pt1, pt2]
+        }
 
     # Create visible graph for polys ==========================================
     if (polyNG == None):      

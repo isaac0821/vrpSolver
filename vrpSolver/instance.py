@@ -17,14 +17,15 @@ from .error import *
 # 20230624 - Add `rndPlainArcs()`
 # =============================================================================
 
-def rndPlainNodes(
+def rndNodes(
     N: int|None = None, 
     nodeIDs: list[int|str] = [], 
     method: dict = {
             'distr': 'UniformSquareXY', 
             'xRange': (0, 100), 
             'yRange': (0, 100)
-        }
+        },
+    locFieldName = 'loc'
     ) -> dict:
 
     """Randomly create a set of locations
@@ -128,7 +129,7 @@ def rndPlainNodes(
             yRange = [float(method['yRange'][0]), float(method['yRange'][1])]
         for n in nodeIDs:
             nodes[n] = {
-                'loc': _rndPtUniformSquareXY(xRange, yRange)
+                locFieldName: _rndPtUniformSquareXY(xRange, yRange)
             }
 
     # Uniformly sample from a polygon/a list of polygons on the Euclidean space
@@ -138,12 +139,36 @@ def rndPlainNodes(
         if ('polyXY' in method):
             for n in nodeIDs:
                 nodes[n] = {
-                    'loc': _rndPtUniformPolyXY(method['polyXY'])
+                    locFieldName: _rndPtUniformPolyXY(method['polyXY'])
                 }
         elif ('polyXYs' in method):
             for n in nodeIDs:
                 nodes[n] = {
-                    'loc': _rndPtUniformPolyXYs(method['polyXYs'])
+                    locFieldName: _rndPtUniformPolyXYs(method['polyXYs'])
+                }
+
+    # Uniformly sample from the Euclidean space avoiding polygons
+    elif (method['distr'] == 'UniformAvoidPolyXY'):
+        if ('polyXY' not in method and 'polyXYs' not in method):
+            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `method`, which indicates a polygon / a list of polygons in the Euclidean space")
+        xRange = None
+        yRange = None
+        if ('xRange' not in method or 'yRange' not in method):
+            xRange = [0, 100]
+            yRange = [0, 100]
+            warnings.warn("WARNING: Set sampled area to be default as a (0, 100) x (0, 100) square")
+        else:
+            xRange = [float(method['xRange'][0]), float(method['xRange'][1])]
+            yRange = [float(method['yRange'][0]), float(method['yRange'][1])]
+        if ('polyXY' in method):
+            for n in nodeIDs:
+                nodes[n] = {
+                    locFieldName: _rndPtUniformAvoidPolyXY(method['polyXY'], xRange, yRange)
+                }
+        elif ('polyXYs' in method):
+            for n in nodeIDs:
+                nodes[n] = {
+                    locFieldName: _rndPtUniformAvoidPolyXYs(method['polyXYs'], xRange, yRange)
                 }
 
     # Uniformly sample from a circle on the Euclidean space
@@ -159,7 +184,7 @@ def rndPlainNodes(
             radius = method['radius']
         for n in nodeIDs:
             nodes[n] = {
-                'loc': _rndPtUniformCircleXY(radius, centerXY)
+                locFieldName: _rndPtUniformCircleXY(radius, centerXY)
             }
 
     # Uniformly sample from a polygon by lat/lon
@@ -175,7 +200,7 @@ def rndPlainNodes(
             raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `method`.")
         for n in nodeIDs:
             nodes[n] = {
-                'loc': _rndPtUniformCircleLatLon(method['radiusInMeters'], method['centerLatLon'])
+                locFieldName: _rndPtUniformCircleLatLon(method['radiusInMeters'], method['centerLatLon'])
             }
 
     # Uniformly sample from the roads/streets within a polygon/a list of polygons from given road networks
@@ -193,7 +218,7 @@ def rndPlainNodes(
             method['roadClass'] if 'roadClass' in method else ['residential'])
         for n in range(len(nodeIDs)):
             nodes[nodeIDs[n]] = {
-                'loc': nodeLocs[n]
+                locFieldName: nodeLocs[n]
             }
 
     # Uniformly sample from the roads/streets within a circle from given road network
@@ -212,7 +237,7 @@ def rndPlainNodes(
             method['roadClass'] if 'roadClass' in method else ['residential'])
         for n in range(len(nodeIDs)):
             nodes[nodeIDs[n]] = {
-                'loc': nodeLocs[n]
+                locFieldName: nodeLocs[n]
             }
     
     else:
@@ -273,6 +298,26 @@ def _rndPtUniformPolyXYs(polys: polys) -> pt:
     (x, y) = _rndPtUniformTriangleXY(lstTriangle[idx])
 
     return (x, y)
+
+def _rndPtUniformAvoidPolyXY(poly: poly, xRange: list[int]|list[float], yRange: list[int]|list[float]) -> pt:
+    # Use the low efficient accept-denial approach
+    while (True):
+        x = random.uniform(xRange[0], xRange[1])
+        y = random.uniform(yRange[0], yRange[1])
+        if (isPtInPoly((x, y), poly)):
+            return (x, y)
+
+def _rndPtUniformAvoidPolyXYs(polys: polys, xRange: list[int]|list[float], yRange: list[int]|list[float]) -> pt:
+    while (True):
+        x = random.uniform(xRange[0], xRange[1])
+        y = random.uniform(yRange[0], yRange[1])
+        notInPolys = True
+        for p in polys:
+            if (isPtInPoly((x, y), p)):
+                notInPolys = False
+                break
+        if (notInPolys):
+            return (x, y)
 
 def _rndPtUniformCircleXY(radius: float, center: pt) -> pt:
     theta = random.uniform(0, 2 * math.pi)
@@ -388,14 +433,15 @@ def _rndPtRoadNetworkCircleLatLon(N: int, road: dict, radius: float, center: pt,
 
     return nodeLocs
 
-def rndTimeWindowsNodes(
+def rndNodeTimeWindows(
     nodes: dict,
     nodeIDs: list[int|str]|str = 'All',
     method: dict = {
             'mode': 'RandomStartInt',
             'startTW': [0, 100],
             'endLimit': float('inf')
-        }
+        },
+    timeWindowFieldName = 'timeWindow',
     ) -> dict:
 
     """Add 'startTime', 'endTime' fields for given nodes
@@ -430,7 +476,7 @@ def rndTimeWindowsNodes(
 
         for n in nodeIDs:
             start = random.randrange(int(startTW[0]), int(startTW[1]))
-            nodes[n]['timeWindow'] = [start, endLimit]
+            nodes[n][timeWindowFieldName] = [start, endLimit]
 
     elif (method['mode'] == 'RandomStart'):
         startTW = None
@@ -449,7 +495,7 @@ def rndTimeWindowsNodes(
 
         for n in nodeIDs:
             start = startTW[0] + (startTW[1] - startTW[0]) * random.random()
-            nodes[n]['timeWindow'] = [start, endLimit]
+            nodes[n][timeWindowFieldName] = [start, endLimit]
 
     elif (method['mode'] == 'Random'):
         if ('timeWindow' not in method or type(method['timeWindow']) not in [list, tuple] or len(method['timeWindow']) != 2):
@@ -464,7 +510,7 @@ def rndTimeWindowsNodes(
             rnd2 = timeWindow[0] + (timeWindow[1] - timeWindow[0]) * random.random()
             startTime = min(rnd1, rnd2)
             endTime = max(rnd1, rnd2)
-            nodes[n]['timeWindow'] = [startTime, endTime]
+            nodes[n][timeWindowFieldName] = [startTime, endTime]
 
     elif (method['mode'] == 'RandomInt'):
         if ('timeWindow' not in method or type(method['timeWindow']) not in [list, tuple] or len(method['timeWindow']) != 2):
@@ -479,20 +525,21 @@ def rndTimeWindowsNodes(
             rnd2 = random.randrange(timeWindow[0], timeWindow[1])
             startTime = min(rnd1, rnd2)
             endTime = max(rnd1, rnd2)
-            nodes[n]['timeWindow'] = [startTime, endTime]
+            nodes[n][timeWindowFieldName] = [startTime, endTime]
 
     else:
         raise UnsupportedInputError("ERROR: Unsupported option for `method`. Supported 'mode' includes: 'Random', 'RandomInt', 'RandomStart', 'RandomStartInt'.")
 
     return nodes
 
-def rndDemandNodes(
+def rndNodeDemands(
     nodes: dict,
     nodeIDs: list[int|str]|str = 'All',
     method: dict = {
             'mode': 'RandomInt',
             'range': [0, 100]
-        }
+        },
+    demandFieldName = 'demand'
     ) -> dict:
 
     """Assign 'demand' for given nodes
@@ -521,7 +568,7 @@ def rndDemandNodes(
 
         for n in nodeIDs:
             rnd = Range[0] + (Range[1] - Range[0]) * random.random()
-            nodes[n]['demand'] = rnd
+            nodes[n][demandFieldName] = rnd
 
     elif (method['mode'] == 'RandomInt'):
         if ('range' not in method or type(method['range']) not in [list, tuple] or len(method['range']) != 2):
@@ -533,14 +580,126 @@ def rndDemandNodes(
 
         for n in nodeIDs:
             rnd = random.randrange(Range[0], Range[1])
-            nodes[n]['demand'] = rnd
+            nodes[n][demandFieldName] = rnd
 
     else:
         raise UnsupportedInputError("ERROR: Unsupported option for `method`. Supported 'mode' includes: 'Random', and 'RandomInt'.")
 
     return nodes
 
-def rndPlainArcs(
+def rndNodeTrajectories(
+    nodes: dict,
+    nodeIDs: list[int|str]|str = 'All', 
+    method: dict = {
+            'mode': 'Random',
+            'directionRange': [0, 360],
+            'speedRange': [0, 1],
+            'timeWindow': [0, 10]
+        },
+    directionFieldName = 'direction',
+    speedFieldName = 'speed',
+    timeWindowFieldName = 'timeWindow'
+    ) -> dict:
+
+    """For plain nodes, randomly define the moving speed and direction of each node
+
+    WARNING
+    -------
+
+    This function will modify the input dictionary `nodes`
+
+    Parameters
+    ----------
+
+    nodes: dictionary, required
+        A plain nodes dictionary to add moving directions and speeds
+    nodeIDs: string|list[int|str], optional, default as 'All'
+        A list of node IDs to add moving directions and speeds, leave it as 'All' to indicate adding such information to all nodes.
+    method: dictionary, optional, default {'mode': 'Random', 'directionRange': [0, 360], 'speedRange': [0, 1], 'timeWindow': [0, 10]}
+        The details of how the nodes will be moving. Options includes
+            1) 'Random': moving towards directions within in given range with given speed range for given time
+                >>> method = {
+                ...     'mode': 'Random',
+                ...     'directionRange': [0, 360], # or a float number
+                ...     'speedRange': [0, 1], # or a float number
+                ...     'timeWindow': [0, 10]
+                ... }
+            2) 'Destination': moving towards a destination location
+                >>> method = {
+                ...     'mode': 'Destination',
+                ...     'destination': [x, y],
+                ...     'speedRange': [0, 1], # or a float number, e.g., 1
+                ...     'timeWindow': [0, 10]
+                ... }
+
+    Returns
+    -------
+
+    dictionary
+        Changes will apply to the original `nodes` dictionary
+
+    """
+
+    # Sanity check ============================================================
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = [i for i in nodes]
+        else:
+            for i in nodeIDs:
+                if (i not in nodes):
+                    raise OutOfRangeError("ERROR: Node %s is not in `nodes`." % i)
+
+    if (method == None or 'mode' not in method):
+        raise MissingParameterError("ERROR: Missing required field `method`, or missing required key 'mode' in `method`.")
+
+    
+    if (method['mode'] == 'Random'):
+        for n in nodeIDs:
+            # Give direction
+            direction = 0
+            if ('directionRange' not in method or type(method['directionRange']) not in [list, int, float]):
+                raise MissingParameterError("ERROR: Missing required key 'directionRange' in `method` or incorrect format")
+            elif (type(method['directionRange']) == list):
+                direction = random.uniform(method['directionRange'][0], method['directionRange'][1])
+            else:
+                direction = method['directionRange']
+            # Give speed
+            speed = 0
+            if ('speedRange' not in method or type(method['speedRange']) not in [list, int, float]):
+                raise MissingParameterError("ERROR: Missing required key 'speedRange' in `method` or incorrect format")
+            elif (type(method['speedRange']) == list):
+                speed = random.uniform(method['speedRange'][0], method['speedRange'][1])
+            else:
+                speed = method['speedRange']
+            nodes[n][directionFieldName] = direction
+            nodes[n][speedFieldName] = speed
+            nodes[n][timeWindowFieldName] = method['timeWindow']
+        
+    elif (method['mode'] == 'Destination'):
+        for n in nodeIDs:
+            # Give direction
+            direction = 0
+            if ('destination' not in method or type(method['destination']) not in [list, int, float]):
+                raise MissingParameterError("ERROR: Missing required key 'destination' in `method` or incorrect format")
+            elif (type(method['destination']) == list):
+                direction = headingXY(nodes[n]['loc'], method['destination'])
+            # Give speed
+            speed = 0
+            if ('speedRange' not in method or type(method['speedRange']) not in [list, int, float]):
+                raise MissingParameterError("ERROR: Missing required key 'speedRange' in `method` or incorrect format")
+            elif (type(method['speedRange']) == list):
+                speed = random.uniform(method['speedRange'][0], method['speedRange'][1])
+            else:
+                speed = method['speedRange']
+            nodes[n][directionFieldName] = direction
+            nodes[n][speedFieldName] = speed
+            nodes[n][timeWindowFieldName] = method['timeWindow']
+    else:
+        raise UnsupportedInputError("ERROR: Unsupported option for `method`. Supported 'mode' includes: 'Random', 'Destination'.")
+
+    return nodes
+
+def rndArcs(
     A: int|None = None,
     arcIDs: list[int|str] = [],
     method: dict = {
@@ -614,3 +773,182 @@ def _rndArcUniformSquareXY(xRange: list[int]|list[float], yRange: list[int]|list
     (xEnd, yEnd) = ptInDistXY((xStart, yStart), direction, length)
     return ((xStart, yStart), (xEnd, yEnd))
 
+def rndPolys(
+    P: int|None = None,
+    polyIDs: list[int|str] = [],
+    method: dict = {
+        'distr': "UniformSquareXY",
+        'xRange': (0, 100),
+        'yRange': (0, 100),
+        'shape': "Circle",
+        'radius': 10,
+        'lod': 30,
+        'mergeFlag': True
+    },
+    anchorFieldName = 'anchor',
+    polyFieldName = 'poly'
+    ) -> dict:
+
+    """Create polygons
+
+
+    """
+
+    # Sanity check ============================================================
+    if (method == None):
+        raise MissingParameterError("ERROR: Missing required field `method`")
+
+    if ('shape' not in method):
+        raise MissingParameterError("ERROR: Missing required key 'shape' in `method`.")
+
+    if ('distr' not in method): 
+        raise MissingParameterError("ERROR: Missing required key 'distr' in `method`.")
+
+    if (polyIDs == [] and P == None):
+        raise MissingParameterError("ERROR: Missing required field `P` and `polyIDs`.")
+    elif (polyIDs == [] and P != None):
+        polyIDs = [i for i in range(P)]
+
+    # First, create represent nodes for each polygons =========================
+    anchors = rndNodes(
+        N = P,
+        nodeIDs = polyIDs,
+        method = method,
+        locFieldName = 'anchor')
+
+    # Next, create P polygons relative to anchor points =======================
+    polysB4Merge = []
+    for p in polyIDs:
+        if (method['shape'] == 'Poly'):
+            if ('poly' not in method):
+                raise MissingParameterError("ERROR: Missing required key 'poly' in `method`")
+            poly = [[i[0] + anchors[p]['anchor'][0], i[1] + anchors[p]['anchor'][1]] for i in method['poly']]
+        elif (method['shape'] == 'Circle'):
+            if ('radius' not in method):
+                raise MissingParameterError("ERROR: Missing required key 'radius' in `method`")
+            # By default, a circle is plotted by a 30-gon
+            lod = 30
+            if ('lod' in method and type(method['lod']) == int):
+                lod = method['lod']
+            poly = [[
+                anchors[p]['anchor'][0] + method['radius'] * math.sin(2 * d * math.pi / lod),
+                anchors[p]['anchor'][1] + method['radius'] * math.cos(2 * d * math.pi / lod),
+            ] for d in range(lod + 1)]
+        elif (method['shape'] == 'Egg'):
+            if ('a' not in method or 'b' not in method or 'c' not in method):
+                raise MissingParameterError("ERROR: Missing required key 'a', 'b', and/or 'c'.")
+            direction = 0
+            if ('direction' in method):
+                direction = method['direction']
+            lod = 30
+            if ('lod' in method and type(method['lod']) == int):
+                lod = method['lod']
+            # Formulation:
+            # \frac{x^2}{(a - b)x + ab} + \frac{y^2}{c^2} = 1
+            a = method['a']
+            b = method['b']
+            c = method['c']            
+            vHLod = math.ceil(lod * 2 / 9)
+            vTLod = math.ceil(lod / 9)
+            hLod = math.ceil(lod * 2 / 3)
+            polyL = []
+            polyM = []
+            polyR = []
+            for d in range(vHLod + 1):
+                y = c * 0.75 * d / vHLod
+                A = 1
+                B = (y ** 2 / c ** 2 - 1) * (a - b)
+                C = (y ** 2 / c ** 2 - 1) * a * b
+                X = (-B - math.sqrt(B ** 2 - 4 * A * C)) / (2 * A)
+                polyL.append((X, y))
+                xStart = X
+            for d in range(vTLod + 1):
+                y = c * 0.4 * d / vHLod
+                A = 1
+                B = (y ** 2 / c ** 2 - 1) * (a - b)
+                C = (y ** 2 / c ** 2 - 1) * a * b
+                X = (-B + math.sqrt(B ** 2 - 4 * A * C)) / (2 * A)
+                polyR.insert(0, (X, y))
+                xEnd = X
+            for d in range(hLod + 1):
+                x = xStart + (xEnd - xStart) * d / hLod
+                Y = math.sqrt(c * c * (1 - (x * x) / ((a - b) * x + a * b)))
+                polyM.append((x, Y))
+            polyHf = []
+            polyHf.extend(polyL)
+            polyHf.extend(polyM)
+            polyHf.extend(polyR)
+            polyB4Rot = [i for i in polyHf]
+            polyB4Rot.extend([(polyHf[len(polyHf) - 1 - k][0], - polyHf[len(polyHf) - 1 - k][1]) for k in range(len(polyHf))])           
+            poly = []
+            for d in range(len(polyB4Rot)):
+                di = headingXY((0, 0), polyB4Rot[d])
+                r = distEuclideanXY((0, 0), polyB4Rot[d])['dist']
+                pt = ptInDistXY(anchors[p]['anchor'], di + direction, r)
+                poly.append(pt)
+        elif (method['shape'] == 'RandomCurvy'):
+            if ('maxRadius' not in method or 'minRadius' not in method):
+                raise MissingParameterError("ERROR: Missing required key 'maxRadius' or 'minRadius' in `method`")
+            lod = 30
+            if ('lod' in method and type(method['lod']) == int):
+                lod = method['lod']
+            r = []
+            for i in range(lod + 1):
+                r.append(method['minRadius'])
+            N = 4
+            if ('N' in method and type(method['N']) == int):
+                N = method['N']
+            w = 3
+            if ('w' in method and type(method['w']) == int):
+                w = method['w']
+            for k in range(N):
+                a = random.uniform(0, 1)
+                b = random.randint(1, w)
+                c = random.uniform(0, 2)
+                for i in range(lod + 1):
+                    r[i] += a * math.sin(b * 2 * i * math.pi / lod + math.pi * c)
+            maxRI = max(r)
+            for i in range(len(r)):
+                r[i] = r[i] * (method['maxRadius'] - method['minRadius']) / maxRI
+            poly = [[
+                anchors[p]['anchor'][0] + (r[d] + method['minRadius']) * math.sin(2 * d * math.pi / lod),
+                anchors[p]['anchor'][1] + (r[d] + method['minRadius']) * math.cos(2 * d * math.pi / lod),
+            ] for d in range(lod + 1)]        
+        else:
+            raise UnsupportedInputError("ERROR: Unsupported option for `method`. Supported 'shape' includes: 'Poly', 'Circle', and 'RandomCurvy'.")
+        polysB4Merge.append([poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON])
+        
+    # If mergeFlag, merge the polygons ========================================
+    if ('mergeFlag' in method and method['mergeFlag'] == True):
+        polyShape = []
+        for p in polysB4Merge:
+            polyShape.append(p)
+        polysMerged = polysUnionAll(polyShape)
+        # Remove duplicated points
+        for p in range(len(polysMerged)):
+            polysMerged[p] = [polysMerged[p][i] for i in range(len(polysMerged[p])) if distEuclideanXY(polysMerged[p][i], polysMerged[p][i - 1])['dist'] > CONST_EPSILON]
+        
+    # Reindex =================================================================
+    polys = {}
+    if ('mergeFlag' in method and method['mergeFlag'] == True):
+        newIDs = []
+        for i in range(len(polysMerged)):
+            newIDs.append([])
+        for k in anchors:
+            for i in range(len(polysMerged)):
+                if (isPtInPoly(anchors[k]['anchor'], polysMerged[i])):
+                    newIDs[i].append(k)
+                    break
+        for i in range(len(newIDs)):
+            polys[list2Tuple(newIDs[i]) if len(newIDs[i]) > 1 else newIDs[i][0]] = {
+                'anchor': ptPolyCenter(polysMerged[i]),
+                'poly': polysMerged[i]
+            }        
+        return polys
+    else:
+        for i in range(len(polyIDs)):
+            polys[polyIDs[i]] = {
+                'anchor': anchors[polyIDs[i]]['anchor'],
+                'poly': polysB4Merge[i]
+            }
+        return polys

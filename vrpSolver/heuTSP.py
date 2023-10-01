@@ -8,12 +8,10 @@ from .const import *
 from .common import *
 from .geometry import *
 from .msg import *
-# from .operator import *
-# from .calculate import *
 
 # History =====================================================================
 # 20230510 - Cleaning
-# 20230822 - Rewrite Christofide using networkx
+# 20230822 - Rewrite Christofides using networkx
 # =============================================================================
 
 def heuTSP(
@@ -204,7 +202,7 @@ def heuTSP(
         for i in nnSeq:
             seq.append(nodeObj[i])
 
-    # Sweep heurisitic
+    # Sweep heuristic
     elif (method['cons'] == 'Sweep'):
         sweepSeq = _consTSPSweep(nodes, depotID, nodeIDs, tau)
         for i in sweepSeq:
@@ -237,7 +235,7 @@ def heuTSP(
     # Cleaning seq before local improving =================================
     consOfv = seq.dist
 
-    # Local improvment phase ==============================================
+    # Local improvement phase =============================================
     # NOTE: Local improvement phase operates by class methods
     # NOTE: For the local improvement, try every local search operator provided in a greedy way
     if ('impv' in method and method['impv'] != None and method['impv'] != []):
@@ -383,7 +381,6 @@ def _consTSPChristofides(depotID, tau):
 
 def _consTSPCycleCover(depotID, tau):
     raise VrpSolverNotAvailableError("ERROR: vrpSolver has not implement this method yet")
-    return seq
 
 def heuTSPEx(
     nodes: dict, 
@@ -437,12 +434,12 @@ def heuTSPEx(
     if (method['cons'] == 'NearestNeighbor'):
         seq = _consTSPExkNearestNeighbor(depotID, nodeIDs, tau, mustGo, 1)
 
-    # Cleaning seq before local improving =================================
+    # Cleaning seq before local improving =====================================
     ofv = calSeqCostMatrix(tau, seq, closeFlag = False)
     revOfv = None if not asymFlag else calSeqCostMatrix(tau, [seq[len(seq) - i - 1] for i in range(len(seq))], closeFlag = False)
     consOfv = ofv
 
-    # Local improvment phase ==============================================
+    # Local improvement phase =================================================
     # NOTE: For the local improvement, try every local search operator provided in a greedy way
     if ('impv' in method and method['impv'] != None and method['impv'] != []):
         canImproveFlag = True
