@@ -587,6 +587,206 @@ def rndNodeDemands(
 
     return nodes
 
+def rndNodeNeighbors(
+    nodes: dict,
+    nodeIDs: list[int|str]|str = 'All', 
+    method: dict = {
+            'shape': 'Circle', 
+            'radius': 1, 
+            'lod': 30,
+        },
+    locFieldName = 'loc',
+    neighborFieldName = 'neighbor'
+    ) -> dict:
+
+    """Given a node dictionary, add neighborhood to selected nodes
+
+    WARNING
+    -------
+    
+    This function will modify the input dictionary `nodes`
+
+    Parameters
+    ----------
+
+    nodes: dictionary, required
+        A plain nodes dictionary to add neighborhoods.
+    nodeIDs: string|list[int|str], optional, default 'All'
+        A list of node IDs to add neighborhood, leave it as 'All' to indicate adding such information to all nodes.
+    method: dictionary, optional, default {'shape': 'Circle', 'radius': 1, 'lod': 30}
+        The shape of dictionary. Options includes
+            1) Adding polygon surrounding nodes
+                >>> method = {
+                ...     'shape': 'Poly',
+                ...     'poly': poly, # In relative axis where node locates in [0, 0]
+                ... }
+            2) Adding disk circle surrounding nodes
+                >>> method = {
+                ...     'shape': 'Circle',
+                ...     'radius': 1,
+                ...     'lod': 30 # Optional, 'lod' = 'level of detail', default to use a 30-gon representing cirlce
+                }
+            3) [TODO] Add egg shape surrounding nodes. The curve function: $\frac{x^2}{a^2} + \frac{y^2}{b^2(1 - \mu x)} = 1$
+                >>> method = {
+                ...     'shape': 'Egg',
+                ...     'direction': 45,
+                ...     'shortAxis': 5,
+                ...     'longAxis': 7,
+                ...     'mu': 0.2,
+                ...     'lod': 30 # Optional, 'lod' = 'level of detail', default to use a 30-gon representing cirlce
+                ... }
+            4) Add random shape surrounding nodes.
+                >>> method = {
+                ...     'shape': 'RandomCurvy',
+                ...     'maxRadius': 1.2,
+                ...     'minRadius': 0.8,
+                ...     'N': 5,
+                ...     'w': 3,
+                ...     'lod': 30
+                ... }
+
+    Returns
+    -------
+
+    dictionary
+        Changes will apply to the original `nodes` dictionary
+
+    """
+
+    # Sanity check ============================================================
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = [i for i in nodes]
+        else:
+            for i in nodeIDs:
+                if (i not in nodes):
+                    raise OutOfRangeError("ERROR: Node %s is not in `nodes`." % i)
+
+    if (method == None or 'shape' not in method):
+        raise MissingParameterError("ERROR: Missing required field `method`, or missing required key 'shape' in `method`.")
+    
+    # Add neighborhood by 'shape' =============================================
+    if (method['shape'] == 'Poly'):
+        for n in nodeIDs:
+            if ('poly' not in method):
+                raise MissingParameterError("ERROR: Missing required key 'poly' in `method`")
+            poly = [[i[0] + nodes[n][locFieldName][0], i[1] + nodes[n][locFieldName][1]] for i in method['poly']]
+            nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if vrpSolver.distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON]
+        
+    elif (method['shape'] == 'Circle'):
+        for n in nodeIDs:
+            if ('radius' not in method):
+                raise MissingParameterError("ERROR: Missing required key 'radius' in `method`")
+            # By default, a circle is plotted by a 30-gon
+            lod = 30
+            if ('lod' in method and type(method['lod']) == int):
+                lod = method['lod']
+            poly = [[
+                nodes[n][locFieldName][0] + method['radius'] * math.sin(2 * d * math.pi / lod),
+                nodes[n][locFieldName][1] + method['radius'] * math.cos(2 * d * math.pi / lod),
+            ] for d in range(lod + 1)]
+            nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if vrpSolver.distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON]
+        
+    elif (method['shape'] == 'Egg'):
+        for n in nodeIDs:
+            if ('a' not in method or 'b' not in method or 'c' not in method):
+                raise MissingParameterError("ERROR: Missing required key 'a', 'b', and/or 'c'.")
+            direction = 0
+            if ('direction' in method):
+                direction = method['direction']
+            lod = 30
+            if ('lod' in method and type(method['lod']) == int):
+                lod = method['lod']
+            # Formulation:
+            # \frac{x^2}{(a - b)x + ab} + \frac{y^2}{c^2} = 1
+            a = method['a']
+            b = method['b']
+            c = method['c']
+            
+            vHLod = math.ceil(lod * 2 / 9)
+            vTLod = math.ceil(lod / 9)
+            hLod = math.ceil(lod * 2 / 3)
+
+            polyL = []
+            polyM = []
+            polyR = []
+            for d in range(vHLod + 1):
+                y = c * 0.75 * d / vHLod
+                A = 1
+                B = (y ** 2 / c ** 2 - 1) * (a - b)
+                C = (y ** 2 / c ** 2 - 1) * a * b
+                X = (-B - math.sqrt(B ** 2 - 4 * A * C)) / (2 * A)
+                polyL.append((X, y))
+                xStart = X
+            for d in range(vTLod + 1):
+                y = c * 0.4 * d / vHLod
+                A = 1
+                B = (y ** 2 / c ** 2 - 1) * (a - b)
+                C = (y ** 2 / c ** 2 - 1) * a * b
+                X = (-B + math.sqrt(B ** 2 - 4 * A * C)) / (2 * A)
+                polyR.insert(0, (X, y))
+                xEnd = X
+            for d in range(hLod + 1):
+                x = xStart + (xEnd - xStart) * d / hLod
+                Y = math.sqrt(c * c * (1 - (x * x) / ((a - b) * x + a * b)))
+                polyM.append((x, Y))
+            polyHf = []
+            polyHf.extend(polyL)
+            polyHf.extend(polyM)
+            polyHf.extend(polyR)
+
+            polyB4Rot = [i for i in polyHf]
+            polyB4Rot.extend([(polyHf[len(polyHf) - 1 - k][0], - polyHf[len(polyHf) - 1 - k][1]) for k in range(len(polyHf))])
+            
+            poly = []
+            for d in range(len(polyB4Rot)):
+                di = vrpSolver.headingXY((0, 0), polyB4Rot[d])
+                r = vrpSolver.distEuclideanXY((0, 0), polyB4Rot[d])['dist']
+                pt = vrpSolver.ptInDistXY(nodes[n][locFieldName], di + direction, r)
+                poly.append(pt)
+
+            nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if vrpSolver.distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON]
+
+    elif (method['shape'] == 'RandomCurvy'):
+        for n in nodeIDs:
+            if ('maxRadius' not in method or 'minRadius' not in method):
+                raise MissingParameterError("ERROR: Missing required key 'maxRadius' or 'minRadius' in `method`")
+            lod = 30
+            if ('lod' in method and type(method['lod']) == int):
+                lod = method['lod']
+
+            r = []
+            for i in range(lod + 1):
+                r.append(method['minRadius'])
+            N = 4
+            if ('N' in method and type(method['N']) == int):
+                N = method['N']
+            w = 3
+            if ('w' in method and type(method['w']) == int):
+                w = method['w']
+
+            for k in range(N):
+                a = random.uniform(0, 1)
+                b = random.randint(1, w)
+                c = random.uniform(0, 2)
+                for i in range(lod + 1):
+                    r[i] += a * math.sin(b * 2 * i * math.pi / lod + math.pi * c)
+
+            maxRI = max(r)
+            for i in range(len(r)):
+                r[i] = r[i] * (method['maxRadius'] - method['minRadius']) / maxRI
+
+            poly = [[
+                nodes[n][locFieldName][0] + (r[d] + method['minRadius']) * math.sin(2 * d * math.pi / lod),
+                nodes[n][locFieldName][1] + (r[d] + method['minRadius']) * math.cos(2 * d * math.pi / lod),
+            ] for d in range(lod + 1)]
+            nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if vrpSolver.distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON]
+        
+    else:
+        raise UnsupportedInputError("ERROR: Unsupported option for `method`. Supported 'shape' includes: 'Poly', 'Circle', and 'RandomCurvy'.")
+
+    return nodes
+
 def rndNodeTrajectories(
     nodes: dict,
     nodeIDs: list[int|str]|str = 'All', 
@@ -708,7 +908,8 @@ def rndArcs(
             'yRange': (0, 100),
             'minLen': 0,
             'maxLen': 10
-        }
+        },
+    arcFieldName: str = 'arc'
     ) -> dict:
 
     """Randomly create a set of arcs (to be visited) 
@@ -758,11 +959,103 @@ def rndArcs(
             yRange = [float(method['yRange'][0]), float(method['yRange'][1])]
         for n in arcIDs:
             arcs[n] = {
-                'arc': _rndArcUniformSquareXY(xRange, yRange, method['minLen'], method['maxLen'])
+                arcFieldName : _rndArcUniformSquareXY(xRange, yRange, method['minLen'], method['maxLen'])
             }
     else:
         raise UnsupportedInputError(ERROR_MISSING_ARCS_DISTR)
 
+    return arcs
+
+def rndArcNeighbors(
+    arcs: dict,
+    arcIDs: list[int|str]|str = 'All',
+    method: dict = {
+            'shape': 'FixedRadius',
+            'radius': 1,
+            'lod': 30
+        },
+    arcFieldName: str = 'arc'
+    ) -> dict:
+
+    """Given an arc dictionary, add neighborhood to selected arcs
+
+    WARNING
+    -------
+
+    This function will modify the input dictionary `arcs`
+
+    Parameters
+    ----------
+
+    arcs: dictionary, required
+        A plain arcs dictionary to add neighborhoods.
+    arcIDs: string|list[int|str], optional, default 'All'
+        A list of arc IDs to add neighborhood, leave it as 'All' to indicate adding such information to all arcs.
+    method: dictionary, optional, default {'shape': 'FixedRadius', 'radius': 1, 'lod': 30}       
+        The shape of dictionary. Options includes
+        1) Adding fixed radius neighborhoods to a given arc
+            >>> method = {
+            ...     'shape': 'FixedRadius',
+            ...     'radius': 1,
+            ...     'lod': 30
+            ... }
+
+    Returns
+    -------
+
+    dictionary
+        Changes will apply to the original `nodes` dictionary
+
+    """
+    
+    # Sanity check ============================================================
+    if (type(arcIDs) is not list):
+        if (arcIDs == 'All'):
+            arcIDs = [i for i in arcs]
+        else:
+            for i in arcIDs:
+                if (i not in arcs):
+                    raise OutOfRangeError("ERROR: Node %s is not in `arcs`." % i)
+
+    if (method == None or 'shape' not in method):
+        raise MissingParameterError("ERROR: Missing required field `method`, or missing required key 'shape' in `method`.")
+    
+    for i in arcIDs:
+        if (method['shape'] == 'FixedRadius'):
+            if ('radius' not in method):
+                raise MissingParameterError("ERROR: Missing required key 'radius' in `method`")
+            
+            # By default, a circle is plotted by a 30-gon
+            lod = 30
+            if ('lod' in method and type(method['lod']) == int):
+                lod = method['lod']
+            startLoc = arcs[i][arcFieldName][0]
+            endLoc = arcs[i][arcFieldName][1]
+
+            heading = vrpSolver.headingXY(startLoc, endLoc)
+
+            arcs[i]['neiBtw'] = [[
+                startLoc[0] + method['radius'] * math.sin(2 * d * math.pi / lod + (heading - 90) * math.pi / 180),
+                startLoc[1] + method['radius'] * math.cos(2 * d * math.pi / lod + (heading - 90) * math.pi / 180),
+            ] for d in range(int(lod / 2 + 1))]
+            arcs[i]['neiBtw'].extend([[
+                endLoc[0] + method['radius'] * math.sin(2 * d * math.pi / lod + (heading + 90) * math.pi / 180),
+                endLoc[1] + method['radius'] * math.cos(2 * d * math.pi / lod + (heading + 90) * math.pi / 180),
+            ] for d in range(int(lod / 2 + 1))])
+
+            arcs[i]['neiA'] = [[
+                    startLoc[0] + method['radius'] * math.sin(2 * d * math.pi / lod + (heading + 90) * math.pi / 180),
+                    startLoc[1] + method['radius'] * math.cos(2 * d * math.pi / lod + (heading + 90) * math.pi / 180),
+                ] for d in range(int(lod))]
+            arcs[i]['ptA'] = startLoc
+            arcs[i]['neiB'] = [[
+                    endLoc[0] + method['radius'] * math.sin(2 * d * math.pi / lod + (heading - 90) * math.pi / 180),
+                    endLoc[1] + method['radius'] * math.cos(2 * d * math.pi / lod + (heading - 90) * math.pi / 180),
+                ] for d in range(int(lod))]
+            arcs[i]['ptB'] = endLoc
+        
+        else:
+            raise UnsupportedInputError("ERROR: Unsupported option for `method`. Supported 'shape' includes: 'Poly', 'Circle', and 'Random'.")
     return arcs
 
 def _rndArcUniformSquareXY(xRange: list[int]|list[float], yRange: list[int]|list[float], minLen: int|float, maxLen: int|float) -> tuple[pt, pt]:
@@ -806,6 +1099,7 @@ def rndPolys(
 
     if (polyIDs == [] and P == None):
         raise MissingParameterError("ERROR: Missing required field `P` and `polyIDs`.")
+    
     elif (polyIDs == [] and P != None):
         polyIDs = [i for i in range(P)]
 
@@ -823,6 +1117,7 @@ def rndPolys(
             if ('poly' not in method):
                 raise MissingParameterError("ERROR: Missing required key 'poly' in `method`")
             poly = [[i[0] + anchors[p]['anchor'][0], i[1] + anchors[p]['anchor'][1]] for i in method['poly']]
+        
         elif (method['shape'] == 'Circle'):
             if ('radius' not in method):
                 raise MissingParameterError("ERROR: Missing required key 'radius' in `method`")
@@ -834,6 +1129,7 @@ def rndPolys(
                 anchors[p]['anchor'][0] + method['radius'] * math.sin(2 * d * math.pi / lod),
                 anchors[p]['anchor'][1] + method['radius'] * math.cos(2 * d * math.pi / lod),
             ] for d in range(lod + 1)]
+        
         elif (method['shape'] == 'Egg'):
             if ('a' not in method or 'b' not in method or 'c' not in method):
                 raise MissingParameterError("ERROR: Missing required key 'a', 'b', and/or 'c'.")
@@ -886,6 +1182,7 @@ def rndPolys(
                 r = distEuclideanXY((0, 0), polyB4Rot[d])['dist']
                 pt = ptInDistXY(anchors[p]['anchor'], di + direction, r)
                 poly.append(pt)
+        
         elif (method['shape'] == 'RandomCurvy'):
             if ('maxRadius' not in method or 'minRadius' not in method):
                 raise MissingParameterError("ERROR: Missing required key 'maxRadius' or 'minRadius' in `method`")
@@ -914,6 +1211,7 @@ def rndPolys(
                 anchors[p]['anchor'][0] + (r[d] + method['minRadius']) * math.sin(2 * d * math.pi / lod),
                 anchors[p]['anchor'][1] + (r[d] + method['minRadius']) * math.cos(2 * d * math.pi / lod),
             ] for d in range(lod + 1)]        
+        
         else:
             raise UnsupportedInputError("ERROR: Unsupported option for `method`. Supported 'shape' includes: 'Poly', 'Circle', and 'RandomCurvy'.")
         polysB4Merge.append([poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON])

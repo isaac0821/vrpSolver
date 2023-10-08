@@ -16,6 +16,7 @@ from .msg import *
 
 def heuTSP(
     nodes: dict, 
+    locFieldName: str = 'loc',
     edges: dict = {'method': "Euclidean", 'ratio': 1}, 
     method: dict = {'cons': 'Insertion', 'impv': '2Opt'}, 
     depotID: int | str = 0, 
@@ -150,7 +151,7 @@ def heuTSP(
 
     nodeObj = {}
     for n in nodeIDs:
-        nodeObj[n] = RouteNode(n, value=nodes[n]['loc'])
+        nodeObj[n] = RouteNode(n, value=nodes[n][locFieldName])
 
     seq = Route(tau, asymFlag)
     # An initial solution is given
@@ -204,7 +205,7 @@ def heuTSP(
 
     # Sweep heuristic
     elif (method['cons'] == 'Sweep'):
-        sweepSeq = _consTSPSweep(nodes, depotID, nodeIDs, tau)
+        sweepSeq = _consTSPSweep(nodes, depotID, nodeIDs, locFieldName)
         for i in sweepSeq:
             seq.append(nodeObj[i])
         seq.rehead(depotID)
@@ -225,7 +226,7 @@ def heuTSP(
 
     # Randomly create a sequence
     elif (method['cons'] == 'Random'):
-        rndSeq = _consTSPRandom(depotID, nodeIDs, tau)
+        rndSeq = _consTSPRandom(depotID, nodeIDs)
         for i in rndSeq:
             seq.append(nodeObj[i])
         seq.rehead(depotID)
@@ -309,15 +310,15 @@ def _consTSPFarthestNeighbor(depotID, nodeIDs, tau):
         remain.remove(nextID)
     return seq
 
-def _consTSPSweep(nodes, depotID, nodeIDs, tau):
+def _consTSPSweep(nodes, depotID, nodeIDs, locFieldName):
     # Sweep seq -----------------------------------------------------------
     sweep = nodeSeqBySweeping(
         nodes = nodes, 
         nodeIDs = nodeIDs,
-        centerLoc = nodes[depotID]['loc'])
+        centerLoc = nodes[depotID][locFieldName])
     return sweep
 
-def _consTSPRandom(depotID, nodeIDs, tau):
+def _consTSPRandom(depotID, nodeIDs):
     # Get random seq ------------------------------------------------------
     seq = [i for i in nodeIDs]
     random.shuffle(seq)
@@ -392,6 +393,7 @@ def heuTSPEx(
     serviceTime: float = 0,
     ) -> dict|None:
 
+    # FIXME: TO BE REWRITEN
     
     # Sanity check ============================================================
     if (nodes == None or type(nodes) != dict):

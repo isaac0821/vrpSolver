@@ -371,7 +371,10 @@ class Route(Ring):
                     bestRemovalKey = cur.key
             if (cur.key == self.head.key):
                 trvFlag = False
-        return bestRemovalKey
+        return {
+            'bestRemovalKey': bestRemovalKey,
+            'bestRemovalCost': bestRemovalCost
+        }
 
     def impv2Opt(self):
         # NOTE: Now its better.

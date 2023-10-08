@@ -1,4 +1,5 @@
 import random
+import math
 
 try:
     import pickle5 as pickle
@@ -59,3 +60,19 @@ def hyphenStr(s, length=75, sym='-'):
         return (lenLeftS * sym) + " " + s + " " + (lenRightS * sym)
     else:
         return s
+
+def splitList(inputList, binNum):
+    listLength = len(inputList)
+    perFloor = math.floor(listLength / binNum)
+    sizePerBin = [perFloor for i in range(binNum)]
+    residual = listLength - sum(sizePerBin)
+    for i in range(residual):
+        sizePerBin[i] += 1
+    bins = []
+    acc = 0
+    for i in range(len(sizePerBin)):
+        bins.append([])
+        for k in range(acc, acc + sizePerBin[i]):
+            bins[i].append(inputList[k])
+        acc += sizePerBin[i]
+    return bins
