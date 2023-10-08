@@ -1,4 +1,6 @@
 import random
+import math
+import datetime
 
 try:
     import pickle5 as pickle
@@ -18,6 +20,7 @@ arcPolys = list[arcPoly]
 line = list[pt]
 
 def saveDictionary(obj, name: str) -> None:
+    # obj['datetime'] = datetime.datetime.now().strftime("%m/%d/%Y-%H:%M:%S")
     with open(name + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
@@ -36,43 +39,6 @@ def rndPick(coefficients: list[int | float]) -> int:
             idx = i
             break
     return idx
-
-def binary2StartEndPair(l, trueValue = True):
-    p = []
-    start = None
-    if (l[0] == trueValue):
-        start = 0
-    for i in range(len(l)):
-        if (l[i] == trueValue):
-            if (start == None):
-                start = i
-        else:
-            if (start != None):
-                p.append([start, i - 1])
-                start = None
-    if (l[-1] == trueValue):
-        if (start != None):
-            p.append([start, len(l) - 1])
-    return p
-
-def iterSeq(seqL, i, direction):
-    if (direction == 'next'):
-        return i + 1 if i < seqL - 1 else 0
-    elif (direction == 'prev'):
-        return i - i if i > 0 else seqL - 1
-    else:
-        return None
-
-def listSetMinus(a, b):
-    return [v for v in a if v not in b]
-
-def listSetIntersect(a, b):
-    return [v for v in a if v in b]
-
-def listSetUnion(a, b):
-    l = [v for v in a]
-    l.extend([v for v in b if v not in a])
-    return l
 
 def list2String(l):
     listString = "["
@@ -96,3 +62,19 @@ def hyphenStr(s, length=75, sym='-'):
         return (lenLeftS * sym) + " " + s + " " + (lenRightS * sym)
     else:
         return s
+
+def splitList(inputList, binNum):
+    listLength = len(inputList)
+    perFloor = math.floor(listLength / binNum)
+    sizePerBin = [perFloor for i in range(binNum)]
+    residual = listLength - sum(sizePerBin)
+    for i in range(residual):
+        sizePerBin[i] += 1
+    bins = []
+    acc = 0
+    for i in range(len(sizePerBin)):
+        bins.append([])
+        for k in range(acc, acc + sizePerBin[i]):
+            bins[i].append(inputList[k])
+        acc += sizePerBin[i]
+    return bins

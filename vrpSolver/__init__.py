@@ -103,6 +103,7 @@ from .instance import *
 # Geometry
 from .geometry import *
 
-# TSP
+# TSP/VRP
 from .ipTSP import *
 from .heuTSP import *
+from .heuMTSP import *

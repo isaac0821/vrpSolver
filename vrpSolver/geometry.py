@@ -23,7 +23,7 @@ def is2PtsSame(pt1: pt, pt2: pt) -> bool:
     return True
 
 def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt) -> bool | None:
-    """Are three given pts in a clock-wise order, None as they are colliner"""
+    """Are three given pts in a clock-wise order, None as they are collinear"""
     if (is2PtsSame(pt1, pt2) or is2PtsSame(pt2, pt3) or is2PtsSame(pt1, pt3)):
         # If points are overlapped, return None as collinear
         return None
@@ -1155,6 +1155,13 @@ def polysUnionAll(polys:polys=None, polysShapely: list[shapely.Polygon]=None, re
     elif (isinstance(unionAll, shapely.geometry.multipolygon.MultiPolygon)):
         for p in unionAll.geoms:
             unionPolys.append([[i[0], i[1]] for i in list(p.exterior.coords)])
+    for k in range(len(unionPolys)):
+        unionPolys[k] = [unionPolys[k][i] for i in range(len(unionPolys[k])) if distEuclideanXY(unionPolys[k][i], unionPolys[k][i - 1])['dist'] > CONST_EPSILON]
+        # print(unionPolys[k][0], unionPolys[k][-1])
+        if (distEuclideanXY(unionPolys[k][0], unionPolys[k][-1])['dist'] <= CONST_EPSILON):
+            # print("Yest")
+            unionPolys[k] = unionPolys[k][:-1]
+    # print(unionPolys[0][0], unionPolys[0][-1])
     return unionPolys
 
 def polysVisibleGraph(polys:polys) -> dict:
@@ -1168,6 +1175,7 @@ def polysVisibleGraph(polys:polys) -> dict:
     return vg
 
 def ptsVisible(v:int|str|tuple, polys:polys, standalonePts:dict|None=None, knownVG:dict={}) -> list:
+    # NOTE: 该函数不需要使用shapely
     vertices = {}
     polyVertices = []
     for p in range(len(polys)):
@@ -1338,6 +1346,16 @@ def ptsVisible(v:int|str|tuple, polys:polys, standalonePts:dict|None=None, known
             if (not T.query((min(vIdxWiPrev, vIdxWi), max(vIdxWiPrev, vIdxWi))).isNil):
                 T.delete((min(vIdxWiPrev, vIdxWi), max(vIdxWiPrev, vIdxWi)))
     return W
+
+def ptPolyCenter(poly: poly=None, polyShapely: shapely.Polygon=None) -> pt:
+    if (poly == None and polyShapely == None):
+        raise MissingParameterError("ERROR: Missing required field 'poly' or 'polyShapely'.")
+    if (polyShapely == None):
+        polyShapely = shapely.Polygon(poly)
+
+    ptShapely = shapely.centroid(polyShapely)
+    center = (ptShapely.x, ptShapely.y)
+    return center
 
 # Time seq related ============================================================
 def locInTimedSeq(seq: list[pt], timeStamp: list[float], t: float) -> pt:
@@ -1667,7 +1685,7 @@ def matrixDist(nodes: dict, edges: dict = {'method': 'Euclidean'}, depotID: int|
             warings.warning("WARNING: No barrier provided.")
             tau, pathLoc = _matrixDistEuclideanXY(nodes, nodeIDs)
         else:
-            tau, pathLoc = _matrixDistBtwPolysXY(nodes, nodeIDs, edges['polys'], edges['polyNG'])
+            tau, pathLoc = _matrixDistBtwPolysXY(nodes, nodeIDs, edges['polys'])
     elif (edges['method'] == 'LatLon'):
         ratio = 1 if 'ratio' not in edges else edges['ratio']
         tau, pathLoc = _matrixDistLatLon(nodes, nodeIDs, speed=ratio)
@@ -1771,13 +1789,15 @@ def _matrixDistGrid(nodes: dict, nodeIDs: list, grid: dict):
                 pathLoc[j, i] = []
     return tau, pathLoc
 
-def _matrixDistBtwPolysXY(nodes: dict, nodeIDs: list, polys: polys, polyNG: dict=None):
+def _matrixDistBtwPolysXY(nodes: dict, nodeIDs: list, polys: polys):
     tau = {}
     pathLoc = {}
+    vg = polysVisibleGraph(polys)
+
     for i in nodeIDs:
         for j in nodeIDs:
             if (i != j):
-                d = distBtwPolysXY(pt1 = nodes[i]['loc'], pt2 = nodes[j]['loc'], polys = polys, polyNG = polyNG)
+                d = distBtwPolysXY(pt1 = nodes[i]['loc'], pt2 = nodes[j]['loc'], polys = polys, polyVG = vg)
                 tau[i, j] = d['dist']
                 tau[j, i] = d['dist']
                 pathLoc[i, j] = d['path']
@@ -1807,20 +1827,17 @@ def distManhattenXY(pt1: pt, pt2: pt) -> dict:
         'path': [pt1, (pt1[0], pt2[1]), pt2]
     }
 
-def distBtwPolysXY(pt1:pt, pt2:pt, polys:polys, polyNG:dict=None) -> dict:
+def distBtwPolysXY(pt1:pt, pt2:pt, polys:polys, polyVG:dict=None) -> dict:
     # Reference: Computational Geometry: Algorithms and Applications Third Edition
     # By Mark de Berg et al. Page 326 - 330
     # With some modifications
 
     # First check if start pt or end pt is in one of the polygons =============
-    startPtGeo = shapely.Point(pt1)
-    endPtGeo = shapely.Point(pt2)
     for poly in polys:
-        polyGeo = shapely.Polygon(poly)
-        if (polyGeo.contains(startPtGeo)):
-            raise OverlapError("Point (%s, %s) is inside `polys` when it is not suppose to." % (pt1[0], pt1[1]))
-        if (polyGeo.contains(endPtGeo)):
-            raise OverlapError("Point (%s, %s) is inside `polys` when it is not suppose to." % (pt2[0], pt2[1]))
+        if (isPtInPoly(pt1, poly, interiorOnly = True)):
+            raise OutOfRangeError("Point (%s, %s) is inside `polys` when it is not suppose to." % (pt1[0], pt1[1]))
+        if (isPtInPoly(pt2, poly, interiorOnly = True)):
+            raise OutOfRangeError("Point (%s, %s) is inside `polys` when it is not suppose to." % (pt2[0], pt2[1]))
 
     # Quick checkout ==========================================================
     visibleDirectly = True
@@ -1829,21 +1846,24 @@ def distBtwPolysXY(pt1:pt, pt2:pt, polys:polys, polyNG:dict=None) -> dict:
             visibleDirectly = False
             break
     if (visibleDirectly):
-        return ['s', 'e']
+        return {
+            'dist': distEuclideanXY(pt1, pt2)['dist'],
+            'path': [pt1, pt2]
+        }
 
     # Create visible graph for polys ==========================================
-    if (polyNG == None):      
+    if (polyVG == None):      
         for p in range(len(polys)):
             polys[p] = [polys[p][i] for i in range(len(polys[p])) if distEuclideanXY(polys[p][i], polys[p][i - 1])['dist'] > CONST_EPSILON]
-        polyNG = polysVisibleGraph(polys)
+        polyVG = polysVisibleGraph(polys)
 
     # Create a visible graph ==================================================
     # NOTE: startPt可视的vertices将不需要测试是不是相互之间可视，同样地，可视endPt的vertices之间也不需要可视
     vertices = {}
-    for p in polyNG:
+    for p in polyVG:
         vertices[p] = {
-            'loc': polyNG[p]['loc'],
-            'visible': [i for i in polyNG[p]['visible']]
+            'loc': polyVG[p]['loc'],
+            'visible': [i for i in polyVG[p]['visible']]
         }
     vertices['s'] = {'loc': pt1, 'visible': []}
     Ws = ptsVisible('s', polys, {'s': {'loc': pt1, 'visible': []}})
@@ -2064,16 +2084,7 @@ def _distOnGridAStar(column, row, barriers, pt1, pt2, distMeasure):
 def distRoadNetwork(pt1: pt, pt2: pt, roadnetwork: dict, roadnetworkNG: dict=None):
     return
 
-# Arc polys related ===========================================================
-def circleIntCircle(circle1: circle, circle2: circle):
-    arcPoly = []
-    return arcPoly
-
 # CETSP related ===============================================================
-def arcPoly2ArcPolyPath(startPt: pt, endPt: pt, arcPolys: arcPolys):
-    # NOTE: Can wait
-    return
-
 def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, lod: float=CONST_EPSILON):
 
     """Given a list of points, each belongs to a neighborhood of a node, find the shortest path between each steps
@@ -2163,8 +2174,8 @@ def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, lod: float=CONST_EPSILON
             pNextMidLoc = [(p.value[0] + (pNext.value[0] - p.value[0]) / 2), (p.value[1] + (pNext.value[1] - p.value[1]) / 2)]
             pNextMid = RingNode(polyRings[polyIdx].count + 1, pNextMidLoc)
 
-            polyRings[polyIdx].insert(p.key, pNextMid)
-            polyRings[polyIdx].insert(pPrev.key, pPrevMid)
+            polyRings[polyIdx].insert(p, pNextMid)
+            polyRings[polyIdx].insert(pPrev, pPrevMid)
 
         # Simplify the graph
         G = nx.Graph()
@@ -2221,6 +2232,171 @@ def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, lod: float=CONST_EPSILON
         if (p != 's' and p != 'e'):
             path.append(polyRings[p[0]].query(p[1]).value)
     path.append(endPt)
+
+    return {
+        'path': path,
+        'dist': dist
+    }
+
+def poly2PolyPathBarrier(startPt: pt, endPt: pt, polys: polys, barrierPolys: polys, lod: float=CONST_EPSILON):
+
+    """Find the shortest path starts from startPt, visits every polygon given, and ends with endPt
+
+    Parameters
+    ----------
+
+    startPt: pt, required
+        The coordinate of starting location
+    endPt: pt, required
+        The coordinate of ending location
+    polys: polys, required
+        A list of polygons to be visited
+    barrierPolys: polys, optional
+        A list of polygons to be avoid, which the boundary can still be visited
+    """
+
+    # First, create a ring, to help keying each extreme points of polygons
+    tau = {}
+
+    # Initialize
+    G = nx.Graph()
+    # polyRings stores the points on each polygon in `polys`
+    polyRings = []
+    # Visible graph for barriers
+    vg = polysVisibleGraph(barrierPolys)
+
+    for poly in polys:
+        polyRing = Ring()
+        for i in range(len(poly)):
+            polyRing.append(RingNode(i, tuple(poly[i])))
+        polyRings.append(polyRing)
+
+    # startPt to the first polygon
+    cur = polyRings[0].head
+    while (True):
+        d = distBtwPolysXY(startPt, cur.value, polys = barrierPolys, polyVG = vg)['dist']
+        tau['s', (0, cur.key)] = d
+        G.add_edge('s', (0, cur.key), weight = d)
+        cur = cur.next
+        if (cur.key == polyRings[0].head.key):
+            break
+
+    # If more than one polygon btw startPt and endPt
+    for i in range(len(polys) - 1):
+        curI = polyRings[i].head
+        while (True):
+            curJ = polyRings[i + 1].head
+            while (True):
+                d = distBtwPolysXY(curI.value, curJ.value, polys = barrierPolys, polyVG = vg)['dist']
+                tau[(i, curI.key), (i + 1, curJ.key)] = d
+                G.add_edge((i, curI.key), (i + 1, curJ.key), weight = d)
+                curJ = curJ.next
+                if (curJ.key == polyRings[i + 1].head.key):
+                    break
+            curI = curI.next
+            if (curI.key == polyRings[i].head.key):
+                break
+
+    # last polygon to endPt
+    cur = polyRings[-1].head
+    while (True):
+        d = distBtwPolysXY(cur.value, endPt, polys = barrierPolys, polyVG = vg)['dist']
+        tau[(len(polys) - 1, cur.key), 'e'] = d
+        G.add_edge((len(polys) - 1, cur.key), 'e', weight = d)
+        cur = cur.next
+        if (cur.key == polyRings[len(polys) - 1].head.key):
+            break
+
+    sp = nx.dijkstra_path(G, 's', 'e')
+
+    dist = distBtwPolysXY(startPt, polyRings[sp[1][0]].query(sp[1][1]).value, polys = barrierPolys, polyVG = vg)['dist']
+    for i in range(1, len(sp) - 2):
+        dist += tau[(sp[i][0], sp[i][1]), (sp[i + 1][0], sp[i + 1][1])]
+    dist += distBtwPolysXY(polyRings[sp[-2][0]].query(sp[-2][1]).value, endPt, polys = barrierPolys, polyVG = vg)['dist']
+    
+    # Find detailed location
+    refineFlag = True
+    iterNum = 0
+    while (refineFlag):
+        for i in range(1, len(sp) - 1):
+            # Find current shortest intersecting point
+            polyIdx = sp[i][0]
+            exPtIdx = sp[i][1]
+
+            # Insert two new points before and after this point
+            p = polyRings[polyIdx].query(exPtIdx)
+            pPrev = p.prev
+            pNext = p.next
+
+            pPrevMidLoc = [(pPrev.value[0] + (p.value[0] - pPrev.value[0]) / 2), (pPrev.value[1] + (p.value[1] - pPrev.value[1]) / 2)]
+            pPrevMid = RingNode(polyRings[polyIdx].count, pPrevMidLoc)
+            pNextMidLoc = [(p.value[0] + (pNext.value[0] - p.value[0]) / 2), (p.value[1] + (pNext.value[1] - p.value[1]) / 2)]
+            pNextMid = RingNode(polyRings[polyIdx].count + 1, pNextMidLoc)
+
+            polyRings[polyIdx].insert(p, pNextMid)
+            polyRings[polyIdx].insert(pPrev, pPrevMid)
+
+        # Simplify the graph
+        G = nx.Graph()
+
+        # New start
+        startPolyPt = polyRings[sp[1][0]].query(sp[1][1])
+        startNearPt = [startPolyPt.prev.prev, startPolyPt.prev, startPolyPt, startPolyPt.next, startPolyPt.next.next]
+        for p in startNearPt:
+            d = distBtwPolysXY(startPt, p.value, polys = barrierPolys, polyVG = vg)['dist']
+            G.add_edge('s', (0, p.key), weight = d)
+
+        # In between
+        for i in range(1, len(sp) - 2):
+            polyIdx = sp[i][0]
+            polyNextIdx = sp[i + 1][0]
+            exPtIdx = sp[i][1]
+            exPtNextIdx = sp[i + 1][1]
+
+            ptI = polyRings[polyIdx].query(exPtIdx)
+            ptNearI = [ptI.prev.prev, ptI.prev, ptI, ptI.next, ptI.next.next]
+            ptJ = polyRings[polyNextIdx].query(exPtNextIdx)
+            ptNearJ = [ptJ.prev.prev, ptJ.prev, ptJ, ptJ.next, ptJ.next.next]
+            for kI in ptNearI:
+                for kJ in ptNearJ:
+                    d = None
+                    if (((polyIdx, kI.key), (polyNextIdx, kJ.key)) in tau):
+                        d = tau[((polyIdx, kI.key), (polyNextIdx, kJ.key))]
+                    else:
+                        d = distBtwPolysXY(kI.value, kJ.value, polys = barrierPolys, polyVG = vg)['dist']
+                        tau[((polyIdx, kI.key), (polyNextIdx, kJ.key))] = d
+                    G.add_edge((polyIdx, kI.key), (polyNextIdx, kJ.key), weight = d)
+
+        # New end
+        endPolyPt = polyRings[sp[-2][0]].query(sp[-2][1])
+        endNearPt = [endPolyPt.prev.prev, endPolyPt.prev, endPolyPt, endPolyPt.next, endPolyPt.next.next]
+        for p in endNearPt:
+            d = distBtwPolysXY(p.value, endPt, polys = barrierPolys, polyVG = vg)['dist']
+            G.add_edge((len(polys) - 1, p.key), 'e', weight = d)
+
+        sp = nx.dijkstra_path(G, 's', 'e')
+
+        newDist = distBtwPolysXY(startPt, polyRings[sp[1][0]].query(sp[1][1]).value, polys = barrierPolys, polyVG = vg)['dist']
+        for i in range(1, len(sp) - 2):
+            newDist += tau[(sp[i][0], sp[i][1]), (sp[i + 1][0], sp[i + 1][1])]
+        newDist += distBtwPolysXY(polyRings[sp[-2][0]].query(sp[-2][1]).value, endPt, polys = barrierPolys, polyVG = vg)['dist']
+
+        if (abs(newDist - dist) <= lod):
+            refineFlag = False
+
+        dist = newDist
+
+    visits = [startPt]
+    for p in sp:
+        if (p != 's' and p != 'e'):
+            visits.append(polyRings[p[0]].query(p[1]).value)
+    visits.append(endPt)
+
+    path = []
+    for i in range(len(visits) - 1):
+        pathBtw = distBtwPolysXY(visits[i], visits[i + 1], polys = barrierPolys, polyVG = vg)['path']
+        path.extend(pathBtw[:-1])
+    path.append(visits[-1])
 
     return {
         'path': path,
