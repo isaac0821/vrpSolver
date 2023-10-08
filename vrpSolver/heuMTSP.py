@@ -113,7 +113,15 @@ def heuMTSP(
         vehicles = _consMTSPSweep(nodes, nodeIDs, nodeObj, depotID, vehicles, locFieldName)
 
     # Local improvement =======================================================
-    
+    if ('impv' in method and method['impv'] != None and method['impv'] != []):
+        canImpvFlag = True
+        while (canImpvFlag):
+            canImpvFlag = False
+            if (not canImpvFlag and '2Opt' in method['impv']):
+                for veh in vehicles:
+                    vehImpvFlag = vehicles[veh]['seq'].impv2Opt()
+                    if (vehImpvFlag):
+                        canImpvFlag = True
 
     return vehicles
 

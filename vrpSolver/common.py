@@ -1,5 +1,6 @@
 import random
 import math
+import datetime
 
 try:
     import pickle5 as pickle
@@ -19,6 +20,7 @@ arcPolys = list[arcPoly]
 line = list[pt]
 
 def saveDictionary(obj, name: str) -> None:
+    # obj['datetime'] = datetime.datetime.now().strftime("%m/%d/%Y-%H:%M:%S")
     with open(name + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
