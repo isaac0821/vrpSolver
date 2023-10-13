@@ -817,7 +817,7 @@ def rndPolys(
         polyShape = []
         for p in polysB4Merge:
             polyShape.append(p)
-        polysMerged = polysUnionAll(polyShape)
+        polysMerged = polysUnion(polyShape)
         # Remove duplicated points
         for p in range(len(polysMerged)):
             polysMerged[p] = [polysMerged[p][i] for i in range(len(polysMerged[p])) if distEuclideanXY(polysMerged[p][i], polysMerged[p][i - 1])['dist'] > CONST_EPSILON]

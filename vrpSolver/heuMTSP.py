@@ -16,6 +16,7 @@ from .msg import *
 def heuMTSP(
     nodes: dict,
     locFieldName: str = 'loc',
+    numVeh: int = 1,
     vehicles: dict = {},
     objective: str = 'MinMakespan',
     edges: dict = {'method': 'Euclidean', 'ratio': 1},
@@ -82,6 +83,12 @@ def heuMTSP(
     if ((type(nodeIDs) == list and depotID not in nodeIDs)
         or (nodeIDs == 'All' and depotID not in nodes)):
         raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
+    if ((numVeh == None or numVeh <= 0) and (vehicles == {} or vehicles == None)):
+        raise MissingParameterError("ERROR: Missing vehicle definitions.")
+    if (vehicles == None or vehicles == {}):
+        vehicles = {}
+        for i in range(numVeh):
+            vehicles[i] = {}
 
     # Define tau ==============================================================
     tau, path = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
@@ -103,8 +110,8 @@ def heuMTSP(
         nodeObj[n] = RouteNode(n, value=nodes[n][locFieldName])
 
     for veh in vehicles:
-        vehicles[veh]['seq'] = Route(tau, asymFlag)
-        vehicles[veh]['seq'].append(nodeObj[depotID].clone())
+        vehicles[veh]['routeObj'] = Route(tau, asymFlag)
+        vehicles[veh]['routeObj'].append(nodeObj[depotID].clone())
 
     if ('cons' not in method):
         raise MissingParameterError("ERROR: Missing 'cons' in `method`.")
@@ -112,16 +119,26 @@ def heuMTSP(
     elif (method['cons'] == 'Sweep'):
         vehicles = _consMTSPSweep(nodes, nodeIDs, nodeObj, depotID, vehicles, locFieldName)
 
+    elif (method['cons'] == 'Random'):
+        vehicles = _consMTSPRandom(nodeIDs, nodeObj, depotID, vehicles)
+
+    elif (method['cons'] == 'Insertion'):
+        vehicles = _consMTSPInsertionMinMakespan(nodeIDs, nodeObj, depotID, vehicles)
+
+    elif (method['cons'] == 'RandomInsertion'):
+        vehicles = _consMTSPInsertionMinMakespan(nodeIDs, nodeObj, depotID, vehicles, randomInsertionFlag = True)
+
+    else:
+        raise UnsupportedInputError("ERROR: Choose 'cons' from ['Sweep', 'Random']")
+
     # Local improvement =======================================================
     if ('impv' in method and method['impv'] != None and method['impv'] != []):
         canImpvFlag = True
         while (canImpvFlag):
             canImpvFlag = False
+
             if (not canImpvFlag and '2Opt' in method['impv']):
-                for veh in vehicles:
-                    vehImpvFlag = vehicles[veh]['seq'].impv2Opt()
-                    if (vehImpvFlag):
-                        canImpvFlag = True
+                canImpvFlag = _impvMTSP2Opt(vehicles)
 
     return vehicles
 
@@ -134,5 +151,47 @@ def _consMTSPSweep(nodes, nodeIDs, nodeObj, depotID, vehicles, locFieldName):
     vehIDs = [v for v in vehicles]
     for i in range(len(vehIDs)):
         for k in range(len(sweepPerVeh[i])):
-            vehicles[vehIDs[i]]['seq'].cheapestInsert(nodeObj[sweepPerVeh[i][k]])
+            vehicles[vehIDs[i]]['routeObj'].cheapestInsert(nodeObj[sweepPerVeh[i][k]])
     return vehicles
+
+def _consMTSPRandom(nodeIDs, nodeObj, depotID, vehicles):
+    rndNodeSeq = [i for i in nodeIDs if i != depotID]
+    random.shuffle(rndNodeSeq)
+    rndPerVeh = splitList(rndNodeSeq, len(vehicles))
+    vehIDs = [v for v in vehicles]
+    for i in range(len(vehIDs)):
+        for k in range(len(rndPerVeh[i])):
+            vehicles[vehIDs[i]]['routeObj'].cheapestInsert(nodeObj[rndPerVeh[i][k]])
+    return vehicles
+
+def _consMTSPInsertionMinMakespan(nodeIDs, nodeObj, depotID, vehicles, randomInsertionFlag=False):
+    unInserted = [i for i in nodeIDs if i != depotID]
+    if (randomInsertionFlag):
+        random.shuffle(unInserted)
+    for n in unInserted:
+        cost = {}
+        for veh in vehicles:
+            oldCost = max(vehicles[veh]['routeObj'].dist for veh in vehicles)
+            vehicles[veh]['routeObj'].cheapestInsert(nodeObj[n])
+            newCost = max(vehicles[veh]['routeObj'].dist for veh in vehicles)
+            cost[veh] = newCost - oldCost
+            vehicles[veh]['routeObj'].remove(nodeObj[n])
+        cheapestAmongVeh = min(cost, key = lambda k:cost[k])
+        vehicles[cheapestAmongVeh]['routeObj'].cheapestInsert(nodeObj[n])
+    return vehicles
+
+def _impvMTSP2Opt(vehicles):
+    for veh in vehicles:
+        vehImpvFlag = vehicles[veh]['routeObj'].impv2Opt()
+        if (vehImpvFlag):
+            return True
+    return False
+
+def _impvMTSP2OptStar(vehicles):
+    vehIDs = [i for i in vehicles]
+    for i in range(len(vehIDs) - 2):
+        for j in range(i + 1, len(vehIDs)):
+            vehI = vehIDs[i]
+            vehJ = vehIDs[j]
+
+    return False

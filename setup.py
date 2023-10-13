@@ -21,11 +21,10 @@ setuptools.setup(
 		"Bug Tracker": "https://github.com/isaac0821/vrpSolver/issues",
 		"Source Code": "https://github.com/isaac0821/vrpSolver",
 	},
-	python_requires='>=3',
+	python_requires='>=3.8',
 	install_requires=[
 		'numpy',  
 		'scipy',
-		'geopy',
 		'geojson',
 		'matplotlib',
 		'shapely',

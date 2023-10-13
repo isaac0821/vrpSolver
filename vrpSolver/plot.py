@@ -734,6 +734,48 @@ def plotPoly(
 
     return fig, ax
 
+def plotCircle(
+    center: pt, 
+    radius: float,
+    lod: int = 30,
+    edgeWidth: float = 0.5,
+    edgeColor: str|None = 'Random',
+    fillColor: str|None = None,
+    fillStyle: str = "///",
+    opacity: float = 0.5,
+    xyReverseFlag: bool = False,
+    fig = None,
+    ax = None,
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ):
+
+    polyCircle = [[
+        center[0] + radius * math.sin(2 * d * math.pi / lod),
+        center[1] + radius * math.cos(2 * d * math.pi / lod),
+    ] for d in range(lod + 1)]
+
+    fig, ax = plotPoly(
+        poly = polyCircle,
+        edgeWidth = edgeWidth,
+        edgeColor = edgeColor,
+        fillColor = fillColor,
+        fillStyle = fillStyle,
+        opacity = opacity,
+        xyReverseFlag = xyReverseFlag,
+        fig = fig,
+        ax = ax,
+        figSize = figSize,
+        boundingBox = boundingBox,
+        showAxis = showAxis,
+        saveFigPath = saveFigPath,
+        showFig = showFig,
+    )
+    return fig, ax
+    
 def plotPolys(
     polys: dict,
     polyFieldName: str = 'poly',

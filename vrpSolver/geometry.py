@@ -1137,7 +1137,7 @@ def ptLatLon2XYMercator(ptLatLon: pt) -> pt:
     return ptXY
 
 # Polys =======================================================================
-def polysUnionAll(polys:polys=None, polysShapely: list[shapely.Polygon]=None, returnShaplelyObj:bool=False) -> list:
+def polysUnion(polys:polys=None, polysShapely: list[shapely.Polygon]=None, returnShaplelyObj:bool=False) -> list:
     """Given a list of polygons which could be intersecting to each other, return unioned polygons that are not intersecting"""
     if (polys == None and polysShapely == None):
         raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
@@ -1157,12 +1157,42 @@ def polysUnionAll(polys:polys=None, polysShapely: list[shapely.Polygon]=None, re
             unionPolys.append([[i[0], i[1]] for i in list(p.exterior.coords)])
     for k in range(len(unionPolys)):
         unionPolys[k] = [unionPolys[k][i] for i in range(len(unionPolys[k])) if distEuclideanXY(unionPolys[k][i], unionPolys[k][i - 1])['dist'] > CONST_EPSILON]
-        # print(unionPolys[k][0], unionPolys[k][-1])
         if (distEuclideanXY(unionPolys[k][0], unionPolys[k][-1])['dist'] <= CONST_EPSILON):
-            # print("Yest")
             unionPolys[k] = unionPolys[k][:-1]
-    # print(unionPolys[0][0], unionPolys[0][-1])
     return unionPolys
+
+def polysSubtract(polys:polys=None, polysShapely:list[shapely.Polygon]=None, subPolys:polys=None, subPolysShapely: list[shapely.Polygon]=None, returnShaplelyObj:bool=False) -> list:
+    if (polys == None and polysShapely == None):
+        raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
+    if (subPolys == None and subPolysShapely == None):
+        raise MissingParameterError("ERROR: Missing required field 'subPolys' or 'subPolysShapely'.")
+    if (polysShapely == None):
+        polysShapely = []
+        for p in polys:
+            polysShapely.append(shapely.Polygon(p))
+    unionAll = shapely.union_all(polysShapely)
+
+    if (subPolysShapely == None):
+        subPolysShapely = []
+        for p in subPolys:
+            subPolysShapely.append(shapely.Polygon(p))
+    unionSub = shapely.union_all(subPolysShapely)
+
+    diffShapely = shapely.difference(unionAll, unionSub)
+    if (returnShaplelyObj):
+        return diffShapely
+
+    diffPolys = []
+    if (isinstance(diffShapely, shapely.geometry.polygon.Polygon)):
+        diffPolys = [[[i[0], i[1]] for i in list(diffShapely.exterior.coords)]]
+    elif (isinstance(diffShapely, shapely.geometry.multipolygon.MultiPolygon)):
+        for p in diffShapely.geoms:
+            diffPolys.append([[i[0], i[1]] for i in list(p.exterior.coords)])
+    for k in range(len(diffPolys)):
+        diffPolys[k] = [diffPolys[k][i] for i in range(len(diffPolys[k])) if distEuclideanXY(diffPolys[k][i], diffPolys[k][i - 1])['dist'] > CONST_EPSILON]
+        if (distEuclideanXY(diffPolys[k][0], diffPolys[k][-1])['dist'] <= CONST_EPSILON):
+            diffPolys[k] = diffPolys[k][:-1]
+    return diffPolys
 
 def polysVisibleGraph(polys:polys) -> dict:
     vg = {}

@@ -17,13 +17,19 @@ from .msg import *
 def heuTSP(
     nodes: dict, 
     locFieldName: str = 'loc',
-    edges: dict = {'method': "Euclidean", 'ratio': 1}, 
-    method: dict = {'cons': 'Insertion', 'impv': '2Opt'}, 
-    depotID: int | str = 0, 
-    nodeIDs: list[int | str] | str = 'All', 
+    edges: dict = {
+        'method': "Euclidean", 
+        'ratio': 1
+    }, 
+    method: dict = {
+        'cons': 'Insertion', 
+        'impv': '2Opt'
+    }, 
+    depotID: int|str = 0, 
+    nodeIDs: list[int|str]|str = 'All', 
     serviceTime: float = 0,
     returnRouteObjectFlag = False
-    ) -> dict | None:
+    ) -> dict|None:
 
     """Use heuristic methods to find suboptimal TSP solution
 
@@ -168,8 +174,13 @@ def heuTSP(
             seq.append(nodeObj[i])
 
     # Insertion heuristic
-    elif (method['cons'] == 'Insertion'):
+    elif (method['cons'] == 'Insertion' or method['cons'] == 'RandomInsertion'):
         initSeq = None
+        
+        randomInsertionFlag = False
+        if (method['cons'] == 'RandomInsertion'):
+            randomInsertionFlag = True
+        
         if ('initSeq' not in method):   
             farthestDist = -1
             farthestID = None
@@ -183,13 +194,13 @@ def heuTSP(
                         farthestID = n
                         farthestDist = tau[depotID, n]
             initSeq = [depotID, farthestID, depotID]
-            seq = _consTSPInsertion(nodeIDs, initSeq, tau, asymFlag)
+            seq = _consTSPInsertion(nodeIDs, initSeq, nodeObj, tau, asymFlag, randomInsertionFlag)
         else:
             notInNodeIDs = [v for v in method['initSeq'] if v not in nodeIDs]
             if (len(notInNodeIDs) > 0):
                 raise OutOfRangeError("ERROR: The following nodes in 'initSeq' is not in `nodeIDs`: %s" % list2String(notInNodeIDs))
             else:
-                seq = _consTSPInsertion(nodeIDs, method['initSeq'], tau, asymFlag)
+                seq = _consTSPInsertion(nodeIDs, method['initSeq'], tau, asymFlag, randomInsertionFlag)
     
     # Neighborhood based heuristic, including nearest neighborhood, k-nearest neighborhood, and furthest neighborhood
     elif (method['cons'] == 'NearestNeighbor'):
@@ -243,8 +254,9 @@ def heuTSP(
         canImpvFlag = True
         while (canImpvFlag):
             canImpvFlag = False
+
             if (not canImpvFlag and '2Opt' in method['impv']):
-                canImpvFlag = seq.impv2Opt()
+                canImpvFlag = _impvTSP2Opt(seq)
 
     ofv = seq.dist
     nodeSeq = [n.key for n in seq.traverse(closeFlag = True)]
@@ -324,20 +336,19 @@ def _consTSPRandom(depotID, nodeIDs):
     random.shuffle(seq)
     return seq
 
-def _consTSPInsertion(nodeIDs, initSeq, tau, asymFlag):
+def _consTSPInsertion(nodeIDs, initSeq, nodeObj, tau, asymFlag, randomInsertionFlag):
     # Initialize ----------------------------------------------------------
-    routeNodes = {}
-    for n in nodeIDs:
-        routeNodes[n] = RouteNode(key = n, value = n)
     route = Route(tau, asymFlag)
 
     # NOTE: initSeq should starts and ends with depotID
     for n in initSeq[:-1]:
-        route.append(routeNodes[n])
+        route.append(nodeObj[n])
 
     unInserted = [i for i in nodeIDs if i not in initSeq[:-1]]
+    if (randomInsertionFlag):
+        random.shuffle(unInserted)
     for n in unInserted:
-        route.cheapestInsert(routeNodes[n])
+        route.cheapestInsert(nodeObj[n])
 
     return route
     
@@ -382,6 +393,9 @@ def _consTSPChristofides(depotID, tau):
 
 def _consTSPCycleCover(depotID, tau):
     raise VrpSolverNotAvailableError("ERROR: vrpSolver has not implement this method yet")
+
+def _impvTSP2Opt(seq):
+    return seq.impv2Opt()
 
 def heuTSPEx(
     nodes: dict, 
