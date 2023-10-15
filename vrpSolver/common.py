@@ -20,7 +20,7 @@ arcPolys = list[arcPoly]
 line = list[pt]
 
 def saveDictionary(obj, name: str) -> None:
-    # obj['datetime'] = datetime.datetime.now().strftime("%m/%d/%Y-%H:%M:%S")
+    saveName = name + '.pkl'
     with open(name + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
@@ -40,9 +40,12 @@ def rndPick(coefficients: list[int | float]) -> int:
             break
     return idx
 
-def list2String(l):
+def list2String(l, noCommaFlag=False):
     listString = "["
-    listString += ', '.join([list2String(elem) if type(elem) == list else str(elem) for elem in l.copy()])
+    if (noCommaFlag==False):
+        listString += ', '.join([list2String(elem) if type(elem) == list else str(elem) for elem in l.copy()])
+    else:
+        listString += ''.join([list2String(elem) if type(elem) == list else str(elem) for elem in l.copy()])
     listString += "]"
     return listString
 

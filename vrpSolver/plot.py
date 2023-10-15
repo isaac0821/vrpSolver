@@ -776,8 +776,8 @@ def plotCircle(
     )
     return fig, ax
     
-def plotPolys(
-    polys: dict,
+def plotPolygons(
+    polygons: dict,
     polyFieldName: str = 'poly',
     showAnchorFlag: bool = True,
     anchorFieldName: str = 'anchor',
@@ -797,16 +797,16 @@ def plotPolys(
     ):
 
     # Sanity check ============================================================
-    if (type(polys) != dict):
-        raise UnsupportedInputError("ERROR: `polys` is a dictionary, to plot an individual polygon, please use plotPoly() instead.")
+    if (type(polygons) != dict):
+        raise UnsupportedInputError("ERROR: `polygons` is a dictionary, to plot an individual polygon, please use plotPoly() instead.")
 
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
         allX = []
         allY = []
-        for p in polys:
-            for i in polys[p][polyFieldName]:
+        for p in polygons:
+            for i in polygons[p][polyFieldName]:
                 if (not xyReverseFlag):
                     allX.append(i[0])
                     allY.append(i[1])
@@ -847,11 +847,11 @@ def plotPolys(
             ax.set_ylim(yMin, yMax)
 
     # First, plot polygons ====================================================
-    for p in polys:
+    for p in polygons:
         fig, ax = plotPoly(
             fig = fig,
             ax = ax,
-            poly = polys[p][polyFieldName],
+            poly = polygons[p][polyFieldName],
             edgeWidth = edgeWidth,
             edgeColor = edgeColor,
             fillColor = fillColor,
@@ -862,14 +862,14 @@ def plotPolys(
 
     # Next, plot anchors ======================================================
     if (showAnchorFlag):
-        for p in polys:
-            if ('label' not in polys[p]):
+        for p in polygons:
+            if ('label' not in polygons[p]):
                 lbl = p
             else:
-                lbl = polys[p]['label']
+                lbl = polygons[p]['label']
             ha = 'center'
             va = 'center'
-            ct = polys[p]['anchor']
+            ct = polygons[p]['anchor']
             if (xyReverseFlag):
                 ct = [ct[1], ct[0]]
             ax.annotate(lbl, ct, ha=ha, va=va)
@@ -961,10 +961,10 @@ def plotProvinceMap(
                 }
         else:
             raise VrpSolverNotAvailableError("Error: %s is not included yet, please stay tune." % country) 
-    fig, ax = plotPolys(
+    fig, ax = plotPolygons(
         fig = fig,
         ax = ax,
-        polys = prvPoly,
+        polygons = prvPoly,
         showAnchorFlag = True,
         edgeWidth = edgeWidth,
         edgeColor = edgeColor,

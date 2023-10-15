@@ -1204,6 +1204,19 @@ def polysVisibleGraph(polys:polys) -> dict:
                 vg[(p, e)]['visible'].append(w)
     return vg
 
+def polysSteinerZone(polys:polys, config: dict = {'maxOrder': None}):
+
+    return {
+        'SteinerZone': stZone
+    }
+
+def polysAlongPath(path, polys:polys, config: dict = {'intersectFlag': True}):
+    
+    return {
+        'polyIDs': polyIDs,
+        'polyAtCorners': polyAtCorners
+    }
+
 def ptsVisible(v:int|str|tuple, polys:polys, standalonePts:dict|None=None, knownVG:dict={}) -> list:
     # NOTE: 该函数不需要使用shapely
     vertices = {}
@@ -2114,8 +2127,93 @@ def _distOnGridAStar(column, row, barriers, pt1, pt2, distMeasure):
 def distRoadNetwork(pt1: pt, pt2: pt, roadnetwork: dict, roadnetworkNG: dict=None):
     return
 
+# Arcpolys related ============================================================
+def arcpolyFromCircles(circles: dict):
+    return arcpolys
+
 # CETSP related ===============================================================
-def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, lod: float=CONST_EPSILON):
+def geom2GeomPath(startPt: pt, endPt: pt, geoms: polys|dict = None, method: dict = {'shape': 'Poly', 'barriers': None, 'errTol': CONST_EPSILON}):
+    
+    """Find path between geometries, e.g., polys, circles, arcpolys, mixed.
+
+    Parameters
+    ----------
+
+    startPt: pt, required, default None
+        The coordinate which starts the path.
+    endPt: pt, required, default None
+        The coordinate which ends the path.
+    geoms: polys|dict, required, default None
+        A list of polys, or circles, or arcpolys, or a mix of those objects to be visited in given sequence
+    method: dict, required, default {'shape': 'Poly', 'barriers': None, 'errTol': CONST_EPSILON}
+        A dictionary to indicate the subroutine to be used. Options includes
+            1) Between polygons using heuristics
+                >>> method = {
+                ...     'shape': 'Poly',
+                ...     'barriers': None,
+                ...     'algo': 'AdaptIter',
+                ...     'errTol': CONST_EPSILON,
+                ... }
+            2) Between polygons using second order cone programing by Gurobi
+                >>> method = {
+                ...     'shape': 'Poly',
+                ...     'barriers': None,
+                ...     'algo': 'Gurobi',
+                ...     'errTol': CONST_EPSILON,
+                ... }
+            3) Between polygons using second order cone programing by COPT
+                >>> method = {
+                ...     'shape': 'Poly',
+                ...     'barriers': None,
+                ...     'algo': 'COPT',
+                ...     'errTol': CONST_EPSILON,
+                ... }
+            4) Between polygons considering a list of polygons as barriers
+                >>> method = {
+                ...     'shape': 'Poly',
+                ...     'barriers': barrierPolys,
+                ...     'algo': 'AdaptIter',
+                ...     'errTol': CONST_EPSILON,
+                ... }
+            5) Between circles using heuristics
+                >>> method = {
+                ...     'shape': 'Circle',
+                ...     'barriers': None,
+                ...     'algo': 'AdaptIter',
+                ...     'errTol': CONST_EPSILON,
+                ... }
+            6) Between circles using second order cone programing by Gurobi
+                >>> method = {
+                ...     'shape': 'Circle',
+                ...     'barriers': None,
+                ...     'algo': 'Gurobi',
+                ...     'errTol': CONST_EPSILON,
+                ... }
+            7) Between circles using second order cone programing by COPT
+                >>> method = {
+                ...     'shape': 'Circle',
+                ...     'barriers': None,
+                ...     'algo': 'COPT',
+                ...     'errTol': CONST_EPSILON,
+                ... }
+            8) Between arcpolys using heuristics
+                >>> method = {
+                ...     'shape': 'Arcpoly',
+                ...     'barriers': None,
+                ...     'algo': 'AdaptIter',
+                ...     'errTol': CONST_EPSILON,
+                ... }
+    """
+
+    # Sanity check
+
+
+    return {
+        'path': path,
+        'dist': dist
+    }
+
+def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, config: dict = {'errTol': CONST_EPSILON}):
 
     """Given a list of points, each belongs to a neighborhood of a node, find the shortest path between each steps
 
@@ -2252,7 +2350,7 @@ def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, lod: float=CONST_EPSILON
             newDist += tau[(sp[i][0], sp[i][1]), (sp[i + 1][0], sp[i + 1][1])]
         newDist += distEuclideanXY(polyRings[sp[-2][0]].query(sp[-2][1]).value, endPt)['dist']
 
-        if (abs(newDist - dist) <= lod):
+        if (abs(newDist - dist) <= config['errTol']):
             refineFlag = False
 
         dist = newDist
@@ -2268,7 +2366,15 @@ def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, lod: float=CONST_EPSILON
         'dist': dist
     }
 
-def poly2PolyPathBarrier(startPt: pt, endPt: pt, polys: polys, barrierPolys: polys, lod: float=CONST_EPSILON):
+def _poly2PolyPathGurobi(startPt: pt, endPt: pt, polys: polys, config: dict = {'outputFlag': False}):
+    raise UnsupportedInputError("ERROR: Unsupported for now.")
+    return
+
+def _poly2PolyPathCOPT(startPt: pt, endPt: pt, polys: polys, config: dict = {'outputFlag': False}):
+    raise UnsupportedInputError("ERROR: Unsupported for now.")
+    return
+
+def _poly2PolyPathBarriersAdaptIter(startPt: pt, endPt: pt, polys: polys, barrierPolys: polys, lod: float=CONST_EPSILON):
 
     """Find the shortest path starts from startPt, visits every polygon given, and ends with endPt
 
@@ -2433,3 +2539,76 @@ def poly2PolyPathBarrier(startPt: pt, endPt: pt, polys: polys, barrierPolys: pol
         'dist': dist
     }
 
+def _circle2CirclePathAdaptIter(startPt: pt, endPt: pt, circles: dict, config: dict = {'errTol': CONST_EPSILON}):
+    raise UnsupportedInputError("ERROR: Unsupported for now.")
+    return
+
+def _circle2CirclePathGurobi(startPt: pt, endPt: pt, circles: dict, config: dict = {'outputFlag': False}):
+    model = grb.Model("SOCP")
+    # model.params.NonConvex = 2
+    if (config == None or 'outputFlag' not in config or config['outputFlag'] == False):
+        model.setParam('OutputFlag', 0)
+    else:
+        model.setParam('OutputFlag', 1)
+
+    # Decision variables ======================================================
+    # anchor starts from startPt, in between are a list of circles, ends with endPt
+    anchor = [startPt]
+    for i in range(len(circles)):
+        anchor.append(circles[i]['center'])
+    anchor.append(endPt)
+
+    # NOTE: x, y index starts by 1
+    x = {}
+    y = {}
+    for i in range(1, len(circles) + 1):
+        x[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "x_%s" % i, lb = -40, ub = 140)
+        y[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "y_%s" % i, lb = -40, ub = 140)
+
+    # Distance from (x[i], y[i]) to (x[i + 1], y[i + 1]), 
+    # where startPt = (x[0], y[0]) and endPt = (x[len(circles) + 1], y[len(circles) + 1])
+    d = {}
+    for i in range(len(circles) + 1):
+        d[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'd_%s' % i)
+    model.setObjective(grb.quicksum(d[i] for i in range(len(circles) + 1)), grb.GRB.MINIMIZE)
+
+    # Distance constraints ====================================================
+    model.addQConstr(d[0] ** 2 >= (x[1] - anchor[0][0]) ** 2 + (y[1] - anchor[0][1]) ** 2)
+    for i in range(1, len(circles)):
+        model.addQConstr(d[i] ** 2 >= (x[i] - x[i + 1]) ** 2 + (y[i] - y[i + 1]) ** 2)
+    model.addQConstr(d[len(circles)] ** 2 >= (anchor[-1][0] - x[len(circles)]) ** 2 + (anchor[-1][1] - y[len(circles)]) ** 2)
+    for i in range(1, len(circles) + 1):
+        model.addQConstr((x[i] - anchor[i][0]) ** 2 + (y[i] - anchor[i][1]) ** 2 <= circles[i - 1]['radius'] ** 2)
+
+    # model.write("SOCP.lp")
+    model.optimize()
+
+    # Post-processing =========================================================
+    ofv = None
+    path = [startPt]
+    if (model.status == grb.GRB.status.OPTIMAL):
+        solType = 'IP_Optimal'
+        ofv = model.getObjective().getValue()
+        for i in x:
+            path.append((x[i].x, y[i].x))
+        path.append(endPt)
+        gap = 0
+        lb = ofv
+        ub = ofv
+        runtime = model.Runtime
+    elif (model.status == grb.GRB.status.TIME_LIMIT):
+        solType = 'IP_TimeLimit'
+        ofv = None
+        path = []
+        gap = model.MIPGap
+        lb = model.ObjBoundC
+        ub = model.ObjVal
+        runtime = model.Runtime
+    return {
+        'path': path,
+        'dist': ofv
+    }
+
+def _circle2CirclePathCOPT(startPt: pt, endPt: pt, circles: dict, config: dict = {'outputFlag': False}):
+    raise UnsupportedInputError("ERROR: Unsupported for now.")
+    return

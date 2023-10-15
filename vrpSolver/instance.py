@@ -662,7 +662,7 @@ def _rndArcUniformSquareXY(xRange: list[int]|list[float], yRange: list[int]|list
     (xEnd, yEnd) = ptInDistXY((xStart, yStart), direction, length)
     return ((xStart, yStart), (xEnd, yEnd))
 
-def rndPolys(
+def rndPolygons(
     P: int|None = None,
     polyIDs: list[int|str] = [],
     method: dict = {
