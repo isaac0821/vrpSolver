@@ -717,6 +717,37 @@ def isSegIntRay(seg: line, ray: line, interiorOnly: bool=False) -> bool:
     else:
         return True
 
+def isSegIntBoundingbox(seg: line, boundingBox: list) -> bool:
+    # If any end is inside bounding box
+    if (boundingBox[0] <= seg[0][0] <= boundingBox[2] and boundingBox[1] <= seg[0][1] <= boundingBox[3]):
+        return True
+    if (boundingBox[0] <= seg[1][0] <= boundingBox[2] and boundingBox[1] <= seg[1][1] <= boundingBox[3]):
+        return True
+
+    # If both end is in the same side of bounding box
+    if (seg[0][0] <= boundingBox[0] and seg[1][0] <= boundingBox[0]):
+        return False
+    if (seg[0][0] >= boundingBox[2] and seg[1][0] >= boundingBox[2]):
+        return False
+    if (seg[0][1] <= boundingBox[1] and seg[1][1] <= boundingBox[1]):
+        return False
+    if (seg[0][1] >= boundingBox[3] and seg[1][1] >= boundingBox[3]):
+        return False
+
+    # Clockwise check
+    c1 = is3PtsClockWise(seg[0], seg[1], [boundingBox[0], boundingBox[1]])
+    c2 = is3PtsClockWise(seg[0], seg[1], [boundingBox[2], boundingBox[1]])
+    if (c1 != c2):
+        return True
+    c3 = is3PtsClockWise(seg[0], seg[1], [boundingBox[0], boundingBox[3]])
+    if (c1 != c3 or c2 != c3):
+        return True
+    c4 = is3PtsClockWise(seg[0], seg[1], [boundingBox[2], boundingBox[3]])
+    if (c1 != c4 or c2 != c4 or c3 != c4):
+        return True
+
+    return False
+
 def isRayIntLine(ray: line, line: line, interiorOnly: bool=False) -> bool:
     """Is a ray intersect with a line"""
     return isLineIntRay(line, ray, interiorOnly)
@@ -1137,7 +1168,7 @@ def ptLatLon2XYMercator(ptLatLon: pt) -> pt:
     return ptXY
 
 # Polys =======================================================================
-def polysUnion(polys:polys=None, polysShapely: list[shapely.Polygon]=None, returnShaplelyObj:bool=False) -> list:
+def polysUnion(polys:polys=None, polysShapely:list[shapely.Polygon]=None, returnShaplelyObj:bool=False) -> list:
     """Given a list of polygons which could be intersecting to each other, return unioned polygons that are not intersecting"""
     if (polys == None and polysShapely == None):
         raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
@@ -1204,13 +1235,63 @@ def polysVisibleGraph(polys:polys) -> dict:
                 vg[(p, e)]['visible'].append(w)
     return vg
 
-def polysSteinerZone(polys:polys, config: dict = {'maxOrder': None}):
+def polysSteinerZone(polys:polys=None, polysShapely:list[shapely.Polygon]=None, config: dict={'maxOrder': None, 'convexFlag': True}):
+    if (polys == None and polysShapely == None):
+        raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
+    if (polysShapely == None):
+        polysShapely = []
+        for p in polys:
+            polysShapely.append(shapely.Polygon(p))
 
-    return {
-        'SteinerZone': stZone
-    }
+    lstSZ = []
+    overlapMatrix = {}
+    for i in range(len(polysShapely) - 1):
+        for j in range(i + 1, len(polysShapely)):
+            intIJ = intPoly2Poly(polysShapely[i], polysShapely[j])
 
-def polysAlongPath(path, polys:polys, config: dict = {'intersectFlag': True}):
+    return lstSZ
+
+def polysBoundingBox(polys:polys=None, polysShapely:list[shapely.Polygon]=None):
+    if (polys == None and polysShapely == None):
+        raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
+    if (polys == None):
+        polys = []
+        for p in polyShapely:
+            polys.append([i for i in mapping(p)['coordinates'][0]])
+    polysBox = []
+    for p in polys:
+        x = []
+        y = []
+        for pt in p:
+            x.append(pt[0])
+            y.append(pt[1])
+        polysBox.append([min(x), max(x), min(y), max(y)])
+
+    return polysBox
+
+def polysAlongPath(path, polys:polys=None, polysShapely:list[shapely.Polygon]=None, config: dict = {'intersectFlag': True}):
+    if (polys == None and polysShapely == None):
+        raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
+    if (polysShapely == None):
+        polysShapely = []
+        for p in polys:
+            polysShapely.append(shapely.Polygon(p))
+
+    polysBox = polysBoundingBox(polys, polysShapely)
+
+    # First, for each leg in the path, find the individual polygons intersect with the leg
+    lstPolyIdxPerLeg = []
+
+    curPoly = []
+
+    for i in range(len(path) - 1):
+        seg = [path[i], path[i + 1]]
+        # 准备用segment tree
+        # For now use the naive way - checking the boundingbox
+        for j in range(len(polysShapely) - 1):
+            if (isSegIntBoundingbox(seg, polysBox[j])):
+                segIntPoly = intSeg2Poly(seg = seg, polyShapely = polysShapely[j])
+                # if (segIntPoly):
     
     return {
         'polyIDs': polyIDs,
@@ -2205,13 +2286,28 @@ def geom2GeomPath(startPt: pt, endPt: pt, geoms: polys|dict = None, method: dict
                 ... }
     """
 
-    # Sanity check
+    # Sanity check ============================================================
+    if (method == None or 'shape' not in method):
+        raise MissingParameterError("ERROR: Missing required field `method` or missing required field 'shape' in `method`.")
 
+    errTol = CONST_EPSILON
+    if ('errTol' in method):
+        errTol = method['errTol']
+    outputFlag = False
+    if ('outputFlag' in method):
+        outputFlag = method['outputFlag']
 
-    return {
-        'path': path,
-        'dist': dist
-    }
+    if (method['shape'] == 'Poly' and method['algo'] == 'AdaptIter' and ('barriers' not in method or method['barriers'] == None)):
+        return _poly2PolyPathAdaptIter(startPt, endPt, geoms, {'errTol': errTol})
+    if (method['shape'] == 'Poly' and method['algo'] == 'AdaptIter' and ('barriers' in method and method['barriers'] != None)):
+        return _poly2PolyPathBarriersAdaptIter(startPt, endPt, geoms, barrierPolys, {'errTol': errTol})
+    if (method['shape'] == 'Circle' and method['algo'] == 'Gurobi'):
+        return _circle2CirclePathGurobi(startPt, endPt, geoms, {'outputFlag': outputFlag})
+    if (method['shape'] == 'Circle' and method['algo'] == 'COPT'):
+        return _circle2CirclePathCOPT(startPt, endPt, geoms, {'outputFlag': outputFlag})
+    else:
+        raise UnsupportedInputError("ERROR: Not support by vrpSolver for now.")
+    return
 
 def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, config: dict = {'errTol': CONST_EPSILON}):
 
@@ -2374,7 +2470,7 @@ def _poly2PolyPathCOPT(startPt: pt, endPt: pt, polys: polys, config: dict = {'ou
     raise UnsupportedInputError("ERROR: Unsupported for now.")
     return
 
-def _poly2PolyPathBarriersAdaptIter(startPt: pt, endPt: pt, polys: polys, barrierPolys: polys, lod: float=CONST_EPSILON):
+def _poly2PolyPathBarriersAdaptIter(startPt: pt, endPt: pt, polys: polys, barrierPolys: polys, config: dict = {'errTol': CONST_EPSILON}):
 
     """Find the shortest path starts from startPt, visits every polygon given, and ends with endPt
 
@@ -2517,7 +2613,7 @@ def _poly2PolyPathBarriersAdaptIter(startPt: pt, endPt: pt, polys: polys, barrie
             newDist += tau[(sp[i][0], sp[i][1]), (sp[i + 1][0], sp[i + 1][1])]
         newDist += distBtwPolysXY(polyRings[sp[-2][0]].query(sp[-2][1]).value, endPt, polys = barrierPolys, polyVG = vg)['dist']
 
-        if (abs(newDist - dist) <= lod):
+        if (abs(newDist - dist) <= config['errTol']):
             refineFlag = False
 
         dist = newDist
@@ -2544,12 +2640,19 @@ def _circle2CirclePathAdaptIter(startPt: pt, endPt: pt, circles: dict, config: d
     return
 
 def _circle2CirclePathGurobi(startPt: pt, endPt: pt, circles: dict, config: dict = {'outputFlag': False}):
+    try:
+        import gurobipy as grb
+    except(ImportError):
+        print("ERROR: Cannot find Gurobi")
+        return
+
     model = grb.Model("SOCP")
     # model.params.NonConvex = 2
     if (config == None or 'outputFlag' not in config or config['outputFlag'] == False):
         model.setParam('OutputFlag', 0)
     else:
         model.setParam('OutputFlag', 1)
+    model.setParam('BarConvTol', 0.00000000001)
 
     # Decision variables ======================================================
     # anchor starts from startPt, in between are a list of circles, ends with endPt
@@ -2558,13 +2661,25 @@ def _circle2CirclePathGurobi(startPt: pt, endPt: pt, circles: dict, config: dict
         anchor.append(circles[i]['center'])
     anchor.append(endPt)
 
+    allX = [startPt[0], endPt[0]]
+    allY = [startPt[1], endPt[1]]
+    for i in range(len(circles)):
+        allX.append(circles[i]['center'][0] - circles[i]['radius'])
+        allX.append(circles[i]['center'][0] + circles[i]['radius'])
+        allY.append(circles[i]['center'][1] - circles[i]['radius'])
+        allY.append(circles[i]['center'][1] + circles[i]['radius'])
+    lbX = min(allX) - 40
+    lbY = min(allY) - 40
+    ubX = max(allX) + 40
+    ubY = max(allY) + 40
+
+    # Decision variables ======================================================
     # NOTE: x, y index starts by 1
     x = {}
     y = {}
     for i in range(1, len(circles) + 1):
-        x[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "x_%s" % i, lb = -40, ub = 140)
-        y[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "y_%s" % i, lb = -40, ub = 140)
-
+        x[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "x_%s" % i, lb = lbX, ub = ubX)
+        y[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "y_%s" % i, lb = lbY , ub = ubY)
     # Distance from (x[i], y[i]) to (x[i + 1], y[i + 1]), 
     # where startPt = (x[0], y[0]) and endPt = (x[len(circles) + 1], y[len(circles) + 1])
     d = {}
@@ -2572,13 +2687,39 @@ def _circle2CirclePathGurobi(startPt: pt, endPt: pt, circles: dict, config: dict
         d[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'd_%s' % i)
     model.setObjective(grb.quicksum(d[i] for i in range(len(circles) + 1)), grb.GRB.MINIMIZE)
 
-    # Distance constraints ====================================================
-    model.addQConstr(d[0] ** 2 >= (x[1] - anchor[0][0]) ** 2 + (y[1] - anchor[0][1]) ** 2)
-    for i in range(1, len(circles)):
-        model.addQConstr(d[i] ** 2 >= (x[i] - x[i + 1]) ** 2 + (y[i] - y[i + 1]) ** 2)
-    model.addQConstr(d[len(circles)] ** 2 >= (anchor[-1][0] - x[len(circles)]) ** 2 + (anchor[-1][1] - y[len(circles)]) ** 2)
+    # Aux vars - distance between (x, y)
+    dx = {}
+    dy = {}
+    for i in range(len(circles) + 1):
+        dx[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'dx_%s' % i, lb = -float('inf'), ub = float('inf'))
+        dy[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'dy_%s' % i, lb = -float('inf'), ub = float('inf'))
+    # Aux vars - distance from (x, y) to the center
+    rx = {}
+    ry = {}
     for i in range(1, len(circles) + 1):
-        model.addQConstr((x[i] - anchor[i][0]) ** 2 + (y[i] - anchor[i][1]) ** 2 <= circles[i - 1]['radius'] ** 2)
+        rx[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'rx_%s' % i, lb = -float('inf'), ub = float('inf'))
+        ry[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'ry_%s' % i, lb = -float('inf'), ub = float('inf'))
+
+    # Distance constraints ====================================================
+    # Aux constr - dx dy
+    model.addConstr(dx[0] == x[1] - anchor[0][0])
+    model.addConstr(dy[0] == y[1] - anchor[0][1])
+    for i in range(1, len(circles)):
+        model.addConstr(dx[i] == x[i] - x[i + 1])
+        model.addConstr(dy[i] == y[i] - y[i + 1])
+    model.addConstr(dx[len(circles)] == anchor[-1][0] - x[len(circles)])
+    model.addConstr(dy[len(circles)] == anchor[-1][0] - x[len(circles)])
+    # Aux constr - rx ry
+    for i in range(1, len(circles) + 1):
+        model.addConstr(rx[i] == x[i] - anchor[i][0])
+        model.addConstr(ry[i] == y[i] - anchor[i][1])
+
+    # Distance btw visits
+    for i in range(len(circles) + 1):
+        model.addQConstr(d[i] ** 2 >= dx[i] ** 2 + dy[i] ** 2)
+
+    for i in range(1, len(circles) + 1):
+        model.addQConstr(rx[i] ** 2 + ry[i] ** 2 <= circles[i - 1]['radius'] ** 2)
 
     # model.write("SOCP.lp")
     model.optimize()
@@ -2610,5 +2751,100 @@ def _circle2CirclePathGurobi(startPt: pt, endPt: pt, circles: dict, config: dict
     }
 
 def _circle2CirclePathCOPT(startPt: pt, endPt: pt, circles: dict, config: dict = {'outputFlag': False}):
-    raise UnsupportedInputError("ERROR: Unsupported for now.")
-    return
+    env = None
+    try:
+        import coptpy as cp
+        envconfig = cp.EnvrConfig()
+        envconfig.set('nobanner', '1')
+        AVAIL_SOLVER = 'COPT'
+        if (env == None):
+            env = cp.Envr(envconfig)
+    except(ImportError):
+        print("ERROR: Cannot find COPT")
+        return
+
+    model = env.createModel("SOCP")
+    if (config == None or 'outputFlag' not in config or config['outputFlag'] == False):
+        model.setParam(cp.COPT.Param.Logging, 0)
+        model.setParam(cp.COPT.Param.LogToConsole, 0)
+
+    # Decision variables ======================================================
+    # anchor starts from startPt, in between are a list of circles, ends with endPt
+    anchor = [startPt]
+    for i in range(len(circles)):
+        anchor.append(circles[i]['center'])
+    anchor.append(endPt)
+
+    allX = [startPt[0], endPt[0]]
+    allY = [startPt[1], endPt[1]]
+    for i in range(len(circles)):
+        allX.append(circles[i]['center'][0] - circles[i]['radius'])
+        allX.append(circles[i]['center'][0] + circles[i]['radius'])
+        allY.append(circles[i]['center'][1] - circles[i]['radius'])
+        allY.append(circles[i]['center'][1] + circles[i]['radius'])
+    lbX = min(allX) - 40
+    lbY = min(allY) - 40
+    ubX = max(allX) + 40
+    ubY = max(allY) + 40
+
+    # NOTE: x, y index starts by 1
+    x = {}
+    y = {}
+    for i in range(1, len(circles) + 1):
+        x[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = "x_%s" % i, lb = lbX, ub = ubX)
+        y[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = "y_%s" % i, lb = lbY, ub = ubY)
+
+    # Distance from (x[i], y[i]) to (x[i + 1], y[i + 1]), 
+    # where startPt = (x[0], y[0]) and endPt = (x[len(circles) + 1], y[len(circles) + 1])
+    d = {}
+    for i in range(len(circles) + 1):
+        d[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'd_%s' % i)
+    model.setObjective(cp.quicksum(d[i] for i in range(len(circles) + 1)), cp.COPT.MINIMIZE)
+
+    # Distance constraints ====================================================
+    model.addQConstr(d[0] ** 2 >= (x[1] - anchor[0][0]) ** 2 + (y[1] - anchor[0][1]) ** 2)
+    for i in range(1, len(circles)):
+        model.addQConstr(d[i] ** 2 >= (x[i] - x[i + 1]) ** 2 + (y[i] - y[i + 1]) ** 2)
+        # model.addQConstr((x[i] - x[i + 1]) ** 2 + (y[i] - y[i + 1]) ** 2 >= 0)
+    model.addQConstr(d[len(circles)] ** 2 >= (anchor[-1][0] - x[len(circles)]) ** 2 + (anchor[-1][1] - y[len(circles)]) ** 2)
+    for i in range(1, len(circles) + 1):
+        model.addQConstr((x[i] - anchor[i][0]) ** 2 + (y[i] - anchor[i][1]) ** 2 <= circles[i - 1]['radius'] ** 2)
+
+    # model.write("SOCP.lp")
+    model.solve()
+
+    # Post-processing =========================================================
+    ofv = None
+    path = [startPt]
+    if (model.status == cp.COPT.OPTIMAL):
+        solType = 'IP_Optimal'
+        ofv = model.getObjective().getValue()
+        for i in x:
+            path.append((x[i].x, y[i].x))
+        path.append(endPt)
+        gap = 0
+        lb = ofv
+        ub = ofv
+        runtime = model.SolvingTime
+    elif (model.status == cp.COPT.TIMEOUT):
+        solType = 'IP_TimeLimit'
+        ofv = None
+        path = []
+        gap = model.BestGap
+        lb = model.BestBnd
+        ub = model.BestObj
+        runtime = model.SolvingTime
+    return {
+        'path': path,
+        'dist': ofv
+    }
+
+
+# Dynamic polygon touring problem =============================================
+def dpoly2DPolyPath(startPt: pt, endPt: pt, dgeom: dict):
+    return {
+        'path': path,
+        'timestamp': timeStamp,
+        'dist': dist,
+        'time': timed
+    }

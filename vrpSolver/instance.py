@@ -806,7 +806,10 @@ def rndPolygons(
             poly = [[
                 anchors[p][anchorFieldName][0] + (r[d] + method['minRadius']) * math.sin(2 * d * math.pi / lod),
                 anchors[p][anchorFieldName][1] + (r[d] + method['minRadius']) * math.cos(2 * d * math.pi / lod),
-            ] for d in range(lod + 1)]        
+            ] for d in range(lod + 1)]
+
+        elif (method['shape'] == 'RandomConvex'):
+            raise UnsupportedInputError("ERROR: Working")
         
         else:
             raise UnsupportedInputError("ERROR: Unsupported option for `method`. Supported 'shape' includes: 'Poly', 'Circle', and 'RandomCurvy'.")
