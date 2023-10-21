@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+from matplotlib.animation import PillowWriter
 
 from .common import *
 from .color import *
@@ -10,6 +12,7 @@ from .geometry import *
 # History =====================================================================
 # 20230518 - `plotNodes()` now will plot the neighborhood of nodes
 # 20230624 - Rename functions `plotArcs()`, `plotLocSeq()`, `plotNodeSeq()`
+# 20231022 - Refine `aniRouting()`
 # =============================================================================
 
 def plotNodes(
@@ -1425,27 +1428,38 @@ def plotGantt(
 
 def aniRouting(
     timeRange: tuple[int, int],
+    # Nodes -------------------------------------------------------------------
     nodes: dict|None=None,
     locFieldName: str = 'loc',
-    vehicles: dict|None = None,
-    polys: dict|None = None,
-    polyFieldName = 'poly',
+    timeWindowFieldName: str = 'timeWindow',
     nodeColor: str = 'black',
     nodeMarker: str = 'o',
     nodeMarkersize: float = 2,
-    nodeNeighborColor: str|None = 'gray',
-    nodeNeighborOpacity: float = 0.5,
+    # Vehicles ----------------------------------------------------------------
+    vehicles: dict|None = None,
+    vehTimedSeqFieldName: str = 'timedSeq',
+    vehLabelFieldName: str = 'label',
     vehColor: str = 'blue',
+    vehMarker: str = '^',
+    vehMarkersize: float = 5,
     vehPathColor: str|None = 'gray',
+    vehPathWidth: float|int|None = 3,
     vehTraceColor: str|None = 'orange',
-    vehTraceTime: float|None = None,
-    vehShowSpeedFlag: bool = True,
+    vehTraceWidth: float|int|None = 3,
+    vehTraceShadowTime: float|None = None,
+    vehSpdShowLabelFlag: bool = True,
+    vehSpdShowArrowFlag: bool = True,
+    vehSpdArrowLength: float = 5,
     vehShowNoteFlag: bool = True,
+    # Polygons ----------------------------------------------------------------
+    polygons: dict|None = None,
+    polyFieldName = 'poly',    
     polyEdgeColor: str = 'black',
     polyEdgeWidth: float = 1,
     polyFillColor: str|None = 'gray',
     polyFillStyle: str|None = '///',
     polyOpacity: float = 0.5,
+    # Configs -----------------------------------------------------------------
     speed: int = 1,
     fps: int = 1,
     repeatFlag: bool = True,
@@ -1484,11 +1498,11 @@ def aniRouting(
             ...     'color': vehColor,
             ...     'pathColor': pathColor,
             ...     'traceColor': traceColor,
-            ...     'traceTime': traceTime
+            ...     'traceShadowTime': traceShadowTime
             ... }
-    polys: dictionary, optional, default None
+    polygons: dictionary, optional, default None
         A dictionary indicating polygons that are dynamic/static in the animation
-            >>> polys[pID] = {
+            >>> polygons[pID] = {
             ...     'anchor': [x, y], # The anchor of the polygon
             ...     'poly': [pt1, pt2], # A sequence of extreme points, coordinates are relative to 'anchor'
             ...     'direction': direction, # Moving direction
@@ -1505,7 +1519,7 @@ def aniRouting(
     """
 
     # Check for required fields ===============================================
-    if (nodes == None and vehicles == None and polys == None):
+    if (nodes == None and vehicles == None and polygons == None):
         raise MissingParameterError("ERROR: Need to provide entities for animation.")
 
     # If no based matplotlib figure provided, define boundary =================
@@ -1547,17 +1561,16 @@ def aniRouting(
     else:
         (width, height) = figSize
 
-    if (isinstance(fig, plt.Figure)):
-        fig.set_figwidth(width) 
-        fig.set_figheight(height)
+    fig.set_figwidth(width) 
+    fig.set_figheight(height)
 
-    # Styling
+    # Styling =================================================================
     nodeStyle = {}
     if (nodes != None):
         for nID in nodes:
             nodeStyle[nID] = {}
-            if (nodeColor == 'Random'):
-                nodeStyle[nID]['nodeColor'] = vrpSolver.colorRandom()
+            if (nodeColor == None or nodeColor == 'Random'):
+                nodeStyle[nID]['nodeColor'] = colorRandom()
             elif (nodeColor != None):
                 nodeStyle[nID]['nodeColor'] = nodeColor
             elif ('nodeColor' in nodes[nID]):
@@ -1573,77 +1586,91 @@ def aniRouting(
             elif ('nodeMarkersize' in nodes[nID]):
                 nodeStyle[nID]['nodeMarkersize'] = nodes[nID]['nodeMarkersize']
 
-            if (nodeNeighborColor == 'Random'):
-                nodeStyle[nID]['nodeNeighborColor'] = vrpSolver.colorRandom()
-            elif (nodeNeighborColor != None):
-                nodeStyle[nID]['nodeNeighborColor'] = nodeNeighborColor
-            elif ('nodeNeighborColor' in nodes[nID]):
-                nodeStyle[nID]['nodeNeighborColor'] = nodes[nID]['nodeNeighborColor']
-
     polyStyle = {}
-    if (polys != None):
-        for pID in polys:
+    if (polygons != None):
+        for pID in polygons:
             polyStyle[pID] = {}
-            if (polyEdgeColor == 'Random'):
-                polyStyle[pID]['edgeColor'] = vrpSolver.colorRandom()
+            if (polyEdgeColor == None or polyEdgeColor == 'Random'):
+                polyStyle[pID]['edgeColor'] = colorRandom()
             elif (polyEdgeColor != None):
                 polyStyle[pID]['edgeColor'] = polyEdgeColor
-            elif ('edgeColor' in polys[pID]):
-                polyStyle[pID]['edgeColor'] = polys[pID]['edgeColor']
+            elif ('edgeColor' in polygons[pID]):
+                polyStyle[pID]['edgeColor'] = polygons[pID]['edgeColor']
 
             if (polyEdgeWidth != None):
                 polyStyle[pID]['edgeWidth'] = polyEdgeWidth
-            elif ('edgeWidth' in polys[pID]):
-                polyStyle[pID]['edgeWidth'] = polys[pID]['edgeWidth']
+            elif ('edgeWidth' in polygons[pID]):
+                polyStyle[pID]['edgeWidth'] = polygons[pID]['edgeWidth']
 
             if (polyFillColor == 'Random'):
-                polyStyle[pID]['fillColor'] = vrpSolver.colorRandom()
+                polyStyle[pID]['fillColor'] = colorRandom()
             elif (polyFillColor != None):
                 polyStyle[pID]['fillColor'] = polyFillColor
-            elif ('fillColor' in polys[pID]):
-                polyStyle[pID]['fillColor'] = polys[pID]['fillColor']
+            elif ('fillColor' in polygons[pID]):
+                polyStyle[pID]['fillColor'] = polygons[pID]['fillColor']
 
             if (polyFillStyle != None):
                 polyStyle[pID]['fillStyle'] = polyFillStyle
-            elif ('fillStyle' in polys[pID]):
-                polyStyle[pID]['fillStyle'] = polys[pID]['fillStyle']
+            elif ('fillStyle' in polygons[pID]):
+                polyStyle[pID]['fillStyle'] = polygons[pID]['fillStyle']
 
             if (polyOpacity != None):
                 polyStyle[pID]['opacity'] = polyOpacity
-            elif ('opacity' in polys[pID]):
-                polyStyle[pID]['opacity'] = polys[pID]['opacity']
+            elif ('opacity' in polygons[pID]):
+                polyStyle[pID]['opacity'] = polygons[pID]['opacity']
 
     vehicleStyle = {}
     if (vehicles != None):
         for vID in vehicles:
             vehicleStyle[vID] = {}
+
             if (vehColor == 'Random'):
-                vehicleStyle[vID]['vehColor'] = vrpSolver.colorRandom()
+                vehicleStyle[vID]['vehColor'] = colorRandom()
             elif (vehColor != None):
                 vehicleStyle[vID]['vehColor'] = vehColor
             elif ('color' in vehicles[vID]):
                 vehicleStyle[vID]['vehColor'] = vehicles[vID]['color']
 
+            if (vehMarker != None):
+                vehicleStyle[vID]['vehMarker'] = vehMarker
+            elif ('marker' in vehicles[vID]):
+                vehicleStyle[vID]['vehMarker'] = vehicles[vID]['marker']
+
+            if (vehMarkersize != None):
+                vehicleStyle[vID]['vehMarkersize'] = vehMarkersize
+            elif ('markersize' in vehicles[vID]):
+                vehicleStyle[vID]['vehMarkersize'] = vehicles[vID]['markersize']
+
             if (vehPathColor == 'Random'):
-                vehicleStyle[vID]['pathColor'] = vrpSolver.colorRandom()
+                vehicleStyle[vID]['pathColor'] = colorRandom()
             elif (vehPathColor != None):
                 vehicleStyle[vID]['pathColor'] = vehPathColor
             elif ('pathColor' in vehicles[vID]):
                 vehicleStyle[vID]['pathColor'] = vehicles[vID]['pathColor']
 
+            if (vehPathWidth != None):
+                vehicleStyle[vID]['pathWidth'] = vehPathWidth
+            elif ('pathWidth' in polygons[pID]):
+                vehicleStyle[vID]['pathWidth'] = vehicles[vID]['pathWidth']
+
             if (vehTraceColor == 'Random'):
-                vehicleStyle[vID]['traceColor'] = vrpSolver.colorRandom()
+                vehicleStyle[vID]['traceColor'] = colorRandom()
             elif (vehTraceColor != None):
                 vehicleStyle[vID]['traceColor'] = vehTraceColor
             elif ('traceColor' in vehicles[vID]):
                 vehicleStyle[vID]['traceColor'] = vehicles[vID]['traceColor']
 
-            if (vehTraceTime != None):
-                vehicleStyle[vID]['traceTime'] = vehTraceTime
-            elif ('traceTime' in vehicles[vID]):
-                vehicleStyle[vID]['traceTime'] = vehicles[vID]['traceTime']
+            if (vehTraceWidth != None):
+                vehicleStyle[vID]['traceWidth'] = vehTraceWidth
+            elif ('traceWidth' in polygons[pID]):
+                vehicleStyle[vID]['traceWidth'] = vehicles[vID]['traceWidth']
+
+            if (vehTraceShadowTime != None):
+                vehicleStyle[vID]['traceShadowTime'] = vehTraceShadowTime
+            elif ('traceShadowTime' in vehicles[vID]):
+                vehicleStyle[vID]['traceShadowTime'] = vehicles[vID]['traceShadowTime']
             else:
-                vehicleStyle[vID]['traceTime'] = None
+                vehicleStyle[vID]['traceShadowTime'] = None
 
     def animate(t):
         ax.clear()
@@ -1655,101 +1682,93 @@ def aniRouting(
         ax.set_title("Clock: %s[s]" % round(clock, 2))
 
         # Plot static/dynamic polygons
-        if (polys != None):
+        if (polygons != None):
             # Plot each polygon -----------------------------------------------
-            for pID in polys:
+            for pID in polygons:
+                # 判定此时刻是否需要绘制poly
+                plotPolyFlag = False
+                if (timeWindowFieldName not in polygons[pID] or polygons[pID][timeWindowFieldName][0] <= clock <= polygons[pID][timeWindowFieldName][1]):
+                    plotPolyFlag = True
+
+                # 每个Poly的坐标轮廓
                 pX = []
                 pY = []
-                for p in polys[pID][polyFieldName]:
-                    pt = None
-                    if ('direction' in polys[pID] and 'speed' in polys[pID]):
-                        if (clock < polys[pID]['timeRange'][0]):
-                            pt = p
-                        elif (clock < polys[pID]['timeRange'][1]):
-                            pt = vrpSolver.ptInDistXY(p, polys[pID]['direction'], polys[pID]['speed'] * clock)
+                if (plotPolyFlag):
+                    for p in polygons[pID][polyFieldName]:
+                        pt = None
+                        if ('direction' in polygons[pID] and 'speed' in polygons[pID]):
+                            if (clock < polygons[pID][timeWindowFieldName][0]):
+                                pt = p
+                            elif (clock < polygons[pID][timeWindowFieldName][1]):
+                                pt = ptInDistXY(p, polygons[pID]['direction'], polygons[pID]['speed'] * clock)
+                            else:
+                                pt = ptInDistXY(p, polygons[pID]['direction'], polygons[pID]['speed'] * (polygons[pID]['timeRange'][1] - polygons[pID]['timeRange'][0]))
                         else:
-                            pt = vrpSolver.ptInDistXY(p, polys[pID]['direction'], polys[pID]['speed'] * (polys[pID]['timeRange'][1] - polys[pID]['timeRange'][0]))
-                    else:
-                        pt = p
-                    if (not xyReverseFlag):
-                        pX.append(pt[0])
-                        pY.append(pt[1])
-                    else:
-                        pX.append(pt[1])
-                        pY.append(pt[0])
+                            pt = p
 
-                if ('fillColor' not in polyStyle[pID]):
-                    ax.plot(pX, pY, color=polyStyle[pID]['edgeColor'], linewidth=polyStyle[pID]['edgeWidth'])
-                elif ('fillStyle' not in polyStyle[pID]):
-                    ax.fill(pX, pY, facecolor=polyStyle[pID]['fillColor'], edgecolor=polyStyle[pID]['edgeColor'], 
-                        linewidth=polyStyle[pID]['edgeWidth'], alpha=polyStyle[pID]['opacity'])
-                else:
-                    ax.fill(pX, pY, facecolor=polyStyle[pID]['fillColor'], edgecolor=polyStyle[pID]['edgeColor'], 
-                        hatch=polyStyle[pID]['fillStyle'], linewidth=polyStyle[pID]['edgeWidth'], alpha=polyStyle[pID]['opacity'])
+                        if (not xyReverseFlag):
+                            pX.append(pt[0])
+                            pY.append(pt[1])
+                        else:
+                            pX.append(pt[1])
+                            pY.append(pt[0])
+
+                # Plot polygons with styling
+                if (plotPolyFlag):
+                    if ('fillColor' not in polyStyle[pID]):
+                        ax.plot(pX, pY, 
+                            color=polyStyle[pID]['edgeColor'], 
+                            linewidth=polyStyle[pID]['edgeWidth'])
+                    elif ('fillStyle' not in polyStyle[pID]):
+                        ax.fill(pX, pY, 
+                            facecolor=polyStyle[pID]['fillColor'], 
+                            edgecolor=polyStyle[pID]['edgeColor'], 
+                            linewidth=polyStyle[pID]['edgeWidth'], 
+                            alpha=polyStyle[pID]['opacity'])
+                    else:
+                        ax.fill(pX, pY, 
+                            facecolor=polyStyle[pID]['fillColor'], 
+                            edgecolor=polyStyle[pID]['edgeColor'], 
+                            hatch=polyStyle[pID]['fillStyle'], 
+                            linewidth=polyStyle[pID]['edgeWidth'], 
+                            alpha=polyStyle[pID]['opacity'])
 
         # Plot nodes
         if (nodes != None):
-            # Plot neighborhood of each node ----------------------------------
-            for nID in nodes:
-                plotNodeFlag = False
-                if ('timeWindow' in nodes[nID]):
-                    if (nodes[nID]['timeWindow'][0] <= clock <= nodes[nID]['timeWindow'][1]):
-                        plotNodeFlag = True
-                else:
-                    plotNodeFlag = True
-                if (plotNodeFlag and 'neighbor' in nodes[nID] and nodeNeighborColor != None):
-                    curNeighbor = [i for i in nodes[nID]['neighbor']]
-                    neiX = []
-                    neiY = []
-                    for i in range(len(curNeighbor)):
-                        neiPt = None
-                        if ('direction' in nodes[nID] and 'speed' in nodes[nID]):
-                            if (clock < nodes[nID]['timeRange'][0]):
-                                neiPt = nodes[nID]['neighbor'][i]
-                            elif (clock < nodes[nID]['timeRange'][1]):
-                                neiPt = vrpSolver.ptInDistXY(nodes[nID]['neighbor'][i], nodes[nID]['direction'], nodes[nID]['speed'] * clock)
-                            else:
-                                neiPt = vrpSolver.ptInDistXY(nodes[nID]['neighbor'][i], nodes[nID]['direction'], nodes[nID]['speed'] * (nodes[nID]['timeRange'][1] - nodes[nID]['timeRange'][0]))
-                        else:
-                            neiPt = nodes[nID]['neighbor'][i]
-                        if (not xyReverseFlag):
-                            neiX.append(neiPt[0])
-                            neiY.append(neiPt[1])
-                        else:
-                            neiX.append(neiPt[1])
-                            neiY.append(neiPt[0])
-                    ax.plot(neiX, neiY, color = 'black', linewidth = 1)
-                    if ('nodeNeighborColor' in nodeStyle[nID]):
-                        ax.fill(neiX, neiY, facecolor = nodeStyle[nID]['nodeNeighborColor'], edgecolor = 'black', hatch = '///', linewidth = 1, alpha = nodeNeighborOpacity)
-                
             # Plot the location of nodes --------------------------------------
             for nID in nodes:
                 plotNodeFlag = False
-                if ('timeWindow' in nodes[nID]):
-                    if (nodes[nID]['timeWindow'][0] <= clock <= nodes[nID]['timeWindow'][1]):
-                        plotNodeFlag = True
-                else:
+                if (timeWindowFieldName not in nodes[nID] or nodes[nID][timeWindowFieldName][0] <= clock <= nodes[nID][timeWindowFieldName][1]):
                     plotNodeFlag = True
+                
+                # Location of each node
+                x = None
+                y = None
                 if (plotNodeFlag):
                     curLoc = None
                     if ('direction' in nodes[nID] and 'speed' in nodes[nID]):
                         if (clock < nodes[nID]['timeRange'][0]):
                             curLoc = nodes[nID][locFieldName]
                         elif (clock < nodes[nID]['timeRange'][1]):
-                            curLoc = vrpSolver.ptInDistXY(nodes[nID][locFieldName], nodes[nID]['direction'], nodes[nID]['speed'] * clock)
+                            curLoc = ptInDistXY(nodes[nID][locFieldName], nodes[nID]['direction'], nodes[nID]['speed'] * clock)
                         else:
-                            curLoc = vrpSolver.ptInDistXY(nodes[nID][locFieldName], nodes[nID]['direction'], nodes[nID]['speed'] * (nodes[nID]['timeRange'][1] - nodes[nID]['timeRange'][0]))
+                            curLoc = ptInDistXY(nodes[nID][locFieldName], nodes[nID]['direction'], nodes[nID]['speed'] * (nodes[nID]['timeRange'][1] - nodes[nID]['timeRange'][0]))
                     else:
                         curLoc = nodes[nID][locFieldName]
-                    x = None
-                    y = None
+                    
                     if (not xyReverseFlag):
                         x = curLoc[0]
                         y = curLoc[1]
                     else:
                         x = curLoc[1]
                         y = curLoc[0]
-                    ax.plot(x, y, color = nodeStyle[nID]['nodeColor'], marker = nodeStyle[nID]['nodeMarker'], markersize = nodeStyle[nID]['nodeMarkersize'])
+
+                # Styling of each node
+                if (plotNodeFlag):
+                    ax.plot(x, y, 
+                        color = nodeStyle[nID]['nodeColor'], 
+                        marker = nodeStyle[nID]['nodeMarker'], 
+                        markersize = nodeStyle[nID]['nodeMarkersize'])
                     if ('label' not in nodes[nID]):
                         lbl = nID
                     else:
@@ -1758,33 +1777,32 @@ def aniRouting(
 
         # Plot vehicle
         if (vehicles != None):
+            # Plot each vehicle -----------------------------------------------
             for vID in vehicles:
-                # Plot path ---------------------------------------------------
+                # Plot path
                 if ('pathColor' in vehicleStyle[vID]):
                     pathX = []
                     pathY = []
                     if (not xyReverseFlag):
-                        pathX = [i[0] for i in vehicles[vID]['seq']]
-                        pathY = [i[1] for i in vehicles[vID]['seq']]
+                        pathX = [vehicles[vID][vehTimedSeqFieldName][i][0][0] for i in range(len(vehicles[vID][vehTimedSeqFieldName]))]
+                        pathY = [vehicles[vID][vehTimedSeqFieldName][i][0][1] for i in range(len(vehicles[vID][vehTimedSeqFieldName]))]
                     else:
-                        pathX = [i[1] for i in vehicles[vID]['seq']]
-                        pathY = [i[0] for i in vehicles[vID]['seq']]
+                        pathX = [vehicles[vID][vehTimedSeqFieldName][i][0][1] for i in range(len(vehicles[vID][vehTimedSeqFieldName]))]
+                        pathY = [vehicles[vID][vehTimedSeqFieldName][i][0][0] for i in range(len(vehicles[vID][vehTimedSeqFieldName]))]
                     ax.plot(pathX, pathY, color=vehicleStyle[vID]['pathColor'], linewidth = 1)
 
-                # Plot trace --------------------------------------------------
+                # Plot trace
                 if ('traceColor' in vehicleStyle[vID]):
                     ts = timeRange[0]
                     te = clock
-                    if (vehicleStyle[vID]['traceTime'] != None):
-                        ts = max(te - vehicleStyle[vID]['traceTime'], timeRange[0])
+                    if (vehicleStyle[vID]['traceShadowTime'] != None):
+                        ts = max(te - vehicleStyle[vID]['traceShadowTime'], timeRange[0])
 
                     if (ts < te):
-                        trace = vrpSolver.traceInTimedSeq(
-                            seq = vehicles[vID]['seq'],
-                            timeStamp = vehicles[vID]['timeStamp'],
+                        trace = traceInTimedSeq(
+                            timedSeq = vehicles[vID][vehTimedSeqFieldName],
                             ts = ts,
                             te = te)
-
                         if (len(trace) > 0 and 'traceColor' in vehicleStyle[vID]):
                             traceX = []
                             traceY = []
@@ -1796,31 +1814,36 @@ def aniRouting(
                                 traceY = [i[0] for i in trace]
                             ax.plot(traceX, traceY, color=vehicleStyle[vID]['traceColor'], linewidth = 1)
 
-                # Plot vehicle ------------------------------------------------
-                curLoc = vrpSolver.locInTimedSeq(
-                    seq = vehicles[vID]['seq'],
-                    timeStamp = vehicles[vID]['timeStamp'],
+                # Plot vehicle
+                curSnap = snapInTimedSeq(
+                    timedSeq = vehicles[vID][vehTimedSeqFieldName],
                     t = clock)
-                ax.plot(curLoc[0], curLoc[1], color = vehicleStyle[vID]['vehColor'], marker = 'o', markersize = 4)
-                if ('vehicle' not in vehicles[vID]):
-                    lbl = vID
-                else:
-                    lbl = vehicles[vID]['vehicle']
+                curLoc = curSnap['loc']
+                ax.plot(curLoc[0], curLoc[1], 
+                    color = vehicleStyle[vID]['vehColor'], 
+                    marker = vehicleStyle[vID]['vehMarker'], 
+                    markersize = vehicleStyle[vID]['vehMarkersize'])
 
-                if (vehShowSpeedFlag):
-                    curSpd = vrpSolver.speedInTimedSeq(seq = vehicles[vID]['seq'], timeStamp = vehicles[vID]['timeStamp'], t = clock)
+                if (vehLabelFieldName not in vehicles[vID]):
+                    lbl = str(vID)
+                else:
+                    lbl = vehicles[vID][vehLabelFieldName]
+
+                if (vehSpdShowLabelFlag):
+                    curSpd = curSnap['speed']
                     lbl += " %s[m/s]" % (round(curSpd, 2))
                 
                 if (vehShowNoteFlag and 'note' in vehicles[vID]):
                     note = ""
-                    if (clock <= vehicles[vID]['timeStamp'][0]):
+                    if (clock <= vehicles[vID]['timedSeq'][0][1]):
                         note = vehicles[vID]['note'][0]
-                    elif (clock >= vehicles[vID]['timeStamp'][-1]):
+                    elif (clock >= vehicles[vID]['timedSeq'][-1][1]):
                         note = vehicles[vID]['note'][-1]
                     else:
-                        for i in range(len(vehicles[vID]['timeStamp']) - 1):
-                            if (vehicles[vID]['timeStamp'][i] <= clock < vehicles[vID]['timeStamp'][i + 1]):
+                        for i in range(len(vehicles[vID]['timedSeq']) - 1):
+                            if (vehicles[vID]['timedSeq'][i][1] <= clock < vehicles[vID]['timedSeq'][i + 1][1]):
                                 note = vehicles[vID]['note'][i]
+                                break
                     ax.annotate(lbl + "\n" + note, (curLoc[0], curLoc[1]))
                 else:
                     ax.annotate(lbl, (curLoc[0], curLoc[1]))
@@ -1832,7 +1855,6 @@ def aniRouting(
         repeat = repeatFlag)
 
     if (aniSavePath):
-        ani.save("%s.gif" % aniSavePath, dpi=aniSaveDPI,
-         writer=PillowWriter(fps=fps))
+        ani.save("%s.gif" % aniSavePath, dpi=aniSaveDPI, writer=PillowWriter(fps=fps))
 
     return ani

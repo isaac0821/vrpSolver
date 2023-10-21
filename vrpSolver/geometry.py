@@ -1282,20 +1282,40 @@ def polysAlongPath(path, polys:polys=None, polysShapely:list[shapely.Polygon]=No
     # First, for each leg in the path, find the individual polygons intersect with the leg
     lstPolyIdxPerLeg = []
 
+    enteringPt = []
+    leavingPt = []
+
     curPoly = []
 
     for i in range(len(path) - 1):
         seg = [path[i], path[i + 1]]
-        # 准备用segment tree
-        # For now use the naive way - checking the boundingbox
+        # NOTE: 准备用segment tree
+        # NOTE: For now use the naive way - checking the boundingbox
         for j in range(len(polysShapely) - 1):
             if (isSegIntBoundingbox(seg, polysBox[j])):
+                # 根据Seg和poly的相交情况做判断
                 segIntPoly = intSeg2Poly(seg = seg, polyShapely = polysShapely[j])
-                # if (segIntPoly):
-    
+                # 如果相交得到多个部分，则分别进行处理
+                if (type(segIntPoly) == list):
+                    for intPart in segIntPoly:
+                        if (intPart['status'] == 'Cross' and intPart['intersectType'] == 'Point'):
+                            pass
+                        elif (intPart['status'] == 'Cross' and intPart['intersectType'] == 'Segment'):
+                            pass
+                else:
+                    if (segIntPoly['status'] == 'NoCross'):
+                        # No intersection pass
+                        pass
+                    elif (segIntPoly['status'] == 'Cross' and segIntPoly['intersectType'] == 'Point'):
+                        intPt = segIntPoly['intersect']
+                        pass
+                    elif (segIntPoly['status'] == 'Cross' and segIntPoly['intersectType'] == 'Segment'):
+                        intPt1 = segIntPoly['intersect'][0]
+                        intPt2 = segIntPoly['intersect'][1]
+                        pass
+
     return {
-        'polyIDs': polyIDs,
-        'polyAtCorners': polyAtCorners
+        'waypoints': waypoints
     }
 
 def ptsVisible(v:int|str|tuple, polys:polys, standalonePts:dict|None=None, knownVG:dict={}) -> list:
@@ -1482,66 +1502,74 @@ def ptPolyCenter(poly: poly=None, polyShapely: shapely.Polygon=None) -> pt:
     return center
 
 # Time seq related ============================================================
-def locInTimedSeq(seq: list[pt], timeStamp: list[float], t: float) -> pt:
-    if (len(seq) != len(timeStamp)):
-        raise UnsupportedInputError("ERROR: `timeStamp` does not match with `seq`.")
-    for i in range(len(timeStamp) - 1):
-        if (timeStamp[i] > timeStamp[i + 1]):
-            raise UnsupportedInputError("ERROR: `timeStamp` should be a non-descending sequence.")
+def snapInTimedSeq(timedSeq: list[tuple[pt, float]], t: float) -> pt:
+    for i in range(len(timedSeq) - 1):
+        if (timedSeq[i][1] > timedSeq[i + 1][1]):
+            raise UnsupportedInputError("ERROR: `timedSeq` should be a non-descending sequence.")
+        if (timedSeq[i][1] == timedSeq[i + 1][1] 
+            and (abs(timedSeq[i][0][0] - timedSeq[i + 1][0][0]) >= CONST_EPSILON
+                or abs(timedSeq[i][0][1] - timedSeq[i + 1][0][1]) >= CONST_EPSILON)):
+            raise UnsupportedInputError("ERROR: an object cannot be two places at the same time.")
 
-    if (t <= timeStamp[0]):
-        return seq[0]
-    if (t >= timeStamp[-1]):
-        return seq[-1]
+    curLocX = None
+    curLocY = None
+    curSpeed = None
+    curTrajectory = None
 
-    for i in range(len(timeStamp) - 1):
-        if (timeStamp[i] <= t < timeStamp[i + 1]):
-            if (timeStamp[i] == timeStamp[i + 1]):
-                raise UnsupportedInputError("ERROR: an object cannot be two places at the same time.")
-            curLocX = seq[i][0] + (seq[i + 1][0] - seq[i][0]) * (t - timeStamp[i]) / (timeStamp[i + 1] - timeStamp[i])
-            curLocY = seq[i][1] + (seq[i + 1][1] - seq[i][1]) * (t - timeStamp[i]) / (timeStamp[i + 1] - timeStamp[i])
-            return [curLocX, curLocY]
-    raise UnsupportedInputError("ERROR: cannot find time stamp")
+    if (t <= timedSeq[0][1]):
+        return {
+            'loc': timedSeq[0][0],
+            'speed': 0,
+            'trajectory': None
+        }
+    if (t >= timedSeq[-1][1]):
+        return {
+            'loc': timedSeq[-1][0],
+            'speed': 0,
+            'trajectory': None
+        }
 
-def speedInTimedSeq(seq: list[pt], timeStamp: list[float], t: float) -> float:
-    spd = 0
+    for i in range(len(timedSeq) - 1):
+        if (timedSeq[i][1] <= t < timedSeq[i + 1][1]):
+            dist = distEuclideanXY(timedSeq[i][0], timedSeq[i + 1][0])['dist']
+            if (dist > 0):
+                dt = (t - timedSeq[i][1]) / (timedSeq[i + 1][1] - timedSeq[i][1])                
+                curLocX = timedSeq[i][0][0] + (timedSeq[i + 1][0][0] - timedSeq[i][0][0]) * dt
+                curLocY = timedSeq[i][0][1] + (timedSeq[i + 1][0][1] - timedSeq[i][0][1]) * dt
+                curSpeed = dist / (timedSeq[i + 1][1] - timedSeq[i][1])
+                trajX = (timedSeq[i + 1][0][0] - timedSeq[i][0][0]) / dist
+                trajY = (timedSeq[i + 1][0][1] - timedSeq[i][0][1]) / dist
+                curTrajectory = [(curLocX, curLocY), (curLocX + trajX, curLocY + trajY)]
+            else:
+                curLocX = timedSeq[i][0][0]
+                curLocY = timedSeq[i][0][1]
+                curSpeed = 0
+                curTrajectory = None
+            break
+    return {
+        'loc': [curLocX, curLocY],
+        'speed': curSpeed,
+        'trajectory': curTrajectory
+    }
 
-    if (len(seq) != len(timeStamp)):
-        raise UnsupportedInputError("ERROR: `timeStamp` does not match with `seq`.")
-    for i in range(len(timeStamp) - 1):
-        if (timeStamp[i] > timeStamp[i + 1]):
-            raise UnsupportedInputError("ERROR: `timeStamp` should be a non-descending sequence.")
-
-    if (t <= timeStamp[0]):
-        return 0
-    if (t >= timeStamp[-1]):
-        return 0
-
-    for i in range(len(timeStamp) - 1):
-        if (timeStamp[i] <= t < timeStamp[i + 1]):
-            if (timeStamp[i] == timeStamp[i + 1]):
-                raise UnsupportedInputError("ERROR: an object cannot be two places at the same time.")
-            dist = distEuclideanXY(seq[i], seq[i + 1])['dist']
-            spd = dist / (timeStamp[i + 1] - timeStamp[i])
-
-    return spd
-
-def traceInTimedSeq(seq: list[pt], timeStamp: list[float], ts: float, te: float) -> list[pt]:
+def traceInTimedSeq(timedSeq: list[tuple[pt, float]], ts: float, te: float) -> list[pt]:
+    for i in range(len(timedSeq) - 1):
+        if (timedSeq[i][1] > timedSeq[i + 1][1]):
+            raise UnsupportedInputError("ERROR: `timedSeq` should be a non-descending sequence.")
+        if (timedSeq[i][1] == timedSeq[i + 1][1] 
+            and (abs(timedSeq[i][0][0] - timedSeq[i + 1][0][0]) >= CONST_EPSILON
+                or abs(timedSeq[i][0][1] - timedSeq[i + 1][0][1]) >= CONST_EPSILON)):
+            raise UnsupportedInputError("ERROR: an object cannot be two places at the same time.")
+    
     trace = []
 
-    if (len(seq) != len(timeStamp)):
-        raise UnsupportedInputError("ERROR: `timeStamp` does not match with `seq`.")
-    for i in range(len(timeStamp) - 1):
-        if (timeStamp[i] > timeStamp[i + 1]):
-            raise UnsupportedInputError("ERROR: `timeStamp` should be a non-descending sequence.")
     if (ts >= te):
         raise UnsupportedInputError("ERROR: `ts` should be earlier than `te`")
-
-    if (ts <= timeStamp[0] and te >= timeStamp[-1]):
-        return [pt for pt in seq]
-    if (ts >= timeStamp[-1]):
+    if (ts <= timedSeq[0][1] and te >= timedSeq[-1][1]):
+        return [timedSeq[i][0] for i in range(len(timedSeq))]
+    if (ts >= timedSeq[-1][1]):
         return []
-    if (te <= timeStamp[0]):
+    if (te <= timedSeq[0][1]):
         return []
 
     tsIndex = -1
@@ -1549,42 +1577,40 @@ def traceInTimedSeq(seq: list[pt], timeStamp: list[float], ts: float, te: float)
     tsLoc = []
     teLoc = []
 
-    if (ts <= timeStamp[0]):
+    if (ts <= timedSeq[0][1]):
         tsIndex = 0
-        ts = timeStamp[0]
-        tsLoc = seq[0]
-    if (te >= timeStamp[-1]):
-        teIndex = len(timeStamp) - 1
-        te = timeStamp[-1]
-        teLoc = seq[-1]
+        ts = timedSeq[0][1]
+        tsLoc = timedSeq[0][0]
+    if (te >= timedSeq[-1][1]):
+        teIndex = len(timedSeq) - 1
+        te = timedSeq[-1][1]
+        teLoc = timedSeq[-1][0]
 
-    for i in range(len(timeStamp) - 1):
-        if (timeStamp[i] <= ts < timeStamp[i + 1]):
-            if (timeStamp[i] == timeStamp[i + 1]):
-                raise UnsupportedInputError("ERROR: an object cannot be two places at the same time.")
+    for i in range(len(timedSeq) - 1):
+        if (timedSeq[i][1] <= ts < timedSeq[i + 1][1]):
             tsIndex = i
-            tsX = seq[i][0] + (seq[i + 1][0] - seq[i][0]) * (ts - timeStamp[i]) / (timeStamp[i + 1] - timeStamp[i])
-            tsY = seq[i][1] + (seq[i + 1][1] - seq[i][1]) * (ts - timeStamp[i]) / (timeStamp[i + 1] - timeStamp[i])
+            dTs = (ts - timedSeq[i][1]) / (timedSeq[i + 1][1] - timedSeq[i][1])
+            tsX = timedSeq[i][0][0] + (timedSeq[i + 1][0][0] - timedSeq[i][0][0]) * dTs
+            tsY = timedSeq[i][0][1] + (timedSeq[i + 1][0][1] - timedSeq[i][0][1]) * dTs
             tsLoc = [tsX, tsY]
-            for j in range(tsIndex, len(timeStamp) - 1):
-                if (timeStamp[j] <= te < timeStamp[j + 1]):
-                    if (timeStamp[j] == timeStamp[j + 1]):
-                        raise UnsupportedInputError("ERROR: an object cannot be two places at the same time.")
+            for j in range(tsIndex, len(timedSeq) - 1):
+                if (timedSeq[j][1] <= te < timedSeq[j + 1][1]):
                     teIndex = j
-                    teX = seq[j][0] + (seq[j + 1][0] - seq[j][0]) * (te - timeStamp[j]) / (timeStamp[j + 1] - timeStamp[j])
-                    teY = seq[j][1] + (seq[j + 1][1] - seq[j][1]) * (te - timeStamp[j]) / (timeStamp[j + 1] - timeStamp[j])
+                    dTe = (te - timedSeq[j][1]) / (timedSeq[j + 1][1] - timedSeq[j][1])
+                    teX = timedSeq[j][0][0] + (timedSeq[j + 1][0][0] - timedSeq[j][0][0]) * dTe
+                    teY = timedSeq[j][0][1] + (timedSeq[j + 1][0][1] - timedSeq[j][0][1]) * dTe
                     teLoc = [teX, teY]
 
     if (tsIndex == teIndex):
         trace = [tsLoc, teLoc]
     elif (tsIndex + 1 == teIndex):
         trace.append(tsLoc)
-        trace.append(seq[tsIndex + 1])
+        trace.append(timedSeq[tsIndex + 1][0])
         trace.append(teLoc)
     else:
         trace.append(tsLoc)
         for i in range(tsIndex + 1, teIndex + 1):
-            trace.append(seq[i])
+            trace.append(timedSeq[i][0])
         trace.append(teLoc)
 
     return trace
@@ -1789,10 +1815,179 @@ def nodeSeqByScanning(nodes: dict, direction: float=0) -> list:
     return
 
 # Create distance matrix ======================================================
-def matrixDist(nodes: dict, edges: dict = {'method': 'Euclidean'}, depotID: int|str = 0, nodeIDs: list|str = 'All', serviceTime: float = 0) -> dict:
+def matrixDist(nodes: dict, edges: dict = {'method': 'Euclidean'}, depotID: int|str = 0, nodeIDs: list|str = 'All', locFieldName: str = 'loc') -> dict:
     # Define tau
     tau = {}
     pathLoc = {}
+
+    if (type(edges) != dict or 'method' not in edges):
+        raise MissingParameterError(ERROR_MISSING_EDGES)
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = []
+            for i in nodes:
+                nodeIDs.append(i)
+
+    if (edges['method'] == 'Euclidean'):
+        speed = 1 if 'speed' not in edges else edges['speed']
+        tau, pathLoc = _matrixDistEuclideanXY(
+            nodes = nodes, 
+            nodeIDs = nodeIDs, 
+            speed = speed, 
+            locFieldName = locFieldName)
+    elif (edges['method'] == 'EuclideanBarrier'):
+        if ('polys' not in edges or edges['polys'] == None):
+            warnings.warning("WARNING: No barrier provided.")
+            tau, pathLoc = _matrixDistEuclideanXY(
+                nodes = nodes, 
+                nodeIDs = nodeIDs, 
+                locFieldName = locFieldName)
+        else:
+            tau, pathLoc = _matrixDistBtwPolysXY(
+                nodes = nodes, 
+                nodeIDs = nodeIDs, 
+                polys = edges['polys'], 
+                locFieldName = locFieldName)
+    elif (edges['method'] == 'LatLon'):
+        speed = 1 if 'speed' not in edges else edges['speed']
+        tau, pathLoc = _matrixDistLatLon(
+            nodes = nodes, 
+            nodeIDs = nodeIDs, 
+            speed=speed, 
+            locFieldName = locFieldName)
+    elif (edges['method'] == 'Manhatten'):
+        speed = 1 if 'speed' not in edges else edges['speed']
+        tau, pathLoc = _matrixDistManhattenXY(
+            nodes = nodes, 
+            nodeIDs = nodeIDs, 
+            speed = speed, 
+            locFieldName = locFieldName)
+    elif (edges['method'] == 'Dictionary'):
+        if ('tau' not in edges or edges['tau'] == None):
+            raise MissingParameterError("'tau' is not specified")
+        for p in edges['tau']:
+            speed = 1 if 'speed' not in edges else edges['speed']
+            tau[p] = edges['tau'][p] / speed
+            pathLoc[p] = edges['path'][p]
+    elif (edges['method'] == 'Grid'):
+        if ('grid' not in edges or edges['grid'] == None):
+            raise MissingParameterError("'grid' is not specified")
+        if ('column' not in edges['grid'] or 'row' not in edges['grid']):
+            raise MissingParameterError("'column' and 'row' need to be specified in 'grid'")
+        tau, pathLoc = _matrixDistGrid(
+            nodes = nodes, 
+            nodeIDs = nodeIDs, 
+            grids = edges['grid'], 
+            locFieldName = locFieldName)
+    else:
+        raise UnsupportedInputError(ERROR_MISSING_EDGES)        
+
+    return tau, pathLoc
+
+def _matrixDistEuclideanXY(nodes: dict, nodeIDs: list, speed = 1, locFieldName = 'loc'):
+    tau = {}
+    pathLoc = {}
+    for i in nodeIDs:
+        for j in nodeIDs:
+            if (i != j):
+                d = distEuclideanXY(nodes[i][locFieldName], nodes[j][locFieldName])
+                tau[i, j] = d['dist'] / speed
+                tau[j, i] = d['dist'] / speed
+                pathLoc[i, j] = [nodes[i][locFieldName], nodes[j][locFieldName]]
+                pathLoc[j, i] = [nodes[j][locFieldName], nodes[i][locFieldName]]
+            else:
+                tau[i, j] = CONST_EPSILON
+                tau[j, i] = CONST_EPSILON
+                pathLoc[i, j] = []
+                pathLoc[j, i] = []
+    return tau, pathLoc
+
+def _matrixDistManhattenXY(nodes: dict, nodeIDs: list, speed = 1, locFieldName = 'loc'):
+    tau = {}
+    pathLoc = {}
+    for i in nodeIDs:
+        for j in nodeIDs:
+            if (i != j):
+                d = distManhattenXY(nodes[i][locFieldName], nodes[j][locFieldName])
+                tau[i, j] = d['dist'] / speed
+                tau[j, i] = d['dist'] / speed
+                pathLoc[i, j] = d['path']
+                pathLoc[j, i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
+            else:
+                tau[i, j] = CONST_EPSILON
+                tau[j, i] = CONST_EPSILON
+                pathLoc[i, j] = []
+                pathLoc[j, i] = []
+    return tau, pathLoc
+
+def _matrixDistLatLon(nodes: dict, nodeIDs: list, distUnit = 'meter', speed = 1, locFieldName = 'loc'):
+    tau = {}
+    pathLoc = {}
+    for i in nodeIDs:
+        for j in nodeIDs:
+            if (i != j):
+                d = distLatLon(nodes[i][locFieldName], nodes[j][locFieldName], distUnit)
+                tau[i, j] = d['dist'] / speed
+                tau[j, i] = d['dist'] / speed
+                pathLoc[i, j] = [nodes[i][locFieldName], nodes[j][locFieldName]]
+                pathLoc[j, i] = [nodes[j][locFieldName], nodes[i][locFieldName]]
+            else:
+                tau[i, j] = CONST_EPSILON
+                tau[j, i] = CONST_EPSILON
+                pathLoc[i, j] = []
+                pathLoc[j, i] = []
+    return tau, pathLoc
+
+def _matrixDistGrid(nodes: dict, nodeIDs: list, grid: dict, locFieldName = 'loc'):
+    tau = {}
+    pathLoc = {}
+    for i in nodeIDs:
+        for j in nodeIDs:
+            if (i != j):
+                d = distOnGrid(pt1 = nodes[i][locFieldName], pt2 = nodes[j][locFieldName], grid = grid)
+                tau[i, j] = d['dist']
+                tau[j, i] = d['dist']
+                pathLoc[i, j] = d['path']
+                pathLoc[j, i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
+            else:
+                tau[i, j] = CONST_EPSILON
+                tau[j, i] = CONST_EPSILON
+                pathLoc[i, j] = []
+                pathLoc[j, i] = []
+    return tau, pathLoc
+
+def _matrixDistBtwPolysXY(nodes: dict, nodeIDs: list, polys: polys, polyVG = None, locFieldName = 'loc'):
+    tau = {}
+    pathLoc = {}
+    
+    if (polyVG == None):
+        polyVG = polysVisibleGraph(polys)
+
+    for i in nodeIDs:
+        for j in nodeIDs:
+            if (i != j):
+                d = distBtwPolysXY(pt1 = nodes[i][locFieldName], pt2 = nodes[j][locFieldName], polys = polys, polyVG = polyVG)
+                tau[i, j] = d['dist']
+                tau[j, i] = d['dist']
+                pathLoc[i, j] = d['path']
+                pathLoc[j, i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
+            else:
+                tau[i, j] = CONST_EPSILON
+                tau[j, i] = CONST_EPSILON
+                pathLoc[i, j] = []
+                pathLoc[j, i] = []
+    return tau, pathLoc
+
+def _matrixDistRoadNetwork(nodes: dict, nodeIDs: list, roadnetwork: dict, locFieldName = 'loc'):
+    return
+
+def scaleDist(loc: pt, nodes: dict, edges: dict = {'method': 'Euclidean'}, nodeIDs: list|str = 'All', locFieldName: str = 'loc') -> dict:
+    # Define tau
+    tau = {}
+    revTau = {}
+    pathLoc = {}
+    revPathLoc = {}
+
     if (type(edges) != dict or 'method' not in edges):
         raise MissingParameterError(ERROR_MISSING_EDGES)
     if (type(nodeIDs) is not list):
@@ -1803,19 +1998,43 @@ def matrixDist(nodes: dict, edges: dict = {'method': 'Euclidean'}, depotID: int|
 
     if (edges['method'] == 'Euclidean'):
         ratio = 1 if 'ratio' not in edges else edges['ratio']
-        tau, pathLoc = _matrixDistEuclideanXY(nodes, nodeIDs, ratio)
+        tau, revTau, pathLoc, revPath = _scaleDistEuclideanXY(
+            loc = loc,
+            nodes = nodes, 
+            nodeIDs = nodeIDs, 
+            ratio = ratio, 
+            locFieldName = locFieldName)
     elif (edges['method'] == 'EuclideanBarrier'):
         if ('polys' not in edges or edges['polys'] == None):
-            warings.warning("WARNING: No barrier provided.")
-            tau, pathLoc = _matrixDistEuclideanXY(nodes, nodeIDs)
+            warnings.warning("WARNING: No barrier provided.")
+            tau, revTau, pathLoc, revPath = _scaleDistEuclideanXY(
+                loc = loc,
+                nodes = nodes, 
+                nodeIDs = nodeIDs, 
+                locFieldName = locFieldName)
         else:
-            tau, pathLoc = _matrixDistBtwPolysXY(nodes, nodeIDs, edges['polys'])
+            tau, revTau, pathLoc, revPath = _scaleDistBtwPolysXY(
+                loc = loc,
+                nodes = nodes, 
+                nodeIDs = nodeIDs, 
+                polys = edges['polys'], 
+                locFieldName = locFieldName)
     elif (edges['method'] == 'LatLon'):
         ratio = 1 if 'ratio' not in edges else edges['ratio']
-        tau, pathLoc = _matrixDistLatLon(nodes, nodeIDs, speed=ratio)
+        tau, revTau, pathLoc, revPath = _scaleDistLatLon(
+            loc = loc,
+            nodes = nodes, 
+            nodeIDs = nodeIDs, 
+            speed=ratio, 
+            locFieldName = locFieldName)
     elif (edges['method'] == 'Manhatten'):
         ratio = 1 if 'ratio' not in edges else edges['ratio']
-        tau, pathLoc = _matrixDistManhattenXY(nodes, nodeIDs, ratio)
+        tau, revTau, pathLoc, revPath = _scaleDistManhattenXY(
+            loc = loc,
+            nodes = nodes, 
+            nodeIDs = nodeIDs, 
+            ratio = ratio, 
+            locFieldName = locFieldName)
     elif (edges['method'] == 'Dictionary'):
         if ('dictionary' not in edges or edges['dictionary'] == None):
             raise MissingParameterError("'dictionary' is not specified")
@@ -1827,113 +2046,87 @@ def matrixDist(nodes: dict, edges: dict = {'method': 'Euclidean'}, depotID: int|
             raise MissingParameterError("'grid' is not specified")
         if ('column' not in edges['grid'] or 'row' not in edges['grid']):
             raise MissingParameterError("'column' and 'row' need to be specified in 'grid'")
-        tau, pathLoc = _matrixDistGrid(nodes, nodeIDs, edges['grid'])
+        tau, revTau, pathLoc, revPath = _scaleDistGrid(
+            loc = loc,
+            nodes = nodes, 
+            nodeIDs = nodeIDs, 
+            grids = edges['grid'], 
+            locFieldName = locFieldName)
     else:
         raise UnsupportedInputError(ERROR_MISSING_EDGES)        
 
-    # Service time
-    if (depotID != None and serviceTime != None and serviceTime > 0):
-        for (i, j) in tau:
-            if (i != depotID and j != depotID and i != j):
-                tau[i, j] += serviceTime
-            elif (i == depotID or j == depotID and i != j):
-                tau[i, j] += serviceTime / 2 
+    return tau, revTau, pathLoc, revPathLoc
 
-    return tau, pathLoc
-
-def _matrixDistEuclideanXY(nodes: dict, nodeIDs: list, speed = 1):
+def _scaleDistEuclideanXY(loc: pt, nodes: dict, nodeIDs: list, speed = 1, locFieldName = 'loc'):
     tau = {}
+    revTau = {}
     pathLoc = {}
+    revPathLoc = {}
     for i in nodeIDs:
-        for j in nodeIDs:
-            if (i != j):
-                d = distEuclideanXY(nodes[i]['loc'], nodes[j]['loc'])
-                tau[i, j] = d['dist'] / speed
-                tau[j, i] = d['dist'] / speed
-                pathLoc[i, j] = [nodes[i]['loc'], nodes[j]['loc']]
-                pathLoc[j, i] = [nodes[j]['loc'], nodes[i]['loc']]
-            else:
-                tau[i, j] = CONST_EPSILON
-                tau[j, i] = CONST_EPSILON
-                pathLoc[i, j] = []
-                pathLoc[j, i] = []
-    return tau, pathLoc
+        d = distEuclideanXY(loc, nodes[i][locFieldName])
+        tau[i] = d['dist'] / speed
+        revTau[i] = d['dist'] / speed
+        pathLoc[i] = [loc, nodes[i][locFieldName]]
+        revPathLoc[i] = [nodes[i][locFieldName], loc]
+    return tau, revTau, pathLoc, revPathLoc
 
-def _matrixDistManhattenXY(nodes: dict, nodeIDs: list, speed = 1):
+def _scaleDistManhattenXY(loc: pt, nodes: dict, nodeIDs: list, speed = 1, locFieldName = 'loc'):
     tau = {}
+    revTau = {}
     pathLoc = {}
+    revPathLoc = {}
     for i in nodeIDs:
-        for j in nodeIDs:
-            if (i != j):
-                d = distManhattenXY(nodes[i]['loc'], nodes[j]['loc'])
-                tau[i, j] = d['dist'] / speed
-                tau[j, i] = d['dist'] / speed
-                pathLoc[i, j] = d['path']
-                pathLoc[j, i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
-            else:
-                tau[i, j] = CONST_EPSILON
-                tau[j, i] = CONST_EPSILON
-                pathLoc[i, j] = []
-                pathLoc[j, i] = []
-    return tau, pathLoc
+        d = distManhattenXY(loc, nodes[i][locFieldName])
+        tau[i] = d['dist'] / speed
+        revTau[i] = d['dist'] / speed
+        pathLoc[i] = d['path']
+        revPathLoc[i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
+    return tau, revTau, pathLoc, revPathLoc
 
-def _matrixDistLatLon(nodes: dict, nodeIDs: list, distUnit = 'meter', speed = 1):
+def _scaleDistLatLon(loc: pt, nodes: dict, nodeIDs: list, distUnit = 'meter', speed = 1, locFieldName = 'loc'):
     tau = {}
+    revTau = {}
     pathLoc = {}
+    revPathLoc = {}
     for i in nodeIDs:
-        for j in nodeIDs:
-            if (i != j):
-                d = distLatLon(nodes[i]['loc'], nodes[j]['loc'], distUnit)
-                tau[i, j] = d['dist'] / speed
-                tau[j, i] = d['dist'] / speed
-                pathLoc[i, j] = [nodes[i]['loc'], nodes[j]['loc']]
-                pathLoc[j, i] = [nodes[j]['loc'], nodes[i]['loc']]
-            else:
-                tau[i, j] = CONST_EPSILON
-                tau[j, i] = CONST_EPSILON
-                pathLoc[i, j] = []
-                pathLoc[j, i] = []
-    return tau, pathLoc
+        d = distLatLon(loc, nodes[i][locFieldName], distUnit)
+        tau[i] = d['dist'] / speed
+        revTau[i] = d['dist'] / speed
+        pathLoc[i] = [loc, nodes[i][locFieldName]]
+        revPathLoc[i] = [nodes[i][locFieldName], loc]
+    return tau, revTau, pathLoc, revPathLoc
 
-def _matrixDistGrid(nodes: dict, nodeIDs: list, grid: dict):
+def _scaleDistGrid(loc: pt, nodes: dict, nodeIDs: list, grid: dict, locFieldName = 'loc'):
     tau = {}
+    revTau = {}
     pathLoc = {}
+    revPathLoc = {}
     for i in nodeIDs:
-        for j in nodeIDs:
-            if (i != j):
-                d = distOnGrid(pt1 = nodes[i]['loc'], pt2 = nodes[j]['loc'], grid = grid)
-                tau[i, j] = d['dist']
-                tau[j, i] = d['dist']
-                pathLoc[i, j] = d['path']
-                pathLoc[j, i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
-            else:
-                tau[i, j] = CONST_EPSILON
-                tau[j, i] = CONST_EPSILON
-                pathLoc[i, j] = []
-                pathLoc[j, i] = []
-    return tau, pathLoc
+        d = distOnGrid(pt1 = loc, pt2 = nodes[i][locFieldName], grid = grid)
+        tau[i] = d['dist'] / speed
+        revTau[i] = d['dist'] / speed
+        pathLoc[i] = d['path']
+        revPathLoc[i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
+    return tau, revTau, pathLoc, revPathLoc
 
-def _matrixDistBtwPolysXY(nodes: dict, nodeIDs: list, polys: polys):
+def _scaleDistBtwPolysXY(loc: pt, nodes: dict, nodeIDs: list, polys: polys, polyVG = None, locFieldName = 'loc'):
     tau = {}
+    revTau = {}
     pathLoc = {}
-    vg = polysVisibleGraph(polys)
+    revPathLoc = {}
+
+    if (polyVG == None):
+        polyVG = polysVisibleGraph(polys)
 
     for i in nodeIDs:
-        for j in nodeIDs:
-            if (i != j):
-                d = distBtwPolysXY(pt1 = nodes[i]['loc'], pt2 = nodes[j]['loc'], polys = polys, polyVG = vg)
-                tau[i, j] = d['dist']
-                tau[j, i] = d['dist']
-                pathLoc[i, j] = d['path']
-                pathLoc[j, i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
-            else:
-                tau[i, j] = CONST_EPSILON
-                tau[j, i] = CONST_EPSILON
-                pathLoc[i, j] = []
-                pathLoc[j, i] = []
-    return tau, pathLoc
+        d = distBtwPolysXY(pt1 = loc, pt2 = nodes[i][locFieldName], polys = polys, polyVG = polyVG)
+        tau[i] = d['dist'] / speed
+        revTau[i] = d['dist'] / speed
+        pathLoc[i] = d['path']
+        revPathLoc[i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
+    return tau, revTau, pathLoc, revPathLoc
 
-def _matrixDistRoadNetwork(nodes: dict, nodeIDs: list, roadnetwork: dict):
+def _scaleDistRoadNetwork(loc: pt, nodes: dict, nodeIDs: list, roadnetwork: dict, locFieldName = 'loc'):
     return
 
 # Distance calculation ========================================================
@@ -2298,16 +2491,25 @@ def geom2GeomPath(startPt: pt, endPt: pt, geoms: polys|dict = None, method: dict
         outputFlag = method['outputFlag']
 
     if (method['shape'] == 'Poly' and method['algo'] == 'AdaptIter' and ('barriers' not in method or method['barriers'] == None)):
-        return _poly2PolyPathAdaptIter(startPt, endPt, geoms, {'errTol': errTol})
-    if (method['shape'] == 'Poly' and method['algo'] == 'AdaptIter' and ('barriers' in method and method['barriers'] != None)):
-        return _poly2PolyPathBarriersAdaptIter(startPt, endPt, geoms, barrierPolys, {'errTol': errTol})
-    if (method['shape'] == 'Circle' and method['algo'] == 'Gurobi'):
-        return _circle2CirclePathGurobi(startPt, endPt, geoms, {'outputFlag': outputFlag})
-    if (method['shape'] == 'Circle' and method['algo'] == 'COPT'):
-        return _circle2CirclePathCOPT(startPt, endPt, geoms, {'outputFlag': outputFlag})
+        res = _poly2PolyPathAdaptIter(startPt, endPt, geoms, {'errTol': errTol})
+    elif (method['shape'] == 'Poly' and method['algo'] == 'AdaptIter' and ('barriers' in method and method['barriers'] != None)):
+        res = _poly2PolyPathBarriersAdaptIter(startPt, endPt, geoms, barrierPolys, {'errTol': errTol})
+    elif (method['shape'] == 'Circle' and method['algo'] == 'Gurobi'):
+        res = _circle2CirclePathGurobi(startPt, endPt, geoms, {'outputFlag': outputFlag})
+    elif (method['shape'] == 'Circle' and method['algo'] == 'COPT'):
+        res = _circle2CirclePathCOPT(startPt, endPt, geoms, {'outputFlag': outputFlag})
     else:
         raise UnsupportedInputError("ERROR: Not support by vrpSolver for now.")
-    return
+
+    realDist = 0
+    for i in range(1, len(res['path'])):
+        realDist += distEuclideanXY(res['path'][i - 1], res['path'][i])['dist']
+
+    return {
+        'path': res['path'],
+        'dist': res['dist'],
+        'real': realDist
+    }
 
 def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, config: dict = {'errTol': CONST_EPSILON}):
 
@@ -2652,7 +2854,7 @@ def _circle2CirclePathGurobi(startPt: pt, endPt: pt, circles: dict, config: dict
         model.setParam('OutputFlag', 0)
     else:
         model.setParam('OutputFlag', 1)
-    model.setParam('BarConvTol', 0.00000000001)
+    # model.setParam('BarConvTol', 0.00000000001)
 
     # Decision variables ======================================================
     # anchor starts from startPt, in between are a list of circles, ends with endPt
@@ -2661,25 +2863,25 @@ def _circle2CirclePathGurobi(startPt: pt, endPt: pt, circles: dict, config: dict
         anchor.append(circles[i]['center'])
     anchor.append(endPt)
 
-    allX = [startPt[0], endPt[0]]
-    allY = [startPt[1], endPt[1]]
-    for i in range(len(circles)):
-        allX.append(circles[i]['center'][0] - circles[i]['radius'])
-        allX.append(circles[i]['center'][0] + circles[i]['radius'])
-        allY.append(circles[i]['center'][1] - circles[i]['radius'])
-        allY.append(circles[i]['center'][1] + circles[i]['radius'])
-    lbX = min(allX) - 40
-    lbY = min(allY) - 40
-    ubX = max(allX) + 40
-    ubY = max(allY) + 40
+    # allX = [startPt[0], endPt[0]]
+    # allY = [startPt[1], endPt[1]]
+    # for i in range(len(circles)):
+    #     allX.append(circles[i]['center'][0] - circles[i]['radius'])
+    #     allX.append(circles[i]['center'][0] + circles[i]['radius'])
+    #     allY.append(circles[i]['center'][1] - circles[i]['radius'])
+    #     allY.append(circles[i]['center'][1] + circles[i]['radius'])
+    # lbX = min(allX) - 40
+    # lbY = min(allY) - 40
+    # ubX = max(allX) + 40
+    # ubY = max(allY) + 40
 
     # Decision variables ======================================================
     # NOTE: x, y index starts by 1
     x = {}
     y = {}
     for i in range(1, len(circles) + 1):
-        x[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "x_%s" % i, lb = lbX, ub = ubX)
-        y[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "y_%s" % i, lb = lbY , ub = ubY)
+        x[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "x_%s" % i, lb = -float('inf'), ub = float('inf'))
+        y[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "y_%s" % i, lb = -float('inf'), ub = float('inf'))
     # Distance from (x[i], y[i]) to (x[i + 1], y[i + 1]), 
     # where startPt = (x[0], y[0]) and endPt = (x[len(circles) + 1], y[len(circles) + 1])
     d = {}
@@ -2717,11 +2919,12 @@ def _circle2CirclePathGurobi(startPt: pt, endPt: pt, circles: dict, config: dict
     # Distance btw visits
     for i in range(len(circles) + 1):
         model.addQConstr(d[i] ** 2 >= dx[i] ** 2 + dy[i] ** 2)
+        # model.addQConstr(dx[i] ** 2 + dy[i] ** 2 >= CONST_EPSILON)
 
     for i in range(1, len(circles) + 1):
         model.addQConstr(rx[i] ** 2 + ry[i] ** 2 <= circles[i - 1]['radius'] ** 2)
 
-    # model.write("SOCP.lp")
+    model.write("SOCP.lp")
     model.optimize()
 
     # Post-processing =========================================================
@@ -2775,25 +2978,13 @@ def _circle2CirclePathCOPT(startPt: pt, endPt: pt, circles: dict, config: dict =
         anchor.append(circles[i]['center'])
     anchor.append(endPt)
 
-    allX = [startPt[0], endPt[0]]
-    allY = [startPt[1], endPt[1]]
-    for i in range(len(circles)):
-        allX.append(circles[i]['center'][0] - circles[i]['radius'])
-        allX.append(circles[i]['center'][0] + circles[i]['radius'])
-        allY.append(circles[i]['center'][1] - circles[i]['radius'])
-        allY.append(circles[i]['center'][1] + circles[i]['radius'])
-    lbX = min(allX) - 40
-    lbY = min(allY) - 40
-    ubX = max(allX) + 40
-    ubY = max(allY) + 40
-
+    # Decision variables ======================================================
     # NOTE: x, y index starts by 1
     x = {}
     y = {}
     for i in range(1, len(circles) + 1):
-        x[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = "x_%s" % i, lb = lbX, ub = ubX)
-        y[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = "y_%s" % i, lb = lbY, ub = ubY)
-
+        x[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = "x_%s" % i, lb = -float('inf'), ub = float('inf'))
+        y[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = "y_%s" % i, lb = -float('inf'), ub = float('inf'))
     # Distance from (x[i], y[i]) to (x[i + 1], y[i + 1]), 
     # where startPt = (x[0], y[0]) and endPt = (x[len(circles) + 1], y[len(circles) + 1])
     d = {}
@@ -2801,14 +2992,39 @@ def _circle2CirclePathCOPT(startPt: pt, endPt: pt, circles: dict, config: dict =
         d[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'd_%s' % i)
     model.setObjective(cp.quicksum(d[i] for i in range(len(circles) + 1)), cp.COPT.MINIMIZE)
 
-    # Distance constraints ====================================================
-    model.addQConstr(d[0] ** 2 >= (x[1] - anchor[0][0]) ** 2 + (y[1] - anchor[0][1]) ** 2)
-    for i in range(1, len(circles)):
-        model.addQConstr(d[i] ** 2 >= (x[i] - x[i + 1]) ** 2 + (y[i] - y[i + 1]) ** 2)
-        # model.addQConstr((x[i] - x[i + 1]) ** 2 + (y[i] - y[i + 1]) ** 2 >= 0)
-    model.addQConstr(d[len(circles)] ** 2 >= (anchor[-1][0] - x[len(circles)]) ** 2 + (anchor[-1][1] - y[len(circles)]) ** 2)
+    # Aux vars - distance between (x, y)
+    dx = {}
+    dy = {}
+    for i in range(len(circles) + 1):
+        dx[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'dx_%s' % i, lb = -float('inf'), ub = float('inf'))
+        dy[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'dy_%s' % i, lb = -float('inf'), ub = float('inf'))
+    # Aux vars - distance from (x, y) to the center
+    rx = {}
+    ry = {}
     for i in range(1, len(circles) + 1):
-        model.addQConstr((x[i] - anchor[i][0]) ** 2 + (y[i] - anchor[i][1]) ** 2 <= circles[i - 1]['radius'] ** 2)
+        rx[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'rx_%s' % i, lb = -float('inf'), ub = float('inf'))
+        ry[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'ry_%s' % i, lb = -float('inf'), ub = float('inf'))
+
+    # Distance constraints ====================================================
+    # Aux constr - dx dy
+    model.addConstr(dx[0] == x[1] - anchor[0][0])
+    model.addConstr(dy[0] == y[1] - anchor[0][1])
+    for i in range(1, len(circles)):
+        model.addConstr(dx[i] == x[i] - x[i + 1])
+        model.addConstr(dy[i] == y[i] - y[i + 1])
+    model.addConstr(dx[len(circles)] == anchor[-1][0] - x[len(circles)])
+    model.addConstr(dy[len(circles)] == anchor[-1][0] - x[len(circles)])
+    # Aux constr - rx ry
+    for i in range(1, len(circles) + 1):
+        model.addConstr(rx[i] == x[i] - anchor[i][0])
+        model.addConstr(ry[i] == y[i] - anchor[i][1])
+
+    # Distance btw visits
+    for i in range(len(circles) + 1):
+        model.addQConstr(d[i] ** 2 >= dx[i] ** 2 + dy[i] ** 2)
+
+    for i in range(1, len(circles) + 1):
+        model.addQConstr(rx[i] ** 2 + ry[i] ** 2 <= circles[i - 1]['radius'] ** 2)
 
     # model.write("SOCP.lp")
     model.solve()
@@ -2834,14 +3050,15 @@ def _circle2CirclePathCOPT(startPt: pt, endPt: pt, circles: dict, config: dict =
         lb = model.BestBnd
         ub = model.BestObj
         runtime = model.SolvingTime
+    realDist = 0
+
     return {
         'path': path,
         'dist': ofv
     }
 
-
 # Dynamic polygon touring problem =============================================
-def dpoly2DPolyPath(startPt: pt, endPt: pt, dgeom: dict):
+def dpoly2DPolyPath(startPt: pt, endPt: pt, dpolys: dict):
     return {
         'path': path,
         'timestamp': timeStamp,

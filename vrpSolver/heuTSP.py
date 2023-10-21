@@ -12,23 +12,29 @@ from .msg import *
 # History =====================================================================
 # 20230510 - Cleaning
 # 20230822 - Rewrite Christofides using networkx
+# 20231022 - Add detail output information for animation
 # =============================================================================
 
 def heuTSP(
     nodes: dict, 
     locFieldName: str = 'loc',
+    depotID: int|str|None = 0, 
+    nodeIDs: list[int|str]|str = 'All', 
+    serviceTime: float = 0,
+    vehicles: dict = {
+        0: {'speed': 1}
+    },
+    vehicleID: int|str = 0,
     edges: dict = {
-        'method': "Euclidean", 
+        'method': 'Euclidean', 
         'ratio': 1
     }, 
     method: dict = {
         'cons': 'Insertion', 
         'impv': '2Opt'
-    }, 
-    depotID: int|str = 0, 
-    nodeIDs: list[int|str]|str = 'All', 
-    serviceTime: float = 0,
-    returnRouteObjectFlag = False
+    },     
+    detailsFlag: bool = False,
+    metaFlag: bool = False
     ) -> dict|None:
 
     """Use heuristic methods to find suboptimal TSP solution
@@ -129,6 +135,7 @@ def heuTSP(
     # Sanity check ============================================================
     if (nodes == None or type(nodes) != dict):
         raise MissingParameterError(ERROR_MISSING_NODES)
+
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
             nodeIDs = [i for i in nodes]
@@ -136,12 +143,27 @@ def heuTSP(
             for i in nodeIDs:
                 if (i not in nodes):
                     raise OutOfRangeError("ERROR: Node %s is not in `nodes`." % i)
-    if ((type(nodeIDs) == list and depotID not in nodeIDs)
-        or (nodeIDs == 'All' and depotID not in nodes)):
+    if ((type(nodeIDs) == list and depotID != None and depotID not in nodeIDs)
+        or (nodeIDs == 'All' and depotID != None and depotID not in nodes)):
         raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
 
+    # # The open TSP - distance to the virtual Depot is vvvery small.
+    # openTSPFlag = False
+    # if (depotID == None):
+    #     openTSPFlag = True
+
+    if (vehicles == None):
+        raise MissingParameterError("ERROR: Missing required field `vehicles`.")
+    if (vehicleID not in vehicles):
+        raise MissingParameterError("ERROR: Cannot find `vehicleID` in `vehicles`.")
+
     # Define tau ==============================================================
-    tau, path = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
+    tau = None
+    path = None
+    if (detailsFlag):
+        tau, path = matrixDist(nodes, edges, depotID, nodeIDs, locFieldName)
+    else:
+        tau, _ = matrixDist(nodes, edges, depotID, nodeIDs, locFieldName)
 
     # Check symmetric =========================================================
     asymFlag = False
@@ -159,7 +181,7 @@ def heuTSP(
     for n in nodeIDs:
         nodeObj[n] = RouteNode(n, value=nodes[n][locFieldName])
 
-    seq = Route(tau, asymFlag)
+    seqObj = Route(tau, asymFlag)
     # An initial solution is given
     if ('cons' not in method or method['cons'] == 'Initial' or method['cons'] == None):
         if ('initSeq' not in method):
@@ -171,7 +193,7 @@ def heuTSP(
             if (len(notInNodeIDs) > 0):
                 raise OutOfRangeError("ERROR: The following nodes in 'initSeq' is not in `nodeIDs`: %s" % list2String(notInNodeIDs))
         for i in method['initSeq'][:-1]:
-            seq.append(nodeObj[i])
+            seqObj.append(nodeObj[i])
 
     # Insertion heuristic
     elif (method['cons'] == 'Insertion' or method['cons'] == 'RandomInsertion'):
@@ -194,13 +216,13 @@ def heuTSP(
                         farthestID = n
                         farthestDist = tau[depotID, n]
             initSeq = [depotID, farthestID, depotID]
-            seq = _consTSPInsertion(nodeIDs, initSeq, nodeObj, tau, asymFlag, randomInsertionFlag)
+            seqObj = _consTSPInsertion(nodeIDs, initSeq, nodeObj, tau, asymFlag, randomInsertionFlag)
         else:
             notInNodeIDs = [v for v in method['initSeq'] if v not in nodeIDs]
             if (len(notInNodeIDs) > 0):
                 raise OutOfRangeError("ERROR: The following nodes in 'initSeq' is not in `nodeIDs`: %s" % list2String(notInNodeIDs))
             else:
-                seq = _consTSPInsertion(nodeIDs, method['initSeq'], tau, asymFlag, randomInsertionFlag)
+                seqObj = _consTSPInsertion(nodeIDs, method['initSeq'], tau, asymFlag, randomInsertionFlag)
     
     # Neighborhood based heuristic, including nearest neighborhood, k-nearest neighborhood, and furthest neighborhood
     elif (method['cons'] == 'NearestNeighbor'):
@@ -212,42 +234,43 @@ def heuTSP(
         elif (method['k'] >= 1):
             nnSeq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, method['k'])
         for i in nnSeq:
-            seq.append(nodeObj[i])
+            seqObj.append(nodeObj[i])
 
     # Sweep heuristic
     elif (method['cons'] == 'Sweep'):
         sweepSeq = _consTSPSweep(nodes, depotID, nodeIDs, locFieldName)
         for i in sweepSeq:
-            seq.append(nodeObj[i])
-        seq.rehead(depotID)
+            seqObj.append(nodeObj[i])
+        seqObj.rehead(depotID)
 
     # Christofides Algorithm, guaranteed <= 1.5 * optimal
     elif (method['cons'] == 'Christofides'):
         if (not asymFlag):
             cfSeq = _consTSPChristofides(depotID, tau)
             for i in cfSeq:
-                seq.append(nodeObj[i])
+                seqObj.append(nodeObj[i])
         else:
             raise UnsupportedInputError("ERROR: 'Christofides' algorithm is not designed for Asymmetric TSP")
 
     # Cycle Cover Algorithm, specially designed for Asymmetric TSP
     elif (method['cons'] == 'CycleCover'):
         raise VrpSolverNotAvailableError("ERROR: 'CycleCover' algorithm is not available yet, please stay tune")
-        seq = _consTSPCycleCover(depotID, nodeIDs, tau)
+        seqObj = _consTSPCycleCover(depotID, nodeIDs, tau)
 
     # Randomly create a sequence
     elif (method['cons'] == 'Random'):
         rndSeq = _consTSPRandom(depotID, nodeIDs)
         for i in rndSeq:
-            seq.append(nodeObj[i])
-        seq.rehead(depotID)
+            seqObj.append(nodeObj[i])
+        seqObj.rehead(depotID)
+
     else:
         raise UnsupportedInputError(ERROR_MISSING_TSP_ALGO)
 
-    # Cleaning seq before local improving =================================
-    consOfv = seq.dist
+    # Cleaning seq before local improving =====================================
+    consOfv = seqObj.dist
 
-    # Local improvement phase =============================================
+    # Local improvement phase =================================================
     # NOTE: Local improvement phase operates by class methods
     # NOTE: For the local improvement, try every local search operator provided in a greedy way
     if ('impv' in method and method['impv'] != None and method['impv'] != []):
@@ -255,25 +278,73 @@ def heuTSP(
         while (canImpvFlag):
             canImpvFlag = False
 
+            # 2Opt
             if (not canImpvFlag and '2Opt' in method['impv']):
-                canImpvFlag = _impvTSP2Opt(seq)
+                canImpvFlag = _impvTSP2Opt(seqObj)
 
-    ofv = seq.dist
-    nodeSeq = [n.key for n in seq.traverse(closeFlag = True)]
+    ofv = seqObj.dist
+    nodeSeq = [n.key for n in seqObj.traverse(closeFlag = True)]
 
-    shapepoints = []
-    for i in range(len(nodeSeq) - 1):
-        shapepoints.extend(path[nodeSeq[i], nodeSeq[i + 1]])
+    # Add service time if provided ============================================
+    ofv += (len(nodeIDs) - 1) * serviceTime
 
-    return {
+    # Post optimization (for detail information) ==============================
+    if (detailsFlag):
+        # 返回一个数组，表示路径中的每个点的位置，不包括时间信息
+        shapepoints = []        
+        for i in range(len(nodeSeq) - 1):
+            shapepoints.extend(path[nodeSeq[i], nodeSeq[i + 1]][:-1])
+        shapepoints.append(path[nodeSeq[-2], nodeSeq[-1]][-1])
+
+        # 返回一个数组，其中每个元素为二元数组，表示位置+时刻
+        curTime = 0
+        curLoc = nodes[depotID][locFieldName]
+        timedSeq = [(curLoc, curTime)]
+        # 对每个leg检索path中的shapepoints，涉及到serviceTime，先不看最后一段leg
+        for i in range(1, len(nodeSeq) - 1):
+            # 对于Euclidean型的，没有中间节点
+            if (edges['method'] in ['Euclidean', 'LatLon']):
+                curTime += tau[nodeSeq[i - 1], nodeSeq[i]] / vehicles[vehicleID]['speed']
+                curLoc = nodes[nodeSeq[i]][locFieldName]
+                timedSeq.append((curLoc, curTime))
+            else:
+                shapepointsInBtw = path[nodeSeq[i - 1], nodeSeq[i]]
+                for j in range(1, len(shapepointsInBtw)):
+                    curTime += distEuclideanXY(shapepointsInBtw[j - 1], shapepointsInBtw[j])['dist'] / vehicles[vehicleID]['speed']
+                    curLoc = shapepointsInBtw[j]
+                    timedSeq.append((curLoc, curTime))
+            # 如果有service time，则加上一段在原处等待的时间
+            if (serviceTime != None and serviceTime > 0):
+                curTime += serviceTime
+                # curLoc = curLoc
+                timedSeq.append((curLoc, curTime))
+        # 现在补上最后一段leg
+        if (edges['method'] in ['Euclidean', 'LatLon']):
+            curTime += tau[nodeSeq[-2], nodeSeq[-1]] / vehicles[vehicleID]['speed']
+            curLoc = nodes[nodeSeq[-1]][locFieldName]
+            timedSeq.append((curLoc, curTime))
+        else:
+            shapepointsInBtw = path[nodeSeq[-2], nodeSeq[-1]]
+            for j in range(1, len(shapepointsInBtw)):
+                curTime += distEuclideanXY(shapepointsInBtw[j - 1], shapepointsInBtw[j])['dist'] / vehicles[vehicleID]['speed']
+                curLoc = shapepointsInBtw[j]
+                timedSeq.append((curLoc, curTime))
+
+        # Add detail information to `vehicles`
+        vehicles[vehicleID]['shapepoints'] = shapepoints
+        vehicles[vehicleID]['timedSeq'] = timedSeq
+
+    # Return results ==========================================================
+    res = {
         'ofv': ofv,
-        'consOfv': consOfv,
-        'method': method,
-        'seq': nodeSeq,
-        'seqRouteObj': None if not returnRouteObjectFlag else seq,
-        'shapepoints': shapepoints,
-        'serviceTime': serviceTime
+        'seq': nodeSeq
     }
+    if (metaFlag):
+        res['serviceTime'] = serviceTime,
+        res['method'] = method
+    if (detailsFlag):
+        res['vehicles'] = vehicles
+    return res
 
 def _consTSPkNearestNeighbor(depotID, nodeIDs, tau, k = 1):
     # Initialize ----------------------------------------------------------

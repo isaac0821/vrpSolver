@@ -15,6 +15,7 @@ from .error import *
 #            'UniformCircleLatLon', 'RoadNetworkPolyLatLon', and 'RoadNetworkCircleLatLon'
 # 20230515 - Revise the parameter annotation according to PEP 3107
 # 20230624 - Add `rndPlainArcs()`
+# 20231022 - Rename to `rndNodes()` and `rndNodesXXX()`
 # =============================================================================
 
 def rndNodes(

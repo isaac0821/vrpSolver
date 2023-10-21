@@ -73,6 +73,7 @@ __author__ = "Lan Peng"
 #                    - Redo a lot of stuff with networkX
 # v0.0.56 - 07122023 - CVRP functions
 #                    - Integrate CETSP
+#                    - Rolling horizon for Dynamic TSP
 # =============================================================================
 
 

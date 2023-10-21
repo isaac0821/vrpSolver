@@ -16,16 +16,24 @@ from .msg import *
 def heuMTSP(
     nodes: dict,
     locFieldName: str = 'loc',
-    numVeh: int = 1,
-    vehicles: dict = {},
-    objective: str = 'MinMakespan',
-    edges: dict = {'method': 'Euclidean', 'ratio': 1},
-    method: dict = {'cons': 'Insertion', 'impv': '2Opt'},
-    depotID: int | str = 0,
-    nodeIDs: list[int|str] | str = 'All',
+    depotID: int|str = 0,
+    nodeIDs: list[int|str]|str = 'All',
     serviceTime: float = 0,
+    vehicles: dict = {},
+    vehicleIDs: list[int|str] = None,
+    numVeh: int = 1,
+    objective: str = 'MinMakespan',
+    edges: dict = {
+        'method': 'Euclidean', 
+        'ratio': 1
+    },
+    method: dict = {
+        'cons': 'Insertion', 
+        'impv': ['2Opt', '2OptStar'],
+    },
+    detailsFlag: bool = False,
     returnRouteObjectFlag = False
-    ) -> dict | None:
+    ) -> dict|None:
 
     """Use heuristic methods to find suboptimal MTSP solution
 
@@ -33,40 +41,6 @@ def heuMTSP(
     Parameters
     ----------
 
-    nodes: dictionary, required, default None
-        The coordinates of given nodes, in the following format::
-            >>> nodes = {
-            ...     nodeID1: {'loc': (x, y)},
-            ...     nodeID2: {'loc': (x, y)}, # ...
-            ... }
-    edges: dictionary, required, default as {'method': "Euclidean", 'ratio': 1}
-        The traveling matrix. The options are as follows::
-            1) (default) Euclidean space
-            >>> edge = {
-            ...     'method': 'Euclidean',
-            ...     'ratio': 1 # Optional, default to be 1
-            ... }
-            2) By given pairs of lat/lon
-            >>> edge = {
-            ...     'method': 'LatLon',
-            ...     'unit': 'meters' # Optional, default to be 1
-            ... }
-            3) ManhattenDistance
-            >>> edge = {
-            ...     'method': 'Manhatten',
-            ...     'ratio': 1 # Optional, default to be 1
-            ... }
-            4) By a given dictionary
-            >>> edge = {
-            ...     'method': 'Dictionary',
-            ...     'dictionary': dictionary,
-            ...     'ratio': 1 # Optional, default to be 1
-            ... }
-            5) On the grids
-            >>> edge = {
-            ...     'method': 'Grid',
-            ...     'grid': grid
-            ... }
 
     """
 
@@ -83,6 +57,7 @@ def heuMTSP(
     if ((type(nodeIDs) == list and depotID not in nodeIDs)
         or (nodeIDs == 'All' and depotID not in nodes)):
         raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
+
     if ((numVeh == None or numVeh <= 0) and (vehicles == {} or vehicles == None)):
         raise MissingParameterError("ERROR: Missing vehicle definitions.")
     if (vehicles == None or vehicles == {}):
@@ -91,7 +66,12 @@ def heuMTSP(
             vehicles[i] = {}
 
     # Define tau ==============================================================
-    tau, path = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
+    tau = None
+    path = None
+    if (detailsFlag):
+        tau, path = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
+    else:
+        tau, _ = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
     
     # Check symmetric =========================================================
     asymFlag = False
@@ -122,14 +102,14 @@ def heuMTSP(
     elif (method['cons'] == 'Random'):
         vehicles = _consMTSPRandom(nodeIDs, nodeObj, depotID, vehicles)
 
-    elif (method['cons'] == 'Insertion'):
-        vehicles = _consMTSPInsertionMinMakespan(nodeIDs, nodeObj, depotID, vehicles)
+    elif (method['cons'] == 'Insertion' and objective == 'MinMakespan'):
+        vehicles = _consMTSPInsertionMinMakespan(nodeIDs, nodeObj, depotID, vehicles, randomInsertionFlag = False)
 
-    elif (method['cons'] == 'RandomInsertion'):
+    elif (method['cons'] == 'RandomInsertion' and objective == 'MinMakespan'):
         vehicles = _consMTSPInsertionMinMakespan(nodeIDs, nodeObj, depotID, vehicles, randomInsertionFlag = True)
 
     else:
-        raise UnsupportedInputError("ERROR: Choose 'cons' from ['Sweep', 'Random']")
+        raise UnsupportedInputError("ERROR: Choose 'cons' from ['Sweep', 'Random', 'Insertion', 'RandomInsertion']")
 
     # Local improvement =======================================================
     if ('impv' in method and method['impv'] != None and method['impv'] != []):
@@ -140,7 +120,13 @@ def heuMTSP(
             if (not canImpvFlag and '2Opt' in method['impv']):
                 canImpvFlag = _impvMTSP2Opt(vehicles)
 
-    return vehicles
+    return {
+        'ofv': ofv,
+        'objective': objective,
+        'method': method,
+        'serviceTime': serviceTime,
+        'vehicles': vehicles
+    }
 
 def _consMTSPSweep(nodes, nodeIDs, nodeObj, depotID, vehicles, locFieldName):
     sweep = nodeSeqBySweeping(
