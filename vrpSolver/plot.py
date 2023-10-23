@@ -1431,6 +1431,7 @@ def aniRouting(
     # Nodes -------------------------------------------------------------------
     nodes: dict|None=None,
     locFieldName: str = 'loc',
+    timedSeqFieldName: str = 'timedSeq',
     timeWindowFieldName: str = 'timeWindow',
     nodeColor: str = 'black',
     nodeMarker: str = 'o',
@@ -1740,29 +1741,25 @@ def aniRouting(
                 plotNodeFlag = False
                 if (timeWindowFieldName not in nodes[nID] or nodes[nID][timeWindowFieldName][0] <= clock <= nodes[nID][timeWindowFieldName][1]):
                     plotNodeFlag = True
-                
-                # Location of each node
-                x = None
-                y = None
-                if (plotNodeFlag):
-                    curLoc = None
-                    if ('direction' in nodes[nID] and 'speed' in nodes[nID]):
-                        if (clock < nodes[nID]['timeRange'][0]):
-                            curLoc = nodes[nID][locFieldName]
-                        elif (clock < nodes[nID]['timeRange'][1]):
-                            curLoc = ptInDistXY(nodes[nID][locFieldName], nodes[nID]['direction'], nodes[nID]['speed'] * clock)
-                        else:
-                            curLoc = ptInDistXY(nodes[nID][locFieldName], nodes[nID]['direction'], nodes[nID]['speed'] * (nodes[nID]['timeRange'][1] - nodes[nID]['timeRange'][0]))
-                    else:
-                        curLoc = nodes[nID][locFieldName]
-                    
-                    if (not xyReverseFlag):
-                        x = curLoc[0]
-                        y = curLoc[1]
-                    else:
-                        x = curLoc[1]
-                        y = curLoc[0]
 
+                x = None
+                y = None       
+                curLoc = None         
+                if (plotNodeFlag):
+                    if (timedSeqFieldName not in nodes[nID]):
+                        curLoc = nodes[nID][locFieldName]
+                    else:
+                        curSnap = snapInTimedSeq(
+                            timedSeq = nodes[nID][timedSeqFieldName],
+                            t = clock)
+                        curLoc = curSnap['loc']
+
+                if (not xyReverseFlag):
+                    x = curLoc[0]
+                    y = curLoc[1]
+                else:
+                    x = curLoc[1]
+                    y = curLoc[0]
                 # Styling of each node
                 if (plotNodeFlag):
                     ax.plot(x, y, 
