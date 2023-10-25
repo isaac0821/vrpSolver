@@ -1235,22 +1235,141 @@ def polysVisibleGraph(polys:polys) -> dict:
                 vg[(p, e)]['visible'].append(w)
     return vg
 
-def polysSteinerZone(polys:polys=None, polysShapely:list[shapely.Polygon]=None, config: dict={'maxOrder': None, 'convexFlag': True}):
-    if (polys == None and polysShapely == None):
-        raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
-    if (polysShapely == None):
-        polysShapely = []
-        for p in polys:
-            polysShapely.append(shapely.Polygon(p))
+def polysSteinerZone(polys: dict, order: int|None = None) -> list[dict]:
+    
+    """Given a node dictionary, returns a list of Steiner zones
 
-    lstSZ = []
+    Warning!!!
+    ----------
+    This function needs to be rewritten. It's not trackable now
+
+    Parameters
+    ----------
+
+    polys: dictionary, required
+        The polys dictionary with neighborhood.
+    order: int, optional, defalut None
+        Maximum order of Steiner zone
+
+    Returns
+    -------
+
+    list[dict]
+        A list of Steiner zone dictionaris, each in the following format::
+            >>> SteinerZone = {
+            ...     'poly': poly,
+            ...     'repPt': centroid,
+            ...     'nodeID': []
+            ... }
+
+    """
+
+    # List of Steiner Zones
+    lstSteinerZone = []
+    lstSteinerZoneShape = []
+
+    # Check overlapping
     overlapMatrix = {}
-    for i in range(len(polysShapely) - 1):
-        for j in range(i + 1, len(polysShapely)):
-            intIJ = intPoly2Poly(polysShapely[i], polysShapely[j])
+    registeredSZ = []
 
-    return lstSZ
+    # First check by any two pairs of neighbor
+    for i in polys:
+        for j in polys:
+            if (i < j):
+                neiI = None
+                if ('poly' in polys[i]):
+                    neiI = shapely.Polygon([[p[0], p[1]] for p in polys[i]['poly']])
+                else:
+                    neiI = shapely.Point([polys[i]['loc'][0], polys[i]['loc'][1]])
+                neiJ = None
+                if ('poly' in polys[j]):
+                    neiJ = shapely.Polygon([[p[0], p[1]] for p in polys[j]['poly']])
+                else:
+                    neiJ = shapely.Point([polys[j]['loc'][0], polys[j]['loc'][1]])
 
+                intersectIJ = shapely.intersection(neiI, neiJ)
+                if (not intersectIJ.is_empty):
+                    overlapMatrix[i, j] = 1
+                    overlapMatrix[j, i] = 1                    
+                    lstSteinerZoneShape.append({
+                            'polyShape': intersectIJ,
+                            'repPtShape': intersectIJ.centroid,
+                            'nodeIDs': [i, j]
+                        })
+                else:
+                    overlapMatrix[i, j] = 0
+                    overlapMatrix[j, i] = 0
+
+    # If no two neighbor are overlapped, every neighborhood is a Steiner Zone of order 1
+    if (sum(overlapMatrix.values()) == 0 or order == 1):
+        return [
+            {
+                'poly': polys[n]['poly'] if 'poly' in polys[n] else [polys[n]['loc']],
+                'repPt': list(shapely.Polygon([[p[0], p[1]] for p in polys[n]['poly']]).centroid.coords[0]) if 'poly' in polys[n] else polys[n]['loc'],
+                'nodeIDs': [n]
+            } for n in polys]
+
+    pointer = 0
+    checkOrder = 2
+    while (checkOrder <= (order if order != None else len(polys))):
+        # Q: How many SZ needs to be checked? A: From `pointer` to `endPointer`
+        endPointer = len(lstSteinerZoneShape)
+
+        # Check each SZ in this order, to see if it can be increase by order 1
+        for p in range(pointer, endPointer):
+            # Get a SZ, see if there is a node n intersect with this SZ
+            SZShape = lstSteinerZoneShape[p]
+            for n in polys:
+                # First, n should not be a SZ member
+                if (n not in SZShape['nodeIDs']):
+                    # Assume all neighbor in SZShape is intersected with n
+                    overlapAllFlag = True
+                    # Check one by one, if one of neighbor is not intersected with n, skip
+                    for i in SZShape['nodeIDs']:
+                        if (overlapMatrix[i, n] == 0):
+                            overlapAllFlag = False
+                            break
+                    if (overlapAllFlag):
+                        newNodeIDs = [k for k in SZShape['nodeIDs']]
+                        newNodeIDs.append(n)
+                        if (list2Tuple(newNodeIDs) not in registeredSZ):
+                            # The neighbor of node n could be either a Polygon or a Point
+                            neiN = shapely.Polygon([[p[0], p[1]] for p in polys[n]['poly']]) if 'poly' in polys[n] else shapely.Point(polys[n]['loc'])
+                            newIntersect = shapely.intersection(SZShape['polyShape'], neiN)
+                            if (not newIntersect.is_empty):
+                                registeredSZ.append(list2Tuple(newNodeIDs))
+                                lstSteinerZoneShape.append({
+                                        'polyShape': newIntersect,
+                                        'repPtShape': newIntersect.centroid,
+                                        'nodeIDs': newNodeIDs
+                                    })
+
+        # Set `pointer` to be `endPointer`
+        pointer = endPointer
+        checkOrder += 1
+
+    lstSteinerZone = [{
+        'poly': polys[n]['poly'] if 'poly' in polys[n] else [polys[n]['loc']],
+        'repPt': list(shapely.Polygon([[p[0], p[1]] for p in polys[n]['poly']]).centroid.coords[0]) if 'poly' in polys[n] else polys[n]['loc'],
+        'nodeIDs': [n]
+    } for n in polys]
+
+    for n in lstSteinerZoneShape:
+        if (type(n['polyShape']) == shapely.Point):
+            lstSteinerZone.append({
+                'poly': [[n['polyShape'].x, n['polyShape'].y]],
+                'repPt': list(n['repPtShape'].coords[0]),
+                'nodeIDs': [i for i in n['nodeIDs']]
+            })
+        else:
+            lstSteinerZone.append({
+                'poly': [i for i in mapping(n['polyShape'])['coordinates'][0]],
+                'repPt': list(n['repPtShape'].coords[0]),
+                'nodeIDs': [i for i in n['nodeIDs']]
+            })    
+
+    return lstSteinerZone
+ 
 def polysBoundingBox(polys:polys=None, polysShapely:list[shapely.Polygon]=None):
     if (polys == None and polysShapely == None):
         raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
@@ -2403,10 +2522,11 @@ def distRoadNetwork(pt1: pt, pt2: pt, roadnetwork: dict, roadnetworkNG: dict=Non
 
 # Arcpolys related ============================================================
 def arcpolyFromCircles(circles: dict):
+    # Not yet
     return arcpolys
 
 # CETSP related ===============================================================
-def geom2GeomPath(startPt: pt, endPt: pt, geoms: polys|dict = None, method: dict = {'shape': 'Poly', 'barriers': None, 'errTol': CONST_EPSILON}):
+def poly2PolyPath(startPt: pt, endPt: pt, polys: polys = None, method: dict = {'algo': 'AdaptIter', 'barriers': None, 'errTol': CONST_EPSILON}):
     
     """Find path between geometries, e.g., polys, circles, arcpolys, mixed.
 
@@ -2417,71 +2537,39 @@ def geom2GeomPath(startPt: pt, endPt: pt, geoms: polys|dict = None, method: dict
         The coordinate which starts the path.
     endPt: pt, required, default None
         The coordinate which ends the path.
-    geoms: polys|dict, required, default None
+    polys: polys, required, default None
         A list of polys, or circles, or arcpolys, or a mix of those objects to be visited in given sequence
     method: dict, required, default {'shape': 'Poly', 'barriers': None, 'errTol': CONST_EPSILON}
         A dictionary to indicate the subroutine to be used. Options includes
             1) Between polygons using heuristics
                 >>> method = {
-                ...     'shape': 'Poly',
                 ...     'barriers': None,
                 ...     'algo': 'AdaptIter',
                 ...     'errTol': CONST_EPSILON,
                 ... }
             2) Between polygons using second order cone programing by Gurobi
                 >>> method = {
-                ...     'shape': 'Poly',
                 ...     'barriers': None,
                 ...     'algo': 'Gurobi',
                 ...     'errTol': CONST_EPSILON,
                 ... }
             3) Between polygons using second order cone programing by COPT
                 >>> method = {
-                ...     'shape': 'Poly',
                 ...     'barriers': None,
                 ...     'algo': 'COPT',
                 ...     'errTol': CONST_EPSILON,
                 ... }
             4) Between polygons considering a list of polygons as barriers
                 >>> method = {
-                ...     'shape': 'Poly',
                 ...     'barriers': barrierPolys,
-                ...     'algo': 'AdaptIter',
-                ...     'errTol': CONST_EPSILON,
-                ... }
-            5) Between circles using heuristics
-                >>> method = {
-                ...     'shape': 'Circle',
-                ...     'barriers': None,
-                ...     'algo': 'AdaptIter',
-                ...     'errTol': CONST_EPSILON,
-                ... }
-            6) Between circles using second order cone programing by Gurobi
-                >>> method = {
-                ...     'shape': 'Circle',
-                ...     'barriers': None,
-                ...     'algo': 'Gurobi',
-                ...     'errTol': CONST_EPSILON,
-                ... }
-            7) Between circles using second order cone programing by COPT
-                >>> method = {
-                ...     'shape': 'Circle',
-                ...     'barriers': None,
-                ...     'algo': 'COPT',
-                ...     'errTol': CONST_EPSILON,
-                ... }
-            8) Between arcpolys using heuristics
-                >>> method = {
-                ...     'shape': 'Arcpoly',
-                ...     'barriers': None,
                 ...     'algo': 'AdaptIter',
                 ...     'errTol': CONST_EPSILON,
                 ... }
     """
 
     # Sanity check ============================================================
-    if (method == None or 'shape' not in method):
-        raise MissingParameterError("ERROR: Missing required field `method` or missing required field 'shape' in `method`.")
+    if (method == None):
+        raise MissingParameterError("ERROR: Missing required field `method`.")
 
     errTol = CONST_EPSILON
     if ('errTol' in method):
@@ -2490,25 +2578,16 @@ def geom2GeomPath(startPt: pt, endPt: pt, geoms: polys|dict = None, method: dict
     if ('outputFlag' in method):
         outputFlag = method['outputFlag']
 
-    if (method['shape'] == 'Poly' and method['algo'] == 'AdaptIter' and ('barriers' not in method or method['barriers'] == None)):
-        res = _poly2PolyPathAdaptIter(startPt, endPt, geoms, {'errTol': errTol})
-    elif (method['shape'] == 'Poly' and method['algo'] == 'AdaptIter' and ('barriers' in method and method['barriers'] != None)):
-        res = _poly2PolyPathBarriersAdaptIter(startPt, endPt, geoms, barrierPolys, {'errTol': errTol})
-    elif (method['shape'] == 'Circle' and method['algo'] == 'Gurobi'):
-        res = _circle2CirclePathGurobi(startPt, endPt, geoms, {'outputFlag': outputFlag})
-    elif (method['shape'] == 'Circle' and method['algo'] == 'COPT'):
-        res = _circle2CirclePathCOPT(startPt, endPt, geoms, {'outputFlag': outputFlag})
+    if (method['algo'] == 'AdaptIter' and ('barriers' not in method or method['barriers'] == None)):
+        res = _poly2PolyPathAdaptIter(startPt, endPt, polys, {'errTol': errTol})
+    elif (method['algo'] == 'AdaptIter' and ('barriers' in method and method['barriers'] != None)):
+        res = _poly2PolyPathBarriersAdaptIter(startPt, endPt, polys, barrierPolys, {'errTol': errTol})
     else:
         raise UnsupportedInputError("ERROR: Not support by vrpSolver for now.")
 
-    realDist = 0
-    for i in range(1, len(res['path'])):
-        realDist += distEuclideanXY(res['path'][i - 1], res['path'][i])['dist']
-
     return {
         'path': res['path'],
-        'dist': res['dist'],
-        'real': realDist
+        'dist': res['dist']
     }
 
 def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, config: dict = {'errTol': CONST_EPSILON}):
@@ -2837,6 +2916,64 @@ def _poly2PolyPathBarriersAdaptIter(startPt: pt, endPt: pt, polys: polys, barrie
         'dist': dist
     }
 
+def circle2CirclePath(startPt: pt, endPt: pt, circles: dict = None, method: dict = {'solver': 'Gurobi'}):
+    
+    """Find path between geometries, e.g., polys, circles, arcpolys, mixed.
+
+    Parameters
+    ----------
+
+    startPt: pt, required, default None
+        The coordinate which starts the path.
+    endPt: pt, required, default None
+        The coordinate which ends the path.
+    circles: polys|dict, required, default None
+        A list of polys, or circles, or arcpolys, or a mix of those objects to be visited in given sequence
+    method: dict, required, default {'shape': 'Poly', 'barriers': None, 'errTol': CONST_EPSILON}
+        A dictionary to indicate the subroutine to be used. Options includes
+            1) Between circles using heuristics
+                >>> method = {
+                ...     'barriers': None,
+                ...     'algo': 'AdaptIter',
+                ...     'errTol': CONST_EPSILON,
+                ... }
+            2) Between circles using second order cone programing by Gurobi
+                >>> method = {
+                ...     'barriers': None,
+                ...     'algo': 'Gurobi',
+                ...     'errTol': CONST_EPSILON,
+                ... }
+            3) Between circles using second order cone programing by COPT
+                >>> method = {
+                ...     'barriers': None,
+                ...     'algo': 'COPT',
+                ...     'errTol': CONST_EPSILON,
+                ... }
+    """
+
+    # Sanity check ============================================================
+    if (method == None):
+        raise MissingParameterError("ERROR: Missing required field `method`.")
+
+    errTol = CONST_EPSILON
+    if ('errTol' in method):
+        errTol = method['errTol']
+    outputFlag = False
+    if ('outputFlag' in method):
+        outputFlag = method['outputFlag']
+
+    if (method['solver'] == 'Gurobi'):
+        res = _circle2CirclePathGurobi(startPt, endPt, circles, {'outputFlag': outputFlag})
+    elif (method['solver'] == 'COPT'):
+        res = _circle2CirclePathCOPT(startPt, endPt, circles, {'outputFlag': outputFlag})
+    else:
+        raise UnsupportedInputError("ERROR: Not support by vrpSolver for now.")
+
+    return {
+        'path': res['path'],
+        'dist': res['dist']
+    }
+
 def _circle2CirclePathAdaptIter(startPt: pt, endPt: pt, circles: dict, config: dict = {'errTol': CONST_EPSILON}):
     raise UnsupportedInputError("ERROR: Unsupported for now.")
     return
@@ -3057,11 +3194,3 @@ def _circle2CirclePathCOPT(startPt: pt, endPt: pt, circles: dict, config: dict =
         'dist': ofv
     }
 
-# Dynamic polygon touring problem =============================================
-def dpoly2DPolyPath(startPt: pt, endPt: pt, dpolys: dict):
-    return {
-        'path': path,
-        'timestamp': timeStamp,
-        'dist': dist,
-        'time': timed
-    }
