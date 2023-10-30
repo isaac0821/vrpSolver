@@ -1987,7 +1987,7 @@ def matrixDist(nodes: dict, edges: dict = {'method': 'Euclidean'}, depotID: int|
         for p in edges['tau']:
             speed = 1 if 'speed' not in edges else edges['speed']
             tau[p] = edges['tau'][p] / speed
-            pathLoc[p] = edges['path'][p]
+            pathLoc[p] = edges['path'][p] if 'path' in edges else [nodes[p[0]][locFieldName], nodes[p[1]][locFieldName]]
     elif (edges['method'] == 'Grid'):
         if ('grid' not in edges or edges['grid'] == None):
             raise MissingParameterError("'grid' is not specified")
@@ -3000,25 +3000,25 @@ def _circle2CirclePathGurobi(startPt: pt, endPt: pt, circles: dict, config: dict
         anchor.append(circles[i]['center'])
     anchor.append(endPt)
 
-    # allX = [startPt[0], endPt[0]]
-    # allY = [startPt[1], endPt[1]]
-    # for i in range(len(circles)):
-    #     allX.append(circles[i]['center'][0] - circles[i]['radius'])
-    #     allX.append(circles[i]['center'][0] + circles[i]['radius'])
-    #     allY.append(circles[i]['center'][1] - circles[i]['radius'])
-    #     allY.append(circles[i]['center'][1] + circles[i]['radius'])
-    # lbX = min(allX) - 40
-    # lbY = min(allY) - 40
-    # ubX = max(allX) + 40
-    # ubY = max(allY) + 40
+    allX = [startPt[0], endPt[0]]
+    allY = [startPt[1], endPt[1]]
+    for i in range(len(circles)):
+        allX.append(circles[i]['center'][0] - circles[i]['radius'])
+        allX.append(circles[i]['center'][0] + circles[i]['radius'])
+        allY.append(circles[i]['center'][1] - circles[i]['radius'])
+        allY.append(circles[i]['center'][1] + circles[i]['radius'])
+    lbX = min(allX) - 40
+    lbY = min(allY) - 40
+    ubX = max(allX) + 40
+    ubY = max(allY) + 40
 
     # Decision variables ======================================================
     # NOTE: x, y index starts by 1
     x = {}
     y = {}
     for i in range(1, len(circles) + 1):
-        x[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "x_%s" % i, lb = -float('inf'), ub = float('inf'))
-        y[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "y_%s" % i, lb = -float('inf'), ub = float('inf'))
+        x[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "x_%s" % i, lb = lbX, ub = ubX)
+        y[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "y_%s" % i, lb = lbY, ub = ubY)
     # Distance from (x[i], y[i]) to (x[i + 1], y[i + 1]), 
     # where startPt = (x[0], y[0]) and endPt = (x[len(circles) + 1], y[len(circles) + 1])
     d = {}
@@ -3047,7 +3047,7 @@ def _circle2CirclePathGurobi(startPt: pt, endPt: pt, circles: dict, config: dict
         model.addConstr(dx[i] == x[i] - x[i + 1])
         model.addConstr(dy[i] == y[i] - y[i + 1])
     model.addConstr(dx[len(circles)] == anchor[-1][0] - x[len(circles)])
-    model.addConstr(dy[len(circles)] == anchor[-1][0] - x[len(circles)])
+    model.addConstr(dy[len(circles)] == anchor[-1][1] - y[len(circles)])
     # Aux constr - rx ry
     for i in range(1, len(circles) + 1):
         model.addConstr(rx[i] == x[i] - anchor[i][0])
@@ -3115,19 +3115,30 @@ def _circle2CirclePathCOPT(startPt: pt, endPt: pt, circles: dict, config: dict =
         anchor.append(circles[i]['center'])
     anchor.append(endPt)
 
+    allX = [startPt[0], endPt[0]]
+    allY = [startPt[1], endPt[1]]
+    for i in range(len(circles)):
+        allX.append(circles[i]['center'][0] - circles[i]['radius'])
+        allX.append(circles[i]['center'][0] + circles[i]['radius'])
+        allY.append(circles[i]['center'][1] - circles[i]['radius'])
+        allY.append(circles[i]['center'][1] + circles[i]['radius'])
+    lbX = min(allX) - 40
+    lbY = min(allY) - 40
+    ubX = max(allX) + 40
+    ubY = max(allY) + 40
+
     # Decision variables ======================================================
     # NOTE: x, y index starts by 1
     x = {}
     y = {}
     for i in range(1, len(circles) + 1):
-        x[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = "x_%s" % i, lb = -float('inf'), ub = float('inf'))
-        y[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = "y_%s" % i, lb = -float('inf'), ub = float('inf'))
+        x[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = "x_%s" % i, lb = lbX, ub = ubX)
+        y[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = "y_%s" % i, lb = lbY, ub = ubY)
     # Distance from (x[i], y[i]) to (x[i + 1], y[i + 1]), 
     # where startPt = (x[0], y[0]) and endPt = (x[len(circles) + 1], y[len(circles) + 1])
     d = {}
     for i in range(len(circles) + 1):
         d[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'd_%s' % i)
-    model.setObjective(cp.quicksum(d[i] for i in range(len(circles) + 1)), cp.COPT.MINIMIZE)
 
     # Aux vars - distance between (x, y)
     dx = {}
@@ -3142,6 +3153,8 @@ def _circle2CirclePathCOPT(startPt: pt, endPt: pt, circles: dict, config: dict =
         rx[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'rx_%s' % i, lb = -float('inf'), ub = float('inf'))
         ry[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'ry_%s' % i, lb = -float('inf'), ub = float('inf'))
 
+    model.setObjective(cp.quicksum(d[i] for i in range(len(circles) + 1)), cp.COPT.MINIMIZE)
+
     # Distance constraints ====================================================
     # Aux constr - dx dy
     model.addConstr(dx[0] == x[1] - anchor[0][0])
@@ -3150,7 +3163,7 @@ def _circle2CirclePathCOPT(startPt: pt, endPt: pt, circles: dict, config: dict =
         model.addConstr(dx[i] == x[i] - x[i + 1])
         model.addConstr(dy[i] == y[i] - y[i + 1])
     model.addConstr(dx[len(circles)] == anchor[-1][0] - x[len(circles)])
-    model.addConstr(dy[len(circles)] == anchor[-1][0] - x[len(circles)])
+    model.addConstr(dy[len(circles)] == anchor[-1][1] - y[len(circles)])
     # Aux constr - rx ry
     for i in range(1, len(circles) + 1):
         model.addConstr(rx[i] == x[i] - anchor[i][0])

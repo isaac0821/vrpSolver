@@ -1027,22 +1027,28 @@ def _ipTSPCOPTLazyCuts(nodeIDs, tau, outputFlag, timeLimit, env):
 
 def ipTSPEx(
     nodes: dict, 
+    locFieldName: str = 'loc',
     predefinedArcs: list[list[tuple[int|str]]] = [],
+    depotID: int|str = 0,
+    nodeIDs: list[int|str]|str = 'All',
+    serviceTime: float = 0,
+    vehicles: dict = {
+        0: {'speed': 1}
+    },
+    vehicleID: int|str = 0,
     edges: dict = {
         'method': "Euclidean", 
         'ratio': 1
     },
     method: dict = {
         'fml': 'DFJ_Lazy',
-        'solver': 'Gurobi', 
-        'timeLimit': None, 
-        'gapTolerance': None, 
-        'outputFlag': False, 
+        'solver': 'Gurobi',
+        'timeLimit': None,
+        'outputFlag': None,
         'env': None
     },
-    depotID: int|str = 0,
-    nodeIDs: list[int|str]|str = 'All',
-    serviceTime: float = 0,
+    detailsFlag: bool = False,
+    metaFlag: bool = False
     ) -> dict|None:
 
     """Use IP formulation to find optimal TSP solution with extra predefined arcs
@@ -1132,6 +1138,10 @@ def ipTSPEx(
     if ((type(nodeIDs) == list and depotID not in nodeIDs)
         or (nodeIDs == 'All' and depotID not in nodes)):
         raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
+    if (vehicles == None):
+        raise MissingParameterError("ERROR: Missing required field `vehicles`.")
+    if (vehicleID not in vehicles):
+        raise MissingParameterError("ERROR: Cannot find `vehicleID` in `vehicles`.")
     if (method == None or 'solver' not in method):
         raise MissingParameterError("ERROR: Missing required field `method`.")
     elif (method['solver'] == 'Gurobi' and method['fml'] not in ['DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', 'QAP']):
@@ -1140,7 +1150,12 @@ def ipTSPEx(
         raise OutOfRangeError("ERROR: COPT option supports 'DFJ_Lazy' formulations", )
 
     # Define tau ==============================================================
-    tau, path = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
+    tau = None
+    path = None
+    if (detailsFlag):
+        tau, path = matrixDist(nodes, edges, depotID, nodeIDs, locFieldName)
+    else:
+        tau, _ = matrixDist(nodes, edges, depotID, nodeIDs, locFieldName)
 
     # Solve by different formulations =========================================
     tspEx = None
@@ -1170,28 +1185,85 @@ def ipTSPEx(
     # Fix the sequence to make it start from the depot ========================
     startIndex = 0
     seq = [i for i in tspEx['seq']]
-    truckSeq = []
+    nodeSeq = []
     for k in range(len(seq)):
         if (seq[k] == depotID):
             startIndex = k
     if (startIndex <= len(seq) - 1):
         for k in range(startIndex, len(seq) - 1):
-            truckSeq.append(seq[k])
+            nodeSeq.append(seq[k])
     if (startIndex >= 0):
         for k in range(0, startIndex):
-            truckSeq.append(seq[k])
-    truckSeq.append(depotID)
-    tspEx['seq'] = truckSeq
+            nodeSeq.append(seq[k])
+    nodeSeq.append(depotID)
+    tspEx['seq'] = nodeSeq
+
+    # Add service time if provided ============================================
+    ofv = tspEx['ofv'] + (len(nodeIDs) - 1) * serviceTime
+
+    # Post optimization (for detail information) ==============================
+    if (detailsFlag):
+        # 返回一个数组，表示路径中的每个点的位置，不包括时间信息
+        shapepoints = []        
+        for i in range(len(nodeSeq) - 1):
+            shapepoints.extend(path[nodeSeq[i], nodeSeq[i + 1]][:-1])
+        shapepoints.append(path[nodeSeq[-2], nodeSeq[-1]][-1])
+
+        # 返回一个数组，其中每个元素为二元数组，表示位置+时刻
+        curTime = 0
+        curLoc = nodes[depotID][locFieldName]
+        timedSeq = [(curLoc, curTime)]
+        # 对每个leg检索path中的shapepoints，涉及到serviceTime，先不看最后一段leg
+        for i in range(1, len(nodeSeq) - 1):
+            # 对于Euclidean型的，没有中间节点
+            if (edges['method'] in ['Euclidean', 'LatLon']):
+                curTime += tau[nodeSeq[i - 1], nodeSeq[i]] / vehicles[vehicleID]['speed']
+                curLoc = nodes[nodeSeq[i]][locFieldName]
+                timedSeq.append((curLoc, curTime))
+            else:
+                shapepointsInBtw = path[nodeSeq[i - 1], nodeSeq[i]]
+                for j in range(1, len(shapepointsInBtw)):
+                    curTime += distEuclideanXY(shapepointsInBtw[j - 1], shapepointsInBtw[j])['dist'] / vehicles[vehicleID]['speed']
+                    curLoc = shapepointsInBtw[j]
+                    timedSeq.append((curLoc, curTime))
+            # 如果有service time，则加上一段在原处等待的时间
+            if (serviceTime != None and serviceTime > 0):
+                curTime += serviceTime
+                # curLoc = curLoc
+                timedSeq.append((curLoc, curTime))
+        # 现在补上最后一段leg
+        if (edges['method'] in ['Euclidean', 'LatLon']):
+            curTime += tau[nodeSeq[-2], nodeSeq[-1]] / vehicles[vehicleID]['speed']
+            curLoc = nodes[nodeSeq[-1]][locFieldName]
+            timedSeq.append((curLoc, curTime))
+        else:
+            shapepointsInBtw = path[nodeSeq[-2], nodeSeq[-1]]
+            for j in range(1, len(shapepointsInBtw)):
+                curTime += distEuclideanXY(shapepointsInBtw[j - 1], shapepointsInBtw[j])['dist'] / vehicles[vehicleID]['speed']
+                curLoc = shapepointsInBtw[j]
+                timedSeq.append((curLoc, curTime))
+
+        # Add detail information to `vehicles`
+        vehicles[vehicleID]['shapepoints'] = shapepoints
+        vehicles[vehicleID]['timedSeq'] = timedSeq
 
     # Add service time info ===================================================
-    tspEx['serviceTime'] = serviceTime
+    res = {
+        'ofv': ofv,
+        'seq': nodeSeq,
+        'gap': tspEx['gap'],
+        'solType': tspEx['solType'],
+        'lowerBound': tspEx['lowerBound'],
+        'upperBound': tspEx['upperBound'],
+        'runtime': tspEx['runtime']
+    }
+    if (metaFlag):
+        res['serviceTime'] = serviceTime
+        res['method'] = method
+    if (detailsFlag):
+        res['vehicles'] = vehicles
 
-    shapepoints = []
-    for i in range(len(truckSeq) - 1):
-        shapepoints.extend(path[truckSeq[i], truckSeq[i + 1]])
-    tspEx['shapepoints'] = shapepoints
-
-    return tspEx
+    return res
 
 def _ipTSPExGurobiLazyCuts(nodeIDs, predefinedArcs, tau, outputFlag, timeLimit, gapTolerance):
     try:
@@ -1235,7 +1307,7 @@ def _ipTSPExGurobiLazyCuts(nodeIDs, predefinedArcs, tau, outputFlag, timeLimit, 
         for arc in arcs:
             if ((arc[0], arc[1]) not in x or (arc[1], arc[0]) not in x):
                 raise UnsupportedInputError("ERROR: Cannot find arc[%s, %s] and/or arc[%s, %s]" % (arc[0], arc[1], arc[1], arc[0]))
-        TSPEx.addConstr(grb.quicksum(x[arc[0], arc[1]] for arc in arcs) == 1, name = 'predefind_%s_%s' % list2String(arcs))
+        TSPEx.addConstr(grb.quicksum(x[arc[0], arc[1]] for arc in arcs) == 1)
 
     # Sub-tour elimination ====================================================
     TSPEx._x = x

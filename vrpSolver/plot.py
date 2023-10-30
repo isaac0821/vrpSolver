@@ -15,6 +15,108 @@ from .geometry import *
 # 20231022 - Refine `aniRouting()`
 # =============================================================================
 
+def plotLocs(
+    locs: list[pt],
+    locColor: str = 'Random',
+    locMarker: str = 'o',
+    locMarkersize: float = 1,
+    xyReverseFlag: bool = False,
+    fig = None,
+    ax = None,
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showAxis: bool = True,
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ):
+
+    # Check for required fields ===============================================
+    if (locs == None):
+        raise MissingParameterError("ERROR: Missing required field `locs`.")
+
+    # If no based matplotlib figure provided, define boundary =================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        # Adjust bounding box
+        (xMin, xMax, yMin, yMax) = boundingBox
+        if (xMin == None or xMax == None or yMin == None or yMax == None):
+            allX = []
+            allY = []
+            for i in locs:
+                if (not xyReverseFlag):
+                    allX.append(i[0])
+                    allY.append(i[1])
+                else:
+                    allX.append(i[1])
+                    allY.append(i[0])        
+            if (xMin == None):
+                xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
+            if (xMax == None):
+                xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
+            if (yMin == None):
+                yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
+            if (yMax == None):
+                yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+        # Adjust width and height
+        width = 0
+        height = 0
+        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
+            if (xMax - xMin > yMax - yMin):
+                width = 5
+                height = 5 * ((yMax - yMin) / (xMax - xMin))
+            else:
+                width = 5 * ((xMax - xMin) / (yMax - yMin))
+                height = 5
+        elif (figSize != None and figSize[0] != None and figSize[1] == None):
+            width = figSize[0]
+            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
+        elif (figSize != None and figSize[0] == None and figSize[1] != None):
+            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
+            height = figSize[1]
+        else:
+            (width, height) = figSize
+
+        if (isinstance(fig, plt.Figure)):
+            fig.set_figwidth(width)
+            fig.set_figheight(height)
+            ax.set_xlim(xMin, xMax)
+            ax.set_ylim(yMin, yMax)
+
+    # Draw locs ==============================================================
+    for i in locs:
+        # Define color --------------------------------------------------------
+        color = None
+        if (locColor == 'Random'):
+            color = colorRandom()
+        else:
+            color = locColor
+
+        # plot nodes ----------------------------------------------------------
+        x = None
+        y = None
+        if (not xyReverseFlag):
+            x = i[0]
+            y = i[1]
+        else:
+            x = i[1]
+            y = i[0]
+        if (locMarkersize == None):
+            ax.plot(x, y, color = color, marker = locMarker)
+        else:
+            ax.plot(x, y, color = color, marker = locMarker, markersize = locMarkersize)
+
+    # Axis on and off =========================================================
+    if (not showAxis):
+        plt.axis('off')
+
+    # Save figure =============================================================
+    if (saveFigPath != None and isinstance(fig, plt.Figure)):
+        fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
+
+    return fig, ax
+    
 def plotNodes(
     nodes: dict, 
     locFieldName = 'loc',
