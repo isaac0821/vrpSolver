@@ -14,15 +14,15 @@ from .msg import *
 from .ds import *
 
 # Point versus Objects ========================================================
-def is2PtsSame(pt1: pt, pt2: pt) -> bool:
+def is2PtsSame(pt1: pt, pt2: pt, error: float = CONST_EPSILON) -> bool:
     """Are two points at the 'same' location"""
-    if (abs(pt1[0] - pt2[0]) >= CONST_EPSILON):
+    if (abs(pt1[0] - pt2[0]) >= error):
         return False
-    if (abs(pt1[1] - pt2[1]) >= CONST_EPSILON):
+    if (abs(pt1[1] - pt2[1]) >= error):
         return False
     return True
 
-def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt) -> bool | None:
+def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt, error: float = CONST_EPSILON) -> bool | None:
     """Are three given pts in a clock-wise order, None as they are collinear"""
     if (is2PtsSame(pt1, pt2) or is2PtsSame(pt2, pt3) or is2PtsSame(pt1, pt3)):
         # If points are overlapped, return None as collinear
@@ -32,7 +32,7 @@ def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt) -> bool | None:
     [x3, y3] = [pt3[0], pt3[1]]
     ori = (x2 - x1) * (y3 - y1) - (y2 - y1) * (x3 - x1)
     # collinear
-    if (abs(ori) <= CONST_EPSILON):        
+    if (abs(ori) <= error):
         return None
     # clockwise 
     elif (ori < 0):        
@@ -50,7 +50,7 @@ def isPtOnLine(pt: pt, line: line) -> bool:
     else:
         return False
 
-def isPtOnSeg(pt: pt, seg: line, interiorOnly: bool=False) -> bool:
+def isPtOnSeg(pt: pt, seg: line, interiorOnly: bool=False, error:float = CONST_EPSILON) -> bool:
     """Is a pt on the segment"""
     onLine = isPtOnLine(pt, seg)
     if (onLine == False):
@@ -63,7 +63,7 @@ def isPtOnSeg(pt: pt, seg: line, interiorOnly: bool=False) -> bool:
     onSeg = (
         abs(math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2) 
         + math.sqrt((x2 - x3) ** 2 + (y2 - y3) ** 2) 
-        - math.sqrt((x1 - x3) ** 2 + (y1 - y3) ** 2)) <= CONST_EPSILON)
+        - math.sqrt((x1 - x3) ** 2 + (y1 - y3) ** 2)) <= error)
     # Check if the intertion is in the interior ===============================
     if (interiorOnly):
         return onSeg and not is2PtsSame(pt, seg[0]) and not is2PtsSame(pt, seg[1])
@@ -1230,214 +1230,12 @@ def polysVisibleGraph(polys:polys) -> dict:
     for p in range(len(polys)):
         for e in range(len(polys[p])):
             vg[(p, e)] = {'loc': polys[p][e], 'visible': []}
-            W = ptsVisible((p, e), polys, knownVG=vg)
+            W = _ptsVisible((p, e), polys, knownVG=vg)
             for w in W:
                 vg[(p, e)]['visible'].append(w)
     return vg
 
-def polysSteinerZone(polys: dict, order: int|None = None) -> list[dict]:
-    
-    """Given a node dictionary, returns a list of Steiner zones
-
-    Warning!!!
-    ----------
-    This function needs to be rewritten. It's not trackable now
-
-    Parameters
-    ----------
-
-    polys: dictionary, required
-        The polys dictionary with neighborhood.
-    order: int, optional, defalut None
-        Maximum order of Steiner zone
-
-    Returns
-    -------
-
-    list[dict]
-        A list of Steiner zone dictionaris, each in the following format::
-            >>> SteinerZone = {
-            ...     'poly': poly,
-            ...     'repPt': centroid,
-            ...     'nodeID': []
-            ... }
-
-    """
-
-    # List of Steiner Zones
-    lstSteinerZone = []
-    lstSteinerZoneShape = []
-
-    # Check overlapping
-    overlapMatrix = {}
-    registeredSZ = []
-
-    # First check by any two pairs of neighbor
-    for i in polys:
-        for j in polys:
-            if (i < j):
-                neiI = None
-                if ('poly' in polys[i]):
-                    neiI = shapely.Polygon([[p[0], p[1]] for p in polys[i]['poly']])
-                else:
-                    neiI = shapely.Point([polys[i]['loc'][0], polys[i]['loc'][1]])
-                neiJ = None
-                if ('poly' in polys[j]):
-                    neiJ = shapely.Polygon([[p[0], p[1]] for p in polys[j]['poly']])
-                else:
-                    neiJ = shapely.Point([polys[j]['loc'][0], polys[j]['loc'][1]])
-
-                intersectIJ = shapely.intersection(neiI, neiJ)
-                if (not intersectIJ.is_empty):
-                    overlapMatrix[i, j] = 1
-                    overlapMatrix[j, i] = 1                    
-                    lstSteinerZoneShape.append({
-                            'polyShape': intersectIJ,
-                            'repPtShape': intersectIJ.centroid,
-                            'nodeIDs': [i, j]
-                        })
-                else:
-                    overlapMatrix[i, j] = 0
-                    overlapMatrix[j, i] = 0
-
-    # If no two neighbor are overlapped, every neighborhood is a Steiner Zone of order 1
-    if (sum(overlapMatrix.values()) == 0 or order == 1):
-        return [
-            {
-                'poly': polys[n]['poly'] if 'poly' in polys[n] else [polys[n]['loc']],
-                'repPt': list(shapely.Polygon([[p[0], p[1]] for p in polys[n]['poly']]).centroid.coords[0]) if 'poly' in polys[n] else polys[n]['loc'],
-                'nodeIDs': [n]
-            } for n in polys]
-
-    pointer = 0
-    checkOrder = 2
-    while (checkOrder <= (order if order != None else len(polys))):
-        # Q: How many SZ needs to be checked? A: From `pointer` to `endPointer`
-        endPointer = len(lstSteinerZoneShape)
-
-        # Check each SZ in this order, to see if it can be increase by order 1
-        for p in range(pointer, endPointer):
-            # Get a SZ, see if there is a node n intersect with this SZ
-            SZShape = lstSteinerZoneShape[p]
-            for n in polys:
-                # First, n should not be a SZ member
-                if (n not in SZShape['nodeIDs']):
-                    # Assume all neighbor in SZShape is intersected with n
-                    overlapAllFlag = True
-                    # Check one by one, if one of neighbor is not intersected with n, skip
-                    for i in SZShape['nodeIDs']:
-                        if (overlapMatrix[i, n] == 0):
-                            overlapAllFlag = False
-                            break
-                    if (overlapAllFlag):
-                        newNodeIDs = [k for k in SZShape['nodeIDs']]
-                        newNodeIDs.append(n)
-                        if (list2Tuple(newNodeIDs) not in registeredSZ):
-                            # The neighbor of node n could be either a Polygon or a Point
-                            neiN = shapely.Polygon([[p[0], p[1]] for p in polys[n]['poly']]) if 'poly' in polys[n] else shapely.Point(polys[n]['loc'])
-                            newIntersect = shapely.intersection(SZShape['polyShape'], neiN)
-                            if (not newIntersect.is_empty):
-                                registeredSZ.append(list2Tuple(newNodeIDs))
-                                lstSteinerZoneShape.append({
-                                        'polyShape': newIntersect,
-                                        'repPtShape': newIntersect.centroid,
-                                        'nodeIDs': newNodeIDs
-                                    })
-
-        # Set `pointer` to be `endPointer`
-        pointer = endPointer
-        checkOrder += 1
-
-    lstSteinerZone = [{
-        'poly': polys[n]['poly'] if 'poly' in polys[n] else [polys[n]['loc']],
-        'repPt': list(shapely.Polygon([[p[0], p[1]] for p in polys[n]['poly']]).centroid.coords[0]) if 'poly' in polys[n] else polys[n]['loc'],
-        'nodeIDs': [n]
-    } for n in polys]
-
-    for n in lstSteinerZoneShape:
-        if (type(n['polyShape']) == shapely.Point):
-            lstSteinerZone.append({
-                'poly': [[n['polyShape'].x, n['polyShape'].y]],
-                'repPt': list(n['repPtShape'].coords[0]),
-                'nodeIDs': [i for i in n['nodeIDs']]
-            })
-        else:
-            lstSteinerZone.append({
-                'poly': [i for i in mapping(n['polyShape'])['coordinates'][0]],
-                'repPt': list(n['repPtShape'].coords[0]),
-                'nodeIDs': [i for i in n['nodeIDs']]
-            })    
-
-    return lstSteinerZone
- 
-def polysBoundingBox(polys:polys=None, polysShapely:list[shapely.Polygon]=None):
-    if (polys == None and polysShapely == None):
-        raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
-    if (polys == None):
-        polys = []
-        for p in polyShapely:
-            polys.append([i for i in mapping(p)['coordinates'][0]])
-    polysBox = []
-    for p in polys:
-        x = []
-        y = []
-        for pt in p:
-            x.append(pt[0])
-            y.append(pt[1])
-        polysBox.append([min(x), max(x), min(y), max(y)])
-
-    return polysBox
-
-def polysAlongPath(path, polys:polys=None, polysShapely:list[shapely.Polygon]=None, config: dict = {'intersectFlag': True}):
-    if (polys == None and polysShapely == None):
-        raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
-    if (polysShapely == None):
-        polysShapely = []
-        for p in polys:
-            polysShapely.append(shapely.Polygon(p))
-
-    polysBox = polysBoundingBox(polys, polysShapely)
-
-    # First, for each leg in the path, find the individual polygons intersect with the leg
-    lstPolyIdxPerLeg = []
-
-    enteringPt = []
-    leavingPt = []
-
-    curPoly = []
-
-    for i in range(len(path) - 1):
-        seg = [path[i], path[i + 1]]
-        # NOTE: 准备用segment tree
-        # NOTE: For now use the naive way - checking the boundingbox
-        for j in range(len(polysShapely) - 1):
-            if (isSegIntBoundingbox(seg, polysBox[j])):
-                # 根据Seg和poly的相交情况做判断
-                segIntPoly = intSeg2Poly(seg = seg, polyShapely = polysShapely[j])
-                # 如果相交得到多个部分，则分别进行处理
-                if (type(segIntPoly) == list):
-                    for intPart in segIntPoly:
-                        if (intPart['status'] == 'Cross' and intPart['intersectType'] == 'Point'):
-                            pass
-                        elif (intPart['status'] == 'Cross' and intPart['intersectType'] == 'Segment'):
-                            pass
-                else:
-                    if (segIntPoly['status'] == 'NoCross'):
-                        # No intersection pass
-                        pass
-                    elif (segIntPoly['status'] == 'Cross' and segIntPoly['intersectType'] == 'Point'):
-                        intPt = segIntPoly['intersect']
-                        pass
-                    elif (segIntPoly['status'] == 'Cross' and segIntPoly['intersectType'] == 'Segment'):
-                        intPt1 = segIntPoly['intersect'][0]
-                        intPt2 = segIntPoly['intersect'][1]
-                        pass
-
-    return {
-        'waypoints': waypoints
-    }
-
-def ptsVisible(v:int|str|tuple, polys:polys, standalonePts:dict|None=None, knownVG:dict={}) -> list:
+def _ptsVisible(v:int|str|tuple, polys:polys, standalonePts:dict|None=None, knownVG:dict={}) -> list:
     # NOTE: 该函数不需要使用shapely
     vertices = {}
     polyVertices = []
@@ -1610,6 +1408,209 @@ def ptsVisible(v:int|str|tuple, polys:polys, standalonePts:dict|None=None, known
                 T.delete((min(vIdxWiPrev, vIdxWi), max(vIdxWiPrev, vIdxWi)))
     return W
 
+def polysSteinerZone(polys: dict, order: int|None = None) -> list[dict]:
+    
+    """Given a node dictionary, returns a list of Steiner zones
+
+    Warning!!!
+    ----------
+    This function needs to be rewritten. It's not trackable now
+
+    Parameters
+    ----------
+
+    polys: dictionary, required
+        The polys dictionary with neighborhood.
+    order: int, optional, defalut None
+        Maximum order of Steiner zone
+
+    Returns
+    -------
+
+    list[dict]
+        A list of Steiner zone dictionaris, each in the following format::
+            >>> SteinerZone = {
+            ...     'poly': poly,
+            ...     'repPt': centroid,
+            ...     'nodeID': []
+            ... }
+
+    """
+
+    # List of Steiner Zones
+    lstSteinerZone = []
+    lstSteinerZoneShape = []
+
+    # Check overlapping
+    overlapMatrix = {}
+    registeredSZ = []
+
+    # First check by any two pairs of neighbor
+    for i in polys:
+        for j in polys:
+            if (i < j):
+                neiI = None
+                if ('poly' in polys[i]):
+                    neiI = shapely.Polygon([[p[0], p[1]] for p in polys[i]['poly']])
+                else:
+                    neiI = shapely.Point([polys[i]['loc'][0], polys[i]['loc'][1]])
+                neiJ = None
+                if ('poly' in polys[j]):
+                    neiJ = shapely.Polygon([[p[0], p[1]] for p in polys[j]['poly']])
+                else:
+                    neiJ = shapely.Point([polys[j]['loc'][0], polys[j]['loc'][1]])
+
+                intersectIJ = shapely.intersection(neiI, neiJ)
+                if (not intersectIJ.is_empty):
+                    overlapMatrix[i, j] = 1
+                    overlapMatrix[j, i] = 1                    
+                    lstSteinerZoneShape.append({
+                            'polyShape': intersectIJ,
+                            'repPtShape': intersectIJ.centroid,
+                            'nodeIDs': [i, j]
+                        })
+                else:
+                    overlapMatrix[i, j] = 0
+                    overlapMatrix[j, i] = 0
+
+    # If no two neighbor are overlapped, every neighborhood is a Steiner Zone of order 1
+    if (sum(overlapMatrix.values()) == 0 or order == 1):
+        return [
+            {
+                'poly': polys[n]['poly'] if 'poly' in polys[n] else [polys[n]['loc']],
+                'repPt': list(shapely.Polygon([[p[0], p[1]] for p in polys[n]['poly']]).centroid.coords[0]) if 'poly' in polys[n] else polys[n]['loc'],
+                'nodeIDs': [n]
+            } for n in polys]
+
+    pointer = 0
+    checkOrder = 2
+    while (checkOrder <= (order if order != None else len(polys))):
+        # Q: How many SZ needs to be checked? A: From `pointer` to `endPointer`
+        endPointer = len(lstSteinerZoneShape)
+
+        # Check each SZ in this order, to see if it can be increase by order 1
+        for p in range(pointer, endPointer):
+            # Get a SZ, see if there is a node n intersect with this SZ
+            SZShape = lstSteinerZoneShape[p]
+            for n in polys:
+                # First, n should not be a SZ member
+                if (n not in SZShape['nodeIDs']):
+                    # Assume all neighbor in SZShape is intersected with n
+                    overlapAllFlag = True
+                    # Check one by one, if one of neighbor is not intersected with n, skip
+                    for i in SZShape['nodeIDs']:
+                        if (overlapMatrix[i, n] == 0):
+                            overlapAllFlag = False
+                            break
+                    if (overlapAllFlag):
+                        newNodeIDs = [k for k in SZShape['nodeIDs']]
+                        newNodeIDs.append(n)
+                        if (list2Tuple(newNodeIDs) not in registeredSZ):
+                            # The neighbor of node n could be either a Polygon or a Point
+                            neiN = shapely.Polygon([[p[0], p[1]] for p in polys[n]['poly']]) if 'poly' in polys[n] else shapely.Point(polys[n]['loc'])
+                            newIntersect = shapely.intersection(SZShape['polyShape'], neiN)
+                            if (not newIntersect.is_empty):
+                                registeredSZ.append(list2Tuple(newNodeIDs))
+                                lstSteinerZoneShape.append({
+                                        'polyShape': newIntersect,
+                                        'repPtShape': newIntersect.centroid,
+                                        'nodeIDs': newNodeIDs
+                                    })
+
+        # Set `pointer` to be `endPointer`
+        pointer = endPointer
+        checkOrder += 1
+
+    lstSteinerZone = [{
+        'poly': polys[n]['poly'] if 'poly' in polys[n] else [polys[n]['loc']],
+        'repPt': list(shapely.Polygon([[p[0], p[1]] for p in polys[n]['poly']]).centroid.coords[0]) if 'poly' in polys[n] else polys[n]['loc'],
+        'nodeIDs': [n]
+    } for n in polys]
+
+    for n in lstSteinerZoneShape:
+        if (type(n['polyShape']) == shapely.Point):
+            lstSteinerZone.append({
+                'poly': [[n['polyShape'].x, n['polyShape'].y]],
+                'repPt': list(n['repPtShape'].coords[0]),
+                'nodeIDs': [i for i in n['nodeIDs']]
+            })
+        else:
+            lstSteinerZone.append({
+                'poly': [i for i in mapping(n['polyShape'])['coordinates'][0]],
+                'repPt': list(n['repPtShape'].coords[0]),
+                'nodeIDs': [i for i in n['nodeIDs']]
+            })    
+
+    return lstSteinerZone
+ 
+def polysBoundingBox(polys:polys=None, polysShapely:list[shapely.Polygon]=None):
+    if (polys == None and polysShapely == None):
+        raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
+    if (polys == None):
+        polys = []
+        for p in polyShapely:
+            polys.append([i for i in mapping(p)['coordinates'][0]])
+    polysBox = []
+    for p in polys:
+        x = []
+        y = []
+        for pt in p:
+            x.append(pt[0])
+            y.append(pt[1])
+        polysBox.append([min(x), max(x), min(y), max(y)])
+
+    return polysBox
+
+def polysAlongLocSeq(seq, polys:polys=None, polysShapely:list[shapely.Polygon]=None, config: dict = {'intersectFlag': True}):
+    if (polys == None and polysShapely == None):
+        raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
+    if (polysShapely == None):
+        polysShapely = []
+        for p in polys:
+            polysShapely.append(shapely.Polygon(p))
+
+    # polysBox = polysBoundingBox(polys, polysShapely)
+
+    # First, for each leg in the seq, find the individual polygons intersect with the leg
+    actions = []
+    for i in range(len(seq) - 1):
+        seg = [seq[i], seq[i + 1]]
+        # NOTE: 准备用segment tree
+        # NOTE: For now use the naive way - checking the boundingbox
+        for j in range(len(polysShapely) - 1):
+            if (True): #isSegIntBoundingbox(seg, polysBox[j])):
+                # 根据Seg和poly的相交情况做判断
+                segIntPoly = intSeg2Poly(seg = seg, polyShapely = polysShapely[j])
+                # 如果相交得到多个部分，则分别进行处理
+                if (type(segIntPoly) == list):
+                    for intPart in segIntPoly:
+                        if (intPart['status'] == 'Cross' and intPart['intersectType'] == 'Point'):
+                            print("Wierd")
+                            pass
+                        elif (intPart['status'] == 'Cross' and intPart['intersectType'] == 'Segment'):
+                            pass
+                else:
+                    if (segIntPoly['status'] == 'NoCross'):
+                        # No intersection pass
+                        pass
+                    elif (segIntPoly['status'] == 'Cross' and segIntPoly['intersectType'] == 'Point'):
+                        intPt = segIntPoly['intersect']
+                        actions.append([intPt, 'touch', j])
+                    elif (segIntPoly['status'] == 'Cross' and segIntPoly['intersectType'] == 'Segment'):
+                        intPt1 = segIntPoly['intersect'][0]
+                        intPt2 = segIntPoly['intersect'][1]
+                        if (distEuclideanXY(seq[i], intPt1)['dist'] <
+                            distEuclideanXY(seq[i], intPt2)['dist']):
+                            actions.append([intPt1, 'enter', j])
+                            actions.append([intPt2, 'leave', j])
+                        else:
+                            actions.append([intPt1, 'leave', j])
+                            actions.append([intPt2, 'enter', j])
+    return actions
+    # return {
+    #     'waypoints': waypoints
+    # }
+
 def ptPolyCenter(poly: poly=None, polyShapely: shapely.Polygon=None) -> pt:
     if (poly == None and polyShapely == None):
         raise MissingParameterError("ERROR: Missing required field 'poly' or 'polyShapely'.")
@@ -1619,6 +1620,42 @@ def ptPolyCenter(poly: poly=None, polyShapely: shapely.Polygon=None) -> pt:
     ptShapely = shapely.centroid(polyShapely)
     center = (ptShapely.x, ptShapely.y)
     return center
+
+# Shadowing ===================================================================
+def circleShadowByPolys(circle: dict = None, polys: polys = None, lod: int = 30):
+    standalonePts = {'c': {'loc': circle['center']}}
+    cirR = circle['radius']
+
+    remain = [[
+        circle['center'][0] + circle['radius'] * math.sin(2 * d * math.pi / lod),
+        circle['center'][1] + circle['radius'] * math.cos(2 * d * math.pi / lod),
+    ] for d in range(lod + 1)]
+
+    # 分别计算每个poly的阴影遮挡
+    for poly in polys:
+        # 首先计算poly从
+
+        visExpt = _ptsVisible('c', [poly], standalonePts)
+
+
+
+    visExpt = _ptsVisible('c', polys, standalonePts)
+    visLocs = []
+    for v in visExpt:
+        visLocs.append(polys[v[0]][v[1]])
+    return visCircle
+
+def polyShadowByPolys(poly: poly = None, anchor: pt = None, polys: polys = None):
+    standalonePts = {'c': {'loc': circle['center']}}
+
+    # FIXME: 不得已的办法，把polygons拿去triangulate，然后逐个计算遮挡阴影
+
+    # 分别计算每个poly的遮挡
+    for p in polys:
+        # 首先计算有几个遮挡的转折点，若只有两个，则可以简单的划分为阴面和阳面
+        pass
+
+    return visPoly
 
 # Time seq related ============================================================
 def snapInTimedSeq(timedSeq: list[tuple[pt, float]], t: float) -> pt:
@@ -1734,7 +1771,37 @@ def traceInTimedSeq(timedSeq: list[tuple[pt, float]], ts: float, te: float) -> l
 
     return trace
 
-def locInSeq(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
+# Loc seq related =============================================================
+def locSeqSortPts(seq: list[pt], pts: list[pt]) -> list:
+    # First, calculate accumulated dist since start for each turning point of locSeq
+    acc = [0]
+    sofar = 0
+    for i in range(len(seq) - 1):
+        sofar += distEuclideanXY(seq[i], seq[i + 1])['dist']
+        acc.append(sofar)
+
+    ptHeap = []
+
+    # 看看每个节点落在哪个区间
+    for pt in pts:
+        isOnSegFlag = False
+        for i in range(len(seq) - 1):
+            # 若和多个线段相交，只考虑第一次相交的情况，否则turnpoint上的始终会被记录两次
+            if (isPtOnSeg(pt, [seq[i], seq[i + 1]])):
+                isOnSegFlag = True
+                addDist = distEuclideanXY(seq[i], pt)['dist']
+                heapq.heappush(ptHeap, (acc[i] + addDist, pt))
+                break
+        if (not isOnSegFlag):
+            raise UnsupportedInputError("ERROR: %s does not belong to given loc sequence" % str(pt))
+
+    sortedPts = []
+    while (len(ptHeap) > 0):
+        sortedPts.append(heapq.heappop(ptHeap))
+
+    return sortedPts
+
+def locSeqMileage(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
     """Given a list of lat/lon coordinates, and a traveling mileage, returns the coordinate"""
     # Initialize ==============================================================
     inPathFlag = False
@@ -1766,6 +1833,22 @@ def locInSeq(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
     lat = nextLoc[0] + (remainDist / segDist) * (preLoc[0] - nextLoc[0])
     lon = nextLoc[1] + (remainDist / segDist) * (preLoc[1] - nextLoc[1])
     return (lat, lon)
+
+def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
+    removedFlag = []
+    for i in range(1, len(seq) - 1):
+        if (isPtOnSeg(seq[i], [seq[i - 1], seq[i + 1]])):
+            removedFlag.append(True)
+        else:
+            removedFlag.append(False)
+    newSeq = []
+    newSeq.append(seq[0])
+    for i in range(1, len(seq) - 1):
+        if (removedFlag[i - 1] == False):
+            newSeq.append(seq[i])
+    if (len(seq) > 1):
+        newSeq.append(seq[-1])
+    return newSeq
 
 # Area calculation ============================================================
 def calTriangleAreaEdge(a: float, b: float, c: float) -> float:
@@ -2302,10 +2385,10 @@ def distBtwPolysXY(pt1:pt, pt2:pt, polys:polys, polyVG:dict=None) -> dict:
             'visible': [i for i in polyVG[p]['visible']]
         }
     vertices['s'] = {'loc': pt1, 'visible': []}
-    Ws = ptsVisible('s', polys, {'s': {'loc': pt1, 'visible': []}})
+    Ws = _ptsVisible('s', polys, {'s': {'loc': pt1, 'visible': []}})
     vertices['s']['visible'] = Ws
     vertices['e'] = {'loc': pt2, 'visible': []}
-    We = ptsVisible('e', polys, {'e': {'loc': pt2, 'visible': []}})
+    We = _ptsVisible('e', polys, {'e': {'loc': pt2, 'visible': []}})
     vertices['e']['visible'] = We
 
     # Find shortest path ======================================================
@@ -2581,7 +2664,7 @@ def poly2PolyPath(startPt: pt, endPt: pt, polys: polys = None, method: dict = {'
     if (method['algo'] == 'AdaptIter' and ('barriers' not in method or method['barriers'] == None)):
         res = _poly2PolyPathAdaptIter(startPt, endPt, polys, {'errTol': errTol})
     elif (method['algo'] == 'AdaptIter' and ('barriers' in method and method['barriers'] != None)):
-        res = _poly2PolyPathBarriersAdaptIter(startPt, endPt, polys, barrierPolys, {'errTol': errTol})
+        res = _poly2PolyPathBarriersAdaptIter(startPt, endPt, polys, method['barriers'], {'errTol': errTol})
     else:
         raise UnsupportedInputError("ERROR: Not support by vrpSolver for now.")
 
@@ -3207,3 +3290,4 @@ def _circle2CirclePathCOPT(startPt: pt, endPt: pt, circles: dict, config: dict =
         'dist': ofv
     }
 
+ 

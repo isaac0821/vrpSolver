@@ -375,14 +375,14 @@ def _rndPtRoadNetworkPolyLatLon(N: int, road: dict, poly: poly, roadClass: str |
             idx = rndPick(lengths)
             edgeLength = lengths[idx]
             edgeDist = random.uniform(0, 1) * edgeLength
-            (lat, lon) = locInSeq(road[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
+            (lat, lon) = locSeqMileage(road[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
         else:
             insideFlag = False
             while (not insideFlag):
                 idx = rndPick(lengths)
                 edgeLength = lengths[idx]
                 edgeDist = random.uniform(0, 1) * edgeLength
-                (lat, lon) = locInSeq(road[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
+                (lat, lon) = locSeqMileage(road[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
                 if (isPtInPoly([lat, lon], poly)):
                     insideFlag = True
         nodeLocs.append((lat, lon))
@@ -427,7 +427,7 @@ def _rndPtRoadNetworkCircleLatLon(N: int, road: dict, radius: float, center: pt,
             idx = rndPick(lengths)
             edgeLength = lengths[idx]
             edgeDist = random.uniform(0, 1) * edgeLength
-            (lat, lon) = locInSeq(road[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
+            (lat, lon) = locSeqMileage(road[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
             if (distLatLon([lat, lon], center)['dist'] <= radius):
                 insideFlag = True
         nodeLocs.append((lat, lon))
@@ -673,6 +673,7 @@ def rndPolygons(
         'shape': "Circle",
         'radius': 10,
         'lod': 30,
+        'avoidOverlapFlag': False,
         'mergeFlag': True
     },
     anchorFieldName = 'anchor',
@@ -709,8 +710,12 @@ def rndPolygons(
 
     # Next, create P polygons relative to anchor points =======================
     polysB4Merge = []
+    avoidOverlapFlag = False
+    if ('avoidOverlapFlag' in method and method['avoidOverlapFlag'] == True):
+        avoidOverlapFlag = True
+
     for p in polyIDs:
-        if (method['shape'] == 'Poly'):
+        if (method['shape'] == 'FixedPoly'):
             if ('poly' not in method):
                 raise MissingParameterError("ERROR: Missing required key 'poly' in `method`")
             poly = [[i[0] + anchors[p][anchorFieldName][0], i[1] + anchors[p][anchorFieldName][1]] for i in method['poly']]
@@ -727,6 +732,25 @@ def rndPolygons(
                 anchors[p][anchorFieldName][1] + method['radius'] * math.cos(2 * d * math.pi / lod),
             ] for d in range(lod + 1)]
         
+        elif (method['shape'] == 'Square'):
+            if ('maxLen' not in method):
+                raise MissingParameterError("ERROR: Missing required key 'maxLen' in `method`")
+            if ('minLen' not in method):
+                raise MissingParameterError("ERROR: Missing required key 'minLen' in `method`")
+            if (method['minLen'] > method['maxLen']):
+                warnings.warn("WARNING: 'minLen' is greater than 'maxLen', will be swapped")
+                method['maxLen'], method['minLen'] = method['minLen'], method['maxLen']
+            
+            width = random.uniform(method['minLen'], method['maxLen'])
+            height = random.uniform(method['minLen'], method['maxLen'])
+
+            poly = [
+                [anchors[p][anchorFieldName][0] - width / 2, anchors[p][anchorFieldName][1] - height / 2], 
+                [anchors[p][anchorFieldName][0] + width / 2, anchors[p][anchorFieldName][1] - height / 2], 
+                [anchors[p][anchorFieldName][0] + width / 2, anchors[p][anchorFieldName][1] + height / 2], 
+                [anchors[p][anchorFieldName][0] - width / 2, anchors[p][anchorFieldName][1] + height / 2]
+            ]
+
         elif (method['shape'] == 'Egg'):
             if ('a' not in method or 'b' not in method or 'c' not in method):
                 raise MissingParameterError("ERROR: Missing required key 'a', 'b', and/or 'c'.")
@@ -810,7 +834,7 @@ def rndPolygons(
             ] for d in range(lod + 1)]
 
         elif (method['shape'] == 'RandomConvex'):
-            raise UnsupportedInputError("ERROR: Working")
+            raise VrpSolverNotAvailableError("ERROR: Constructing...")
         
         else:
             raise UnsupportedInputError("ERROR: Unsupported option for `method`. Supported 'shape' includes: 'Poly', 'Circle', and 'RandomCurvy'.")
