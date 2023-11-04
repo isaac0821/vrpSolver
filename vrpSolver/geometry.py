@@ -41,18 +41,18 @@ def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt, error: float = CONST_EPSILON) -> 
     else:        
         return False
 
-def isPtOnLine(pt: pt, line: line) -> bool:
+def isPtOnLine(pt: pt, line: line, error: float = CONST_EPSILON) -> bool:
     """Is a pt on the line."""
-    if (is2PtsSame(line[0], line[1])):
+    if (is2PtsSame(line[0], line[1], error = error)):
         raise ZeroVectorError()
-    if (is3PtsClockWise(pt, line[0], line[1]) == None):
+    if (is3PtsClockWise(pt, line[0], line[1], error = error) == None):
         return True
     else:
         return False
 
 def isPtOnSeg(pt: pt, seg: line, interiorOnly: bool=False, error:float = CONST_EPSILON) -> bool:
     """Is a pt on the segment"""
-    onLine = isPtOnLine(pt, seg)
+    onLine = isPtOnLine(pt, seg, error = error)
     if (onLine == False):
         return False
     # Get pts =================================================================
@@ -66,13 +66,13 @@ def isPtOnSeg(pt: pt, seg: line, interiorOnly: bool=False, error:float = CONST_E
         - math.sqrt((x1 - x3) ** 2 + (y1 - y3) ** 2)) <= error)
     # Check if the intertion is in the interior ===============================
     if (interiorOnly):
-        return onSeg and not is2PtsSame(pt, seg[0]) and not is2PtsSame(pt, seg[1])
+        return onSeg and not is2PtsSame(pt, seg[0], error = error) and not is2PtsSame(pt, seg[1], error = error)
     else:
         return onSeg
 
-def isPtOnRay(pt: pt, ray: line, interiorOnly: bool=False) -> bool:
+def isPtOnRay(pt: pt, ray: line, interiorOnly: bool=False, error = CONST_EPSILON) -> bool:
     """Is a pt on the ray, could be at the end."""
-    onLine = isPtOnLine(pt, ray)
+    onLine = isPtOnLine(pt, ray, error = error)
     if (onLine == False):
         return False
     # Get pts =================================================================
@@ -82,11 +82,11 @@ def isPtOnRay(pt: pt, ray: line, interiorOnly: bool=False) -> bool:
     onRay = (
         (abs(math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2) 
             + math.sqrt((x2 - x3) ** 2 + (y2 - y3) ** 2) 
-            - math.sqrt((x1 - x3) ** 2 + (y1 - y3) ** 2)) <= CONST_EPSILON)
+            - math.sqrt((x1 - x3) ** 2 + (y1 - y3) ** 2)) <= error)
         or (math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2) >= math.sqrt((x2 - x3) ** 2 + (y2 - y3) ** 2)))
     # Check if the intertion is in the interior ===============================
     if (interiorOnly):
-        return onRay and not is2PtsSame(pt, ray[0])
+        return onRay and not is2PtsSame(pt, ray[0], error = error)
     else:
         return onRay
 
@@ -787,6 +787,9 @@ def intLine2Poly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None,
     return intSeg2Poly(seg, poly, polyShapely, returnShaplelyObj)
 
 def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
+    # WARNING: Results are not reliable on both ends of the seg.
+    # NOTE: 20231103 暂时用了一个stupid way来处理了
+
     # Sanity check ============================================================
     if (poly == None and polyShapely == None):
         raise MissingParameterError("ERROR: `poly` and `polyShapely` cannot be None at the same time.")
@@ -802,13 +805,44 @@ def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, r
         return intShape
 
     # 若不相交，返回不相交
+    # FIXME: 现在的精度可能有问题，需要计算两者间距离
     if (intShape.is_empty):
-        return {
-            'status': 'NoCross',
-            'intersect': None,
-            'intersectType': None,
-            'interiorFlag': None
-        }
+        dist = shapely.distance(segShapely, polyShapely)
+        if (dist <= CONST_EPSILON):
+            # Case 1: 若两个端点足够近
+            end1Dist = distPt2Poly(seg[0], polyShapely = polyShapely)
+            if (end1Dist <= CONST_EPSILON):
+                return {
+                    'status': 'Cross',
+                    'intersect': seg[0],
+                    'intersectType': 'Point',
+                    'interiorFlag': False
+                }
+            end2Dist = distPt2Poly(seg[1], polyShapely = polyShapely)
+            if (end2Dist <= CONST_EPSILON):
+                return {
+                    'status': 'Cross',
+                    'intersect': seg[1],
+                    'intersectType': 'Point',
+                    'interiorFlag': False
+                }
+            # Case 2: 相切的情形
+            for pt in polys:
+                ptDist = distPt2Seg(pt, seg)
+                if (ptDist <= CONST_EPSILON):
+                    return {
+                        'status': 'Cross',
+                        'intersect': pt,
+                        'intersectType': 'Point',
+                        'interiorFlag': False
+                    }
+        else: 
+            return {
+                'status': 'NoCross',
+                'intersect': None,
+                'intersectType': None,
+                'interiorFlag': None
+            }
     elif (isinstance(intShape, shapely.Point)):
         return {
             'status': 'Cross',
@@ -821,12 +855,21 @@ def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, r
         midPt = (seg[0][0] + (seg[1][0] - seg[0][0]) / 2,
                  seg[0][1] + (seg[1][1] - seg[0][1]) / 2)
         interiorFlag = shapely.contains(polyShapely, shapely.Point(midPt))
-        return {
-            'status': 'Cross',
-            'intersect': seg,
-            'intersectType': 'Segment',
-            'interiorFlag': interiorFlag
-        }
+        # NOTE: 由于精度的问题，实际上是Point的情况可能会返回Segment
+        if (distEuclideanXY(seg[0], seg[1])['dist'] <= CONST_EPSILON):
+            return {
+                'status': 'Cross',
+                'intersect': seg[0],
+                'intersectType': 'Point',
+                'interiorFlag': interiorFlag
+            }
+        else:
+            return {
+                'status': 'Cross',
+                'intersect': seg,
+                'intersectType': 'Segment',
+                'interiorFlag': interiorFlag
+            }
     else:
         intSp = []
         for obj in intShape.geoms:
@@ -842,12 +885,21 @@ def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, r
                 midPt = (seg[0][0] + (seg[1][0] - seg[0][0]) / 2,
                          seg[0][1] + (seg[1][1] - seg[0][1]) / 2)
                 interiorFlag = shapely.contains(polyShapely, shapely.Point(midPt))
-                intSp.append({
-                    'status': 'Cross',
-                    'intersect': seg,
-                    'intersectType': 'Segment',
-                    'interiorFlag': interiorFlag
-                })
+                # NOTE: 由于精度的问题，实际上是Point的情况可能会返回Segment
+                if (distEuclideanXY(seg[0], seg[1])['dist'] <= CONST_EPSILON):
+                    intSp.append({
+                        'status': 'Cross',
+                        'intersect': seg[0],
+                        'intersectType': 'Point',
+                        'interiorFlag': interiorFlag
+                    })
+                else:
+                    intSp.append({
+                        'status': 'Cross',
+                        'intersect': seg,
+                        'intersectType': 'Segment',
+                        'interiorFlag': interiorFlag
+                    })
         return intSp
 
 def intRay2Poly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
@@ -905,6 +957,8 @@ def isLineIntPoly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None
         return False
 
 def isSegIntPoly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, interiorOnly: bool=False) -> bool:
+    # WARNING: results are not reliable if `interiorFlag` == False.
+    
     """Is a segment intersect with a polygon"""
     intSp = intSeg2Poly(seg, poly, polyShapely)
     # 若只输出了一个字典，按字典判断
@@ -1027,10 +1081,10 @@ def distPt2Line(pt: pt, line: line) -> float:
 
 def distPt2Seg(pt: pt, seg: line) -> float:
     foot = ptFoot2Line(pt, seg)
-    if (isPtOnSeg(foot)):
-        return distEuclideanXY(pt, foot)
+    if (isPtOnSeg(foot, seg)):
+        return distEuclideanXY(pt, foot)['dist']
     else:
-        return min(distEuclideanXY(pt, seg[0]), distEuclideanXY(pt, seg[1]))
+        return min(distEuclideanXY(pt, seg[0])['dist'], distEuclideanXY(pt, seg[1])['dist'])
 
 def distPt2Ray(pt: pt, ray: line) -> float:
     foot = ptFoot2Line(pt, ray)
@@ -1057,6 +1111,9 @@ def distPt2Seq(pt: pt, seq: list[pt]) -> float:
                    dist2Seg(pt, [seq[minIndex], seq[minIndex - 1]]))
 
 def distPt2Poly(pt: pt, poly: poly=None, polyShapely: shapely.Polygon=None) -> float:
+    if (poly == None and polyShapely == None):
+        raise MissingParameterError("ERROR: Missing required field `poly` or `polyShapely`")
+
     if (polyShapely == None):
         polyShapely = shapely.Polygon([p for p in poly])
     ptShapely = shapely.Point(pt)
@@ -1561,55 +1618,151 @@ def polysBoundingBox(polys:polys=None, polysShapely:list[shapely.Polygon]=None):
 
     return polysBox
 
-def polysAlongLocSeq(seq, polys:polys=None, polysShapely:list[shapely.Polygon]=None, config: dict = {'intersectFlag': True}):
-    if (polys == None and polysShapely == None):
-        raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
-    if (polysShapely == None):
-        polysShapely = []
-        for p in polys:
-            polysShapely.append(shapely.Polygon(p))
+def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
+    if (polygons == None):
+        raise MissingParameterError("ERROR: Missing required field 'polygons'.")
 
     # polysBox = polysBoundingBox(polys, polysShapely)
 
     # First, for each leg in the seq, find the individual polygons intersect with the leg
-    actions = []
+    actions = {}
+    actionIDOnLeg = 0
     for i in range(len(seq) - 1):
+        # NOTE: 线段与点的相切情形目前没法考虑
         seg = [seq[i], seq[i + 1]]
+
         # NOTE: 准备用segment tree
         # NOTE: For now use the naive way - checking the boundingbox
-        for j in range(len(polysShapely) - 1):
-            if (True): #isSegIntBoundingbox(seg, polysBox[j])):
-                # 根据Seg和poly的相交情况做判断
-                segIntPoly = intSeg2Poly(seg = seg, polyShapely = polysShapely[j])
-                # 如果相交得到多个部分，则分别进行处理
-                if (type(segIntPoly) == list):
-                    for intPart in segIntPoly:
-                        if (intPart['status'] == 'Cross' and intPart['intersectType'] == 'Point'):
-                            print("Wierd")
-                            pass
-                        elif (intPart['status'] == 'Cross' and intPart['intersectType'] == 'Segment'):
-                            pass
-                else:
-                    if (segIntPoly['status'] == 'NoCross'):
-                        # No intersection pass
-                        pass
-                    elif (segIntPoly['status'] == 'Cross' and segIntPoly['intersectType'] == 'Point'):
+        for pID in polygons:
+            # 根据Seg和poly的相交情况做判断
+            segIntPoly = intSeg2Poly(seg = seg, poly = polygons[pID][polyFieldName])
+            # if (type(segIntPoly) == list or segIntPoly['status'] != 'NoCross'):
+                # print(segIntPoly, pID)
+            # 如果相交得到多个部分，则分别进行处理
+            if (type(segIntPoly) == list):
+                for intPart in segIntPoly:
+                    if (intPart['status'] == 'Cross' and intPart['intersectType'] == 'Point'):
                         intPt = segIntPoly['intersect']
-                        actions.append([intPt, 'touch', j])
-                    elif (segIntPoly['status'] == 'Cross' and segIntPoly['intersectType'] == 'Segment'):
+                        actions[actionIDOnLeg] = {
+                            'loc': intPt,
+                            'action': 'touch',
+                            'polyID': pID,
+                            'seg': seg,                            
+                        }
+                        actionIDOnLeg += 1
+                    elif (intPart['status'] == 'Cross' and intPart['intersectType'] == 'Segment'):
                         intPt1 = segIntPoly['intersect'][0]
                         intPt2 = segIntPoly['intersect'][1]
+                        intPt1InnerFlag = False
+                        intPt2InnerFlag = False
+                        if (isPtInPoly(intPt1, polygons[pID][polyFieldName], interiorOnly=True)):
+                            intPt1InnerFlag = True
+                        if (isPtInPoly(intPt2, polygons[pID][polyFieldName], interiorOnly=True)):
+                            intPt2InnerFlag = True
                         if (distEuclideanXY(seq[i], intPt1)['dist'] <
                             distEuclideanXY(seq[i], intPt2)['dist']):
-                            actions.append([intPt1, 'enter', j])
-                            actions.append([intPt2, 'leave', j])
+                            if (not intPt1InnerFlag):
+                                actions[actionIDOnLeg] = {
+                                    'loc': intPt1,
+                                    'action': 'enter',
+                                    'polyID': pID,
+                                    'seg': seg, 
+                                }
+                                actionIDOnLeg += 1
+                            if (not intPt2InnerFlag):
+                                actions[actionIDOnLeg] = {
+                                    'loc': intPt2,
+                                    'action': 'leave',
+                                    'polyID': pID,
+                                    'seg': seg,
+                                }
+                                actionIDOnLeg += 1
                         else:
-                            actions.append([intPt1, 'leave', j])
-                            actions.append([intPt2, 'enter', j])
-    return actions
-    # return {
-    #     'waypoints': waypoints
-    # }
+                            if (not intPt1InnerFlag):
+                                actions[actionIDOnLeg] = {
+                                    'loc': intPt1,
+                                    'action': 'leave',
+                                    'polyID': pID,
+                                    'seg': seg,
+                                }
+                                actionIDOnLeg += 1
+                            if (not intPt2InnerFlag):
+                                actions[actionIDOnLeg] = {
+                                    'loc': intPt2,
+                                    'action': 'enter',
+                                    'polyID': pID,
+                                    'seg': seg,
+                                }
+                                actionIDOnLeg += 1
+            else:
+                if (segIntPoly['status'] == 'NoCross'):
+                    # No intersection pass
+                    pass
+                elif (segIntPoly['status'] == 'Cross' and segIntPoly['intersectType'] == 'Point'):
+                    intPt = segIntPoly['intersect']
+                    actions[actionIDOnLeg] = {
+                        'loc': intPt,
+                        'action': 'touch',
+                        'polyID': pID,
+                        'seg': seg,
+                    }
+                    actionIDOnLeg += 1
+                elif (segIntPoly['status'] == 'Cross' and segIntPoly['intersectType'] == 'Segment'):
+                    intPt1 = segIntPoly['intersect'][0]
+                    intPt2 = segIntPoly['intersect'][1]
+                    intPt1InnerFlag = False
+                    intPt2InnerFlag = False
+                    if (isPtInPoly(intPt1, polygons[pID][polyFieldName], interiorOnly=True)):
+                        intPt1InnerFlag = True
+                    if (isPtInPoly(intPt2, polygons[pID][polyFieldName], interiorOnly=True)):
+                        intPt2InnerFlag = True
+                    if (distEuclideanXY(seq[i], intPt1)['dist'] <
+                        distEuclideanXY(seq[i], intPt2)['dist']):
+                        if (not intPt1InnerFlag):
+                            actions[actionIDOnLeg] = {
+                                'loc': intPt1,
+                                'action': 'enter',
+                                'polyID': pID,
+                                'seg': seg, 
+                            }
+                            actionIDOnLeg += 1
+                        if (not intPt2InnerFlag):
+                            actions[actionIDOnLeg] = {
+                                'loc': intPt2,
+                                'action': 'leave',
+                                'polyID': pID,
+                                'seg': seg,
+                            }
+                            actionIDOnLeg += 1
+                    else:
+                        if (not intPt1InnerFlag):
+                            actions[actionIDOnLeg] = {
+                                'loc': intPt1,
+                                'action': 'leave',
+                                'polyID': pID,
+                                'seg': seg,
+                            }
+                            actionIDOnLeg += 1
+                        if (not intPt2InnerFlag):
+                            actions[actionIDOnLeg] = {
+                                'loc': intPt2,
+                                'action': 'enter',
+                                'polyID': pID,
+                                'seg': seg,
+                            }
+                            actionIDOnLeg += 1
+    sortedIDOnLeg = locSeqSortNodes(seq, actions, allowNotIncludeFlag = False)['sortedNodeIDs']
+
+    sortedActions = [actions[i] for i in sortedIDOnLeg]
+    sortedActions = [sortedActions[i] for i in range(len(sortedActions)) if (
+        i == 0
+        or not is2PtsSame(sortedActions[i - 1]['loc'], sortedActions[i]['loc']))]
+
+    return sortedActions
+
+# NOTE: This function belongs to Gull package
+def getPolyVisitSeq(actions):
+    return seqs
 
 def ptPolyCenter(poly: poly=None, polyShapely: shapely.Polygon=None) -> pt:
     if (poly == None and polyShapely == None):
@@ -1772,15 +1925,15 @@ def traceInTimedSeq(timedSeq: list[tuple[pt, float]], ts: float, te: float) -> l
     return trace
 
 # Loc seq related =============================================================
-def locSeqSortPts(seq: list[pt], pts: list[pt]) -> list:
+def locSeqSortPts(seq: list[pt], pts: list[pt], allowNotIncludeFlag = True) -> list:
     # First, calculate accumulated dist since start for each turning point of locSeq
     acc = [0]
     sofar = 0
     for i in range(len(seq) - 1):
         sofar += distEuclideanXY(seq[i], seq[i + 1])['dist']
         acc.append(sofar)
-
     ptHeap = []
+    notIncludedPts = []
 
     # 看看每个节点落在哪个区间
     for pt in pts:
@@ -1793,13 +1946,52 @@ def locSeqSortPts(seq: list[pt], pts: list[pt]) -> list:
                 heapq.heappush(ptHeap, (acc[i] + addDist, pt))
                 break
         if (not isOnSegFlag):
-            raise UnsupportedInputError("ERROR: %s does not belong to given loc sequence" % str(pt))
+            if (allowNotIncludeFlag):
+                notIncludedPts.append(pt)
+            else:
+                raise UnsupportedInputError("ERROR: %s does not belong to given loc sequence" % str(pt))
 
     sortedPts = []
     while (len(ptHeap) > 0):
-        sortedPts.append(heapq.heappop(ptHeap))
+        sortedPts.append(heapq.heappop(ptHeap)[1])
 
-    return sortedPts
+    return {
+        'sortedPts': sortedPts,
+        'notIncludedPts': notIncludedPts
+    }
+
+def locSeqSortNodes(seq: list[pt], nodes: dict, locFieldName: str = 'loc', allowNotIncludeFlag: bool = True) -> list: 
+    acc = [0]
+    sofar = 0
+    for i in range(len(seq) - 1):
+        sofar += distEuclideanXY(seq[i], seq[i + 1])['dist']
+        acc.append(sofar)
+    ptHeap = []
+    notIncludedNodeIDs = []
+
+    for nodeID in nodes:
+        isOnSegFlag = False
+        for i in range(len(seq) - 1):
+            if (isPtOnSeg(nodes[nodeID][locFieldName], [seq[i], seq[i + 1]])):
+                isOnSegFlag = True
+                addDist = distEuclideanXY(seq[i], nodes[nodeID][locFieldName])['dist']
+                print(acc[i] + addDist, nodeID)
+                heapq.heappush(ptHeap, (acc[i] + addDist, nodeID))
+                break
+        if (not isOnSegFlag):
+            if (allowNotIncludeFlag):
+                notIncludedNodeIDs.append(nodeID)
+            else:
+                raise UnsupportedInputError("ERROR: %s does not belong to given loc sequence" % str(nodeID))
+    
+    sortedNodeIDs = []
+    while (len(ptHeap) > 0):
+        sortedNodeIDs.append(heapq.heappop(ptHeap)[1])
+
+    return {
+        'sortedNodeIDs': sortedNodeIDs,
+        'notIncludedNodeIDs': notIncludedNodeIDs
+    }
 
 def locSeqMileage(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
     """Given a list of lat/lon coordinates, and a traveling mileage, returns the coordinate"""
@@ -1837,7 +2029,13 @@ def locSeqMileage(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
 def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
     removedFlag = []
     for i in range(1, len(seq) - 1):
-        if (isPtOnSeg(seq[i], [seq[i - 1], seq[i + 1]])):
+        # NOTE: The following codes are too strict for error
+        # if (isPtOnSeg(seq[i], [seq[i - 1], seq[i + 1]], error=error)):
+        #     removedFlag.append(True)
+        # else:
+        #     removedFlag.append(False)
+        dev = distPt2Seg(seq[i], [seq[i - 1], seq[i + 1]])
+        if (dev <= error):
             removedFlag.append(True)
         else:
             removedFlag.append(False)
@@ -1848,7 +2046,10 @@ def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
             newSeq.append(seq[i])
     if (len(seq) > 1):
         newSeq.append(seq[-1])
-    return newSeq
+    return {
+        'newSeq': newSeq,
+        'removedFlag': removedFlag
+    }
 
 # Area calculation ============================================================
 def calTriangleAreaEdge(a: float, b: float, c: float) -> float:
