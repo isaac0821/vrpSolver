@@ -1628,7 +1628,6 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
     actions = {}
     actionIDOnLeg = 0
     for i in range(len(seq) - 1):
-        # NOTE: 线段与点的相切情形目前没法考虑
         seg = [seq[i], seq[i + 1]]
 
         # NOTE: 准备用segment tree
@@ -1647,7 +1646,8 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                             'loc': intPt,
                             'action': 'touch',
                             'polyID': pID,
-                            'seg': seg,                            
+                            # 'seg': seg,
+                            # 'actionID': actionIDOnLeg                            
                         }
                         actionIDOnLeg += 1
                     elif (intPart['status'] == 'Cross' and intPart['intersectType'] == 'Segment'):
@@ -1666,7 +1666,8 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                                     'loc': intPt1,
                                     'action': 'enter',
                                     'polyID': pID,
-                                    'seg': seg, 
+                                    # 'seg': seg,
+                                    # 'actionID': actionIDOnLeg 
                                 }
                                 actionIDOnLeg += 1
                             if (not intPt2InnerFlag):
@@ -1674,7 +1675,8 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                                     'loc': intPt2,
                                     'action': 'leave',
                                     'polyID': pID,
-                                    'seg': seg,
+                                    # 'seg': seg,
+                                    # 'actionID': actionIDOnLeg
                                 }
                                 actionIDOnLeg += 1
                         else:
@@ -1683,7 +1685,8 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                                     'loc': intPt1,
                                     'action': 'leave',
                                     'polyID': pID,
-                                    'seg': seg,
+                                    # 'seg': seg,
+                                    # 'actionID': actionIDOnLeg
                                 }
                                 actionIDOnLeg += 1
                             if (not intPt2InnerFlag):
@@ -1691,7 +1694,8 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                                     'loc': intPt2,
                                     'action': 'enter',
                                     'polyID': pID,
-                                    'seg': seg,
+                                    # 'seg': seg,
+                                    # 'actionID': actionIDOnLeg
                                 }
                                 actionIDOnLeg += 1
             else:
@@ -1704,7 +1708,8 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                         'loc': intPt,
                         'action': 'touch',
                         'polyID': pID,
-                        'seg': seg,
+                        # 'seg': seg,
+                        # 'actionID': actionIDOnLeg
                     }
                     actionIDOnLeg += 1
                 elif (segIntPoly['status'] == 'Cross' and segIntPoly['intersectType'] == 'Segment'):
@@ -1723,7 +1728,8 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                                 'loc': intPt1,
                                 'action': 'enter',
                                 'polyID': pID,
-                                'seg': seg, 
+                                # 'seg': seg,
+                                # 'actionID': actionIDOnLeg 
                             }
                             actionIDOnLeg += 1
                         if (not intPt2InnerFlag):
@@ -1731,7 +1737,8 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                                 'loc': intPt2,
                                 'action': 'leave',
                                 'polyID': pID,
-                                'seg': seg,
+                                # 'seg': seg,
+                                # 'actionID': actionIDOnLeg
                             }
                             actionIDOnLeg += 1
                     else:
@@ -1740,7 +1747,8 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                                 'loc': intPt1,
                                 'action': 'leave',
                                 'polyID': pID,
-                                'seg': seg,
+                                # 'seg': seg,
+                                # 'actionID': actionIDOnLeg
                             }
                             actionIDOnLeg += 1
                         if (not intPt2InnerFlag):
@@ -1748,7 +1756,8 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                                 'loc': intPt2,
                                 'action': 'enter',
                                 'polyID': pID,
-                                'seg': seg,
+                                # 'seg': seg,
+                                # 'actionID': actionIDOnLeg
                             }
                             actionIDOnLeg += 1
     sortedIDOnLeg = locSeqSortNodes(seq, actions, allowNotIncludeFlag = False)['sortedNodeIDs']
@@ -1759,10 +1768,6 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
         or not is2PtsSame(sortedActions[i - 1]['loc'], sortedActions[i]['loc']))]
 
     return sortedActions
-
-# NOTE: This function belongs to Gull package
-def getPolyVisitSeq(actions):
-    return seqs
 
 def ptPolyCenter(poly: poly=None, polyShapely: shapely.Polygon=None) -> pt:
     if (poly == None and polyShapely == None):

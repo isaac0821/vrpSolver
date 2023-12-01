@@ -27,8 +27,8 @@ def saveDictionary(obj, name: str) -> None:
 def loadDictionary(name: str) -> None:
     with open(name + '.pkl', 'rb') as f:
         return pickle.load(f)
-
-def rndPick(coefficients: list[int | float]) -> int:
+ 
+def rndPick(coefficients: list[int|float]) -> int:
     totalSum = sum(coefficients)
     tmpSum = 0
     rnd = random.uniform(0, totalSum)
@@ -54,7 +54,7 @@ def list2Tuple(l):
     sortedList.sort()
     tp = tuple(sortedList)
     return tp
-    
+
 def hyphenStr(s, length=75, sym='-'):
     lenMidS = len(s)
     if (s == ""):
@@ -81,3 +81,19 @@ def splitList(inputList, binNum):
             bins[i].append(inputList[k])
         acc += sizePerBin[i]
     return bins
+
+def splitIntoSubSeq(inputList, selectFlag):
+    if (len(inputList) != len(selectFlag)):
+        raise UnsupportedInputError("ERROR: The length of `inputList` should be the same as the length of `selectFlag`")
+    splitSub = []
+    sub = []
+    for i in range(len(selectFlag)):
+        if (selectFlag[i] == True):
+            sub.append(inputList[i])
+        elif (selectFlag[i] == False):
+            if (len(sub) > 0):
+                splitSub.append([k for k in sub])
+                sub = []
+    if (len(sub) > 0):
+        splitSub.append([k for k in sub])
+    return splitSub
