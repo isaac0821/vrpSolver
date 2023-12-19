@@ -1,7 +1,6 @@
 __version__ = "0.0.56"
 __author__ = "Lan Peng"
 
-'''
 # History =====================================================================
 # v0.0.1  - 04202021 - Initial upload
 # v0.0.2  - 04282021 - Add `plotGantt()` function to plot Gantt chart
@@ -76,14 +75,13 @@ __author__ = "Lan Peng"
 #                    - Rolling horizon for Dynamic TSP
 # =============================================================================
 
-
 # A few SE tips/notes =========================================================
 # 1. Avoid nested if/for for more than three levels
 # 2. A function should not be more than one page in length
 # 3. Variables start with lower-case, classes names start with upper-case
 # 4. NEVER use variable start with `my-` or `tmp-`, that is lame
 # =============================================================================
-'''
+
 
 # Constants, messages, and basic modules
 from .const import *

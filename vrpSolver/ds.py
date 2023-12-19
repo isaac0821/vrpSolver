@@ -434,7 +434,7 @@ class Route(Ring):
                 if (canImpvFlag):
                     break
 
-                # 3. Recover to intial status
+                # 3. Recover to initial status
                 nJXNext = nINext.next
                 self.swapNext(nJXNext)
                 self.reverse()
