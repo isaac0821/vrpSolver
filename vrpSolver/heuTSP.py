@@ -398,7 +398,7 @@ def _consTSPSweep(nodes, depotID, nodeIDs, locFieldName):
     sweep = nodeSeqBySweeping(
         nodes = nodes, 
         nodeIDs = nodeIDs,
-        centerLoc = nodes[depotID][locFieldName])
+        refLoc = nodes[depotID][locFieldName])
     return sweep
 
 def _consTSPRandom(depotID, nodeIDs):

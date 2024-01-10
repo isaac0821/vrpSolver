@@ -287,6 +287,8 @@ def plotNodes(
 def plotArcs(
     arcs: dict,
     arcFieldName = 'arc',
+    arcStartLocFieldName = 'startLoc',
+    arcEndLocFieldName = 'endLoc',
     arcColor: str = 'Random',
     arcWidth: float = 1.0,
     arrowFlag: bool = True,
@@ -402,27 +404,54 @@ def plotArcs(
     # Draw arcs ===============================================================
     for i in arcs:
         x1, y1, x2, y2 = 0, 0, 0, 0
-        if (not xyReverseFlag):
-            x1 = arcs[i][arcFieldName][0][0]
-            x2 = arcs[i][arcFieldName][1][0]
-            y1 = arcs[i][arcFieldName][0][1]
-            y2 = arcs[i][arcFieldName][1][1]
+        if (arcFieldName in arcs[i]):        
+            if (not xyReverseFlag):
+                x1 = arcs[i][arcFieldName][0][0]
+                x2 = arcs[i][arcFieldName][1][0]
+                y1 = arcs[i][arcFieldName][0][1]
+                y2 = arcs[i][arcFieldName][1][1]
+            else:
+                x1 = arcs[i][arcFieldName][0][1]
+                x2 = arcs[i][arcFieldName][1][1]
+                y1 = arcs[i][arcFieldName][0][0]
+                y2 = arcs[i][arcFieldName][1][0]
+        elif (arcStartLocFieldName in arcs[i] and arcEndLocFieldName in arcs[i]):
+            if (not xyReverseFlag):
+                x1 = arcs[i][arcStartLocFieldName][0]
+                y1 = arcs[i][arcStartLocFieldName][1]
+                x2 = arcs[i][arcEndLocFieldName][0]
+                y2 = arcs[i][arcEndLocFieldName][1]
+            else:
+                x1 = arcs[i][arcStartLocFieldName][1]
+                y1 = arcs[i][arcStartLocFieldName][0]
+                x2 = arcs[i][arcEndLocFieldName][1]
+                y2 = arcs[i][arcEndLocFieldName][0]
         else:
-            x1 = arcs[i][arcFieldName][0][1]
-            x2 = arcs[i][arcFieldName][1][1]
-            y1 = arcs[i][arcFieldName][0][0]
-            y2 = arcs[i][arcFieldName][1][0]
+            raise MissingParameterError("ERROR: Cannot find corresponded `arcFieldName` or (`arcStartLocFieldName` and `arcEndLocFieldName`) in given `arcs` structure.")
         dx = x2 - x1
         dy = y2 - y1
         if (arcColor == 'Random'):
             rndColor = colorRandom()
-            ax.plot([x1, x2], [y1, y2], color = rndColor)
+            ax.plot([x1, x2], [y1, y2], color = rndColor, linewidth=arcWidth)
             if (arrowFlag):
-                ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=rndColor)
+                deg = headingXY([x1, y1], [x2, y2])
+                ptC = [x1 + (x2 - x1) / 2, y1 + (y2 - y1) / 2]
+                ptM = ptInDistXY(ptC, direction = deg + 180, dist = arrowHeadLength / 2)
+                ptH = ptInDistXY(ptC, direction = deg, dist = arrowHeadLength / 2)
+                pt1 = ptInDistXY(ptM, direction = deg + 90, dist = arrowHeadWidth / 2)
+                pt2 = ptInDistXY(ptM, direction = deg - 90, dist = arrowHeadWidth / 2)
+                ax.fill([ptH[0], pt1[0], pt2[0]], [ptH[1], pt1[1], pt2[1]], facecolor=rndColor, edgecolor=rndColor, linewidth=0)
+                # ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=rndColor)
         else:
-            ax.plot([x1, x2], [y1, y2], color = arcColor)
+            ax.plot([x1, x2], [y1, y2], color = arcColor, linewidth=arcWidth)
             if (arrowFlag):
-                ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=arcColor)
+                deg = headingXY([x1, y1], [x2, y2])
+                ptC = [x1 + (x2 - x1) / 2, y1 + (y2 - y1) / 2]
+                ptM = ptInDistXY(ptC, direction = deg + 180, dist = arrowHeadLength / 2)
+                ptH = ptInDistXY(ptC, direction = deg, dist = arrowHeadLength / 2)
+                pt1 = ptInDistXY(ptM, direction = deg + 90, dist = arrowHeadWidth / 2)
+                pt2 = ptInDistXY(ptM, direction = deg - 90, dist = arrowHeadWidth / 2)
+                ax.fill([ptH[0], pt1[0], pt2[0]], [ptH[1], pt1[1], pt2[1]], facecolor=arcColor, edgecolor=arcColor, linewidth=0)
 
         ax.plot(x1, y1, color = startColor, marker = 'o', markersize = bothEndSize)
         ax.plot(x2, y2, color = endColor, marker = 'o', markersize = bothEndSize)

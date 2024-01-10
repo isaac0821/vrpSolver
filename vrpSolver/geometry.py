@@ -1328,7 +1328,7 @@ def _ptsVisible(v:int|str|tuple, polys:polys, standalonePts:dict|None=None, know
     sweepSeq = nodeSeqBySweeping(
         nodes = vertices,
         nodeIDs = polyVertices,
-        centerLoc = vertices[v]['loc'],
+        refLoc = vertices[v]['loc'],
         initDeg = 90)
 
     # 用一个红黑树来维护射线通过的边，边的键值用(closer-index, further-index)，这样排序的时候无论如何都能保持距离关系
@@ -2154,7 +2154,7 @@ def ptInDistLatLon(pt: pt, direction: int|float, distMeters: int|float):
     return newLoc
 
 # Sort nodes ==================================================================
-def nodeSeqByDist(nodes: dict, refLoc: pt, nodeIDs: list|str = 'All') -> list:
+def nodeSeqByDist(nodes: dict, nodeIDs: list|str = 'All', locFieldName = 'loc', edges: dict = {'method': 'Euclidean'}, refLoc: pt|None = None, refNodeID: int|str|None = None) -> list:
     # Define nodeIDs
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
@@ -2162,18 +2162,27 @@ def nodeSeqByDist(nodes: dict, refLoc: pt, nodeIDs: list|str = 'All') -> list:
             for i in nodes:
                 nodeIDs.append(i)
 
+    # Define refLoc
+    if (refLoc == None):
+        if (refNodeID == None):
+            raise MissingParameterError("ERROR: Missing reference location")
+        elif (refNodeID not in nodeIDs):
+            raise OutOfRangeError("ERROR: `refNodeID` cannot be found.")
+        else:
+            refLoc = nodes[refNodeID][locFieldName]
+
     # Sort distance
     sortedSeq = []
     sortedSeqHeap = []
     for n in nodeIDs:
-        dist = distEuclideanXY(refLoc, nodes[n]['loc'])['dist']
+        dist = scaleDist(loc1 = refLoc, loc2 = nodes[n][locFieldName], edges = edges)['dist']
         heapq.heappush(sortedSeqHeap, (dist, n))
     while (len(sortedSeqHeap) > 0):
         sortedSeq.append(heapq.heappop(sortedSeqHeap)[1])  
 
     return sortedSeq
 
-def nodeSeqBySweeping(nodes: dict, nodeIDs: list|str = 'All', centerLoc: None|pt = None, isClockwise: bool = True, initDeg: float = 0) -> list:
+def nodeSeqBySweeping(nodes: dict, nodeIDs: list|str = 'All', locFieldName = 'loc', refLoc: None|pt = None, refNodeID: int|str|None = None, isClockwise: bool = True, initDeg: float = 0) -> list:
     """Given a set of locations, and a center point, gets the sequence from sweeping"""
     # Define nodeIDs
     if (type(nodeIDs) is not list):
@@ -2183,25 +2192,25 @@ def nodeSeqBySweeping(nodes: dict, nodeIDs: list|str = 'All', centerLoc: None|pt
                 nodeIDs.append(i)
 
     # Initialize centroid
-    if (centerLoc == None):
+    if (refLoc == None):
         lstNodeLoc = []
         for n in nodeIDs:
-            lstNodeLoc.append(shapely.Point(nodes[n]['loc'][0], nodes[n]['loc'][1]))
-        centerLoc = list(shapely.centroid(shapely.MultiPoint(points = lstNodeLoc)))
+            lstNodeLoc.append(shapely.Point(nodes[n][locFieldName][0], nodes[n][locFieldName][1]))
+        refLoc = list(shapely.centroid(shapely.MultiPoint(points = lstNodeLoc)))
 
     # Initialize heap
     degHeap = []
-    centerLocNodes = []
+    refLocNodes = []
     
     # Build heap
     for n in nodeIDs:
-        dist = distEuclideanXY(nodes[n]['loc'], centerLoc)['dist']
+        dist = distEuclideanXY(nodes[n][locFieldName], refLoc)['dist']
         # If the nodes are too close, separate it/them
         if (dist <= CONST_EPSILON):
-            centerLocNodes.append(n)
+            refLocNodes.append(n)
         else:
-            dx = nodes[n]['loc'][0] - centerLoc[0]
-            dy = nodes[n]['loc'][1] - centerLoc[1]
+            dx = nodes[n][locFieldName][0] - refLoc[0]
+            dy = nodes[n][locFieldName][1] - refLoc[1]
             (_, deg) = vecXY2Polar((dx, dy))
             # Calculate angles
             evalDeg = None
@@ -2219,9 +2228,47 @@ def nodeSeqBySweeping(nodes: dict, nodeIDs: list|str = 'All', centerLoc: None|pt
     sweepSeq = []
     while (len(degHeap)):
         sweepSeq.append(heapq.heappop(degHeap)[2])
-    sweepSeq.extend(centerLocNodes)
+    sweepSeq.extend(refLocNodes)
 
     return sweepSeq
+
+def nodesInIsochrone(nodes: dict, nodeIDs: list|str = 'All', locFieldName = 'loc', edges: dict = {'method': 'Euclidean'}, refLoc: pt|None = None, refNodeID: int|str|None = None, isoRange: float = None, sortFlag: bool = False) -> list: 
+    # FIXME: Need an algorithm to filter out locations that are clearly too far from refLoc
+    # Define nodeIDs
+    if (type(nodeIDs) is not list):
+        if (nodeIDs == 'All'):
+            nodeIDs = []
+            for i in nodes:
+                nodeIDs.append(i)
+
+    # Define refLoc
+    if (refLoc == None):
+        if (refNodeID == None):
+            raise MissingParameterError("ERROR: Missing reference location")
+        elif (refNodeID not in nodeIDs):
+            raise OutOfRangeError("ERROR: `refNodeID` cannot be found.")
+        else:
+            refLoc = nodes[refNodeID][locFieldName]
+
+    # Sort distance
+    if (isoRange == None):
+        raise MissingParameterError("ERROR: Missing required field `isoRange`.")
+    nearSet = []
+    if (sortFlag):        
+        nearSetHeap = []
+        for n in nodeIDs:
+            dist = scaleDist(loc1 = refLoc, loc2 = nodes[n][locFieldName], edges = edges)['dist']
+            if (dist <= isoRange):
+                heapq.heappush(nearSetHeap, (dist, n))
+        while (len(nearSetHeap) > 0):
+            nearSet.append(heapq.heappop(nearSetHeap)[1])  
+    else:
+        for n in nodeIDs:
+            dist = scaleDist(loc1 = refLoc, loc2 = nodes[n][locFieldName], edges = edges)['dist']
+            if (dist <= isoRange):
+                nearSet.append(n)
+
+    return nearSet
 
 # Create distance matrix ======================================================
 def matrixDist(nodes: dict, edges: dict = {'method': 'Euclidean'}, depotID: int|str = 0, nodeIDs: list|str = 'All', locFieldName: str = 'loc') -> dict:
@@ -2387,7 +2434,7 @@ def _matrixDistBtwPolysXY(nodes: dict, nodeIDs: list, polys: polys, polyVG = Non
                 pathLoc[j, i] = []
     return tau, pathLoc
 
-def scaleDist(loc: pt, nodes: dict, edges: dict = {'method': 'Euclidean'}, nodeIDs: list|str = 'All', locFieldName: str = 'loc') -> dict:
+def vectorDist(loc: pt, nodes: dict, edges: dict = {'method': 'Euclidean'}, nodeIDs: list|str = 'All', locFieldName: str = 'loc') -> dict:
     # Define tau
     tau = {}
     revTau = {}
@@ -2404,7 +2451,7 @@ def scaleDist(loc: pt, nodes: dict, edges: dict = {'method': 'Euclidean'}, nodeI
 
     if (edges['method'] == 'Euclidean'):
         ratio = 1 if 'ratio' not in edges else edges['ratio']
-        tau, revTau, pathLoc, revPath = _scaleDistEuclideanXY(
+        tau, revTau, pathLoc, revPath = _vectorDistEuclideanXY(
             loc = loc,
             nodes = nodes, 
             nodeIDs = nodeIDs, 
@@ -2413,13 +2460,13 @@ def scaleDist(loc: pt, nodes: dict, edges: dict = {'method': 'Euclidean'}, nodeI
     elif (edges['method'] == 'EuclideanBarrier'):
         if ('polys' not in edges or edges['polys'] == None):
             warnings.warning("WARNING: No barrier provided.")
-            tau, revTau, pathLoc, revPath = _scaleDistEuclideanXY(
+            tau, revTau, pathLoc, revPath = _vectorDistEuclideanXY(
                 loc = loc,
                 nodes = nodes, 
                 nodeIDs = nodeIDs, 
                 locFieldName = locFieldName)
         else:
-            tau, revTau, pathLoc, revPath = _scaleDistBtwPolysXY(
+            tau, revTau, pathLoc, revPath = _vectorDistBtwPolysXY(
                 loc = loc,
                 nodes = nodes, 
                 nodeIDs = nodeIDs, 
@@ -2427,7 +2474,7 @@ def scaleDist(loc: pt, nodes: dict, edges: dict = {'method': 'Euclidean'}, nodeI
                 locFieldName = locFieldName)
     elif (edges['method'] == 'LatLon'):
         ratio = 1 if 'ratio' not in edges else edges['ratio']
-        tau, revTau, pathLoc, revPath = _scaleDistLatLon(
+        tau, revTau, pathLoc, revPath = _vectorDistLatLon(
             loc = loc,
             nodes = nodes, 
             nodeIDs = nodeIDs, 
@@ -2435,24 +2482,18 @@ def scaleDist(loc: pt, nodes: dict, edges: dict = {'method': 'Euclidean'}, nodeI
             locFieldName = locFieldName)
     elif (edges['method'] == 'Manhatten'):
         ratio = 1 if 'ratio' not in edges else edges['ratio']
-        tau, revTau, pathLoc, revPath = _scaleDistManhattenXY(
+        tau, revTau, pathLoc, revPath = _vectorDistManhattenXY(
             loc = loc,
             nodes = nodes, 
             nodeIDs = nodeIDs, 
             ratio = ratio, 
             locFieldName = locFieldName)
-    elif (edges['method'] == 'Dictionary'):
-        if ('dictionary' not in edges or edges['dictionary'] == None):
-            raise MissingParameterError("'dictionary' is not specified")
-        for p in edges['dictionary']:
-            ratio = 1 if 'ratio' not in edges else edges['ratio']
-            tau[p] = edges['dictionary'][p] * ratio
     elif (edges['method'] == 'Grid'):
         if ('grid' not in edges or edges['grid'] == None):
             raise MissingParameterError("'grid' is not specified")
         if ('column' not in edges['grid'] or 'row' not in edges['grid']):
             raise MissingParameterError("'column' and 'row' need to be specified in 'grid'")
-        tau, revTau, pathLoc, revPath = _scaleDistGrid(
+        tau, revTau, pathLoc, revPath = _vectorDistGrid(
             loc = loc,
             nodes = nodes, 
             nodeIDs = nodeIDs, 
@@ -2463,7 +2504,7 @@ def scaleDist(loc: pt, nodes: dict, edges: dict = {'method': 'Euclidean'}, nodeI
 
     return tau, revTau, pathLoc, revPathLoc
 
-def _scaleDistEuclideanXY(loc: pt, nodes: dict, nodeIDs: list, speed = 1, locFieldName = 'loc'):
+def _vectorDistEuclideanXY(loc: pt, nodes: dict, nodeIDs: list, speed = 1, locFieldName = 'loc'):
     tau = {}
     revTau = {}
     pathLoc = {}
@@ -2476,7 +2517,7 @@ def _scaleDistEuclideanXY(loc: pt, nodes: dict, nodeIDs: list, speed = 1, locFie
         revPathLoc[i] = [nodes[i][locFieldName], loc]
     return tau, revTau, pathLoc, revPathLoc
 
-def _scaleDistManhattenXY(loc: pt, nodes: dict, nodeIDs: list, speed = 1, locFieldName = 'loc'):
+def _vectorDistManhattenXY(loc: pt, nodes: dict, nodeIDs: list, speed = 1, locFieldName = 'loc'):
     tau = {}
     revTau = {}
     pathLoc = {}
@@ -2489,7 +2530,7 @@ def _scaleDistManhattenXY(loc: pt, nodes: dict, nodeIDs: list, speed = 1, locFie
         revPathLoc[i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
     return tau, revTau, pathLoc, revPathLoc
 
-def _scaleDistLatLon(loc: pt, nodes: dict, nodeIDs: list, distUnit = 'meter', speed = 1, locFieldName = 'loc'):
+def _vectorDistLatLon(loc: pt, nodes: dict, nodeIDs: list, distUnit = 'meter', speed = 1, locFieldName = 'loc'):
     tau = {}
     revTau = {}
     pathLoc = {}
@@ -2502,7 +2543,7 @@ def _scaleDistLatLon(loc: pt, nodes: dict, nodeIDs: list, distUnit = 'meter', sp
         revPathLoc[i] = [nodes[i][locFieldName], loc]
     return tau, revTau, pathLoc, revPathLoc
 
-def _scaleDistGrid(loc: pt, nodes: dict, nodeIDs: list, grid: dict, locFieldName = 'loc'):
+def _vectorDistGrid(loc: pt, nodes: dict, nodeIDs: list, grid: dict, locFieldName = 'loc'):
     tau = {}
     revTau = {}
     pathLoc = {}
@@ -2515,7 +2556,7 @@ def _scaleDistGrid(loc: pt, nodes: dict, nodeIDs: list, grid: dict, locFieldName
         revPathLoc[i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
     return tau, revTau, pathLoc, revPathLoc
 
-def _scaleDistBtwPolysXY(loc: pt, nodes: dict, nodeIDs: list, polys: polys, polyVG = None, locFieldName = 'loc'):
+def _vectorDistBtwPolysXY(loc: pt, nodes: dict, nodeIDs: list, polys: polys, polyVG = None, locFieldName = 'loc'):
     tau = {}
     revTau = {}
     pathLoc = {}
@@ -2531,6 +2572,67 @@ def _scaleDistBtwPolysXY(loc: pt, nodes: dict, nodeIDs: list, polys: polys, poly
         pathLoc[i] = d['path']
         revPathLoc[i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
     return tau, revTau, pathLoc, revPathLoc
+
+def scaleDist(loc1: pt, loc2: pt, edges: dict = {'method': 'Euclidean'}) -> dict:
+    # Define tau
+    dist = None
+    revDist = None
+    pathLoc = []
+    revPathLoc = []
+
+    if (type(edges) != dict or 'method' not in edges):
+        raise MissingParameterError(ERROR_MISSING_EDGES)
+
+    if (edges['method'] == 'Euclidean'):
+        ratio = 1 if 'ratio' not in edges else edges['ratio']
+        dist = distEuclideanXY(pt1, pt2)['dist']
+        revDist = dist
+        pathLoc = [loc1, loc2]
+        revPathLoc = [loc2, loc1]
+    elif (edges['method'] == 'EuclideanBarrier'):
+        if ('polys' not in edges or edges['polys'] == None):
+            warnings.warning("WARNING: No barrier provided.")
+            dist = distEuclideanXY(pt1, pt2)['dist']
+            revDist = dist
+            pathLoc = [loc1, loc2]
+            revPathLoc = [loc2, loc1]
+        else:
+            res = distBtwPolysXY(pt1, pt2, edges['polys'])
+            dist = res['dist']
+            revDist = dist
+            pathLoc = [i for i in res['path']]
+            revPathLoc = [pathLoc[len(pathLoc) - i - 1] for i in range(len(pathLoc))]
+    elif (edges['method'] == 'LatLon'):
+        ratio = 1 if 'ratio' not in edges else edges['ratio']
+        dist = distLatLon(pt1, pt2)['dist']
+        revDist = dist
+        pathLoc = [loc1, loc2]
+        revPathLoc = [loc2, loc1]
+    elif (edges['method'] == 'Manhatten'):
+        ratio = 1 if 'ratio' not in edges else edges['ratio']
+        dist = distManhattenXY(pt1, pt2)['dist']
+        revDist = dist
+        pathLoc = [loc1, (pt1[0], pt2[1]), loc2]
+        revPathLoc = [loc2, (pt1[0], pt2[1]), loc1]
+    elif (edges['method'] == 'Grid'):
+        if ('grid' not in edges or edges['grid'] == None):
+            raise MissingParameterError("'grid' is not specified")
+        if ('column' not in edges['grid'] or 'row' not in edges['grid']):
+            raise MissingParameterError("'column' and 'row' need to be specified in 'grid'")
+        res = distOnGrid(pt1, pt2, edges['grid'])
+        dist = res['dist']
+        revDist = dist
+        pathLoc = [i for i in res['path']]
+        revPathLoc = [pathLoc[len(pathLoc) - i - 1] for i in range(len(pathLoc))]
+    else:
+        raise UnsupportedInputError(ERROR_MISSING_EDGES)        
+
+    return {
+        'dist': dist,
+        'revDist': revDist,
+        'pathLoc': pathLoc,
+        'revPathLoc': revPathLoc
+    }
 
 # Distance calculation ========================================================
 def distEuclideanXY(pt1: pt, pt2: pt) -> dict:

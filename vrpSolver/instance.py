@@ -18,6 +18,202 @@ from .error import *
 # 20231022 - Rename to `rndNodes()` and `rndNodeXXXs()`
 # =============================================================================
 
+def rndLocs(
+    N: int|None = None,
+    method: dict = {
+            'distr': 'UniformSquareXY', 
+            'xRange': (0, 100), 
+            'yRange': (0, 100)
+        }
+    ) -> list:
+
+    """Randomly create a list of N locations
+
+    Parameters
+    ----------
+
+    N: integer, optional, default None
+        Number of locations/vertices/customers to be randomly created
+    method: dictionary, optional, default {'distr': 'UniformSquareXY', 'xRange': (0, 100), 'yRange': (0, 100)}
+        Spatial distribution of nodes, options are as following:
+            1) (default) Uniformly sample from a square on the Euclidean space
+            >>> method = {
+            ...     'distr': 'UniformSquareXY', 
+            ...     'xRange': (0, 100), # A 2-tuple with minimum/maximum range of x, default as (0, 100), 
+            ...     'yRange': (0, 100), # A 2-tuple with minimum/maximum range of y, default as (0, 100), 
+            ... }
+            2) Uniformly sample from a given polygon on the Euclidean space
+            >>> method = {
+            ...     'distr': 'UniformPolyXY', 
+            ...     'polyXY': poly, # polygon of the area, (no holes)
+            ...     'polyXYs': polys, # alternative option for 'polyXY', as a list of polygons 
+            ... }
+            3) Uniformly sample from a circle on the Euclidean space
+            >>> method = {
+            ...     'distr': 'UniformCircleXY',
+            ...     'centerXY': (0, 0), # centering location, default as (0, 0), 
+            ...     'radius': 100, # radius of the circle , default as 100
+            ... }
+            4) Uniformly sample from a given polygon by lat/lon
+            >>> method = {
+            ...     'distr': 'UniformPolyLatLon', 
+            ...     'polyLatLon': polygon of the area, (no holes)
+            ...     'polyLatLons': alternative option for 'polyLatLon', as a list of polygons 
+            ... }
+            5) Uniformly sample from a given circle by lat/lon,
+            >>> method = {
+            ...     'distr': 'UniformCircleLatLon', 
+            ...     'centerLatLon': required, centering location in lat/lon, 
+            ...     'radiusInMeters': radius of the circle in meters 
+            ... }
+            6) Uniformly generate from a given polygon on a road network
+            >>> method = {
+            ...     'distr': 'RoadNetworkPolyLatLon'
+            ...     'RoadNetwork': list of arcs that can be sampled 
+            ...     'polyLatLon': nodes should generated within the polygon, if not provided, will consider the entire network, 
+            ...     'roadClass': list of classes that can be sampled 
+            ... }
+            7) Uniformly generate from a given circle on a road network
+            >>> method = {
+            ...     'distr': 'RoadNetworkCircleLatLon', 
+            ...     'RoadNetwork': list of arcs that can be sampled 
+            ...     'centerLatLon': [lat, lon], 
+            ...     'radiusInMeters': radius in [m] 
+            ...     'roadClass': list of classes that can be sampled
+            ... }
+
+    Returns
+    -------
+    list
+        A list of randomly created locations
+
+    Raises
+    ------
+    MissingParameterError
+        Missing `method` field or values in `method`.
+    UnsupportedInputError
+        Option is not supported for `method['distr']`
+    NotAvailableError
+        Functions/options that are not ready yet.
+    EmptyError
+        The sample area is empty.
+    """
+
+    # Sanity checks ===========================================================
+    if (method == None or 'distr' not in method):
+        raise MissingParameterError(ERROR_MISSING_NODES_DISTR)
+
+    nodeLocs = []
+
+    # Uniformly sample from a square on the Euclidean space
+    if (method['distr'] == 'UniformSquareXY'):
+        xRange = None
+        yRange = None
+        if ('xRange' not in method or 'yRange' not in method):
+            xRange = [0, 100]
+            yRange = [0, 100]
+            warnings.warn("WARNING: Set sampled area to be default as a (0, 100) x (0, 100) square")
+        else:
+            xRange = [float(method['xRange'][0]), float(method['xRange'][1])]
+            yRange = [float(method['yRange'][0]), float(method['yRange'][1])]
+        for n in range(N):
+            nodeLocs.append(_rndPtUniformSquareXY(xRange, yRange))
+
+    # Uniformly sample from a polygon/a list of polygons on the Euclidean space
+    elif (method['distr'] == 'UniformPolyXY'):
+        if ('polyXY' not in method and 'polyXYs' not in method):
+            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `method`, which indicates a polygon / a list of polygons in the Euclidean space")
+        if ('polyXY' in method):
+            for n in range(N):
+                nodeLocs.append(_rndPtUniformPolyXY(method['polyXY']))
+
+        elif ('polyXYs' in method):
+            for n in range(N):
+                nodeLocs.append(_rndPtUniformPolyXYs(method['polyXY']))
+
+    # Uniformly sample from the Euclidean space avoiding polygons
+    elif (method['distr'] == 'UniformAvoidPolyXY'):
+        if ('polyXY' not in method and 'polyXYs' not in method):
+            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `method`, which indicates a polygon / a list of polygons in the Euclidean space")
+        xRange = None
+        yRange = None
+        if ('xRange' not in method or 'yRange' not in method):
+            xRange = [0, 100]
+            yRange = [0, 100]
+            warnings.warn("WARNING: Set sampled area to be default as a (0, 100) x (0, 100) square")
+        else:
+            xRange = [float(method['xRange'][0]), float(method['xRange'][1])]
+            yRange = [float(method['yRange'][0]), float(method['yRange'][1])]
+        if ('polyXY' in method):
+            for n in range(N):
+                nodeLocs.append(_rndPtUniformAvoidPolyXY(method['polyXY'], xRange, yRange))
+
+        elif ('polyXYs' in method):
+            for n in range(N):
+                nodeLocs.append(_rndPtUniformAvoidPolyXYs(method['polyXY'], xRange, yRange))
+
+    # Uniformly sample from a circle on the Euclidean space
+    elif (method['distr'] == 'UniformCircleXY'):
+        centerXY = None
+        radius = None
+        if ('centerXY' not in method or 'radius' not in method):
+            centerXY = (0, 0)
+            radius = 100
+            warnings.warn("WARNING: Set sample area to be default as a circle with radius of 100 centering at (0, 0)")
+        else:
+            centerXY = method['centerXY']
+            radius = method['radius']
+        for n in range(N):
+            nodeLocs.append(_rndPtUniformCircleXY(radius, centerXY))
+
+    # Uniformly sample from a polygon by lat/lon
+    elif (method['distr'] == 'UniformPolyLatLon'):
+        if ('polyLatLon' not in method and 'polyLatLons' not in method):
+            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `method`, which indicates a polygon / a list of polygons in the Euclidean space")
+        # TODO: Mercator projection
+        raise VrpSolverNotAvailableError("ERROR: 'UniformPolyLatLon' is not available yet, please stay tune.")
+
+    # Uniformly sample from a circle by lat/lon
+    elif (method['distr'] == 'UniformCircleLatLon'):
+        if ('centerLatLon' not in method or 'radiusInMeters' not in method):
+            raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `method`.")
+        for n in range(N):
+            nodeLocs.append(_rndPtUniformCircleLatLon(method['radiusInMeters'], method['centerLatLon']))
+
+    # Uniformly sample from the roads/streets within a polygon/a list of polygons from given road networks
+    elif (method['distr'] == 'RoadNetworkPolyLatLon'):
+        if ('polyLatLon' not in method):
+            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `method`, which indicates a polygon / a list of polygons in the Euclidean space")
+        elif ('roadNetwork' not in method):
+            raise MissingParameterError("ERROR: Missing required key 'RoadNetwork' in field `method`. Need to provide the road network where the nodes are generated.")
+        elif ('roadClass' not in method):
+            warnings.warn("WARNING: Set 'roadClass' to be default as ['residential']")
+        nodeLocs = _rndPtRoadNetworkPolyLatLon(
+            N if N != None else len(nodeIDs),
+            method['roadNetwork'], 
+            method['polyLatLon'],
+            method['roadClass'] if 'roadClass' in method else ['residential'])
+
+    # Uniformly sample from the roads/streets within a circle from given road network
+    elif (method['distr'] == 'RoadNetworkCircleLatLon'):
+        if ('centerLatLon' not in method or 'radiusInMeters' not in method):
+            raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `method`.")
+        elif ('roadNetwork' not in method):
+            raise MissingParameterError("ERROR: Missing required key 'RoadNetwork' in field `method`. Need to provide the road network where the nodes are generated.")
+        elif ('roadClass' not in method):
+            warnings.warn("WARNING: Set 'roadClass' to be default as ['residential']")
+        nodeLocs = _rndPtRoadNetworkCircleLatLon(
+            N if N != None else len(nodeIDs),
+            method['roadNetwork'], 
+            method['radiusInMeters'],
+            method['centerLatLon'],
+            method['roadClass'] if 'roadClass' in method else ['residential'])
+    
+    else:
+        raise UnsupportedInputError(ERROR_MISSING_NODES_DISTR)
+
+    return nodeLocs
+
 def rndNodes(
     N: int|None = None, 
     nodeIDs: list[int|str] = [], 
@@ -88,7 +284,7 @@ def rndNodes(
 
     Returns
     -------
-    dictionray
+    dictionary
         A set of randomly created locations, as in the following format::
         >>> nodes[nodeID] = {
         ...     'loc': (lat, lon)
@@ -117,132 +313,13 @@ def rndNodes(
         nodeIDs = [i for i in range(N)]
 
     # Generate instance =======================================================
-    # Uniformly sample from a square on the Euclidean space
-    if (method['distr'] == 'UniformSquareXY'):
-        xRange = None
-        yRange = None
-        if ('xRange' not in method or 'yRange' not in method):
-            xRange = [0, 100]
-            yRange = [0, 100]
-            warnings.warn("WARNING: Set sampled area to be default as a (0, 100) x (0, 100) square")
-        else:
-            xRange = [float(method['xRange'][0]), float(method['xRange'][1])]
-            yRange = [float(method['yRange'][0]), float(method['yRange'][1])]
-        for n in nodeIDs:
-            nodes[n] = {
-                locFieldName: _rndPtUniformSquareXY(xRange, yRange)
-            }
-
-    # Uniformly sample from a polygon/a list of polygons on the Euclidean space
-    elif (method['distr'] == 'UniformPolyXY'):
-        if ('polyXY' not in method and 'polyXYs' not in method):
-            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `method`, which indicates a polygon / a list of polygons in the Euclidean space")
-        if ('polyXY' in method):
-            for n in nodeIDs:
-                nodes[n] = {
-                    locFieldName: _rndPtUniformPolyXY(method['polyXY'])
-                }
-        elif ('polyXYs' in method):
-            for n in nodeIDs:
-                nodes[n] = {
-                    locFieldName: _rndPtUniformPolyXYs(method['polyXYs'])
-                }
-
-    # Uniformly sample from the Euclidean space avoiding polygons
-    elif (method['distr'] == 'UniformAvoidPolyXY'):
-        if ('polyXY' not in method and 'polyXYs' not in method):
-            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `method`, which indicates a polygon / a list of polygons in the Euclidean space")
-        xRange = None
-        yRange = None
-        if ('xRange' not in method or 'yRange' not in method):
-            xRange = [0, 100]
-            yRange = [0, 100]
-            warnings.warn("WARNING: Set sampled area to be default as a (0, 100) x (0, 100) square")
-        else:
-            xRange = [float(method['xRange'][0]), float(method['xRange'][1])]
-            yRange = [float(method['yRange'][0]), float(method['yRange'][1])]
-        if ('polyXY' in method):
-            for n in nodeIDs:
-                nodes[n] = {
-                    locFieldName: _rndPtUniformAvoidPolyXY(method['polyXY'], xRange, yRange)
-                }
-        elif ('polyXYs' in method):
-            for n in nodeIDs:
-                nodes[n] = {
-                    locFieldName: _rndPtUniformAvoidPolyXYs(method['polyXYs'], xRange, yRange)
-                }
-
-    # Uniformly sample from a circle on the Euclidean space
-    elif (method['distr'] == 'UniformCircleXY'):
-        centerXY = None
-        radius = None
-        if ('centerXY' not in method or 'radius' not in method):
-            centerXY = (0, 0)
-            radius = 100
-            warnings.warn("WARNING: Set sample area to be default as a circle with radius of 100 centering at (0, 0)")
-        else:
-            centerXY = method['centerXY']
-            radius = method['radius']
-        for n in nodeIDs:
-            nodes[n] = {
-                locFieldName: _rndPtUniformCircleXY(radius, centerXY)
-            }
-
-    # Uniformly sample from a polygon by lat/lon
-    elif (method['distr'] == 'UniformPolyLatLon'):
-        if ('polyLatLon' not in method and 'polyLatLons' not in method):
-            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `method`, which indicates a polygon / a list of polygons in the Euclidean space")
-        # TODO: Mercator projection
-        raise VrpSolverNotAvailableError("ERROR: 'UniformPolyLatLon' is not available yet, please stay tune.")
-
-    # Uniformly sample from a circle by lat/lon
-    elif (method['distr'] == 'UniformCircleLatLon'):
-        if ('centerLatLon' not in method or 'radiusInMeters' not in method):
-            raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `method`.")
-        for n in nodeIDs:
-            nodes[n] = {
-                locFieldName: _rndPtUniformCircleLatLon(method['radiusInMeters'], method['centerLatLon'])
-            }
-
-    # Uniformly sample from the roads/streets within a polygon/a list of polygons from given road networks
-    elif (method['distr'] == 'RoadNetworkPolyLatLon'):
-        if ('polyLatLon' not in method):
-            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `method`, which indicates a polygon / a list of polygons in the Euclidean space")
-        elif ('roadNetwork' not in method):
-            raise MissingParameterError("ERROR: Missing required key 'RoadNetwork' in field `method`. Need to provide the road network where the nodes are generated.")
-        elif ('roadClass' not in method):
-            warnings.warn("WARNING: Set 'roadClass' to be default as ['residential']")
-        nodeLocs = _rndPtRoadNetworkPolyLatLon(
-            N if N != None else len(nodeIDs),
-            method['roadNetwork'], 
-            method['polyLatLon'],
-            method['roadClass'] if 'roadClass' in method else ['residential'])
-        for n in range(len(nodeIDs)):
-            nodes[nodeIDs[n]] = {
-                locFieldName: nodeLocs[n]
-            }
-
-    # Uniformly sample from the roads/streets within a circle from given road network
-    elif (method['distr'] == 'RoadNetworkCircleLatLon'):
-        if ('centerLatLon' not in method or 'radiusInMeters' not in method):
-            raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `method`.")
-        elif ('roadNetwork' not in method):
-            raise MissingParameterError("ERROR: Missing required key 'RoadNetwork' in field `method`. Need to provide the road network where the nodes are generated.")
-        elif ('roadClass' not in method):
-            warnings.warn("WARNING: Set 'roadClass' to be default as ['residential']")
-        nodeLocs = _rndPtRoadNetworkCircleLatLon(
-            N if N != None else len(nodeIDs),
-            method['roadNetwork'], 
-            method['radiusInMeters'],
-            method['centerLatLon'],
-            method['roadClass'] if 'roadClass' in method else ['residential'])
-        for n in range(len(nodeIDs)):
-            nodes[nodeIDs[n]] = {
-                locFieldName: nodeLocs[n]
-            }
-    
-    else:
-        raise UnsupportedInputError(ERROR_MISSING_NODES_DISTR)
+    nodeLocs = rndLocs(
+        N = len(nodeIDs), 
+        method = method)
+    for n in range(len(nodeIDs)):
+        nodes[nodeIDs[n]] = {
+            locFieldName: nodeLocs[n]
+        }
 
     return nodes
 
@@ -354,7 +431,7 @@ def _rndPtRoadNetworkPolyLatLon(N: int, road: dict, poly: poly, roadClass: str |
         if (includedFlag):
             for i in range(len(road[rID]['shape']) - 1):
                 roadLength += distLatLon(road[rID]['shape'][i], road[rID]['shape'][i + 1])['dist']
-            lengths.append(roadLength)            
+            lengths.append(roadLength)
         else:
             lengths.append(0)
 
