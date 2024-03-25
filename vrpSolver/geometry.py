@@ -15,6 +15,7 @@ from .ds import *
 
 # History =====================================================================
 # 20231219 - A stable version from the past
+# 20240117 - Visible area visFromPt()
 # =============================================================================
 
 # Point versus Objects ========================================================
@@ -1080,8 +1081,10 @@ def isPolyIntPoly(poly1: poly=None, poly2: poly=None, poly1Shapely: shapely.Poly
 
 # Distance from Point to Object ===============================================
 def distPt2Line(pt: pt, line: line) -> float:
-    foot = ptFoot2Line(pt, line)
-    return distEuclideanXY(pt, foot)
+    area = calTriangleAreaXY(pt, line[0], line[1])
+    a = distEuclideanXY(line[0], line[1])['dist']
+    h = 2 * area / a
+    return h
 
 def distPt2Seg(pt: pt, seg: line) -> float:
     foot = ptFoot2Line(pt, seg)
@@ -1286,189 +1289,6 @@ def polysSubtract(polys:polys=None, polysShapely:list[shapely.Polygon]=None, sub
             diffPolys[k] = diffPolys[k][:-1]
     return diffPolys
 
-def polysVisibleGraph(polys:polys) -> dict:
-    vg = {}
-    for p in range(len(polys)):
-        for e in range(len(polys[p])):
-            vg[(p, e)] = {'loc': polys[p][e], 'visible': []}
-            W = _ptsVisible((p, e), polys, knownVG=vg)
-            for w in W:
-                vg[(p, e)]['visible'].append(w)
-    return vg
-
-def _ptsVisible(v:int|str|tuple, polys:polys, standalonePts:dict|None=None, knownVG:dict={}) -> list:
-    # NOTE: 该函数不需要使用shapely
-    vertices = {}
-    polyVertices = []
-    for p in range(len(polys)):
-        for e in range(len(polys[p])):
-            vertices[(p, e)] = {
-                'loc': polys[p][e],
-                'visible': []
-            }
-            polyVertices.append((p, e))
-    if (standalonePts != None):
-        if (v not in standalonePts):
-            raise MissingParameterError("ERROR: Cannot find `v` in `polys` or `standalonePts`")
-        else:
-            vertices[v] = {
-                'loc': standalonePts[v]['loc'],
-                'visible': []
-            }
-
-    # 把所有的poly vertices按到v的距离排序，从而给每个点得到一个可排序的唯一编码
-    verticeDistIndex = {}
-    sortedSeq = nodeSeqByDist(
-        nodes = vertices,
-        refLoc = vertices[v]['loc'],
-        nodeIDs = polyVertices)
-    for i in range(len(sortedSeq)):
-        verticeDistIndex[sortedSeq[i]] = i
-    # 把所有的poly vertices按到v的角度排序，从x轴正方向开始，从而得到后续可视性检查的顺序
-    sweepSeq = nodeSeqBySweeping(
-        nodes = vertices,
-        nodeIDs = polyVertices,
-        refLoc = vertices[v]['loc'],
-        initDeg = 90)
-
-    # 用一个红黑树来维护射线通过的边，边的键值用(closer-index, further-index)，这样排序的时候无论如何都能保持距离关系
-    def rayIntersectPolyEdges(ray, polys) -> RedBlackTree:
-        T = RedBlackTree()
-        # FIXME: 这个显然需要用线段树来优化，在这里就先实现再说吧
-        for p in range(len(polys)):
-            for i in range(-1, len(polys[p]) - 1):
-                edge = [polys[p][i], polys[p][i + 1]]
-                # NOTE: 注意，这里射线可以与线段交于端点上
-                if (isSegIntRay(edge, ray, interiorOnly=True)):
-                    # NOTE: 防止数组溢出
-                    k = i
-                    if (i == -1):
-                        k = len(polys[p]) - 1
-                    vIdx1 = verticeDistIndex[(p, k)]
-                    vIdx2 = verticeDistIndex[(p, i + 1)]
-                    T.insert(RedBlackTreeNode(
-                        key = (min(vIdx1, vIdx2), max(vIdx1, vIdx2)), 
-                        value = [(p, k), (p, i + 1)]))
-        return T
-
-    # 初始射线方向为x-轴正方向
-    xAxisRay = [vertices[v]['loc'], (vertices[v]['loc'][0] + 1, vertices[v]['loc'][1])]
-    T = rayIntersectPolyEdges(xAxisRay, polys)
-
-    # 给定一个障碍物的顶点w_i，确定v是否可以见到w_i
-    # NOTE: 这里的wi, wim（也就是w_{i-1})得是polys的顶点
-    def visible(wi, wim, polys):
-        # 如果wiv已经确定可视，直接返回True
-        if (wi in knownVG and v in knownVG[wi]['visible']):
-            # print("Time saved")
-            return True
-
-        # 所在的polygon的编号
-        polyV = polys[v[0]] if len(v) == 2 else None
-        polyW = polys[wi[0]]
-        vwi = [vertices[v]['loc'], vertices[wi]['loc']]
-
-        vNext = None
-        vPrev = None
-        if (len(v) == 2):
-            vNext = (v[0], v[1] + 1 if v[1] < len(polys[v[0]]) - 1 else 0)
-            vPrev = (v[0], v[1] - 1 if v[1] > 0 else len(polys[v[0]]) - 1)
-        wiNext = (wi[0], wi[1] + 1 if wi[1] < len(polys[wi[0]]) - 1 else 0)
-        wiPrev = (wi[0], wi[1] - 1 if wi[1] > 0 else len(polys[wi[0]]) - 1)        
-
-        # 判断是否是相邻节点，相邻节点直接返回可见
-        if (polyV == polyW and (wi == vNext or wi == vPrev)):
-            return True
-
-        # 需要w_{i-1}不存在，或者w_{i-1}不在线段vwi上
-        notOnlineFlag = False
-        if (wim == None or not isPtOnSeg(wim, vwi)):
-            notOnlineFlag = True
-
-        # 若T非空，查有没有阻拦线段
-        noSegBlockFlag = True
-        if (notOnlineFlag and not T.isEmpty and not T.min(T.root).isNil):
-            for edge in T.traverse():
-                if (isSegIntSeg(
-                        seg1 = [vertices[edge.value[0]]['loc'], vertices[edge.value[1]]['loc']], 
-                        seg2 = vwi, 
-                        interiorOnly = True)):
-                    noSegBlockFlag = False
-                    break
-
-        # 如果visibleFlag，查交点上是否相切
-        int2PolyVTangenFlag = False
-        int2PolyWTangenFlag = False
-        if (noSegBlockFlag):
-            # Check point V
-            if (polyV == None):
-                int2PolyVTangenFlag = True
-            else:
-                segV = [vertices[vNext]['loc'], vertices[vPrev]['loc']]
-                int2PolyVTangenFlag = not isLineIntSeg(vwi, segV, interiorOnly=True)
-        if (int2PolyVTangenFlag):
-            # Check point W
-            segW = [vertices[wiNext]['loc'], vertices[wiPrev]['loc']]
-            int2PolyWTangenFlag = not isLineIntSeg(vwi, segW, interiorOnly=True)
-        bothEndTangenFlag = int2PolyVTangenFlag and int2PolyWTangenFlag
-
-        # 如果没有阻挡线段，查是不是在多边形内部
-        # NOTE: 似乎可以通过查中点确定是不是在多边形内部
-        visibleFlag = False
-        if (noSegBlockFlag and bothEndTangenFlag and not isSegIntPoly(
-                seg = vwi,
-                poly = polyW,
-                interiorOnly = True)):
-            visibleFlag = True        
-
-
-        if (visibleFlag):
-            return True
-
-        # 前面任何一关不通过，则不可视
-        return False
-
-    W = []
-    for i in range(len(sweepSeq)):
-        wi = sweepSeq[i]
-        wim = sweepSeq[i - 1] if i > 1 else None
-        # print(T)
-        if (not is2PtsSame(vertices[v]['loc'], vertices[wi]['loc']) and visible(wi, wim, polys)):
-            W.append(wi)
-
-        # 将wi的边加入/移出平衡树T
-        # wi所在的poly编号
-        polyIdx = wi[0]
-        # wi在poly内的编号
-        idInPoly = wi[1]
-
-        # Edge 1: wi -> wi.next
-        wiNext = (wi[0], wi[1] + 1 if wi[1] < len(polys[wi[0]]) - 1 else 0)
-        # Edge 2: wi.prev -> wi
-        wiPrev = (wi[0], wi[1] - 1 if wi[1] > 0 else len(polys[wi[0]]) - 1)
-
-        # 判断edgeNext
-        vIdxWi = verticeDistIndex[wi]
-        vIdxWiNext = verticeDistIndex[wiNext]
-        vIdxWiPrev = verticeDistIndex[wiPrev]
-        if (is3PtsClockWise(vertices[v]['loc'], vertices[wi]['loc'], vertices[wiNext]['loc'])):
-            if (T.query((min(vIdxWi, vIdxWiNext), max(vIdxWi, vIdxWiNext))).isNil):
-                T.insert(RedBlackTreeNode(
-                    key = (min(vIdxWi, vIdxWiNext), max(vIdxWi, vIdxWiNext)), 
-                    value = [wi, wiNext]))
-        else:
-            if (not T.query((min(vIdxWi, vIdxWiNext), max(vIdxWi, vIdxWiNext))).isNil):
-                T.delete((min(vIdxWi, vIdxWiNext), max(vIdxWi, vIdxWiNext)))        
-        if (is3PtsClockWise(vertices[v]['loc'], vertices[wi]['loc'], vertices[wiPrev]['loc'])):
-            if (T.query((min(vIdxWiPrev, vIdxWi), max(vIdxWiPrev, vIdxWi))).isNil):
-                T.insert(RedBlackTreeNode(
-                    key = (min(vIdxWiPrev, vIdxWi), max(vIdxWiPrev, vIdxWi)), 
-                    value = [wiPrev, wi]))
-        else:
-            if (not T.query((min(vIdxWiPrev, vIdxWi), max(vIdxWiPrev, vIdxWi))).isNil):
-                T.delete((min(vIdxWiPrev, vIdxWi), max(vIdxWiPrev, vIdxWi)))
-    return W
-
 def polysSteinerZone(polys: dict, order: int|None = None) -> list[dict]:
     
     """Given a node dictionary, returns a list of Steiner zones
@@ -1649,9 +1469,7 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                         actions[actionIDOnLeg] = {
                             'loc': intPt,
                             'action': 'touch',
-                            'polyID': pID,
-                            # 'seg': seg,
-                            # 'actionID': actionIDOnLeg                            
+                            'polyID': pID,                       
                         }
                         actionIDOnLeg += 1
                     elif (intPart['status'] == 'Cross' and intPart['intersectType'] == 'Segment'):
@@ -1670,8 +1488,6 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                                     'loc': intPt1,
                                     'action': 'enter',
                                     'polyID': pID,
-                                    # 'seg': seg,
-                                    # 'actionID': actionIDOnLeg 
                                 }
                                 actionIDOnLeg += 1
                             if (not intPt2InnerFlag):
@@ -1679,8 +1495,6 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                                     'loc': intPt2,
                                     'action': 'leave',
                                     'polyID': pID,
-                                    # 'seg': seg,
-                                    # 'actionID': actionIDOnLeg
                                 }
                                 actionIDOnLeg += 1
                         else:
@@ -1689,8 +1503,6 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                                     'loc': intPt1,
                                     'action': 'leave',
                                     'polyID': pID,
-                                    # 'seg': seg,
-                                    # 'actionID': actionIDOnLeg
                                 }
                                 actionIDOnLeg += 1
                             if (not intPt2InnerFlag):
@@ -1698,8 +1510,6 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                                     'loc': intPt2,
                                     'action': 'enter',
                                     'polyID': pID,
-                                    # 'seg': seg,
-                                    # 'actionID': actionIDOnLeg
                                 }
                                 actionIDOnLeg += 1
             else:
@@ -1712,8 +1522,6 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                         'loc': intPt,
                         'action': 'touch',
                         'polyID': pID,
-                        # 'seg': seg,
-                        # 'actionID': actionIDOnLeg
                     }
                     actionIDOnLeg += 1
                 elif (segIntPoly['status'] == 'Cross' and segIntPoly['intersectType'] == 'Segment'):
@@ -1732,8 +1540,6 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                                 'loc': intPt1,
                                 'action': 'enter',
                                 'polyID': pID,
-                                # 'seg': seg,
-                                # 'actionID': actionIDOnLeg 
                             }
                             actionIDOnLeg += 1
                         if (not intPt2InnerFlag):
@@ -1741,8 +1547,6 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                                 'loc': intPt2,
                                 'action': 'leave',
                                 'polyID': pID,
-                                # 'seg': seg,
-                                # 'actionID': actionIDOnLeg
                             }
                             actionIDOnLeg += 1
                     else:
@@ -1751,8 +1555,6 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                                 'loc': intPt1,
                                 'action': 'leave',
                                 'polyID': pID,
-                                # 'seg': seg,
-                                # 'actionID': actionIDOnLeg
                             }
                             actionIDOnLeg += 1
                         if (not intPt2InnerFlag):
@@ -1760,8 +1562,6 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
                                 'loc': intPt2,
                                 'action': 'enter',
                                 'polyID': pID,
-                                # 'seg': seg,
-                                # 'actionID': actionIDOnLeg
                             }
                             actionIDOnLeg += 1
     sortedIDOnLeg = locSeqSortNodes(seq, actions, allowNotIncludeFlag = False)['sortedNodeIDs']
@@ -1783,7 +1583,197 @@ def ptPolyCenter(poly: poly=None, polyShapely: shapely.Polygon=None) -> pt:
     center = (ptShapely.x, ptShapely.y)
     return center
 
-# Shadowing ===================================================================
+# Visibility check ============================================================
+def polysVisibleGraph(polys:polys) -> dict:
+    vg = {}
+    for p in range(len(polys)):
+        for e in range(len(polys[p])):
+            vg[(p, e)] = {'loc': polys[p][e], 'visible': []}
+            W = visPtAmongPolys((p, e), polys, knownVG=vg)
+            for w in W:
+                vg[(p, e)]['visible'].append(w)
+    return vg
+
+def visPtAmongPolys(v:int|str|tuple, polys:polys, standalonePts:dict|None=None, knownVG:dict={}) -> list:
+    # NOTE: 该函数不需要使用shapely
+    vertices = {}
+    polyVertices = []
+    for p in range(len(polys)):
+        for e in range(len(polys[p])):
+            vertices[(p, e)] = {
+                'loc': polys[p][e],
+                'visible': []
+            }
+            polyVertices.append((p, e))
+    if (standalonePts != None):
+        if (v not in standalonePts):
+            raise MissingParameterError("ERROR: Cannot find `v` in `polys` or `standalonePts`")
+        else:
+            vertices[v] = {
+                'loc': standalonePts[v]['loc'],
+                'visible': []
+            }
+
+    # 把所有的poly vertices按到v的距离排序，从而给每个点得到一个可排序的唯一编码
+    verticeDistIndex = {}
+    sortedSeq = nodeSeqByDist(
+        nodes = vertices,
+        refLoc = vertices[v]['loc'],
+        nodeIDs = polyVertices)
+    for i in range(len(sortedSeq)):
+        verticeDistIndex[sortedSeq[i]] = i
+    # 把所有的poly vertices按到v的角度排序，从x轴正方向开始，从而得到后续可视性检查的顺序
+    sweepSeq = nodeSeqBySweeping(
+        nodes = vertices,
+        nodeIDs = polyVertices,
+        refLoc = vertices[v]['loc'],
+        initDeg = 90)
+
+    # 用一个红黑树来维护射线通过的边，边的键值用(closer-index, further-index)，这样排序的时候无论如何都能保持距离关系
+    def rayIntersectPolyEdges(ray, polys) -> RedBlackTree:
+        T = RedBlackTree()
+        # FIXME: 这个显然需要用线段树来优化，在这里就先实现再说吧
+        for p in range(len(polys)):
+            for i in range(-1, len(polys[p]) - 1):
+                edge = [polys[p][i], polys[p][i + 1]]
+                # NOTE: 注意，这里射线可以与线段交于端点上
+                if (isSegIntRay(edge, ray, interiorOnly=True)):
+                    # NOTE: 防止数组溢出
+                    k = i
+                    if (i == -1):
+                        k = len(polys[p]) - 1
+                    vIdx1 = verticeDistIndex[(p, k)]
+                    vIdx2 = verticeDistIndex[(p, i + 1)]
+                    T.insert(RedBlackTreeNode(
+                        key = (min(vIdx1, vIdx2), max(vIdx1, vIdx2)), 
+                        value = [(p, k), (p, i + 1)]))
+        return T
+
+    # 初始射线方向为x-轴正方向
+    xAxisRay = [vertices[v]['loc'], (vertices[v]['loc'][0] + 1, vertices[v]['loc'][1])]
+    T = rayIntersectPolyEdges(xAxisRay, polys)
+
+    # 给定一个障碍物的顶点w_i，确定v是否可以见到w_i
+    # NOTE: 这里的wi, wim（也就是w_{i-1})得是polys的顶点
+    def visible(wi, wim, polys):
+        # 如果wiv已经确定可视，直接返回True
+        if (wi in knownVG and v in knownVG[wi]['visible']):
+            # print("Time saved")
+            return True
+
+        # 所在的polygon的编号
+        polyV = polys[v[0]] if len(v) == 2 else None
+        polyW = polys[wi[0]]
+        vwi = [vertices[v]['loc'], vertices[wi]['loc']]
+
+        vNext = None
+        vPrev = None
+        if (len(v) == 2):
+            vNext = (v[0], v[1] + 1 if v[1] < len(polys[v[0]]) - 1 else 0)
+            vPrev = (v[0], v[1] - 1 if v[1] > 0 else len(polys[v[0]]) - 1)
+        wiNext = (wi[0], wi[1] + 1 if wi[1] < len(polys[wi[0]]) - 1 else 0)
+        wiPrev = (wi[0], wi[1] - 1 if wi[1] > 0 else len(polys[wi[0]]) - 1)        
+
+        # 判断是否是相邻节点，相邻节点直接返回可见
+        if (polyV == polyW and (wi == vNext or wi == vPrev)):
+            return True
+
+        # 需要w_{i-1}不存在，或者w_{i-1}不在线段vwi上
+        notOnlineFlag = False
+        if (wim == None or not isPtOnSeg(wim, vwi)):
+            notOnlineFlag = True
+
+        # 若T非空，查有没有阻拦线段
+        noSegBlockFlag = True
+        if (notOnlineFlag and not T.isEmpty and not T.min(T.root).isNil):
+            for edge in T.traverse():
+                if (isSegIntSeg(
+                        seg1 = [vertices[edge.value[0]]['loc'], vertices[edge.value[1]]['loc']], 
+                        seg2 = vwi, 
+                        interiorOnly = True)):
+                    noSegBlockFlag = False
+                    break
+
+        # 如果visibleFlag，查交点上是否相切
+        int2PolyVTangenFlag = False
+        int2PolyWTangenFlag = False
+        if (noSegBlockFlag):
+            # Check point V
+            if (polyV == None):
+                int2PolyVTangenFlag = True
+            else:
+                segV = [vertices[vNext]['loc'], vertices[vPrev]['loc']]
+                int2PolyVTangenFlag = not isLineIntSeg(vwi, segV, interiorOnly=True)
+        if (int2PolyVTangenFlag):
+            # Check point W
+            segW = [vertices[wiNext]['loc'], vertices[wiPrev]['loc']]
+            int2PolyWTangenFlag = not isLineIntSeg(vwi, segW, interiorOnly=True)
+        bothEndTangenFlag = int2PolyVTangenFlag and int2PolyWTangenFlag
+
+        # 如果没有阻挡线段，查是不是在多边形内部
+        # NOTE: 似乎可以通过查中点确定是不是在多边形内部
+        visibleFlag = False
+        if (noSegBlockFlag and bothEndTangenFlag and not isSegIntPoly(
+                seg = vwi,
+                poly = polyW,
+                interiorOnly = True)):
+            visibleFlag = True        
+
+
+        if (visibleFlag):
+            return True
+
+        # 前面任何一关不通过，则不可视
+        return False
+
+    W = []
+    for i in range(len(sweepSeq)):
+        wi = sweepSeq[i]
+        wim = sweepSeq[i - 1] if i > 1 else None
+        # print(T)
+        if (not is2PtsSame(vertices[v]['loc'], vertices[wi]['loc']) and visible(wi, wim, polys)):
+            W.append(wi)
+
+        # 将wi的边加入/移出平衡树T
+        # wi所在的poly编号
+        polyIdx = wi[0]
+        # wi在poly内的编号
+        idInPoly = wi[1]
+
+        # Edge 1: wi -> wi.next
+        wiNext = (wi[0], wi[1] + 1 if wi[1] < len(polys[wi[0]]) - 1 else 0)
+        # Edge 2: wi.prev -> wi
+        wiPrev = (wi[0], wi[1] - 1 if wi[1] > 0 else len(polys[wi[0]]) - 1)
+
+        # 判断edgeNext
+        vIdxWi = verticeDistIndex[wi]
+        vIdxWiNext = verticeDistIndex[wiNext]
+        vIdxWiPrev = verticeDistIndex[wiPrev]
+        if (is3PtsClockWise(vertices[v]['loc'], vertices[wi]['loc'], vertices[wiNext]['loc'])):
+            if (T.query((min(vIdxWi, vIdxWiNext), max(vIdxWi, vIdxWiNext))).isNil):
+                T.insert(RedBlackTreeNode(
+                    key = (min(vIdxWi, vIdxWiNext), max(vIdxWi, vIdxWiNext)), 
+                    value = [wi, wiNext]))
+        else:
+            if (not T.query((min(vIdxWi, vIdxWiNext), max(vIdxWi, vIdxWiNext))).isNil):
+                T.delete((min(vIdxWi, vIdxWiNext), max(vIdxWi, vIdxWiNext)))        
+        if (is3PtsClockWise(vertices[v]['loc'], vertices[wi]['loc'], vertices[wiPrev]['loc'])):
+            if (T.query((min(vIdxWiPrev, vIdxWi), max(vIdxWiPrev, vIdxWi))).isNil):
+                T.insert(RedBlackTreeNode(
+                    key = (min(vIdxWiPrev, vIdxWi), max(vIdxWiPrev, vIdxWi)), 
+                    value = [wiPrev, wi]))
+        else:
+            if (not T.query((min(vIdxWiPrev, vIdxWi), max(vIdxWiPrev, vIdxWi))).isNil):
+                T.delete((min(vIdxWiPrev, vIdxWi), max(vIdxWiPrev, vIdxWi)))
+    return W
+
+def visPolyFromPt(v:int|str|tuple, range:float, polys:polys, standalonePts:dict|None=None, knownVG:dict={}, lod:int = 36) -> list:
+    
+    # Step 1: fi
+
+
+    return poly
+
 def circleShadowByPolys(circle: dict = None, polys: polys = None, lod: int = 30):
     standalonePts = {'c': {'loc': circle['center']}}
     cirR = circle['radius']
@@ -1797,11 +1787,11 @@ def circleShadowByPolys(circle: dict = None, polys: polys = None, lod: int = 30)
     for poly in polys:
         # 首先计算poly从
 
-        visExpt = _ptsVisible('c', [poly], standalonePts)
+        visExpt = visPtAmongPolys('c', [poly], standalonePts)
 
 
 
-    visExpt = _ptsVisible('c', polys, standalonePts)
+    visExpt = visPtAmongPolys('c', polys, standalonePts)
     visLocs = []
     for v in visExpt:
         visLocs.append(polys[v[0]][v[1]])
@@ -2043,7 +2033,7 @@ def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
         #     removedFlag.append(True)
         # else:
         #     removedFlag.append(False)
-        dev = distPt2Seg(seq[i], [seq[i - 1], seq[i + 1]])
+        dev = distPt2Line(seq[i], [seq[i - 1], seq[i + 1]])
         if (dev <= error):
             removedFlag.append(True)
         else:
@@ -2254,6 +2244,8 @@ def nodesInIsochrone(nodes: dict, nodeIDs: list|str = 'All', locFieldName = 'loc
     if (isoRange == None):
         raise MissingParameterError("ERROR: Missing required field `isoRange`.")
     nearSet = []
+    nearest = None
+    nearestDist = float('inf')
     if (sortFlag):        
         nearSetHeap = []
         for n in nodeIDs:
@@ -2261,14 +2253,20 @@ def nodesInIsochrone(nodes: dict, nodeIDs: list|str = 'All', locFieldName = 'loc
             if (dist <= isoRange):
                 heapq.heappush(nearSetHeap, (dist, n))
         while (len(nearSetHeap) > 0):
-            nearSet.append(heapq.heappop(nearSetHeap)[1])  
+            nearSet.append(heapq.heappop(nearSetHeap)[1])
+        nearest = nearSet[0]
     else:
         for n in nodeIDs:
             dist = scaleDist(loc1 = refLoc, loc2 = nodes[n][locFieldName], edges = edges)['dist']
             if (dist <= isoRange):
                 nearSet.append(n)
-
-    return nearSet
+            if (dist <= nearestDist):
+                nearest = n
+                nearestDist = dist
+    return {
+        'nearSet': nearSet,
+        'nearest': nearest
+    }
 
 # Create distance matrix ======================================================
 def matrixDist(nodes: dict, edges: dict = {'method': 'Euclidean'}, depotID: int|str = 0, nodeIDs: list|str = 'All', locFieldName: str = 'loc') -> dict:
@@ -2585,14 +2583,14 @@ def scaleDist(loc1: pt, loc2: pt, edges: dict = {'method': 'Euclidean'}) -> dict
 
     if (edges['method'] == 'Euclidean'):
         ratio = 1 if 'ratio' not in edges else edges['ratio']
-        dist = distEuclideanXY(pt1, pt2)['dist']
+        dist = distEuclideanXY(loc1, loc2)['dist']
         revDist = dist
         pathLoc = [loc1, loc2]
         revPathLoc = [loc2, loc1]
     elif (edges['method'] == 'EuclideanBarrier'):
         if ('polys' not in edges or edges['polys'] == None):
             warnings.warning("WARNING: No barrier provided.")
-            dist = distEuclideanXY(pt1, pt2)['dist']
+            dist = distEuclideanXY(loc1, loc2)['dist']
             revDist = dist
             pathLoc = [loc1, loc2]
             revPathLoc = [loc2, loc1]
@@ -2604,13 +2602,13 @@ def scaleDist(loc1: pt, loc2: pt, edges: dict = {'method': 'Euclidean'}) -> dict
             revPathLoc = [pathLoc[len(pathLoc) - i - 1] for i in range(len(pathLoc))]
     elif (edges['method'] == 'LatLon'):
         ratio = 1 if 'ratio' not in edges else edges['ratio']
-        dist = distLatLon(pt1, pt2)['dist']
+        dist = distLatLon(loc1, loc2)['dist']
         revDist = dist
         pathLoc = [loc1, loc2]
         revPathLoc = [loc2, loc1]
     elif (edges['method'] == 'Manhatten'):
         ratio = 1 if 'ratio' not in edges else edges['ratio']
-        dist = distManhattenXY(pt1, pt2)['dist']
+        dist = distManhattenXY(loc1, loc2)['dist']
         revDist = dist
         pathLoc = [loc1, (pt1[0], pt2[1]), loc2]
         revPathLoc = [loc2, (pt1[0], pt2[1]), loc1]
@@ -2619,7 +2617,7 @@ def scaleDist(loc1: pt, loc2: pt, edges: dict = {'method': 'Euclidean'}) -> dict
             raise MissingParameterError("'grid' is not specified")
         if ('column' not in edges['grid'] or 'row' not in edges['grid']):
             raise MissingParameterError("'column' and 'row' need to be specified in 'grid'")
-        res = distOnGrid(pt1, pt2, edges['grid'])
+        res = distOnGrid(loc1, loc2, edges['grid'])
         dist = res['dist']
         revDist = dist
         pathLoc = [i for i in res['path']]
@@ -2688,10 +2686,10 @@ def distBtwPolysXY(pt1:pt, pt2:pt, polys:polys, polyVG:dict=None) -> dict:
             'visible': [i for i in polyVG[p]['visible']]
         }
     vertices['s'] = {'loc': pt1, 'visible': []}
-    Ws = _ptsVisible('s', polys, {'s': {'loc': pt1, 'visible': []}})
+    Ws = visPtAmongPolys('s', polys, {'s': {'loc': pt1, 'visible': []}})
     vertices['s']['visible'] = Ws
     vertices['e'] = {'loc': pt2, 'visible': []}
-    We = _ptsVisible('e', polys, {'e': {'loc': pt2, 'visible': []}})
+    We = visPtAmongPolys('e', polys, {'e': {'loc': pt2, 'visible': []}})
     vertices['e']['visible'] = We
 
     # Find shortest path ======================================================

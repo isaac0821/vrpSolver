@@ -757,11 +757,6 @@ def rndPolygons(
     polyFieldName = 'poly'
     ) -> dict:
 
-    """Create polygons
-
-
-    """
-
     # Sanity check ============================================================
     if (method == None):
         raise MissingParameterError("ERROR: Missing required field `method`")

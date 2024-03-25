@@ -1,4 +1,7 @@
 import matplotlib.pyplot as plt
+
+from matplotlib import rcParams
+# rcParams['font.family'] = 'SimSun'
 from matplotlib.animation import FuncAnimation
 from matplotlib.animation import PillowWriter
 
@@ -291,7 +294,11 @@ def plotArcs(
     arcEndLocFieldName = 'endLoc',
     arcColor: str = 'Random',
     arcWidth: float = 1.0,
+    arcLabel: str = None,
+    arcStyle: str = 'solid',
+    arcDashes: tuple = (5, 2),
     arrowFlag: bool = True,
+    arrowPosition: float = 0.5,
     arrowHeadWidth: float = 2.0,
     arrowHeadLength: float = 3.0,
     startColor: str = 'black',
@@ -432,21 +439,21 @@ def plotArcs(
         dy = y2 - y1
         if (arcColor == 'Random'):
             rndColor = colorRandom()
-            ax.plot([x1, x2], [y1, y2], color = rndColor, linewidth=arcWidth)
+            ax.plot([x1, x2], [y1, y2], color = rndColor, linewidth=arcWidth, linestyle = arcStyle, dashes = arcDashes)
             if (arrowFlag):
                 deg = headingXY([x1, y1], [x2, y2])
-                ptC = [x1 + (x2 - x1) / 2, y1 + (y2 - y1) / 2]
+                ptC = [x1 + (x2 - x1) * arrowPosition, y1 + (y2 - y1) * arrowPosition]
                 ptM = ptInDistXY(ptC, direction = deg + 180, dist = arrowHeadLength / 2)
                 ptH = ptInDistXY(ptC, direction = deg, dist = arrowHeadLength / 2)
                 pt1 = ptInDistXY(ptM, direction = deg + 90, dist = arrowHeadWidth / 2)
                 pt2 = ptInDistXY(ptM, direction = deg - 90, dist = arrowHeadWidth / 2)
                 ax.fill([ptH[0], pt1[0], pt2[0]], [ptH[1], pt1[1], pt2[1]], facecolor=rndColor, edgecolor=rndColor, linewidth=0)
-                # ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=rndColor)
+                # ax.arrow(x=x1, y=y1, dx=dx * arrowPosition, dy=dy * arrowPosition, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=rndColor)
         else:
-            ax.plot([x1, x2], [y1, y2], color = arcColor, linewidth=arcWidth)
+            ax.plot([x1, x2], [y1, y2], color = arcColor, linewidth=arcWidth, linestyle = arcStyle, dashes = arcDashes)
             if (arrowFlag):
                 deg = headingXY([x1, y1], [x2, y2])
-                ptC = [x1 + (x2 - x1) / 2, y1 + (y2 - y1) / 2]
+                ptC = [x1 + (x2 - x1) * arrowPosition, y1 + (y2 - y1) * arrowPosition]
                 ptM = ptInDistXY(ptC, direction = deg + 180, dist = arrowHeadLength / 2)
                 ptH = ptInDistXY(ptC, direction = deg, dist = arrowHeadLength / 2)
                 pt1 = ptInDistXY(ptM, direction = deg + 90, dist = arrowHeadWidth / 2)
@@ -455,10 +462,12 @@ def plotArcs(
 
         ax.plot(x1, y1, color = startColor, marker = 'o', markersize = bothEndSize)
         ax.plot(x2, y2, color = endColor, marker = 'o', markersize = bothEndSize)
-        if ('label' not in arcs[i]):
+        if (arcLabel == None and 'label' not in arcs[i]):
             lbl = i
-        else:
+        elif (arcLabel == None):
             lbl = arcs[i]['label']
+        else:
+            lbl = arcLabel
         ha = 'left'
         if ('ha' in arcs[i]):
             ha = arcs[i]['ha']
@@ -483,7 +492,12 @@ def plotLocSeq(
     locSeq: list[pt],
     lineColor: str = 'Random',
     lineWidth: float = 1.0,
+    lineStyle: str = 'solid',
+    lineDashes: tuple = (5, 2),
+    nodeColor: str = 'black',
+    nodeMarkersize: float = 1,
     arrowFlag: bool = True,
+    arrowPosition: float = 0.5,
     arrowHeadWidth: float = 0.1,
     arrowHeadLength: float = 0.2,
     xyReverseFlag: bool = False,
@@ -537,82 +551,37 @@ def plotLocSeq(
     if (locSeq == None):
         raise MissingParameterError("ERROR: Missing required field `locSeq`.")
 
-    # If no based matplotlib figure provided, define boundary =================
-    if (fig == None or ax == None):
-        fig, ax = plt.subplots()
-        allX = []
-        allY = []
-        for i in locSeq:
-            if (not xyReverseFlag):
-                allX.append(i[0])
-                allY.append(i[1])
-            else:
-                allX.append(i[1])
-                allY.append(i[0])
-        (xMin, xMax, yMin, yMax) = boundingBox
-        if (xMin == None):
-            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
-        if (xMax == None):
-            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
-        if (yMin == None):
-            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
-        if (yMax == None):
-            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
-        width = 0
-        height = 0
-        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
-            if (xMax - xMin > yMax - yMin):
-                width = 5
-                height = 5 * ((yMax - yMin) / (xMax - xMin))
-            else:
-                width = 5 * ((xMax - xMin) / (yMax - yMin))
-                height = 5
-        elif (figSize != None and figSize[0] != None and figSize[1] == None):
-            width = figSize[0]
-            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
-        elif (figSize != None and figSize[0] == None and figSize[1] != None):
-            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
-            height = figSize[1]
-        else:
-            (width, height) = figSize
-
-        if (isinstance(fig, plt.Figure)):
-            fig.set_figwidth(width)
-            fig.set_figheight(height)
-            ax.set_xlim(xMin, xMax)
-            ax.set_ylim(yMin, yMax)
-
-    # Draw lines ===============================================================
-    if (lineColor == 'Random'):
-        lineColor = colorRandom() 
+    arcs = {}
     for i in range(len(locSeq) - 1):
-        line = [locSeq[i], locSeq[i + 1]]
-        if (not xyReverseFlag):
-            x1 = line[0][0]
-            y1 = line[0][1]
-            x2 = line[1][0]
-            y2 = line[1][1]
-        else:
-            x1 = line[0][1]
-            y1 = line[0][0]
-            x2 = line[1][1]
-            y2 = line[1][0]
-        dx = x2 - x1
-        dy = y2 - y1
-        ax.plot([x1, x2], [y1, y2], color = lineColor, linewidth=lineWidth)
-        if (arrowFlag):
-            ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=lineWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=lineColor)
+        arcs[i] = {'arc': [locSeq[i], locSeq[i + 1]]}
 
-    # Axis on and off =========================================================
-    if (not showAxis):
-        plt.axis('off')
+    # Color ===================================================================
+    if (lineColor == 'Random'):
+        lineColor = colorRandom()
 
-    # Save figure =============================================================
-    if (saveFigPath != None and isinstance(fig, plt.Figure)):
-        fig.savefig(saveFigPath)
-    if (not showFig):
-        plt.close(fig)
-
+    fig, ax = plotArcs(
+        fig = fig,
+        ax = ax,
+        arcs = arcs,
+        arcFieldName = 'arc',
+        arcColor = lineColor,
+        arcWidth = lineWidth,
+        arcStyle = lineStyle,
+        arcDashes = lineDashes if lineStyle == 'dashed' else (None, None),
+        arcLabel = "",
+        arrowFlag = arrowFlag,
+        arrowPosition = arrowPosition,
+        arrowHeadWidth = arrowHeadWidth,
+        arrowHeadLength = arrowHeadLength,
+        startColor = nodeColor,
+        endColor = nodeColor ,
+        bothEndSize = nodeMarkersize,
+        xyReverseFlag = xyReverseFlag,
+        figSize = figSize,
+        boundingBox = boundingBox,
+        showAxis = showAxis,
+        saveFigPath = saveFigPath,
+        showFig = showFig)
     return fig, ax
 
 def plotNodeSeq(
@@ -621,7 +590,12 @@ def plotNodeSeq(
     locFieldName: str = 'loc',
     lineColor: str = 'Random',
     lineWidth: float = 1,
+    lineStyle: str = 'solid',
+    lineDashes: tuple = (5, 2),
+    nodeColor: str = 'black',
+    nodeMarkersize: float = 1,
     arrowFlag: bool = True,
+    arrowPosition: float = 0.5,
     arrowHeadWidth: float = 0.1,
     arrowHeadLength: float = 0.2,
     xyReverseFlag: bool = False,
@@ -687,31 +661,36 @@ def plotNodeSeq(
     # Create arcs =============================================================
     if (nodeSeq == None):
         raise MissingParameterError("ERROR: Missing required field `nodeSeq`.")
-    arcs = []
+    # Call plotArcs ===========================================================
+    for n in nodeSeq:
+        if (n not in nodes):
+            raise UnsupportedInputError("ERROR: Cannot find %s in nodes" % n)
+
+    arcs = {}
     for i in range(len(nodeSeq) - 1):
-        arcs.append([nodeSeq[i], nodeSeq[i + 1]])
+        arcs[i] = {'arc': [nodes[nodeSeq[i]][locFieldName], nodes[nodeSeq[i + 1]][locFieldName]]}
 
     # Color ===================================================================
     if (lineColor == 'Random'):
         lineColor = colorRandom()
 
-    # Call plotArcs ===========================================================
-
-    locSeq = []
-    for n in nodeSeq:
-        if (n not in nodes):
-            raise UnsupportedInputError("ERROR: Cannot find %s in nodes" % n)
-        locSeq.append(nodes[n][locFieldName])
-
-    fig, ax = plotLocSeq(
+    fig, ax = plotArcs(
         fig = fig,
         ax = ax,
-        locSeq = locSeq,
-        lineColor = lineColor,
-        lineWidth = lineWidth,
+        arcs = arcs,
+        arcFieldName = 'arc',
+        arcColor = lineColor,
+        arcWidth = lineWidth,
+        arcStyle = lineStyle,
+        arcDashes = lineDashes if lineStyle == 'dashed' else (None, None),
+        arcLabel = "",
         arrowFlag = arrowFlag,
+        arrowPosition = arrowPosition,
         arrowHeadWidth = arrowHeadWidth,
         arrowHeadLength = arrowHeadLength,
+        startColor = nodeColor,
+        endColor = nodeColor ,
+        bothEndSize = nodeMarkersize,
         xyReverseFlag = xyReverseFlag,
         figSize = figSize,
         boundingBox = boundingBox,
@@ -909,7 +888,7 @@ def plotCircle(
         showFig = showFig,
     )
     return fig, ax
-    
+
 def plotPolygons(
     polygons: dict,
     polyFieldName: str = 'poly',
@@ -1557,7 +1536,7 @@ def plotGantt(
 
     return fig, ax
 
-def aniRouting(
+def aniRoutingBak(
     timeRange: tuple[int, int],
     # Nodes -------------------------------------------------------------------
     nodes: dict|None=None,
@@ -1975,6 +1954,400 @@ def aniRouting(
                     ax.annotate(lbl + "\n" + note, (curLoc[0], curLoc[1]))
                 else:
                     ax.annotate(lbl, (curLoc[0], curLoc[1]))
+
+    ani = FuncAnimation(
+        fig, animate, 
+        frames=int((timeRange[1] / (speed * 1.0) - timeRange[0] / (speed * 1.0)) * fps), 
+        interval= int(1000 / fps), 
+        repeat = repeatFlag)
+
+    if (aniSavePath):
+        ani.save("%s.gif" % aniSavePath, dpi=aniSaveDPI, writer=PillowWriter(fps=fps))
+
+    return ani
+
+def aniRouting(
+    timeRange: tuple[int, int],
+    # Nodes -------------------------------------------------------------------
+    nodes: dict|None = None,
+    locFieldName: str = 'loc',
+    timeWindowFieldName: str = 'timeWindow',
+    timedSeqFieldName: str = 'timedSeq',
+    labelFieldName: str = 'label',
+    nodeColor: str = 'black',
+    nodeMarker: str = 'o',
+    nodeMarkersize: float = 2,
+    nodePathColor: str|None = 'gray',
+    nodePathWidth: float|int|None = 2,
+    nodeTraceColor: str|None = 'orange',
+    nodeTraceWidth: float|int|None = 2,
+    nodeTraceShadowTime: float|None = None,
+    nodeSpdShowLabelFlag: bool = True,
+    nodeSpdShowArrowFlag: bool = True,
+    nodeSpdArrowLength: float = 5,
+    nodeShowLabelFlag: bool = True,
+    # Polygons ----------------------------------------------------------------
+    polygons: dict|None = None,
+    polyFieldName = 'poly',    
+    polyEdgeColor: str = 'black',
+    polyEdgeWidth: float = 1,
+    polyFillColor: str|None = 'gray',
+    polyFillStyle: str|None = '///',
+    polyOpacity: float = 0.5,
+    # Configs -----------------------------------------------------------------
+    speed: int = 1,
+    fps: int = 1,
+    repeatFlag: bool = True,
+    xyReverseFlag: bool = False,
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    aniSavePath: str|None = None,
+    aniSaveDPI: int = 300
+    ):
+
+    """Given nodes, nodes, static polygons, and dynamic polygons, create animation
+
+    Parameters
+    ----------
+    nodes: dictionary, optional, default None
+        A dictionary of node. 
+            >>> nodes[nID] = {
+            ...     'node': nodeName,
+            ...     'seq': [], # A sequence of visiting locations
+            ...     'timeStamp': [], # A sequence of time stamps when visiting each location
+            ...     'note': [], # Note to show during each leg of sequence
+            ...     'color': nodeColor,
+            ...     'pathColor': pathColor,
+            ...     'traceColor': traceColor,
+            ...     'traceShadowTime': traceShadowTime
+            ... }
+    polygons: dictionary, optional, default None
+        A dictionary indicating polygons that are dynamic/static in the animation
+            >>> polygons[pID] = {
+            ...     'anchor': [x, y], # The anchor of the polygon
+            ...     'poly': [pt1, pt2], # A sequence of extreme points, coordinates are relative to 'anchor'
+            ...     'direction': direction, # Moving direction
+            ...     'speed': speed, # Moving speed,
+            # ...     'clockwise': None, # True if clockwise, False if counter-clockwise, None if not rotating
+            # ...     'rSpeed': radSpeed, # Rad speed,
+            ...     'timeRange': [ts, te], # Time range of the movement
+            ...     'edgeColor': color, # Edge color
+            ...     'fillColor': color, # Fill color
+            ...     'fillStyle': "///", # Fill style
+            ...     'opacity': 0.5, # opacity
+            ... }
+    """
+
+    # Check for required fields ===============================================
+    if (nodes == None and polygons == None):
+        raise MissingParameterError("ERROR: Need to provide entities for animation.")
+
+    # If no based matplotlib figure provided, define boundary =================
+    fig, ax = plt.subplots()
+    allX = []
+    allY = []
+    if (nodes != None):
+        for i in nodes:
+            if (locFieldName in nodes[i]):
+                if (not xyReverseFlag):
+                    allX.append(nodes[i][locFieldName][0])
+                    allY.append(nodes[i][locFieldName][1])
+                else:
+                    allX.append(nodes[i][locFieldName][1])
+                    allY.append(nodes[i][locFieldName][0])
+            if (timedSeqFieldName in nodes[i]):
+                for t in range(len(nodes[i][timedSeqFieldName])):
+                    if (not xyReverseFlag):                   
+                        allX.append(nodes[i][timedSeqFieldName][t][0][0])
+                        allY.append(nodes[i][timedSeqFieldName][t][0][1])
+                    else:
+                        allX.append(nodes[i][timedSeqFieldName][t][0][1])
+                        allY.append(nodes[i][timedSeqFieldName][t][0][0])
+    if (polygons != None):
+        for pID in polygons:
+            for p in polygons[pID][polyFieldName]:
+                if (not xyReverseFlag):
+                    allX.append(p[0])
+                    allY.append(p[1])
+                else:
+                    allX.append(p[1])
+                    allY.append(p[0])
+
+    (xMin, xMax, yMin, yMax) = boundingBox
+    if (xMin == None):
+        xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
+    if (xMax == None):
+        xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
+    if (yMin == None):
+        yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
+    if (yMax == None):
+        yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+    width = 0
+    height = 0
+    if (figSize == None or (figSize[0] == None and figSize[1] == None)):
+        if (xMax - xMin > yMax - yMin):
+            width = 5
+            height = 5 * ((yMax - yMin) / (xMax - xMin))
+        else:
+            width = 5 * ((xMax - xMin) / (yMax - yMin))
+            height = 5
+    elif (figSize != None and figSize[0] != None and figSize[1] == None):
+        width = figSize[0]
+        height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
+    elif (figSize != None and figSize[0] == None and figSize[1] != None):
+        width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
+        height = figSize[1]
+    else:
+        (width, height) = figSize
+    fig.set_figwidth(width) 
+    fig.set_figheight(height)
+
+    # Styling =================================================================
+    nodeStyle = {}
+    if (nodes != None):
+        for nID in nodes:
+            nodeStyle[nID] = {}
+            if (nodeColor == None or nodeColor == 'Random' or 'color' not in nodes):
+                nodeStyle[nID]['nodeColor'] = colorRandom()
+            elif (nodeColor != None):
+                nodeStyle[nID]['nodeColor'] = nodeColor
+            elif ('color' in nodes[nID]):
+                nodeStyle[nID]['nodeColor'] = nodes[nID]['color']
+
+            if (nodeMarker != None):
+                nodeStyle[nID]['nodeMarker'] = nodeMarker
+            elif ('marker' in nodes[nID]):
+                nodeStyle[nID]['nodeMarker'] = nodes[nID]['marker']
+
+            if (nodeMarkersize != None):
+                nodeStyle[nID]['nodeMarkersize'] = nodeMarkersize
+            elif ('markersize' in nodes[nID]):
+                nodeStyle[nID]['nodeMarkersize'] = nodes[nID]['markersize']
+
+            if (nodePathColor == 'Random'):
+                nodeStyle[nID]['pathColor'] = colorRandom()
+            elif (nodePathColor != None):
+                nodeStyle[nID]['pathColor'] = nodePathColor
+            elif ('pathColor' in nodes[nID]):
+                nodeStyle[nID]['pathColor'] = nodes[nID]['pathColor']
+
+            if (nodePathWidth != None):
+                nodeStyle[nID]['pathWidth'] = nodePathWidth
+            elif ('pathWidth' in polygons[pID]):
+                nodeStyle[nID]['pathWidth'] = nodes[nID]['pathWidth']
+
+            if (nodeTraceColor == 'Random'):
+                nodeStyle[nID]['traceColor'] = colorRandom()
+            elif (nodeTraceColor != None):
+                nodeStyle[nID]['traceColor'] = nodeTraceColor
+            elif ('traceColor' in nodes[nID]):
+                nodeStyle[nID]['traceColor'] = nodes[nID]['traceColor']
+
+            if (nodeTraceWidth != None):
+                nodeStyle[nID]['traceWidth'] = nodeTraceWidth
+            elif ('traceWidth' in polygons[pID]):
+                nodeStyle[nID]['traceWidth'] = nodes[nID]['traceWidth']
+
+            if (nodeTraceShadowTime != None):
+                nodeStyle[nID]['traceShadowTime'] = nodeTraceShadowTime
+            elif ('traceShadowTime' in nodes[nID]):
+                nodeStyle[nID]['traceShadowTime'] = nodes[nID]['traceShadowTime']
+            else:
+                nodeStyle[nID]['traceShadowTime'] = None
+
+    polyStyle = {}
+    if (polygons != None):
+        for pID in polygons:
+            polyStyle[pID] = {}
+            if (polyEdgeColor == None or polyEdgeColor == 'Random'):
+                polyStyle[pID]['edgeColor'] = colorRandom()
+            elif (polyEdgeColor != None):
+                polyStyle[pID]['edgeColor'] = polyEdgeColor
+            elif ('edgeColor' in polygons[pID]):
+                polyStyle[pID]['edgeColor'] = polygons[pID]['edgeColor']
+
+            if (polyEdgeWidth != None):
+                polyStyle[pID]['edgeWidth'] = polyEdgeWidth
+            elif ('edgeWidth' in polygons[pID]):
+                polyStyle[pID]['edgeWidth'] = polygons[pID]['edgeWidth']
+
+            if (polyFillColor == 'Random'):
+                polyStyle[pID]['fillColor'] = colorRandom()
+            elif (polyFillColor != None):
+                polyStyle[pID]['fillColor'] = polyFillColor
+            elif ('fillColor' in polygons[pID]):
+                polyStyle[pID]['fillColor'] = polygons[pID]['fillColor']
+
+            if (polyFillStyle != None):
+                polyStyle[pID]['fillStyle'] = polyFillStyle
+            elif ('fillStyle' in polygons[pID]):
+                polyStyle[pID]['fillStyle'] = polygons[pID]['fillStyle']
+
+            if (polyOpacity != None):
+                polyStyle[pID]['opacity'] = polyOpacity
+            elif ('opacity' in polygons[pID]):
+                polyStyle[pID]['opacity'] = polygons[pID]['opacity']
+
+    def animate(t):
+        ax.clear()
+        ax.set_xlim(xMin, xMax)
+        ax.set_ylim(yMin, yMax)
+
+        # Clock
+        clock = timeRange[0] + t * speed / (fps * 1.0)
+        ax.set_title("Clock: %s[s]" % round(clock, 2))
+
+        # Plot static/dynamic polygons
+        if (polygons != None):
+            # Plot each polygon -----------------------------------------------
+            for pID in polygons:
+                # 判定此时刻是否需要绘制poly
+                plotPolyFlag = False
+                if (timeWindowFieldName not in polygons[pID] or polygons[pID][timeWindowFieldName][0] <= clock <= polygons[pID][timeWindowFieldName][1]):
+                    plotPolyFlag = True
+
+                # 每个Poly的坐标轮廓
+                pX = []
+                pY = []
+                if (plotPolyFlag):
+                    for p in polygons[pID][polyFieldName]:
+                        pt = None
+                        if ('direction' in polygons[pID] and 'speed' in polygons[pID]):
+                            if (clock < polygons[pID][timeWindowFieldName][0]):
+                                pt = p
+                            elif (clock < polygons[pID][timeWindowFieldName][1]):
+                                pt = ptInDistXY(p, polygons[pID]['direction'], polygons[pID]['speed'] * clock)
+                            else:
+                                pt = ptInDistXY(p, polygons[pID]['direction'], polygons[pID]['speed'] * (polygons[pID]['timeRange'][1] - polygons[pID]['timeRange'][0]))
+                        else:
+                            pt = p
+                        if (not xyReverseFlag):
+                            pX.append(pt[0])
+                            pY.append(pt[1])
+                        else:
+                            pX.append(pt[1])
+                            pY.append(pt[0])
+
+                # Plot polygons with styling
+                if (plotPolyFlag):
+                    if ('fillColor' not in polyStyle[pID]):
+                        ax.plot(pX, pY, 
+                            color=polyStyle[pID]['edgeColor'], 
+                            linewidth=polyStyle[pID]['edgeWidth'])
+                    elif ('fillStyle' not in polyStyle[pID]):
+                        ax.fill(pX, pY, 
+                            facecolor=polyStyle[pID]['fillColor'], 
+                            edgecolor=polyStyle[pID]['edgeColor'], 
+                            linewidth=polyStyle[pID]['edgeWidth'], 
+                            alpha=polyStyle[pID]['opacity'])
+                    else:
+                        ax.fill(pX, pY, 
+                            facecolor=polyStyle[pID]['fillColor'], 
+                            edgecolor=polyStyle[pID]['edgeColor'], 
+                            hatch=polyStyle[pID]['fillStyle'], 
+                            linewidth=polyStyle[pID]['edgeWidth'], 
+                            alpha=polyStyle[pID]['opacity'])
+
+        # Plot nodes
+        if (nodes != None):
+            # Plot the location of nodes --------------------------------------
+            for nID in nodes:
+                # If node has a time window, plot the node only within time window
+                plotNodeFlag = False
+                if (timeWindowFieldName not in nodes[nID] or nodes[nID][timeWindowFieldName][0] <= clock <= nodes[nID][timeWindowFieldName][1]):
+                    plotNodeFlag = True
+
+                curSnap = None
+                if (timedSeqFieldName in nodes[nID]):
+                    curSnap = snapInTimedSeq(
+                        timedSeq = nodes[nID][timedSeqFieldName],
+                        t = clock)
+
+                if (plotNodeFlag):
+                    x = None
+                    y = None
+                    curLoc = None
+                    if (timedSeqFieldName not in nodes[nID]):
+                        curLoc = nodes[nID][locFieldName]
+                    else:                        
+                        curLoc = curSnap['loc']
+                    if (not xyReverseFlag):
+                        x = curLoc[0]
+                        y = curLoc[1]
+                    else:
+                        x = curLoc[1]
+                        y = curLoc[0]
+
+                    # Styling of each node
+                    ax.plot(x, y, 
+                        color = nodeStyle[nID]['nodeColor'], 
+                        marker = nodeStyle[nID]['nodeMarker'], 
+                        markersize = nodeStyle[nID]['nodeMarkersize'])
+                    if ('label' not in nodes[nID]):
+                        lbl = nID
+                    else:
+                        lbl = nodes[nID]['label']
+                    ax.annotate(lbl, (x, y))
+
+                    if (labelFieldName not in nodes[nID]):
+                        lbl = str(nID)
+                    else:
+                        lbl = nodes[nID][labelFieldName]
+
+                    if (nodeSpdShowLabelFlag):
+                        curSpd = curSnap['speed']
+                        lbl += " %s[m/s]" % (round(curSpd, 2))
+                    
+                    if (nodeShowLabelFlag and labelFieldName in nodes[nID]):
+                        label = ""
+                        if (clock <= nodes[nID][timedSeqFieldName][0][1]):
+                            label = nodes[nID][labelFieldName][0]
+                        elif (clock >= nodes[nID][timedSeqFieldName][-1][1]):
+                            label = nodes[nID][labelFieldName][-1]
+                        else:
+                            for i in range(len(nodes[nID][timedSeqFieldName]) - 1):
+                                if (nodes[nID][timedSeqFieldName][i][1] <= clock < nodes[nID][timedSeqFieldName][i + 1][1]):
+                                    label = nodes[nID][labelFieldName][i]
+                                    break
+                        ax.annotate(lbl + "\n" + label, (curLoc[0], curLoc[1]))
+                    else:
+                        ax.annotate(lbl, (curLoc[0], curLoc[1]))
+
+                # Plot path
+                if ('pathColor' in nodeStyle[nID]):
+                    pathX = []
+                    pathY = []
+                    if (not xyReverseFlag):
+                        pathX = [nodes[nID][timedSeqFieldName][i][0][0] for i in range(len(nodes[nID][timedSeqFieldName]))]
+                        pathY = [nodes[nID][timedSeqFieldName][i][0][1] for i in range(len(nodes[nID][timedSeqFieldName]))]
+                    else:
+                        pathX = [nodes[nID][timedSeqFieldName][i][0][1] for i in range(len(nodes[nID][timedSeqFieldName]))]
+                        pathY = [nodes[nID][timedSeqFieldName][i][0][0] for i in range(len(nodes[nID][timedSeqFieldName]))]
+                    ax.plot(pathX, pathY, color=nodeStyle[nID]['pathColor'], linewidth = 1)
+
+                # Plot trace
+                if ('traceColor' in nodeStyle[nID]):
+                    ts = timeRange[0]
+                    te = clock
+                    if (nodeStyle[nID]['traceShadowTime'] != None):
+                        ts = max(te - nodeStyle[nID]['traceShadowTime'], timeRange[0])
+
+                    if (ts < te):
+                        trace = traceInTimedSeq(
+                            timedSeq = nodes[nID][timedSeqFieldName],
+                            ts = ts,
+                            te = te)
+                        if (len(trace) > 0 and 'traceColor' in nodeStyle[nID]):
+                            traceX = []
+                            traceY = []
+                            if (not xyReverseFlag):
+                                traceX = [i[0] for i in trace]
+                                traceY = [i[1] for i in trace]
+                            else:
+                                traceX = [i[1] for i in trace]
+                                traceY = [i[0] for i in trace]
+                            ax.plot(traceX, traceY, color=nodeStyle[nID]['traceColor'], linewidth = 1)
+
 
     ani = FuncAnimation(
         fig, animate, 
