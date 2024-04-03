@@ -9,7 +9,6 @@ from .common import *
 from .color import *
 from .msg import *
 from .province import *
-from .error import *
 from .geometry import *
 
 # History =====================================================================

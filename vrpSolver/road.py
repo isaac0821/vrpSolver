@@ -3,7 +3,6 @@ import math
 import shapely
 import networkx as nx
 
-from .const import *
 from .geometry import *
 
 def createRoadNetworkFromGeoJSON(

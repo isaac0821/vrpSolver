@@ -4,7 +4,6 @@ import datetime
 import warnings
 import networkx as nx
 
-from .const import *
 from .common import *
 from .geometry import *
 from .msg import *

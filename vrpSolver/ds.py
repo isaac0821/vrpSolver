@@ -1,6 +1,5 @@
 import math
-from .error import *
-from .const import *
+from .common import *
 
 class RingNode(object):
     def __init__(self, key, value=None, prev: 'RingNode' = None, next: 'RingNode' = None):

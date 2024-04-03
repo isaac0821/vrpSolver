@@ -4,9 +4,7 @@ import warnings
 import networkx as nx
 
 from .common import *
-from .const import *
 from .msg import *
-from .error import *
 from .geometry import *
 
 # History =====================================================================

@@ -7,9 +7,7 @@ import shapely
 from shapely.geometry import mapping
 import networkx as nx
 
-from .error import *
 from .common import *
-from .const import *
 from .msg import *
 from .ds import *
 
@@ -2024,31 +2022,6 @@ def locSeqMileage(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
     lat = nextLoc[0] + (remainDist / segDist) * (preLoc[0] - nextLoc[0])
     lon = nextLoc[1] + (remainDist / segDist) * (preLoc[1] - nextLoc[1])
     return (lat, lon)
-
-def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
-    removedFlag = []
-    for i in range(1, len(seq) - 1):
-        # NOTE: The following codes are too strict for error
-        # if (isPtOnSeg(seq[i], [seq[i - 1], seq[i + 1]], error=error)):
-        #     removedFlag.append(True)
-        # else:
-        #     removedFlag.append(False)
-        dev = distPt2Line(seq[i], [seq[i - 1], seq[i + 1]])
-        if (dev <= error):
-            removedFlag.append(True)
-        else:
-            removedFlag.append(False)
-    newSeq = []
-    newSeq.append(seq[0])
-    for i in range(1, len(seq) - 1):
-        if (removedFlag[i - 1] == False):
-            newSeq.append(seq[i])
-    if (len(seq) > 1):
-        newSeq.append(seq[-1])
-    return {
-        'newSeq': newSeq,
-        'removedFlag': removedFlag
-    }
 
 # Area calculation ============================================================
 def calTriangleAreaEdge(a: float, b: float, c: float) -> float:

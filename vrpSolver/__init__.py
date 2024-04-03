@@ -84,9 +84,7 @@ __author__ = "Lan Peng"
 
 
 # Constants, messages, and basic modules
-from .const import *
 from .msg import *
-from .error import *
 from .common import *
 from .color import *
 

@@ -7,7 +7,9 @@ try:
 except(ImportError):
     import pickle
 
-from .const import *
+CONST_EPSILON = 0.00001
+CONST_EARTH_RADIUS_MILES = 3958.8
+CONST_EARTH_RADIUS_METERS = 6378137.0
 
 # Type alias
 pt = list[float] | tuple[float, float]
@@ -18,6 +20,33 @@ arcSeg = list[pt] | tuple[pt, pt, pt|None]
 arcPoly = list[arcSeg]
 arcPolys = list[arcPoly]
 line = list[pt]
+
+class UnsupportedInputError(Exception):
+    pass
+
+class ZeroVectorError(Exception):
+    pass
+
+class InvalidPolygonError(Exception):
+    pass
+
+class EmptyError(Exception):
+    pass
+
+class MissingParameterError(Exception):
+    pass
+
+class KeyExistError(Exception):
+    pass
+
+class KeyNotExistError(Exception):
+    pass
+
+class OutOfRangeError(Exception):
+    pass
+
+class VrpSolverNotAvailableError(Exception):
+    pass
 
 def saveDictionary(obj, name: str) -> None:
     saveName = name + '.pkl'

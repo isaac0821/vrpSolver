@@ -4,10 +4,8 @@ import tripy
 import warnings
 
 from .common import *
-from .const import *
 from .geometry import *
 from .msg import *
-from .error import *
 
 # History =====================================================================
 # 20230510 - Cleaned up for v0.0.55, including the following available nodes 
