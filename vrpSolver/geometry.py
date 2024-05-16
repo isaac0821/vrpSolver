@@ -5,6 +5,7 @@ import tripy
 
 import shapely
 from shapely.geometry import mapping
+from shapely.ops import nearest_points
 import networkx as nx
 
 from .common import *
@@ -67,7 +68,7 @@ def isPtOnSeg(pt: pt, seg: line, interiorOnly: bool=False, error:float = CONST_E
         abs(math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2) 
         + math.sqrt((x2 - x3) ** 2 + (y2 - y3) ** 2) 
         - math.sqrt((x1 - x3) ** 2 + (y1 - y3) ** 2)) <= error)
-    # Check if the intertion is in the interior ===============================
+    # Check if the intersection is in the interior ============================
     if (interiorOnly):
         return onSeg and not is2PtsSame(pt, seg[0], error = error) and not is2PtsSame(pt, seg[1], error = error)
     else:
@@ -1124,6 +1125,20 @@ def distPt2Poly(pt: pt, poly: poly=None, polyShapely: shapely.Polygon=None) -> f
     ptShapely = shapely.Point(pt)
     return shapely.distance(ptShapely, polyShapely)
 
+def nearestPtLine2Poly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None) -> dict:
+    if (poly == None and polyShapely == None):
+        raise MissingParameterError("ERROR: Missing required field `poly` or `polyShapely`")
+
+    if (polyShapely == None):
+        polyShapely = shapely.Polygon([p for p in poly])
+    lineShapely = shapely.LineString(line)
+    nearestPts = nearest_points(lineShapely, polyShapely)
+    
+    return {
+        'ptOnLine': (nearestPts[0].x, nearestPts[0].y),
+        'ptOnPoly': (nearestPts[1].x, nearestPts[1].y),
+    }
+
 # Dimension mapping ===========================================================
 def vecPolar2XY(vecPolar: pt) -> pt:
 
@@ -2019,9 +2034,9 @@ def locSeqMileage(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
         segDist = distEuclideanXY(preLoc, nextLoc)['dist']
     if (segDist <= CONST_EPSILON):
         raise ZeroDivisionError
-    lat = nextLoc[0] + (remainDist / segDist) * (preLoc[0] - nextLoc[0])
-    lon = nextLoc[1] + (remainDist / segDist) * (preLoc[1] - nextLoc[1])
-    return (lat, lon)
+    x = nextLoc[0] + (remainDist / segDist) * (preLoc[0] - nextLoc[0])
+    y = nextLoc[1] + (remainDist / segDist) * (preLoc[1] - nextLoc[1])
+    return (x, y)
 
 # Area calculation ============================================================
 def calTriangleAreaEdge(a: float, b: float, c: float) -> float:
@@ -2242,7 +2257,7 @@ def nodesInIsochrone(nodes: dict, nodeIDs: list|str = 'All', locFieldName = 'loc
     }
 
 # Create distance matrix ======================================================
-def matrixDist(nodes: dict, edges: dict = {'method': 'Euclidean'}, depotID: int|str = 0, nodeIDs: list|str = 'All', locFieldName: str = 'loc') -> dict:
+def matrixDist(nodes: dict, edges: dict = {'method': 'Euclidean'}, nodeIDs: list|str = 'All', locFieldName: str = 'loc') -> dict:
     # Define tau
     tau = {}
     pathLoc = {}

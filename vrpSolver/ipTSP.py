@@ -139,9 +139,9 @@ def ipTSP(
     tau = None
     path = None
     if (detailsFlag):
-        tau, path = matrixDist(nodes, edges, depotID, nodeIDs, locFieldName)
+        tau, path = matrixDist(nodes, edges, nodeIDs, locFieldName)
     else:
-        tau, _ = matrixDist(nodes, edges, depotID, nodeIDs, locFieldName)
+        tau, _ = matrixDist(nodes, edges, nodeIDs, locFieldName)
 
     # Solve by different formulations =========================================
     tsp = None
@@ -1151,9 +1151,9 @@ def ipTSPEx(
     tau = None
     path = None
     if (detailsFlag):
-        tau, path = matrixDist(nodes, edges, depotID, nodeIDs, locFieldName)
+        tau, path = matrixDist(nodes, edges, nodeIDs, locFieldName)
     else:
-        tau, _ = matrixDist(nodes, edges, depotID, nodeIDs, locFieldName)
+        tau, _ = matrixDist(nodes, edges, nodeIDs, locFieldName)
 
     # Solve by different formulations =========================================
     tspEx = None
