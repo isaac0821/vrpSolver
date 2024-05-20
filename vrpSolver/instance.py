@@ -464,6 +464,60 @@ def _rndPtRoadNetworkPolyLatLon(N: int, road: dict, poly: poly, roadClass: str |
 
     return nodeLocs
 
+def _rndPtRoadNetworkPolysLatLon(N: int, road: dict, polys: polys, roadClass: str | list[str]) -> list[pt]:
+    # Calculate the length of each edge =======================================
+    lengths = []
+    roadIDs = []
+    for rID in road:
+        roadLength = 0
+        includedFlag = False
+        if ('class' in road[rID] and road[rID]['class'] in roadClass):
+            if (polys == None):
+                includedFlag = True
+            else:
+                for i in range(len(road[rID]['shape'])):
+                    if (isPtInPoly(road[rID]['shape'][i], poly)):
+                        includedFlag = True
+                        break
+        # Check if this road is inside polygon
+        if (includedFlag):
+            for i in range(len(road[rID]['shape']) - 1):
+                roadLength += distLatLon(road[rID]['shape'][i], road[rID]['shape'][i + 1])['dist']
+            lengths.append(roadLength)
+        else:
+            lengths.append(0)
+
+        roadIDs.append(rID)
+
+    # Check if there are roads included =======================================
+    if (sum(lengths) == 0):
+        raise EmptyError("ERROR: No road is found.")
+
+    # Use accept-denial to test if the node is within poly ====================
+    # FIXME: Inefficient approach, will need to be rewritten
+    # TODO: Truncate the roads that partially inside polygon
+    nodeLocs = []
+    for i in range(N):
+        lat = None
+        lon = None
+        if (poly == None):
+            idx = rndPick(lengths)
+            edgeLength = lengths[idx]
+            edgeDist = random.uniform(0, 1) * edgeLength
+            (lat, lon) = locSeqMileage(road[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
+        else:
+            insideFlag = False
+            while (not insideFlag):
+                idx = rndPick(lengths)
+                edgeLength = lengths[idx]
+                edgeDist = random.uniform(0, 1) * edgeLength
+                (lat, lon) = locSeqMileage(road[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
+                if (isPtInPoly([lat, lon], poly)):
+                    insideFlag = True
+        nodeLocs.append((lat, lon))
+
+    return nodeLocs
+
 def _rndPtRoadNetworkCircleLatLon(N: int, road: dict, radius: float, center: pt, roadClass: str | list[str]) -> list[pt]:
     # Calculate the length of each edge =======================================
     lengths = []

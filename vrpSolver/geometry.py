@@ -944,6 +944,67 @@ def intRay2Poly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, r
         seg = [ray[0], maxPt]
         return intSeg2Poly(seg, poly, polyShapely, returnShaplelyObj)
 
+def intSeq2Poly(seq: list[pt], poly: poly, seqShapely: shapely.LineString=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False):
+    # Sanity check ============================================================
+    if (seq == None and seqShapely == None):
+        raise MissingParameterError("ERROR: `seq` and `seqShapely` cannot be None at the same time.")
+    if (poly == None and polyShapely == None):
+        raise MissingParameterError("ERROR: `poly` and `polyShapely` cannot be None at the same time.")
+
+    # get shapely objects =====================================================
+    if (seqShapely == None):
+        seqShapely = shapely.LineString(seq)
+    if (polyShapely == None):
+        polyShapely = shapely.Polygon(poly)
+    intShape = shapely.intersection(seqShapely, polyShapely)
+
+    # If return shapely objects no processing needed ==========================
+    if (returnShaplelyObj):
+        return intShape 
+    # 若不相交，返回不相交
+    if (intShape.is_empty):
+        # FIXME: 误差的部分之后加，现在只考虑用在clipRoadNetworkByPoly()里
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None,
+            'interiorFlag': None
+        }
+    elif (isinstance(intShape, shapely.Point)):
+        return {
+            'status': 'Cross',
+            'intersect': (intShape.x, intShape.y),
+            'intersectType': 'Point',
+            'interiorFlag': False
+        }
+    elif (isinstance(intShape, shapely.LineString)):
+        intSeq = [list(pt) for pt in intShape.coords]
+        return {
+            'status': 'Cross',
+            'intersect': intSeq,
+            'intersectType': 'Segment',
+            'interiorFlag': True
+        }
+    else:
+        intSp = []
+        for obj in intShape.geoms:
+            if (isinstance(obj, shapely.Point)):
+                intSp.append({
+                    'status': 'Cross',
+                    'intersect': (obj.x, obj.y),
+                    'intersectType': 'Point',
+                    'interiorFlag': False
+                })
+            elif (isinstance(obj, shapely.LineString)):
+                intSeq = [list(pt) for pt in obj.coords]
+                intSp.append({
+                    'status': 'Cross',
+                    'intersect': intSeq,
+                    'intersectType': 'Segment',
+                    'interiorFlag': True
+                })
+        return intSp
+
 # Line-shape versus polygon ===================================================
 def isLineIntPoly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None, interiorOnly: bool=False) -> bool:
     """Is a line intersect with a polygon"""
@@ -2130,6 +2191,22 @@ def ptInDistLatLon(pt: pt, direction: int|float, distMeters: int|float):
     # Bearing in degrees: 0 – North, 90 – East, 180 – South, 270 or -90 – West.
     newLoc = list(geopy.distance.distance(meters=distMeters).destination(point=pt, bearing=direction))[:2]
     return newLoc
+
+def circleByCenterLatLon(center: pt, radius: int|float, lod: int = 30):
+    circle = []
+    for i in range(lod):
+        deg = float(360 * i) / float(lod)
+        pt = ptInDistLatLon(pt = center, direction = deg, distMeters = radius)
+        circle.append(pt)
+    return circle
+
+def circleByCenterXY(center: pt, radius: int|float, lod: int = 30):
+    circle = []
+    for i in range(lod):
+        deg = float(360 * i) / float(lod)
+        pt = ptInDistXY(pt = center, direction = deg, distMeters = radius)
+        circle.append(pt)
+    return circle
 
 # Sort nodes ==================================================================
 def nodeSeqByDist(nodes: dict, nodeIDs: list|str = 'All', locFieldName = 'loc', edges: dict = {'method': 'Euclidean'}, refLoc: pt|None = None, refNodeID: int|str|None = None) -> list:

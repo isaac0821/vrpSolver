@@ -159,10 +159,79 @@ def createRoadNetworkFromGeoJSON(
         'building': building
     }
 
-def createGraphFromRoadNetwork(
-    roadnetwork: dict,
-    boundaryLatLon: poly|None = None):
+def clipRoadNetworkByPoly(
+    roads: dict,
+    poly: poly) -> dict:
 
-    rg = nx.Graph()    
+    clip = {}
+    clip['boundary'] = [i for i in poly]
 
-    return rg
+    # FIXME: Currently using a stupid method, since it is a one-time function    
+    # Roads ===================================================================
+    clip['road'] = {}
+    maxRoadID = max(roads['road'].keys()) + 1
+    for r in roads['road']:
+        # 最笨的办法，一条一条路处理
+        seqInt = intSeq2Poly(roads['road'][r]['shape'], poly)
+
+        # 如果是完整的路径
+        if (type(seqInt) != list):
+            if (seqInt['status'] == 'Cross' and seqInt['intersectType'] == 'Segment'):
+                clip['road'][r] = {}
+                for k in roads['road'][r]:
+                    clip['road'][r][k] = roads['road'][r][k]
+                clip['road'][r]['shape'] = seqInt['intersect']
+
+        # 如果路径被切割开
+        else:
+            for parti in seqInt:
+                if (parti['status'] == 'Cross' and parti['intersectType'] == 'Segment'):
+                    clip['road'][maxRoadID] = {}
+                    for k in roads['road'][r]:
+                        clip['road'][maxRoadID][k] = roads['road'][r][k]
+                    clip['road'][maxRoadID]['shape'] = parti['intersect']
+                    maxRoadID += 1
+
+    # 暂时不处理building
+    clip['building'] = roads['building']
+
+    return clip
+
+def clipRoadNetworkByPolys(
+    roads: dict,
+    polys: polys) -> dict:
+
+    clip = {}
+    clip['boundary'] = polys
+
+    # FIXME: Currently using a stupid method, since it is a one-time function    
+    # Roads ===================================================================
+    clip['road'] = {}
+    maxRoadID = max(roads['road'].keys()) + 1
+    for poly in polys:
+        for r in roads['road']:
+            # 最笨的办法，一条一条路处理
+            seqInt = intSeq2Poly(roads['road'][r]['shape'], poly)
+
+            # 如果是完整的路径
+            if (type(seqInt) != list):
+                if (seqInt['status'] == 'Cross' and seqInt['intersectType'] == 'Segment'):
+                    clip['road'][r] = {}
+                    for k in roads['road'][r]:
+                        clip['road'][r][k] = roads['road'][r][k]
+                    clip['road'][r]['shape'] = seqInt['intersect']
+
+            # 如果路径被切割开
+            else:
+                for parti in seqInt:
+                    if (parti['status'] == 'Cross' and parti['intersectType'] == 'Segment'):
+                        clip['road'][maxRoadID] = {}
+                        for k in roads['road'][r]:
+                            clip['road'][maxRoadID][k] = roads['road'][r][k]
+                        clip['road'][maxRoadID]['shape'] = parti['intersect']
+                        maxRoadID += 1
+
+    # 暂时不处理building
+    clip['building'] = roads['building']
+
+    return clip
