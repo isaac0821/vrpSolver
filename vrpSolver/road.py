@@ -8,7 +8,7 @@ from .geometry import *
 def createRoadNetworkFromGeoJSON(
     geoJSONPath: str,
     boundaryLatLon: poly|None = None,
-    exportType: str = 'LatLon',
+    projType: str = 'LatLon',
     buildingIncludedFlag: bool = False
     ) -> dict:
 
@@ -26,7 +26,7 @@ def createRoadNetworkFromGeoJSON(
         The path to a geoJSON file
     boundaryLatLon: list[pt], optionan, default as None
         Filter out the area that are not within the boundary, if given
-    exportType: string, optional, default as 'LatLon'
+    projType: string, optional, default as 'LatLon'
         Determine the axises of exported data, options are: 'LatLon' and 'Mercator'
     buildingIncludedFlag: bool, optional, default as False
         True if buildings are included
@@ -71,9 +71,9 @@ def createRoadNetworkFromGeoJSON(
             for p in gj["features"][i]["geometry"]["coordinates"]:
                 if (boundaryLatLon == None or isPtOnPoly([p[1], p[0]], boundaryLatLon)):
                     roadEntireIncludedFlag = True
-                if (exportType == 'Mercator'):
+                if (projType == 'Mercator'):
                     line.append(list(ptLatLon2XYMercator([p[1], p[0]])))
-                elif (exportType == 'LatLon'):
+                elif (projType == 'LatLon'):
                     line.append([p[1], p[0]])
 
             if (roadEntireIncludedFlag):
@@ -108,10 +108,10 @@ def createRoadNetworkFromGeoJSON(
 
                 # The shape of the road is projected using Mercator projection
                 poly = []
-                if (exportType == 'Mercator'):
+                if (projType == 'Mercator'):
                     for p in gj["features"][i]["geometry"]["coordinates"][0][0]:
                         poly.append(list(ptLatLon2XYMercator([p[1], p[0]])))
-                elif (exportType == 'LatLon'):
+                elif (projType == 'LatLon'):
                     for p in gj["features"][i]["geometry"]["coordinates"][0][0]:
                         poly.append([p[1], p[0]])
                 building[buildingID] = {}
@@ -140,7 +140,7 @@ def createRoadNetworkFromGeoJSON(
                 minY = p[1]
             if (maxY == None or p[1] > maxY):
                 maxY = p[1]
-    if (exportType == 'Mercator'):
+    if (projType == 'Mercator'):
         for r in road:
             for p in road[r]['shape']:
                 p[0] -= minX
@@ -148,90 +148,80 @@ def createRoadNetworkFromGeoJSON(
 
     # Define boundary =========================================================
     boundary = []
-    if (exportType == 'Mercator'):
+    if (projType == 'Mercator'):
         boundary = [(0, 0), (maxX - minX, 0), (maxX - minX, maxY - minY), (0, maxY - minY)]
-    elif (exportType == 'LatLon'):
+    elif (projType == 'LatLon'):
         boundary = [(minX, minY), (maxX, minY), (maxX, maxY), (minX, maxY)]
 
     return {
         'boundary': boundary,
+        'projType': projType,
         'road': road,
         'building': building
     }
 
-def clipRoadNetworkByPoly(
+def clipRoadsByPoly(
     roads: dict,
     poly: poly) -> dict:
 
-    clip = {}
-    clip['boundary'] = [i for i in poly]
-
     # FIXME: Currently using a stupid method, since it is a one-time function    
     # Roads ===================================================================
-    clip['road'] = {}
-    maxRoadID = max(roads['road'].keys()) + 1
-    for r in roads['road']:
+    clip = {}
+    maxRoadID = max(roads.keys()) + 1
+    for r in roads:
         # 最笨的办法，一条一条路处理
-        seqInt = intSeq2Poly(roads['road'][r]['shape'], poly)
+        seqInt = intSeq2Poly(roads[r]['shape'], poly)
 
         # 如果是完整的路径
         if (type(seqInt) != list):
             if (seqInt['status'] == 'Cross' and seqInt['intersectType'] == 'Segment'):
-                clip['road'][r] = {}
-                for k in roads['road'][r]:
-                    clip['road'][r][k] = roads['road'][r][k]
-                clip['road'][r]['shape'] = seqInt['intersect']
+                clip[r] = {}
+                for k in roads[r]:
+                    clip[r][k] = roads[r][k]
+                clip[r]['shape'] = seqInt['intersect']
 
         # 如果路径被切割开
         else:
             for parti in seqInt:
                 if (parti['status'] == 'Cross' and parti['intersectType'] == 'Segment'):
-                    clip['road'][maxRoadID] = {}
-                    for k in roads['road'][r]:
-                        clip['road'][maxRoadID][k] = roads['road'][r][k]
-                    clip['road'][maxRoadID]['shape'] = parti['intersect']
+                    clip[maxRoadID] = {}
+                    for k in roads[r]:
+                        clip[maxRoadID][k] = roads[r][k]
+                    clip[maxRoadID]['shape'] = parti['intersect']
                     maxRoadID += 1
-
-    # 暂时不处理building
-    clip['building'] = roads['building']
 
     return clip
 
-def clipRoadNetworkByPolys(
+def clipRoadsByPolys(
     roads: dict,
     polys: polys) -> dict:
 
-    clip = {}
-    clip['boundary'] = polys
-
     # FIXME: Currently using a stupid method, since it is a one-time function    
     # Roads ===================================================================
-    clip['road'] = {}
-    maxRoadID = max(roads['road'].keys()) + 1
+    clip = {}
+    roadID = 0
     for poly in polys:
-        for r in roads['road']:
+        for r in roads:
             # 最笨的办法，一条一条路处理
-            seqInt = intSeq2Poly(roads['road'][r]['shape'], poly)
+            seqInt = intSeq2Poly(roads[r]['shape'], poly)
 
             # 如果是完整的路径
             if (type(seqInt) != list):
                 if (seqInt['status'] == 'Cross' and seqInt['intersectType'] == 'Segment'):
-                    clip['road'][r] = {}
-                    for k in roads['road'][r]:
-                        clip['road'][r][k] = roads['road'][r][k]
-                    clip['road'][r]['shape'] = seqInt['intersect']
+                    clip[roadID] = {}
+                    for k in roads[r]:
+                        clip[roadID][k] = roads[r][k]
+                    clip[roadID]['shape'] = seqInt['intersect']
+                    roadID += 1
 
             # 如果路径被切割开
             else:
                 for parti in seqInt:
                     if (parti['status'] == 'Cross' and parti['intersectType'] == 'Segment'):
-                        clip['road'][maxRoadID] = {}
-                        for k in roads['road'][r]:
-                            clip['road'][maxRoadID][k] = roads['road'][r][k]
-                        clip['road'][maxRoadID]['shape'] = parti['intersect']
-                        maxRoadID += 1
-
-    # 暂时不处理building
-    clip['building'] = roads['building']
+                        clip[roadID] = {}
+                        for k in roads[r]:
+                            clip[roadID][k] = roads[r][k]
+                        clip[roadID]['shape'] = parti['intersect']
+                        roadID += 1
 
     return clip

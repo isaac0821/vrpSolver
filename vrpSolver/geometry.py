@@ -1363,6 +1363,30 @@ def polysSubtract(polys:polys=None, polysShapely:list[shapely.Polygon]=None, sub
             diffPolys[k] = diffPolys[k][:-1]
     return diffPolys
 
+def polysIntersect(polys: polys=None, polysShapely:list[shapely.Polygon]=None, returnShaplelyObj:bool=False) -> list:
+    if (polys == None and polysShapely == None):
+        raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
+    if (polysShapely == None):
+        polysShapely = []
+        for p in polys:
+            polysShapely.append(shapely.Polygon(p))
+    intersectionAll = shapely.intersection_all(polysShapely)
+
+    if (returnShaplelyObj):
+        return intersectionAll
+
+    intersectionPoly = []
+    if (isinstance(intersectionAll, shapely.geometry.polygon.Polygon)):
+        intersectionPoly = [[[i[0], i[1]] for i in list(intersectionAll.exterior.coords)]]
+    elif (isinstance(intersectionAll, shapely.geometry.multipolygon.MultiPolygon)):
+        for p in intersectionAll.geoms:
+            intersectionPoly.append([[i[0], i[1]] for i in list(p.exterior.coords)])
+    for k in range(len(intersectionPoly)):
+        intersectionPoly[k] = [intersectionPoly[k][i] for i in range(len(intersectionPoly[k])) if distEuclideanXY(intersectionPoly[k][i], intersectionPoly[k][i - 1])['dist'] > CONST_EPSILON]
+        if (distEuclideanXY(intersectionPoly[k][0], intersectionPoly[k][-1])['dist'] <= CONST_EPSILON):
+            intersectionPoly[k] = intersectionPoly[k][:-1]
+    return intersectionPoly
+
 def polysSteinerZone(polys: dict, order: int|None = None) -> list[dict]:
     
     """Given a node dictionary, returns a list of Steiner zones
