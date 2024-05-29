@@ -101,6 +101,7 @@ from .instance import *
 from .geometry import *
 
 # TSP/VRP
-from .ipTSP import *
-from .heuTSP import *
-from .heuMTSP import *
+from .tsp import *
+from .satsp import *
+from .tspEx import *
+from .mtsp import *
