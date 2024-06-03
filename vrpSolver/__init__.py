@@ -105,3 +105,5 @@ from .tsp import *
 from .satsp import *
 from .tspEx import *
 from .mtsp import *
+
+from .top import *

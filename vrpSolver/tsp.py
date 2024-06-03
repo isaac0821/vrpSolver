@@ -25,7 +25,7 @@ def ipTSP(
         'fml': 'DFJ_Lazy',
         'solver': 'Gurobi',
         'timeLimit': None,
-        'outputFlag': None,
+        'outputFlag': False,
         'env': None
     },
     detailsFlag: bool = False,
@@ -107,6 +107,9 @@ def ipTSP(
     # Sanity check ============================================================
     if (nodes == None or type(nodes) != dict):
         raise MissingParameterError(ERROR_MISSING_NODES)
+    for i in nodes:
+        if (locFieldName not in nodes[i]):
+            raise MissingParameterError("ERROR: missing location information in `nodes`.")
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
             nodeIDs = [i for i in nodes]
@@ -282,9 +285,8 @@ def ipTSP(
 def _ipTSPGurobiLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     try:
         import gurobipy as grb
-    except(ImportError):
-        print("ERROR: Cannot find Gurobi")
-        return
+    except:
+        raise ImportError("ERROR: Cannot find Gurobi")
 
     # Initialize
     n = len(nodeIDs)

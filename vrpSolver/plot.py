@@ -1674,27 +1674,32 @@ def plotGantt(
         plt.close(fig)
 
     return fig, ax
-
 def aniRouting(
     timeRange: tuple[int, int],
     # Nodes -------------------------------------------------------------------
-    nodes: dict|None = None,
+    nodes: dict|None=None,
     locFieldName: str = 'loc',
-    timeWindowFieldName: str = 'timeWindow',
     timedSeqFieldName: str = 'timedSeq',
-    labelFieldName: str = 'label',
+    timeWindowFieldName: str = 'timeWindow',
     nodeColor: str = 'black',
     nodeMarker: str = 'o',
     nodeMarkersize: float = 2,
-    nodePathColor: str|None = 'gray',
-    nodePathWidth: float|int|None = 2,
-    nodeTraceColor: str|None = 'orange',
-    nodeTraceWidth: float|int|None = 2,
-    nodeTraceShadowTime: float|None = None,
-    nodeSpdShowLabelFlag: bool = True,
-    nodeSpdShowArrowFlag: bool = True,
-    nodeSpdArrowLength: float = 5,
-    nodeShowLabelFlag: bool = True,
+    # Vehicles ----------------------------------------------------------------
+    vehicles: dict|None = None,
+    vehTimedSeqFieldName: str = 'timedSeq',
+    vehLabelFieldName: str = 'label',
+    vehColor: str = 'blue',
+    vehMarker: str = '^',
+    vehMarkersize: float = 5,
+    vehPathColor: str|None = 'gray',
+    vehPathWidth: float|int|None = 3,
+    vehTraceColor: str|None = 'orange',
+    vehTraceWidth: float|int|None = 3,
+    vehTraceShadowTime: float|None = None,
+    vehSpdShowLabelFlag: bool = True,
+    vehSpdShowArrowFlag: bool = True,
+    vehSpdArrowLength: float = 5,
+    vehShowNoteFlag: bool = True,
     # Polygons ----------------------------------------------------------------
     polygons: dict|None = None,
     polyFieldName = 'poly',    
@@ -1714,18 +1719,32 @@ def aniRouting(
     aniSaveDPI: int = 300
     ):
 
-    """Given nodes, nodes, static polygons, and dynamic polygons, create animation
+    """Given nodes, vehicles, static polygons, and dynamic polygons, create animation
 
     Parameters
     ----------
+
     nodes: dictionary, optional, default None
-        A dictionary of node. 
+        A dictionary of nodes.
             >>> nodes[nID] = {
-            ...     'node': nodeName,
+            ...     'loc': [x, y],
+            ...     'neighbor': poly, # A polygon indicating neighborhood
+            ...     'direction': direction, # Moving direction
+            ...     'speed': speed, # Moving speed
+            ...     'marker': 'r',    # Optional, default as 'o'
+            ...     'markersize': 2,  # Optional, default as None
+            ...     'color': 'red',   # Optional, default as 'Random'
+            ...     'size': 3,        # Optional, default as 3
+            ...     'fontsize': 3,    # Optional, default as 3
+            ... }
+    vehicles: dictionary, optional, default None
+        A dictionary of vehicle. 
+            >>> vehicles[vID] = {
+            ...     'vehicle': vehicleName,
             ...     'seq': [], # A sequence of visiting locations
             ...     'timeStamp': [], # A sequence of time stamps when visiting each location
             ...     'note': [], # Note to show during each leg of sequence
-            ...     'color': nodeColor,
+            ...     'color': vehColor,
             ...     'pathColor': pathColor,
             ...     'traceColor': traceColor,
             ...     'traceShadowTime': traceShadowTime
@@ -1745,10 +1764,11 @@ def aniRouting(
             ...     'fillStyle': "///", # Fill style
             ...     'opacity': 0.5, # opacity
             ... }
+
     """
 
     # Check for required fields ===============================================
-    if (nodes == None and polygons == None):
+    if (nodes == None and vehicles == None and polygons == None):
         raise MissingParameterError("ERROR: Need to provide entities for animation.")
 
     # If no based matplotlib figure provided, define boundary =================
@@ -1757,31 +1777,12 @@ def aniRouting(
     allY = []
     if (nodes != None):
         for i in nodes:
-            if (locFieldName in nodes[i]):
-                if (not xyReverseFlag):
-                    allX.append(nodes[i][locFieldName][0])
-                    allY.append(nodes[i][locFieldName][1])
-                else:
-                    allX.append(nodes[i][locFieldName][1])
-                    allY.append(nodes[i][locFieldName][0])
-            if (timedSeqFieldName in nodes[i]):
-                for t in range(len(nodes[i][timedSeqFieldName])):
-                    if (not xyReverseFlag):                   
-                        allX.append(nodes[i][timedSeqFieldName][t][0][0])
-                        allY.append(nodes[i][timedSeqFieldName][t][0][1])
-                    else:
-                        allX.append(nodes[i][timedSeqFieldName][t][0][1])
-                        allY.append(nodes[i][timedSeqFieldName][t][0][0])
-    if (polygons != None):
-        for pID in polygons:
-            for p in polygons[pID][polyFieldName]:
-                if (not xyReverseFlag):
-                    allX.append(p[0])
-                    allY.append(p[1])
-                else:
-                    allX.append(p[1])
-                    allY.append(p[0])
-
+            if (not xyReverseFlag):
+                allX.append(nodes[i][locFieldName][0])
+                allY.append(nodes[i][locFieldName][1])
+            else:
+                allX.append(nodes[i][locFieldName][1])
+                allY.append(nodes[i][locFieldName][0])
     (xMin, xMax, yMin, yMax) = boundingBox
     if (xMin == None):
         xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
@@ -1808,6 +1809,7 @@ def aniRouting(
         height = figSize[1]
     else:
         (width, height) = figSize
+
     fig.set_figwidth(width) 
     fig.set_figheight(height)
 
@@ -1816,53 +1818,22 @@ def aniRouting(
     if (nodes != None):
         for nID in nodes:
             nodeStyle[nID] = {}
-            if (nodeColor == None or nodeColor == 'Random' or 'color' not in nodes):
+            if (nodeColor == None or nodeColor == 'Random'):
                 nodeStyle[nID]['nodeColor'] = colorRandom()
             elif (nodeColor != None):
                 nodeStyle[nID]['nodeColor'] = nodeColor
-            elif ('color' in nodes[nID]):
-                nodeStyle[nID]['nodeColor'] = nodes[nID]['color']
-
+            elif ('nodeColor' in nodes[nID]):
+                nodeStyle[nID]['nodeColor'] = nodes[nID]['nodeColor']
+            
             if (nodeMarker != None):
                 nodeStyle[nID]['nodeMarker'] = nodeMarker
-            elif ('marker' in nodes[nID]):
-                nodeStyle[nID]['nodeMarker'] = nodes[nID]['marker']
+            elif ('nodeMarker' in nodes[nID]):
+                nodeStyle[nID]['nodeMarker'] = nodes[nID]['nodeMarker']
 
             if (nodeMarkersize != None):
                 nodeStyle[nID]['nodeMarkersize'] = nodeMarkersize
-            elif ('markersize' in nodes[nID]):
-                nodeStyle[nID]['nodeMarkersize'] = nodes[nID]['markersize']
-
-            if (nodePathColor == 'Random'):
-                nodeStyle[nID]['pathColor'] = colorRandom()
-            elif (nodePathColor != None):
-                nodeStyle[nID]['pathColor'] = nodePathColor
-            elif ('pathColor' in nodes[nID]):
-                nodeStyle[nID]['pathColor'] = nodes[nID]['pathColor']
-
-            if (nodePathWidth != None):
-                nodeStyle[nID]['pathWidth'] = nodePathWidth
-            elif ('pathWidth' in polygons[pID]):
-                nodeStyle[nID]['pathWidth'] = nodes[nID]['pathWidth']
-
-            if (nodeTraceColor == 'Random'):
-                nodeStyle[nID]['traceColor'] = colorRandom()
-            elif (nodeTraceColor != None):
-                nodeStyle[nID]['traceColor'] = nodeTraceColor
-            elif ('traceColor' in nodes[nID]):
-                nodeStyle[nID]['traceColor'] = nodes[nID]['traceColor']
-
-            if (nodeTraceWidth != None):
-                nodeStyle[nID]['traceWidth'] = nodeTraceWidth
-            elif ('traceWidth' in polygons[pID]):
-                nodeStyle[nID]['traceWidth'] = nodes[nID]['traceWidth']
-
-            if (nodeTraceShadowTime != None):
-                nodeStyle[nID]['traceShadowTime'] = nodeTraceShadowTime
-            elif ('traceShadowTime' in nodes[nID]):
-                nodeStyle[nID]['traceShadowTime'] = nodes[nID]['traceShadowTime']
-            else:
-                nodeStyle[nID]['traceShadowTime'] = None
+            elif ('nodeMarkersize' in nodes[nID]):
+                nodeStyle[nID]['nodeMarkersize'] = nodes[nID]['nodeMarkersize']
 
     polyStyle = {}
     if (polygons != None):
@@ -1897,6 +1868,59 @@ def aniRouting(
             elif ('opacity' in polygons[pID]):
                 polyStyle[pID]['opacity'] = polygons[pID]['opacity']
 
+    vehicleStyle = {}
+    if (vehicles != None):
+        for vID in vehicles:
+            vehicleStyle[vID] = {}
+
+            if (vehColor == 'Random'):
+                vehicleStyle[vID]['vehColor'] = colorRandom()
+            elif (vehColor != None):
+                vehicleStyle[vID]['vehColor'] = vehColor
+            elif ('color' in vehicles[vID]):
+                vehicleStyle[vID]['vehColor'] = vehicles[vID]['color']
+
+            if (vehMarker != None):
+                vehicleStyle[vID]['vehMarker'] = vehMarker
+            elif ('marker' in vehicles[vID]):
+                vehicleStyle[vID]['vehMarker'] = vehicles[vID]['marker']
+
+            if (vehMarkersize != None):
+                vehicleStyle[vID]['vehMarkersize'] = vehMarkersize
+            elif ('markersize' in vehicles[vID]):
+                vehicleStyle[vID]['vehMarkersize'] = vehicles[vID]['markersize']
+
+            if (vehPathColor == 'Random'):
+                vehicleStyle[vID]['pathColor'] = colorRandom()
+            elif (vehPathColor != None):
+                vehicleStyle[vID]['pathColor'] = vehPathColor
+            elif ('pathColor' in vehicles[vID]):
+                vehicleStyle[vID]['pathColor'] = vehicles[vID]['pathColor']
+
+            if (vehPathWidth != None):
+                vehicleStyle[vID]['pathWidth'] = vehPathWidth
+            elif ('pathWidth' in polygons[pID]):
+                vehicleStyle[vID]['pathWidth'] = vehicles[vID]['pathWidth']
+
+            if (vehTraceColor == 'Random'):
+                vehicleStyle[vID]['traceColor'] = colorRandom()
+            elif (vehTraceColor != None):
+                vehicleStyle[vID]['traceColor'] = vehTraceColor
+            elif ('traceColor' in vehicles[vID]):
+                vehicleStyle[vID]['traceColor'] = vehicles[vID]['traceColor']
+
+            if (vehTraceWidth != None):
+                vehicleStyle[vID]['traceWidth'] = vehTraceWidth
+            elif ('traceWidth' in polygons[pID]):
+                vehicleStyle[vID]['traceWidth'] = vehicles[vID]['traceWidth']
+
+            if (vehTraceShadowTime != None):
+                vehicleStyle[vID]['traceShadowTime'] = vehTraceShadowTime
+            elif ('traceShadowTime' in vehicles[vID]):
+                vehicleStyle[vID]['traceShadowTime'] = vehicles[vID]['traceShadowTime']
+            else:
+                vehicleStyle[vID]['traceShadowTime'] = None
+
     def animate(t):
         ax.clear()
         ax.set_xlim(xMin, xMax)
@@ -1930,6 +1954,7 @@ def aniRouting(
                                 pt = ptInDistXY(p, polygons[pID]['direction'], polygons[pID]['speed'] * (polygons[pID]['timeRange'][1] - polygons[pID]['timeRange'][0]))
                         else:
                             pt = p
+
                         if (not xyReverseFlag):
                             pX.append(pt[0])
                             pY.append(pt[1])
@@ -1961,33 +1986,30 @@ def aniRouting(
         if (nodes != None):
             # Plot the location of nodes --------------------------------------
             for nID in nodes:
-                # If node has a time window, plot the node only within time window
                 plotNodeFlag = False
                 if (timeWindowFieldName not in nodes[nID] or nodes[nID][timeWindowFieldName][0] <= clock <= nodes[nID][timeWindowFieldName][1]):
                     plotNodeFlag = True
 
-                curSnap = None
-                if (timedSeqFieldName in nodes[nID]):
-                    curSnap = snapInTimedSeq(
-                        timedSeq = nodes[nID][timedSeqFieldName],
-                        t = clock)
-
+                x = None
+                y = None       
+                curLoc = None         
                 if (plotNodeFlag):
-                    x = None
-                    y = None
-                    curLoc = None
                     if (timedSeqFieldName not in nodes[nID]):
                         curLoc = nodes[nID][locFieldName]
-                    else:                        
-                        curLoc = curSnap['loc']
-                    if (not xyReverseFlag):
-                        x = curLoc[0]
-                        y = curLoc[1]
                     else:
-                        x = curLoc[1]
-                        y = curLoc[0]
+                        curSnap = snapInTimedSeq(
+                            timedSeq = nodes[nID][timedSeqFieldName],
+                            t = clock)
+                        curLoc = curSnap['loc']
 
-                    # Styling of each node
+                if (not xyReverseFlag):
+                    x = curLoc[0]
+                    y = curLoc[1]
+                else:
+                    x = curLoc[1]
+                    y = curLoc[0]
+                # Styling of each node
+                if (plotNodeFlag):
                     ax.plot(x, y, 
                         color = nodeStyle[nID]['nodeColor'], 
                         marker = nodeStyle[nID]['nodeMarker'], 
@@ -1998,55 +2020,35 @@ def aniRouting(
                         lbl = nodes[nID]['label']
                     ax.annotate(lbl, (x, y))
 
-                    if (labelFieldName not in nodes[nID]):
-                        lbl = str(nID)
-                    else:
-                        lbl = nodes[nID][labelFieldName]
-
-                    if (nodeSpdShowLabelFlag):
-                        curSpd = curSnap['speed']
-                        lbl += " %s[m/s]" % (round(curSpd, 2))
-                    
-                    if (nodeShowLabelFlag and labelFieldName in nodes[nID]):
-                        label = ""
-                        if (clock <= nodes[nID][timedSeqFieldName][0][1]):
-                            label = nodes[nID][labelFieldName][0]
-                        elif (clock >= nodes[nID][timedSeqFieldName][-1][1]):
-                            label = nodes[nID][labelFieldName][-1]
-                        else:
-                            for i in range(len(nodes[nID][timedSeqFieldName]) - 1):
-                                if (nodes[nID][timedSeqFieldName][i][1] <= clock < nodes[nID][timedSeqFieldName][i + 1][1]):
-                                    label = nodes[nID][labelFieldName][i]
-                                    break
-                        ax.annotate(lbl + "\n" + label, (curLoc[0], curLoc[1]))
-                    else:
-                        ax.annotate(lbl, (curLoc[0], curLoc[1]))
-
+        # Plot vehicle
+        if (vehicles != None):
+            # Plot each vehicle -----------------------------------------------
+            for vID in vehicles:
                 # Plot path
-                if ('pathColor' in nodeStyle[nID]):
+                if ('pathColor' in vehicleStyle[vID]):
                     pathX = []
                     pathY = []
                     if (not xyReverseFlag):
-                        pathX = [nodes[nID][timedSeqFieldName][i][0][0] for i in range(len(nodes[nID][timedSeqFieldName]))]
-                        pathY = [nodes[nID][timedSeqFieldName][i][0][1] for i in range(len(nodes[nID][timedSeqFieldName]))]
+                        pathX = [vehicles[vID][vehTimedSeqFieldName][i][0][0] for i in range(len(vehicles[vID][vehTimedSeqFieldName]))]
+                        pathY = [vehicles[vID][vehTimedSeqFieldName][i][0][1] for i in range(len(vehicles[vID][vehTimedSeqFieldName]))]
                     else:
-                        pathX = [nodes[nID][timedSeqFieldName][i][0][1] for i in range(len(nodes[nID][timedSeqFieldName]))]
-                        pathY = [nodes[nID][timedSeqFieldName][i][0][0] for i in range(len(nodes[nID][timedSeqFieldName]))]
-                    ax.plot(pathX, pathY, color=nodeStyle[nID]['pathColor'], linewidth = 1)
+                        pathX = [vehicles[vID][vehTimedSeqFieldName][i][0][1] for i in range(len(vehicles[vID][vehTimedSeqFieldName]))]
+                        pathY = [vehicles[vID][vehTimedSeqFieldName][i][0][0] for i in range(len(vehicles[vID][vehTimedSeqFieldName]))]
+                    ax.plot(pathX, pathY, color=vehicleStyle[vID]['pathColor'], linewidth = 1)
 
                 # Plot trace
-                if ('traceColor' in nodeStyle[nID]):
+                if ('traceColor' in vehicleStyle[vID]):
                     ts = timeRange[0]
                     te = clock
-                    if (nodeStyle[nID]['traceShadowTime'] != None):
-                        ts = max(te - nodeStyle[nID]['traceShadowTime'], timeRange[0])
+                    if (vehicleStyle[vID]['traceShadowTime'] != None):
+                        ts = max(te - vehicleStyle[vID]['traceShadowTime'], timeRange[0])
 
                     if (ts < te):
                         trace = traceInTimedSeq(
-                            timedSeq = nodes[nID][timedSeqFieldName],
+                            timedSeq = vehicles[vID][vehTimedSeqFieldName],
                             ts = ts,
                             te = te)
-                        if (len(trace) > 0 and 'traceColor' in nodeStyle[nID]):
+                        if (len(trace) > 0 and 'traceColor' in vehicleStyle[vID]):
                             traceX = []
                             traceY = []
                             if (not xyReverseFlag):
@@ -2055,8 +2057,41 @@ def aniRouting(
                             else:
                                 traceX = [i[1] for i in trace]
                                 traceY = [i[0] for i in trace]
-                            ax.plot(traceX, traceY, color=nodeStyle[nID]['traceColor'], linewidth = 1)
+                            ax.plot(traceX, traceY, color=vehicleStyle[vID]['traceColor'], linewidth = 1)
 
+                # Plot vehicle
+                curSnap = snapInTimedSeq(
+                    timedSeq = vehicles[vID][vehTimedSeqFieldName],
+                    t = clock)
+                curLoc = curSnap['loc']
+                ax.plot(curLoc[0], curLoc[1], 
+                    color = vehicleStyle[vID]['vehColor'], 
+                    marker = vehicleStyle[vID]['vehMarker'], 
+                    markersize = vehicleStyle[vID]['vehMarkersize'])
+
+                if (vehLabelFieldName not in vehicles[vID]):
+                    lbl = str(vID)
+                else:
+                    lbl = vehicles[vID][vehLabelFieldName]
+
+                if (vehSpdShowLabelFlag):
+                    curSpd = curSnap['speed']
+                    lbl += " %s[m/s]" % (round(curSpd, 2))
+                
+                if (vehShowNoteFlag and 'note' in vehicles[vID]):
+                    note = ""
+                    if (clock <= vehicles[vID]['timedSeq'][0][1]):
+                        note = vehicles[vID]['note'][0]
+                    elif (clock >= vehicles[vID]['timedSeq'][-1][1]):
+                        note = vehicles[vID]['note'][-1]
+                    else:
+                        for i in range(len(vehicles[vID]['timedSeq']) - 1):
+                            if (vehicles[vID]['timedSeq'][i][1] <= clock < vehicles[vID]['timedSeq'][i + 1][1]):
+                                note = vehicles[vID]['note'][i]
+                                break
+                    ax.annotate(lbl + "\n" + note, (curLoc[0], curLoc[1]))
+                else:
+                    ax.annotate(lbl, (curLoc[0], curLoc[1]))
 
     ani = FuncAnimation(
         fig, animate, 
