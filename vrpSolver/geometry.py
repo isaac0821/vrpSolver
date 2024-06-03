@@ -2204,19 +2204,19 @@ def headingLatLon(pt1: pt, pt2: pt) -> float:
     deg = (math.degrees(math.atan2(dLon, phi)) + 360.0) % 360.0
     return deg
 
-def ptInDistXY(pt: pt, direction: int|float, dist: int|float):
+def ptInDistXY(pt: pt, direction: int|float, dist: int|float) -> pt:
     """A location in distance with given direction, in [lat, lon] form."""
     x = pt[0] + dist * math.sin(math.radians(direction))
     y = pt[1] + dist * math.cos(math.radians(direction))
     return (x, y)
 
-def ptInDistLatLon(pt: pt, direction: int|float, distMeters: int|float):
+def ptInDistLatLon(pt: pt, direction: int|float, distMeters: int|float) -> pt:
     """A location in distance with given direction, in [lat, lon] form."""
     # Bearing in degrees: 0 – North, 90 – East, 180 – South, 270 or -90 – West.
     newLoc = list(geopy.distance.distance(meters=distMeters).destination(point=pt, bearing=direction))[:2]
     return newLoc
 
-def circleByCenterLatLon(center: pt, radius: int|float, lod: int = 30):
+def circleByCenterLatLon(center: pt, radius: int|float, lod: int = 30) -> poly:
     circle = []
     for i in range(lod):
         deg = float(360 * i) / float(lod)
@@ -2224,7 +2224,7 @@ def circleByCenterLatLon(center: pt, radius: int|float, lod: int = 30):
         circle.append(pt)
     return circle
 
-def circleByCenterXY(center: pt, radius: int|float, lod: int = 30):
+def circleByCenterXY(center: pt, radius: int|float, lod: int = 30) -> poly:
     circle = []
     for i in range(lod):
         deg = float(360 * i) / float(lod)
@@ -2537,12 +2537,12 @@ def vectorDist(loc: pt, nodes: dict, edges: dict = {'method': 'Euclidean'}, node
                 nodeIDs.append(i)
 
     if (edges['method'] == 'Euclidean'):
-        ratio = 1 if 'ratio' not in edges else edges['ratio']
+        speed = 1 if 'speed' not in edges else edges['speed']
         tau, revTau, pathLoc, revPath = _vectorDistEuclideanXY(
             loc = loc,
             nodes = nodes, 
             nodeIDs = nodeIDs, 
-            ratio = ratio, 
+            speed = speed, 
             locFieldName = locFieldName)
     elif (edges['method'] == 'EuclideanBarrier'):
         if ('polys' not in edges or edges['polys'] == None):
@@ -2560,20 +2560,20 @@ def vectorDist(loc: pt, nodes: dict, edges: dict = {'method': 'Euclidean'}, node
                 polys = edges['polys'], 
                 locFieldName = locFieldName)
     elif (edges['method'] == 'LatLon'):
-        ratio = 1 if 'ratio' not in edges else edges['ratio']
+        speed = 1 if 'speed' not in edges else edges['speed']
         tau, revTau, pathLoc, revPath = _vectorDistLatLon(
             loc = loc,
             nodes = nodes, 
             nodeIDs = nodeIDs, 
-            speed=ratio, 
+            speed=speed, 
             locFieldName = locFieldName)
     elif (edges['method'] == 'Manhatten'):
-        ratio = 1 if 'ratio' not in edges else edges['ratio']
+        speed = 1 if 'speed' not in edges else edges['speed']
         tau, revTau, pathLoc, revPath = _vectorDistManhattenXY(
             loc = loc,
             nodes = nodes, 
             nodeIDs = nodeIDs, 
-            ratio = ratio, 
+            speed = speed, 
             locFieldName = locFieldName)
     elif (edges['method'] == 'Grid'):
         if ('grid' not in edges or edges['grid'] == None):
@@ -2671,7 +2671,7 @@ def scaleDist(loc1: pt, loc2: pt, edges: dict = {'method': 'Euclidean'}) -> dict
         raise MissingParameterError(ERROR_MISSING_EDGES)
 
     if (edges['method'] == 'Euclidean'):
-        ratio = 1 if 'ratio' not in edges else edges['ratio']
+        speed = 1 if 'speed' not in edges else edges['speed']
         dist = distEuclideanXY(loc1, loc2)['dist']
         revDist = dist
         pathLoc = [loc1, loc2]
@@ -2690,13 +2690,13 @@ def scaleDist(loc1: pt, loc2: pt, edges: dict = {'method': 'Euclidean'}) -> dict
             pathLoc = [i for i in res['path']]
             revPathLoc = [pathLoc[len(pathLoc) - i - 1] for i in range(len(pathLoc))]
     elif (edges['method'] == 'LatLon'):
-        ratio = 1 if 'ratio' not in edges else edges['ratio']
+        speed = 1 if 'speed' not in edges else edges['speed']
         dist = distLatLon(loc1, loc2)['dist']
         revDist = dist
         pathLoc = [loc1, loc2]
         revPathLoc = [loc2, loc1]
     elif (edges['method'] == 'Manhatten'):
-        ratio = 1 if 'ratio' not in edges else edges['ratio']
+        speed = 1 if 'speed' not in edges else edges['speed']
         dist = distManhattenXY(loc1, loc2)['dist']
         revDist = dist
         pathLoc = [loc1, (pt1[0], pt2[1]), loc2]
