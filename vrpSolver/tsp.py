@@ -330,7 +330,7 @@ def _ipTSPGurobiLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
             components = [list(c) for c in nx.connected_components(G)]
             for component in components:
                 if (len(component) < n):
-                    model.cbLazy(grb.quicksum(x[i,j] for i in component for j in component if i != j) <= len(component) - 1)
+                    model.cbLazy(grb.quicksum(x[i, j] for i in component for j in component if i != j) <= len(component) - 1)
 
     # TSP with callback =======================================================
     TSP.optimize(subtourelim)

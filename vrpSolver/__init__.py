@@ -106,4 +106,5 @@ from .satsp import *
 from .tspEx import *
 from .mtsp import *
 
+from .op import *
 from .top import *

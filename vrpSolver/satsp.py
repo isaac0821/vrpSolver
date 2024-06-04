@@ -6,6 +6,7 @@ import networkx as nx
 from .common import *
 from .geometry import *
 from .msg import *
+from .ds import *
 
 def metaTSP(
     nodes: dict, 
@@ -26,9 +27,13 @@ def metaTSP(
         'cons': 'Insertion',
         'initTemp': None,
         'lengTemp': None,
-        'neighRatio': (0.2, 0.2, 0.3),
+        'neighRatio': {
+            '2Opt': 0.6,
+            'swap': 0.2,
+            'removeInsert': 0.2
+        },
         'coolRate': None,
-        'stopType': {
+        'stop': {
             'stopTemp': None,
             'stopNoImp': None,
             'stopAptRate': None,
@@ -40,40 +45,6 @@ def metaTSP(
     metaFlag: bool = False
     ) -> dict|None:
     
-    return
-
-def _metaTSPSimulatedAnnealing(
-    nodeLoc:    "Dictionary, returns the coordinate of given nodeID, \
-                    {\
-                        nodeID1: (lat, lon), \
-                        nodeID2: (lat, lon), \
-                        ... \
-                    }" = None, 
-    tau:        "1) String 'Euclidean' or \
-                 2) String (default) 'SphereEuclidean' or \
-                 3) Dictionary {(nodeID1, nodeID2): dist, ...}" = "SphereEuclidean",
-    nodeIDs:    "1) String (default) 'All', or \
-                 2) A list of node IDs" = 'All',
-    initSol:    "1) String, 'NearestNeighbor' or, \
-                 2) String, 'Random' or, \
-                 3) String, 'FarthestNeighbor'" = 'Random',
-    initTemp:    "Float, Initial temperature" = None, 
-    lengTemp:    "Integer, Temperature length" = None,
-    neighRatio:    "A 3-tuple, sum to 1, (swap, exchange, rotate)" = (0.2, 0.2, 0.3),
-    coolRate:    "Float, Temperature drop rate, (0, 1)" = None,
-    stopType:    "List, with options as follows: \
-                 1) String, 'Final_Temperature' or \
-                 2) String, 'Num_Iterations_Without_Improving' or \
-                 3) String, 'Percent_of_Accepted_Move' or \
-                 4) String, 'Num_Iterations' or \
-                 5) String, 'Executed_Time' " = ['Final_Temperature'],
-    stopTemp:    "Float, stopping temperature, if stopType is 'Final_Temperature'" = None,
-    stopNoImp:    "Integer, number of iteration without improving, if stopType is 'Num_Iterations_Without_Improving" = None,
-    stopAptRate:"Float, ratio of acceptance, (0, 1), if stopType is 'Percent_of_Accepted_Move'" = None,
-    stopIter:    "Integer, number of iteration, if stopType is 'Num_Iterations'" = None, 
-    stopTime:    "Float, number of seconds before it stops, if stopType is 'Executed_Time'" = None
-    ) -> "TSP tour":
-
     # Sanity check ============================================================
     if (nodes == None or type(nodes) != dict):
         raise MissingParameterError(ERROR_MISSING_NODES)
@@ -109,22 +80,9 @@ def _metaTSPSimulatedAnnealing(
             asymFlag = True
             break
 
-    def iterSeq(seqL, i, direction):
-        q = None
-        j = None
-        if (direction == 'next'):
-            if (i < seqL - 1):
-                j = i + 1
-            else:
-                j = 0
-        elif (direction == 'prev'):
-            if (i > 0):
-                j = i - 1
-            else:
-                j = seqL - 1
-        else:
-            return None
-        return j
+    return
+
+def _metaTSPSimulatedAnnealing(nodeLoc, tau, nodeIDs, initSol, initTemp, lengTemp, neighRatio, coolRate, stop) -> dict:
 
     # Subroutines to generate neighborhoods ===================================
     # Swap two nearby vertices
@@ -220,16 +178,13 @@ def _metaTSPSimulatedAnnealing(
         curSeq = res['seq'][:-1] # To avoid all kind of trouble, seq here is not closed
         ofv = res['ofv']
     else:
-        return None
-
-    
+        return None    
 
     # Main cooling ============================================================
     contFlag = True
     iterTotal = 0
     iterNoImp = 0
     iterAcc = 0
-    apRate = 1
     reportTime = 0
     ofvCurve = []
     while (contFlag):
@@ -238,12 +193,11 @@ def _metaTSPSimulatedAnnealing(
             # Export time
             currTime = (datetime.datetime.now() - startTime).total_seconds()
             if (currTime > reportTime):
-                print('t: %ss \t T: %s \t iter %s \t noImp %s \t apRate %s \t ofv: %s' % (
+                print('t: %ss \t T: %s \t iter %s \t noImp %s \t ofv: %s' % (
                     round(currTime, 2), 
                     round(T, 2), 
                     iterTotal,
                     iterNoImp,
-                    round(apRate, 3),
                     ofv))
                 reportTime += 10
                 ofvCurve.append(ofv)

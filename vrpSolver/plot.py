@@ -1674,6 +1674,7 @@ def plotGantt(
         plt.close(fig)
 
     return fig, ax
+
 def aniRouting(
     timeRange: tuple[int, int],
     # Nodes -------------------------------------------------------------------

@@ -18,7 +18,9 @@ def heuMTSP(
     depotID: int|str = 0,
     nodeIDs: list[int|str]|str = 'All',
     serviceTime: float = 0,
-    vehicles: dict = {},
+    vehicles: dict = {
+        0: {'speed': 1}
+    },
     vehicleIDs: list[int|str] = None,
     numVeh: int = 1,
     objective: str = 'MinMakespan',

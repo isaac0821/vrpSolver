@@ -2228,7 +2228,7 @@ def circleByCenterXY(center: pt, radius: int|float, lod: int = 30) -> poly:
     circle = []
     for i in range(lod):
         deg = float(360 * i) / float(lod)
-        pt = ptInDistXY(pt = center, direction = deg, distMeters = radius)
+        pt = ptInDistXY(pt = center, direction = deg, dist = radius)
         circle.append(pt)
     return circle
 
