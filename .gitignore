@@ -90,6 +90,8 @@ target/
 **/*.txt
 **/*.vrp
 **/*.geojson
+!demo/*.txt
+!instance/*.txt
 
 # Backups
 backup
