@@ -106,5 +106,7 @@ from .satsp import *
 from .tspEx import *
 from .mtsp import *
 
+from .vrptw import *
+
 from .op import *
 from .top import *

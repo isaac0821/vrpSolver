@@ -21,6 +21,10 @@ arcPoly = list[arcSeg]
 arcPolys = list[arcPoly]
 line = list[pt]
 
+DEBUG_WRITE_LOG = False
+DEBUG_PRINT_LOG = True
+DEBUG_LOG_PATH = "log.log"
+
 class UnsupportedInputError(Exception):
     pass
 
@@ -110,6 +114,17 @@ def splitList(inputList, binNum):
             bins[i].append(inputList[k])
         acc += sizePerBin[i]
     return bins
+
+def writeLog(string, logPath = None):
+    if (DEBUG_WRITE_LOG):
+        if (logPath == None):
+            logPath = DEBUG_LOG_PATH
+        f = open(logPath, "a")
+        f.write(string + "\n")
+        f.close()
+    if (DEBUG_PRINT_LOG):
+        print(string)
+    return
 
 def splitIntoSubSeq(inputList, selectFlag):
     if (len(inputList) != len(selectFlag)):

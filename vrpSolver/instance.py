@@ -149,7 +149,7 @@ def rndLocs(
 
         elif ('polyXYs' in method):
             for n in range(N):
-                nodeLocs.append(_rndPtUniformAvoidPolyXYs(method['polyXY'], xRange, yRange))
+                nodeLocs.append(_rndPtUniformAvoidPolyXYs(method['polyXYs'], xRange, yRange))
 
     # Uniformly sample from a circle on the Euclidean space
     elif (method['distr'] == 'UniformCircleXY'):

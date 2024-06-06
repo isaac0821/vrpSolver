@@ -7,6 +7,35 @@ from .common import *
 from .geometry import *
 from .msg import *
 
+def solveTSP(
+    nodes: dict, 
+    locFieldName: str = 'loc',
+    depotID: int|str = 0,
+    nodeIDs: list[int|str]|str = 'All',
+    serviceTime: float = 0,
+    vehicles: dict = {
+        0: {'speed': 1}
+    },
+    vehicleID: int|str = 0,
+    edges: dict = {
+        'method': "Euclidean", 
+        'ratio': 1
+    },
+    method: dict = {
+        'fml': 'DFJ_Lazy',
+        'solver': 'Gurobi',
+        'timeLimit': None,
+        'outputFlag': False,
+        'env': None
+    },
+    detailsFlag: bool = False,
+    metaFlag: bool = False
+    ) -> dict:
+
+    # NOTE: 统一写成solveXXX，然后精确解，启发式等等这些通过method来选择
+
+    return tsp
+
 def ipTSP(
     nodes: dict, 
     locFieldName: str = 'loc',
@@ -1161,9 +1190,9 @@ def heuTSP(
     tau = None
     path = None
     if (detailsFlag):
-        tau, path = matrixDist(nodes, edges, depotID, nodeIDs, locFieldName)
+        tau, path = matrixDist(nodes, edges, nodeIDs, locFieldName)
     else:
-        tau, _ = matrixDist(nodes, edges, depotID, nodeIDs, locFieldName)
+        tau, _ = matrixDist(nodes, edges, nodeIDs, locFieldName)
 
     # Check symmetric =========================================================
     asymFlag = False

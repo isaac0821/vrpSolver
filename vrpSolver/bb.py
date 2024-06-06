@@ -1,3 +1,8 @@
+from gurobipy import * 
+import numpy as np 
+import copy 
+import matplotlib.pyplot as plt 
+
 class BBTreeNode:
     def __init__(self):
         self.lb = 0
@@ -9,14 +14,12 @@ class BBTreeNode:
         self.cnt = None
         self.isInteger = False
 
+
+
 class BBTree:
     def __init__(self):
         self.root = BBTreeNodelNil()
 
-from gurobipy import * 
-import numpy as np 
-import copy 
-import matplotlib.pyplot as plt 
 
 RLP = Model('relaxed MIP')
 x = {}
