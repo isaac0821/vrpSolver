@@ -1,6 +1,7 @@
 import random
 import math
 import datetime
+import functools
 
 try:
     import pickle5 as pickle
@@ -141,3 +142,44 @@ def splitIntoSubSeq(inputList, selectFlag):
     if (len(sub) > 0):
         splitSub.append([k for k in sub])
     return splitSub
+
+globalRuntimeAnalysis = {}
+# Support runtime tracking and store in dictionary of at most three level
+def runtime(key1, key2=None, key3=None):
+    def deco(func):
+        @functools.wraps(func)
+        def fun(*args, **kwargs):
+            t = datetime.datetime.now()
+            result = func(*args, **kwargs)
+            dt = (datetime.datetime.now() - t).total_seconds()
+            global globalRuntimeAnalysis
+            if (key1 != None and key2 != None and key3 != None):
+                # Store in globalRuntimeAnalysis[key1][key2][key3]
+                if (key1 not in globalRuntimeAnalysis):
+                    globalRuntimeAnalysis[key1] = {}
+                if (key2 not in globalRuntimeAnalysis[key1]):
+                    globalRuntimeAnalysis[key1][key2] = {}
+                if (key3 not in globalRuntimeAnalysis[key1][key2]):
+                    globalRuntimeAnalysis[key1][key2][key3] = [dt, 1]
+                else:
+                    globalRuntimeAnalysis[key1][key2][key3][0] += dt
+                    globalRuntimeAnalysis[key1][key2][key3][1] += 1
+            elif (key1 != None and key2 != None and key3 == None):
+                # Store in globalRuntimeAnalysis[key1][key2]
+                if (key1 not in globalRuntimeAnalysis):
+                    globalRuntimeAnalysis[key1] = {}
+                if (key2 not in globalRuntimeAnalysis[key1]):
+                    globalRuntimeAnalysis[key1][key2] = [dt, 1]
+                else:
+                    globalRuntimeAnalysis[key1][key2][0] += dt
+                    globalRuntimeAnalysis[key1][key2][1] += 1
+            elif (key1 != None and key2 == None and key3 == None):
+                # Store in globalRuntimeAnalysis[key1]
+                if (key1 not in globalRuntimeAnalysis):
+                    globalRuntimeAnalysis[key1] = [dt, 1]
+                else:
+                    globalRuntimeAnalysis[key1][0] += dt
+                    globalRuntimeAnalysis[key1][1] += 1
+            return result
+        return fun
+    return deco
