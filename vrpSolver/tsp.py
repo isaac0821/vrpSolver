@@ -22,6 +22,7 @@ def solveTSP(
         'ratio': 1
     },
     method: dict = {
+        'algo': 'IP',
         'fml': 'DFJ_Lazy',
         'solver': 'Gurobi',
         'timeLimit': None,
@@ -32,34 +33,6 @@ def solveTSP(
     metaFlag: bool = False
     ) -> dict:
 
-    # NOTE: 统一写成solveXXX，然后精确解，启发式等等这些通过method来选择
-
-    return tsp
-
-def ipTSP(
-    nodes: dict, 
-    locFieldName: str = 'loc',
-    depotID: int|str = 0,
-    nodeIDs: list[int|str]|str = 'All',
-    serviceTime: float = 0,
-    vehicles: dict = {
-        0: {'speed': 1}
-    },
-    vehicleID: int|str = 0,
-    edges: dict = {
-        'method': "Euclidean", 
-        'ratio': 1
-    },
-    method: dict = {
-        'fml': 'DFJ_Lazy',
-        'solver': 'Gurobi',
-        'timeLimit': None,
-        'outputFlag': False,
-        'env': None
-    },
-    detailsFlag: bool = False,
-    metaFlag: bool = False
-    ) -> dict|None:
 
     """Use IP formulation to find optimal TSP solution
 
@@ -149,18 +122,26 @@ def ipTSP(
     if ((type(nodeIDs) == list and depotID not in nodeIDs)
         or (nodeIDs == 'All' and depotID not in nodes)):
         raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
+
     if (detailsFlag == True):
         # For animation propose
         if (vehicles == None):
             raise MissingParameterError("ERROR: Missing required field `vehicles`.")
         if (vehicleID not in vehicles):
             raise MissingParameterError("ERROR: Cannot find `vehicleID` in `vehicles`.")
-    if (method == None or 'solver' not in method):
-        raise MissingParameterError("ERROR: Missing required field `method`.")
-    elif (method['solver'] == 'Gurobi' and method['fml'] not in ['DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', 'QAP']):
-        raise OutOfRangeError("ERROR: Gurobi option supports 'DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', and 'QAP' formulations", )
-    elif (method['solver'] == 'COPT' and method['fml'] not in ['DFJ_Lazy']):
-        raise OutOfRangeError("ERROR: COPT option supports 'DFJ_Lazy' formulations", )
+
+    if (method == None or 'algo' not in method or method['algo'] not in ['IP', 'Heuristic']):
+        raise OutOfRangeError("ERROR: Select method['algo'] from ['IP', 'Heuristic']")
+    elif (method['algo'] == 'IP'):
+        if ('solver' not in method):
+            raise MissingParameterError("ERROR: Missing required field `method`.")
+        elif (method['solver'] == 'Gurobi' and method['fml'] not in ['DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', 'QAP']):
+            raise OutOfRangeError("ERROR: Gurobi option supports 'DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', and 'QAP' formulations", )
+        elif (method['solver'] == 'COPT' and method['fml'] not in ['DFJ_Lazy']):
+            raise OutOfRangeError("ERROR: COPT option supports 'DFJ_Lazy' formulations", )
+    elif (method['algo'] == 'Heuristic'):
+        if ('cons' not in method and 'impv' not in method):
+            raise MissingParameterError(ERROR_MISSING_TSP_ALGO)
 
     # Define tau ==============================================================
     tau = None
@@ -170,63 +151,22 @@ def ipTSP(
     else:
         tau, _ = matrixDist(nodes, edges, nodeIDs, locFieldName)
 
-    # Solve by different formulations =========================================
-    tsp = None
-    if (method['solver'] == 'Gurobi'):
-        if (method['fml'] == 'DFJ_Lazy'):
-            tsp = _ipTSPGurobiLazyCuts(
-                nodeIDs, 
-                tau, 
-                method['outputFlag'] if 'outputFlag' in method else None, 
-                method['timeLimit'] if 'timeLimit' in method else None, 
-                method['gapTolerance'] if 'gapTolerance' in method else None)
-        elif (method['fml'] == 'DFJ_Plainloop'):
-            tsp = _ipTSPGurobiPlainLoop(
-                nodeIDs, 
-                tau, 
-                method['outputFlag'] if 'outputFlag' in method else None, 
-                method['timeLimit'] if 'timeLimit' in method else None, 
-                method['gapTolerance'] if 'gapTolerance' in method else None)
-        elif (method['fml'] == 'MTZ'):
-            tsp = _ipTSPGurobiMTZ(
-                nodeIDs, 
-                tau, 
-                method['outputFlag'] if 'outputFlag' in method else None, 
-                method['timeLimit'] if 'timeLimit' in method else None, 
-                method['gapTolerance'] if 'gapTolerance' in method else None)
-        elif (method['fml'] == 'ShortestPath'):
-            tsp = _ipTSPGurobiShortestPath(
-                nodeIDs, 
-                tau, 
-                method['outputFlag'] if 'outputFlag' in method else None, 
-                method['timeLimit'] if 'timeLimit' in method else None, 
-                method['gapTolerance'] if 'gapTolerance' in method else None)
-        elif (method['fml'] == 'MultiCommodityFlow'):
-            tsp = _ipTSPGurobiMultiCommodityFlow(
-                nodeIDs, 
-                tau, 
-                method['outputFlag'] if 'outputFlag' in method else None, 
-                method['timeLimit'] if 'timeLimit' in method else None, 
-                method['gapTolerance'] if 'gapTolerance' in method else None)
-        elif (method['fml'] == 'QAP'):
-            tsp = _ipTSPGurobiQAP(
-                nodeIDs, 
-                tau, 
-                method['outputFlag'] if 'outputFlag' in method else None, 
-                method['timeLimit'] if 'timeLimit' in method else None, 
-                method['gapTolerance'] if 'gapTolerance' in method else None)    
-    elif (method['solver'] == 'COPT'):
-        if (method['fml'] == 'DFJ_Lazy'):
-            tsp = _ipTSPCOPTLazyCuts(
-                nodeIDs, 
-                tau, 
-                method['outputFlag'] if 'outputFlag' in method else None, 
-                method['timeLimit'] if 'timeLimit' in method else None,
-                method['env'] if 'env' in method else None)
-    if (tsp == None):
-        raise UnsupportedInputError("ERROR: Incorrect or not available TSP formulation option!")
-    
-    tsp['fml'] = method['fml']
+    # Check symmetric =========================================================
+    asymFlag = False
+    for (i, j) in tau:
+        if (tau[i, j] != tau[j, i]):
+            asymFlag = True
+            break
+
+    # TSP =====================================================================
+    if (method['algo'] == 'IP'):
+        tsp = _ipTSP(nodeIDs, tau, method)
+        tsp['fml'] = method['fml']
+    elif (method['algo'] == 'Heuristic'):
+        nodeObj = {}
+        for n in nodeIDs:
+            nodeObj[n] = RouteNode(n, value=nodes[n][locFieldName])
+        tsp = _heuTSP((nodeObj, tau, depotID, nodeIDs, asymFlag, method))
 
     # Fix the sequence to make it start from the depot ========================
     startIndex = 0
@@ -297,12 +237,14 @@ def ipTSP(
     res = {
         'ofv': ofv,
         'seq': nodeSeq,
-        'gap': tsp['gap'],
-        'solType': tsp['solType'],
-        'lowerBound': tsp['lowerBound'],
-        'upperBound': tsp['upperBound'],
-        'runtime': tsp['runtime']
     }
+    if (method['algo'] == 'IP'):
+        res['gap'] = tsp['gap']
+        res['solType'] = tsp['solType']
+        res['lowerBound'] = tsp['lowerBound']
+        res['upperBound'] = tsp['upperBound']
+        res['runtime'] = tsp['runtime']
+    
     if (metaFlag):
         res['serviceTime'] = serviceTime
         res['method'] = method
@@ -310,6 +252,66 @@ def ipTSP(
         res['vehicles'] = vehicles
 
     return res
+
+def _ipTSP(tau, nodeIDs, method) -> dict|None:
+
+    # Solve by different formulations =========================================
+    tsp = None
+    if (method['solver'] == 'Gurobi'):
+        if (method['fml'] == 'DFJ_Lazy'):
+            tsp = _ipTSPGurobiLazyCuts(
+                nodeIDs, 
+                tau, 
+                method['outputFlag'] if 'outputFlag' in method else None, 
+                method['timeLimit'] if 'timeLimit' in method else None, 
+                method['gapTolerance'] if 'gapTolerance' in method else None)
+        elif (method['fml'] == 'DFJ_Plainloop'):
+            tsp = _ipTSPGurobiPlainLoop(
+                nodeIDs, 
+                tau, 
+                method['outputFlag'] if 'outputFlag' in method else None, 
+                method['timeLimit'] if 'timeLimit' in method else None, 
+                method['gapTolerance'] if 'gapTolerance' in method else None)
+        elif (method['fml'] == 'MTZ'):
+            tsp = _ipTSPGurobiMTZ(
+                nodeIDs, 
+                tau, 
+                method['outputFlag'] if 'outputFlag' in method else None, 
+                method['timeLimit'] if 'timeLimit' in method else None, 
+                method['gapTolerance'] if 'gapTolerance' in method else None)
+        elif (method['fml'] == 'ShortestPath'):
+            tsp = _ipTSPGurobiShortestPath(
+                nodeIDs, 
+                tau, 
+                method['outputFlag'] if 'outputFlag' in method else None, 
+                method['timeLimit'] if 'timeLimit' in method else None, 
+                method['gapTolerance'] if 'gapTolerance' in method else None)
+        elif (method['fml'] == 'MultiCommodityFlow'):
+            tsp = _ipTSPGurobiMultiCommodityFlow(
+                nodeIDs, 
+                tau, 
+                method['outputFlag'] if 'outputFlag' in method else None, 
+                method['timeLimit'] if 'timeLimit' in method else None, 
+                method['gapTolerance'] if 'gapTolerance' in method else None)
+        elif (method['fml'] == 'QAP'):
+            tsp = _ipTSPGurobiQAP(
+                nodeIDs, 
+                tau, 
+                method['outputFlag'] if 'outputFlag' in method else None, 
+                method['timeLimit'] if 'timeLimit' in method else None, 
+                method['gapTolerance'] if 'gapTolerance' in method else None)    
+    elif (method['solver'] == 'COPT'):
+        if (method['fml'] == 'DFJ_Lazy'):
+            tsp = _ipTSPCOPTLazyCuts(
+                nodeIDs, 
+                tau, 
+                method['outputFlag'] if 'outputFlag' in method else None, 
+                method['timeLimit'] if 'timeLimit' in method else None,
+                method['env'] if 'env' in method else None)
+    if (tsp == None):
+        raise UnsupportedInputError("ERROR: Incorrect or not available TSP formulation option!")
+    
+    return tsp
 
 def _ipTSPGurobiLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     try:
@@ -1049,27 +1051,7 @@ def _ipTSPCOPTLazyCuts(nodeIDs, tau, outputFlag, timeLimit, env):
         'runtime': runtime
     }
 
-def heuTSP(
-    nodes: dict, 
-    locFieldName: str = 'loc',
-    depotID: int|str|None = 0, 
-    nodeIDs: list[int|str]|str = 'All', 
-    serviceTime: float = 0,
-    vehicles: dict = {
-        0: {'speed': 1}
-    },
-    vehicleID: int|str = 0,
-    edges: dict = {
-        'method': 'Euclidean', 
-        'ratio': 1
-    }, 
-    method: dict = {
-        'cons': 'Insertion', 
-        'impv': '2Opt'
-    },     
-    detailsFlag: bool = False,
-    metaFlag: bool = False
-    ) -> dict|None:
+def _heuTSP(nodeObj, tau, depotID, nodeIDs, asymFlag, method) -> dict|None:
 
     """Use heuristic methods to find suboptimal TSP solution
 
@@ -1166,50 +1148,8 @@ def heuTSP(
 
     """
 
-    # Sanity check ============================================================
-    if (nodes == None or type(nodes) != dict):
-        raise MissingParameterError(ERROR_MISSING_NODES)
-
-    if (type(nodeIDs) is not list):
-        if (nodeIDs == 'All'):
-            nodeIDs = [i for i in nodes]
-        else:
-            for i in nodeIDs:
-                if (i not in nodes):
-                    raise OutOfRangeError("ERROR: Node %s is not in `nodes`." % i)
-    if ((type(nodeIDs) == list and depotID != None and depotID not in nodeIDs)
-        or (nodeIDs == 'All' and depotID != None and depotID not in nodes)):
-        raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
-
-    if (vehicles == None):
-        raise MissingParameterError("ERROR: Missing required field `vehicles`.")
-    if (vehicleID not in vehicles):
-        raise MissingParameterError("ERROR: Cannot find `vehicleID` in `vehicles`.")
-
-    # Define tau ==============================================================
-    tau = None
-    path = None
-    if (detailsFlag):
-        tau, path = matrixDist(nodes, edges, nodeIDs, locFieldName)
-    else:
-        tau, _ = matrixDist(nodes, edges, nodeIDs, locFieldName)
-
-    # Check symmetric =========================================================
-    asymFlag = False
-    for (i, j) in tau:
-        if (tau[i, j] != tau[j, i]):
-            asymFlag = True
-            break
-
     # Construction heuristics =================================================
     # NOTE: Output of this phase should be a Route() object
-    if (method == None or ('cons' not in method and 'impv' not in method)):
-        raise MissingParameterError(ERROR_MISSING_TSP_ALGO)
-
-    nodeObj = {}
-    for n in nodeIDs:
-        nodeObj[n] = RouteNode(n, value=nodes[n][locFieldName])
-
     seqObj = Route(tau, asymFlag)
     # An initial solution is given
     if ('cons' not in method or method['cons'] == 'Initial' or method['cons'] == None):
@@ -1312,68 +1252,12 @@ def heuTSP(
                 canImpvFlag = _impvTSP2Opt(seqObj)
 
     ofv = seqObj.dist
-    nodeSeq = [n.key for n in seqObj.traverse(closeFlag = True)]
+    seq = [n.key for n in seqObj.traverse(closeFlag = True)]
 
-    # Add service time if provided ============================================
-    ofv += (len(nodeIDs) - 1) * serviceTime
-
-    # Post optimization (for detail information) ==============================
-    if (detailsFlag):
-        # 返回一个数组，表示路径中的每个点的位置，不包括时间信息
-        shapepoints = []        
-        for i in range(len(nodeSeq) - 1):
-            shapepoints.extend(path[nodeSeq[i], nodeSeq[i + 1]][:-1])
-        shapepoints.append(path[nodeSeq[-2], nodeSeq[-1]][-1])
-
-        # 返回一个数组，其中每个元素为二元数组，表示位置+时刻
-        curTime = 0
-        curLoc = nodes[depotID][locFieldName]
-        timedSeq = [(curLoc, curTime)]
-        # 对每个leg检索path中的shapepoints，涉及到serviceTime，先不看最后一段leg
-        for i in range(1, len(nodeSeq) - 1):
-            # 对于Euclidean型的，没有中间节点
-            if (edges['method'] in ['Euclidean', 'LatLon']):
-                curTime += tau[nodeSeq[i - 1], nodeSeq[i]] / vehicles[vehicleID]['speed']
-                curLoc = nodes[nodeSeq[i]][locFieldName]
-                timedSeq.append((curLoc, curTime))
-            else:
-                shapepointsInBtw = path[nodeSeq[i - 1], nodeSeq[i]]
-                for j in range(1, len(shapepointsInBtw)):
-                    curTime += distEuclideanXY(shapepointsInBtw[j - 1], shapepointsInBtw[j])['dist'] / vehicles[vehicleID]['speed']
-                    curLoc = shapepointsInBtw[j]
-                    timedSeq.append((curLoc, curTime))
-            # 如果有service time，则加上一段在原处等待的时间
-            if (serviceTime != None and serviceTime > 0):
-                curTime += serviceTime
-                # curLoc = curLoc
-                timedSeq.append((curLoc, curTime))
-        # 现在补上最后一段leg
-        if (edges['method'] in ['Euclidean', 'LatLon']):
-            curTime += tau[nodeSeq[-2], nodeSeq[-1]] / vehicles[vehicleID]['speed']
-            curLoc = nodes[nodeSeq[-1]][locFieldName]
-            timedSeq.append((curLoc, curTime))
-        else:
-            shapepointsInBtw = path[nodeSeq[-2], nodeSeq[-1]]
-            for j in range(1, len(shapepointsInBtw)):
-                curTime += distEuclideanXY(shapepointsInBtw[j - 1], shapepointsInBtw[j])['dist'] / vehicles[vehicleID]['speed']
-                curLoc = shapepointsInBtw[j]
-                timedSeq.append((curLoc, curTime))
-
-        # Add detail information to `vehicles`
-        vehicles[vehicleID]['shapepoints'] = shapepoints
-        vehicles[vehicleID]['timedSeq'] = timedSeq
-
-    # Return results ==========================================================
-    res = {
+    return {
         'ofv': ofv,
-        'seq': nodeSeq
+        'seq': seq
     }
-    if (metaFlag):
-        res['serviceTime'] = serviceTime,
-        res['method'] = method
-    if (detailsFlag):
-        res['vehicles'] = vehicles
-    return res
 
 def _consTSPkNearestNeighbor(depotID, nodeIDs, tau, k = 1):
     # Initialize ----------------------------------------------------------
