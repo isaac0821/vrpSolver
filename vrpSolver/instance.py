@@ -18,13 +18,9 @@ from .road import *
 # =============================================================================
 
 def rndLocs(
-    N: int|None = None,
-    method: dict = {
-            'distr': 'UniformSquareXY', 
-            'xRange': (0, 100), 
-            'yRange': (0, 100)
-        }
-    ) -> list:
+    N: int|None = None, 
+    distr = 'UniformSquareXY', 
+    **kwargs) -> list:
 
     """Randomly create a list of N locations
 
@@ -33,47 +29,47 @@ def rndLocs(
 
     N: integer, optional, default None
         Number of locations/vertices/customers to be randomly created
-    method: dictionary, optional, default {'distr': 'UniformSquareXY', 'xRange': (0, 100), 'yRange': (0, 100)}
+    kwargs: dictionary, optional, default {'distr': 'UniformSquareXY', 'xRange': (0, 100), 'yRange': (0, 100)}
         Spatial distribution of nodes, options are as following:
             1) (default) Uniformly sample from a square on the Euclidean space
-            >>> method = {
+            >>> kwargs = {
             ...     'distr': 'UniformSquareXY', 
             ...     'xRange': (0, 100), # A 2-tuple with minimum/maximum range of x, default as (0, 100), 
             ...     'yRange': (0, 100), # A 2-tuple with minimum/maximum range of y, default as (0, 100), 
             ... }
             2) Uniformly sample from a given polygon on the Euclidean space
-            >>> method = {
+            >>> kwargs = {
             ...     'distr': 'UniformPolyXY', 
             ...     'polyXY': poly, # polygon of the area, (no holes)
             ...     'polyXYs': polys, # alternative option for 'polyXY', as a list of polygons 
             ... }
             3) Uniformly sample from a circle on the Euclidean space
-            >>> method = {
+            >>> kwargs = {
             ...     'distr': 'UniformCircleXY',
             ...     'centerXY': (0, 0), # centering location, default as (0, 0), 
             ...     'radius': 100, # radius of the circle , default as 100
             ... }
             4) Uniformly sample from a given polygon by lat/lon
-            >>> method = {
+            >>> kwargs = {
             ...     'distr': 'UniformPolyLatLon', 
             ...     'polyLatLon': polygon of the area, (no holes)
             ...     'polyLatLons': alternative option for 'polyLatLon', as a list of polygons 
             ... }
             5) Uniformly sample from a given circle by lat/lon,
-            >>> method = {
+            >>> kwargs = {
             ...     'distr': 'UniformCircleLatLon', 
             ...     'centerLatLon': required, centering location in lat/lon, 
             ...     'radiusInMeters': radius of the circle in meters 
             ... }
             6) Uniformly generate from a given polygon on a road network
-            >>> method = {
+            >>> kwargs = {
             ...     'distr': 'RoadNetworkPolyLatLon'
             ...     'RoadNetwork': list of arcs that can be sampled 
             ...     'polyLatLon': nodes should generated within the polygon, if not provided, will consider the entire network, 
             ...     'roadClass': list of classes that can be sampled 
             ... }
             7) Uniformly generate from a given circle on a road network
-            >>> method = {
+            >>> kwargs = {
             ...     'distr': 'RoadNetworkCircleLatLon', 
             ...     'RoadNetwork': list of arcs that can be sampled 
             ...     'centerLatLon': [lat, lon], 
@@ -89,131 +85,126 @@ def rndLocs(
     Raises
     ------
     MissingParameterError
-        Missing `method` field or values in `method`.
+        Missing `kwargs` field or values in `kwargs`.
     UnsupportedInputError
-        Option is not supported for `method['distr']`
+        Option is not supported for `kwargs['distr']`
     NotAvailableError
         Functions/options that are not ready yet.
     EmptyError
         The sample area is empty.
     """
 
-    # Sanity checks ===========================================================
-    if (method == None or 'distr' not in method):
-        raise MissingParameterError(ERROR_MISSING_NODES_DISTR)
-
     nodeLocs = []
-
     # Uniformly sample from a square on the Euclidean space
-    if (method['distr'] == 'UniformSquareXY'):
+    if (distr == 'UniformSquareXY'):
         xRange = None
         yRange = None
-        if ('xRange' not in method or 'yRange' not in method):
+        if ('xRange' not in kwargs or 'yRange' not in kwargs):
             xRange = [0, 100]
             yRange = [0, 100]
             warnings.warn("WARNING: Set sampled area to be default as a (0, 100) x (0, 100) square")
         else:
-            xRange = [float(method['xRange'][0]), float(method['xRange'][1])]
-            yRange = [float(method['yRange'][0]), float(method['yRange'][1])]
+            xRange = [float(kwargs['xRange'][0]), float(kwargs['xRange'][1])]
+            yRange = [float(kwargs['yRange'][0]), float(kwargs['yRange'][1])]
         for n in range(N):
             nodeLocs.append(_rndPtUniformSquareXY(xRange, yRange))
 
     # Uniformly sample from a polygon/a list of polygons on the Euclidean space
-    elif (method['distr'] == 'UniformPolyXY'):
-        if ('polyXY' not in method and 'polyXYs' not in method):
-            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `method`, which indicates a polygon / a list of polygons in the Euclidean space")
-        if ('polyXY' in method):
+    elif (distr == 'UniformPolyXY'):
+        if ('polyXY' not in kwargs and 'polyXYs' not in kwargs):
+            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `kwargs`, which indicates a polygon / a list of polygons in the Euclidean space")
+        if ('polyXY' in kwargs):
             for n in range(N):
-                nodeLocs.append(_rndPtUniformPolyXY(method['polyXY']))
+                nodeLocs.append(_rndPtUniformPolyXY(kwargs['polyXY']))
 
-        elif ('polyXYs' in method):
+        elif ('polyXYs' in kwargs):
             for n in range(N):
-                nodeLocs.append(_rndPtUniformPolyXYs(method['polyXY']))
+                nodeLocs.append(_rndPtUniformPolyXYs(kwargs['polyXY']))
 
     # Uniformly sample from the Euclidean space avoiding polygons
-    elif (method['distr'] == 'UniformAvoidPolyXY'):
-        if ('polyXY' not in method and 'polyXYs' not in method):
-            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `method`, which indicates a polygon / a list of polygons in the Euclidean space")
+    elif (distr == 'UniformAvoidPolyXY'):
+        if ('polyXY' not in kwargs and 'polyXYs' not in kwargs):
+            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `kwargs`, which indicates a polygon / a list of polygons in the Euclidean space")
         xRange = None
         yRange = None
-        if ('xRange' not in method or 'yRange' not in method):
+        if ('xRange' not in kwargs or 'yRange' not in kwargs):
             xRange = [0, 100]
             yRange = [0, 100]
             warnings.warn("WARNING: Set sampled area to be default as a (0, 100) x (0, 100) square")
         else:
-            xRange = [float(method['xRange'][0]), float(method['xRange'][1])]
-            yRange = [float(method['yRange'][0]), float(method['yRange'][1])]
-        if ('polyXY' in method):
+            xRange = [float(kwargs['xRange'][0]), float(kwargs['xRange'][1])]
+            yRange = [float(kwargs['yRange'][0]), float(kwargs['yRange'][1])]
+        if ('polyXY' in kwargs):
             for n in range(N):
-                nodeLocs.append(_rndPtUniformAvoidPolyXY(method['polyXY'], xRange, yRange))
+                nodeLocs.append(_rndPtUniformAvoidPolyXY(kwargs['polyXY'], xRange, yRange))
 
-        elif ('polyXYs' in method):
+        elif ('polyXYs' in kwargs):
             for n in range(N):
-                nodeLocs.append(_rndPtUniformAvoidPolyXYs(method['polyXYs'], xRange, yRange))
+                nodeLocs.append(_rndPtUniformAvoidPolyXYs(kwargs['polyXYs'], xRange, yRange))
 
     # Uniformly sample from a circle on the Euclidean space
-    elif (method['distr'] == 'UniformCircleXY'):
+    elif (distr == 'UniformCircleXY'):
         centerXY = None
         radius = None
-        if ('centerXY' not in method or 'radius' not in method):
+        if ('centerXY' not in kwargs or 'radius' not in kwargs):
             centerXY = (0, 0)
             radius = 100
             warnings.warn("WARNING: Set sample area to be default as a circle with radius of 100 centering at (0, 0)")
         else:
-            centerXY = method['centerXY']
-            radius = method['radius']
+            centerXY = kwargs['centerXY']
+            radius = kwargs['radius']
         for n in range(N):
             nodeLocs.append(_rndPtUniformCircleXY(radius, centerXY))
 
     # Uniformly sample from a polygon by lat/lon
-    elif (method['distr'] == 'UniformPolyLatLon'):
-        if ('polyLatLon' not in method and 'polyLatLons' not in method):
-            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `method`, which indicates a polygon / a list of polygons in the Euclidean space")
+    elif (distr == 'UniformPolyLatLon'):
+        if ('polyLatLon' not in kwargs and 'polyLatLons' not in kwargs):
+            raise MissingParameterError("ERROR: Missing required key 'polyXY' or 'polyXYs' in field `kwargs`, which indicates a polygon / a list of polygons in the Euclidean space")
         # TODO: Mercator projection
         raise VrpSolverNotAvailableError("ERROR: 'UniformPolyLatLon' is not available yet, please stay tune.")
 
     # Uniformly sample from a circle by lat/lon
-    elif (method['distr'] == 'UniformCircleLatLon'):
-        if ('centerLatLon' not in method or 'radiusInMeters' not in method):
-            raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `method`.")
+    elif (distr == 'UniformCircleLatLon'):
+        if ('centerLatLon' not in kwargs or 'radiusInMeters' not in kwargs):
+            raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `kwargs`.")
         for n in range(N):
-            nodeLocs.append(_rndPtUniformCircleLatLon(method['radiusInMeters'], method['centerLatLon']))
+            nodeLocs.append(_rndPtUniformCircleLatLon(kwargs['radiusInMeters'], kwargs['centerLatLon']))
 
     # Uniformly sample from the roads/streets within a polygon/a list of polygons from given road networks
-    elif (method['distr'] == 'RoadNetworkPolyLatLon'):
-        if ('polyLatLon' not in method and 'polyLatLons' not in method):
-            raise MissingParameterError("ERROR: Missing required key 'polyLatLon' or 'polyLatLons' in field `method`, which indicates a polygon / a list of polygons in the Euclidean space")
-        elif ('roads' not in method):
-            raise MissingParameterError("ERROR: Missing required key 'RoadNetwork' in field `method`. Need to provide the road network where the nodes are generated.")
-        elif ('roadClass' not in method):
+    elif (distr == 'RoadNetworkPolyLatLon'):
+        if ('polyLatLon' not in kwargs and 'polyLatLons' not in kwargs):
+            raise MissingParameterError("ERROR: Missing required key 'polyLatLon' or 'polyLatLons' in field `kwargs`, which indicates a polygon / a list of polygons in the Euclidean space")
+        elif ('roads' not in kwargs):
+            raise MissingParameterError("ERROR: Missing required key 'RoadNetwork' in field `kwargs`. Need to provide the road network where the nodes are generated.")
+        elif ('roadClass' not in kwargs):
             warnings.warn("WARNING: Set 'roadClass' to be default as ['residential']")
-        if ('polyLatLon' in method):
+        if ('polyLatLon' in kwargs):
             nodeLocs = _rndPtRoadNetworkPolyLatLon(
                 N if N != None else len(nodeIDs),
-                method['roads'], 
-                method['polyLatLon'],
-                method['roadClass'] if 'roadClass' in method else ['residential'])
-        elif ('polyLatLons' in method):
+                kwargs['roads'], 
+                kwargs['polyLatLon'],
+                kwargs['roadClass'] if 'roadClass' in kwargs else ['residential'])
+        elif ('polyLatLons' in kwargs):
             nodeLocs = _rndPtRoadNetworkPolyLatLons(
                 N if N != None else len(nodeIDs),
-                method['roads'], 
-                method['polyLatLons'],
-                method['roadClass'] if 'roadClass' in method else ['residential'])
+                kwargs['roads'], 
+                kwargs['polyLatLons'],
+                kwargs['roadClass'] if 'roadClass' in kwargs else ['residential'])
 
     # Uniformly sample from the roads/streets within a circle from given road network
-    elif (method['distr'] == 'RoadNetworkCircleLatLon'):
-        if ('centerLatLon' not in method or 'radiusInMeters' not in method):
-            raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `method`.")
-        elif ('roads' not in method):
-            raise MissingParameterError("ERROR: Missing required key 'RoadNetwork' in field `method`. Need to provide the road network where the nodes are generated.")
-        elif ('roadClass' not in method):
+    elif (distr == 'RoadNetworkCircleLatLon'):
+        if ('centerLatLon' not in kwargs or 'radiusInMeters' not in kwargs):
+            raise MissingParameterError("ERROR: Missing required key 'centerLatLon' or 'radiusInMeters' in field `kwargs`.")
+        elif ('roads' not in kwargs):
+            raise MissingParameterError("ERROR: Missing required key 'RoadNetwork' in field `kwargs`. Need to provide the road network where the nodes are generated.")
+        elif ('roadClass' not in kwargs):
             warnings.warn("WARNING: Set 'roadClass' to be default as ['residential']")
         nodeLocs = _rndPtRoadNetworkCircleLatLon(
             N if N != None else len(nodeIDs),
-            method['roads'], 
-            method['radiusInMeters'],
-            method['centerLatLon'],
-            method['roadClass'] if 'roadClass' in method else ['residential'])
+            kwargs['roads'], 
+            kwargs['radiusInMeters'],
+            kwargs['centerLatLon'],
+            kwargs['roadClass'] if 'roadClass' in kwargs else ['residential'])
     
     else:
         raise UnsupportedInputError(ERROR_MISSING_NODES_DISTR)
@@ -224,12 +215,9 @@ def rndNodes(
     N: int|None = None, 
     nodeIDs: list[int|str] = [], 
     nodes: dict|None = None,
-    method: dict = {
-            'distr': 'UniformSquareXY', 
-            'xRange': (0, 100), 
-            'yRange': (0, 100)
-        },
-    locFieldName = 'loc'
+    distr = 'UniformSquareXY',
+    locFieldName = 'loc',
+    **kwargs
     ) -> dict:
 
     """Randomly create a set of locations
@@ -241,47 +229,47 @@ def rndNodes(
         Number of locations/vertices/customers to be randomly created
     nodeIDs: list, optional, default None
         Alternative input parameter of `N`. A list of node IDs, `N` will be overwritten if `nodeIDs` is given
-    method: dictionary, optional, default {'distr': 'UniformSquareXY', 'xRange': (0, 100), 'yRange': (0, 100)}
+    kwargs: dictionary, optional, default {'distr': 'UniformSquareXY', 'xRange': (0, 100), 'yRange': (0, 100)}
         Spatial distribution of nodes, options are as following:
             1) (default) Uniformly sample from a square on the Euclidean space
-            >>> method = {
+            >>> kwargs = {
             ...     'distr': 'UniformSquareXY', 
             ...     'xRange': (0, 100), # A 2-tuple with minimum/maximum range of x, default as (0, 100), 
             ...     'yRange': (0, 100), # A 2-tuple with minimum/maximum range of y, default as (0, 100), 
             ... }
             2) Uniformly sample from a given polygon on the Euclidean space
-            >>> method = {
+            >>> kwargs = {
             ...     'distr': 'UniformPolyXY', 
             ...     'polyXY': poly, # polygon of the area, (no holes)
             ...     'polyXYs': polys, # alternative option for 'polyXY', as a list of polygons 
             ... }
             3) Uniformly sample from a circle on the Euclidean space
-            >>> method = {
+            >>> kwargs = {
             ...     'distr': 'UniformCircleXY',
             ...     'centerXY': (0, 0), # centering location, default as (0, 0), 
             ...     'radius': 100, # radius of the circle , default as 100
             ... }
             4) Uniformly sample from a given polygon by lat/lon
-            >>> method = {
+            >>> kwargs = {
             ...     'distr': 'UniformPolyLatLon', 
             ...     'polyLatLon': polygon of the area, (no holes)
             ...     'polyLatLons': alternative option for 'polyLatLon', as a list of polygons 
             ... }
             5) Uniformly sample from a given circle by lat/lon,
-            >>> method = {
+            >>> kwargs = {
             ...     'distr': 'UniformCircleLatLon', 
             ...     'centerLatLon': required, centering location in lat/lon, 
             ...     'radiusInMeters': radius of the circle in meters 
             ... }
             6) Uniformly generate from a given polygon on a road network
-            >>> method = {
+            >>> kwargs = {
             ...     'distr': 'RoadNetworkPolyLatLon'
             ...     'RoadNetwork': list of arcs that can be sampled 
             ...     'polyLatLon': nodes should generated within the polygon, if not provided, will consider the entire network, 
             ...     'roadClass': list of classes that can be sampled 
             ... }
             7) Uniformly generate from a given circle on a road network
-            >>> method = {
+            >>> kwargs = {
             ...     'distr': 'RoadNetworkCircleLatLon', 
             ...     'RoadNetwork': list of arcs that can be sampled 
             ...     'centerLatLon': [lat, lon], 
@@ -300,9 +288,9 @@ def rndNodes(
     Raises
     ------
     MissingParameterError
-        Missing `method` field or values in `method`.
+        Missing `kwargs` field or values in `kwargs`.
     UnsupportedInputError
-        Option is not supported for `method['distr']`
+        Option is not supported for `kwargs['distr']`
     NotAvailableError
         Functions/options that are not ready yet.
     EmptyError
@@ -310,9 +298,6 @@ def rndNodes(
     """
 
     # Sanity checks ===========================================================
-    if (method == None or 'distr' not in method):
-        raise MissingParameterError(ERROR_MISSING_NODES_DISTR)
-
     if (nodes == None):
         nodes = {}
     
@@ -324,7 +309,9 @@ def rndNodes(
     # Generate instance =======================================================
     nodeLocs = rndLocs(
         N = len(nodeIDs), 
-        method = method)
+        distr = distr,
+        **kwargs
+        )
     for n in range(len(nodeIDs)):
         if (nodeIDs[n] in nodes):
             warnings.warn("WARNING: %s already exists, will be replaced" % n)
@@ -549,12 +536,9 @@ def _rndPtRoadNetworkCircleLatLon(N: int, roads: dict, radius: float, center: pt
 def rndNodeTimeWindows(
     nodes: dict,
     nodeIDs: list[int|str]|str = 'All',
-    method: dict = {
-            'mode': 'RandomStartInt',
-            'startTW': [0, 100],
-            'endLimit': float('inf')
-        },
+    mode = 'RandomStartInt',
     timeWindowFieldName = 'timeWindow',
+    **kwargs
     ) -> dict:
 
     """Add 'startTime', 'endTime' fields for given nodes
@@ -569,20 +553,17 @@ def rndNodeTimeWindows(
             for i in nodeIDs:
                 if (i not in nodes):
                     raise OutOfRangeError("ERROR: Node %s is not in `nodes`." % i)
-
-    if (method == None or 'mode' not in method):
-        raise MissingParameterError("ERROR: Missing required field `method`, or missing required key 'mode' in `method`.")
     
-    if (method['mode'] == 'RandomStartInt'):
-        if ('startTW' not in method or type(method['startTW']) not in [list, tuple] or len(method['startTW']) != 2):
-            raise MissingParameterError("ERROR: Missing required key 'startTW' in `method` or incorrect format.")
-        startTW = list(method['startTW'])
+    if (mode == 'RandomStartInt'):
+        if ('startTW' not in kwargs or type(kwargs['startTW']) not in [list, tuple] or len(kwargs['startTW']) != 2):
+            raise MissingParameterError("ERROR: Missing required key 'startTW' in `kwargs` or incorrect format.")
+        startTW = list(kwargs['startTW'])
 
         endLimit = None
-        if ('endLimit' not in method):
+        if ('endLimit' not in kwargs):
             endLimit = float('inf')
         else:
-            endLimit = method['endLimit']
+            endLimit = kwargs['endLimit']
         if (startTW[1] > endLimit):
             warnings.warn("WARNING: Start time cannot be later than end time, auto adjust last posible start time to be 'endLimie'")
             startTW[1] = endLimit
@@ -591,17 +572,17 @@ def rndNodeTimeWindows(
             start = random.randrange(int(startTW[0]), int(startTW[1]))
             nodes[n][timeWindowFieldName] = [start, endLimit]
 
-    elif (method['mode'] == 'RandomStart'):
+    elif (mode == 'RandomStart'):
         startTW = None
-        if ('startTW' not in method or type(method['startTW']) not in [list, tuple] or len(method['startTW']) != 2):
-            raise MissingParameterError("ERROR: Missing required key 'startTW' in `method` or incorrect format.")
-        startTW = list(method['startTW'])
+        if ('startTW' not in kwargs or type(kwargs['startTW']) not in [list, tuple] or len(kwargs['startTW']) != 2):
+            raise MissingParameterError("ERROR: Missing required key 'startTW' in `kwargs` or incorrect format.")
+        startTW = list(kwargs['startTW'])
 
         endLimit = None
-        if ('endLimit' not in method):
+        if ('endLimit' not in kwargs):
             endLimit = float('inf')
         else:
-            endLimit = method['endLimit']
+            endLimit = kwargs['endLimit']
         if (startTW[1] > endLimit):
             warnings.warn("WARNING: Start time cannot be later than end time, auto adjust last posible start time to be 'endLimie'")
             startTW[1] = endLimit
@@ -610,10 +591,10 @@ def rndNodeTimeWindows(
             start = startTW[0] + (startTW[1] - startTW[0]) * random.random()
             nodes[n][timeWindowFieldName] = [start, endLimit]
 
-    elif (method['mode'] == 'Random'):
-        if ('timeWindow' not in method or type(method['timeWindow']) not in [list, tuple] or len(method['timeWindow']) != 2):
-            raise MissingParameterError("ERROR: Missing required key 'timeWindow' in `method` or incorrect format.")
-        timeWindow = method['timeWindow']
+    elif (mode == 'Random'):
+        if ('timeWindow' not in kwargs or type(kwargs['timeWindow']) not in [list, tuple] or len(kwargs['timeWindow']) != 2):
+            raise MissingParameterError("ERROR: Missing required key 'timeWindow' in `kwargs` or incorrect format.")
+        timeWindow = kwargs['timeWindow']
 
         if (timeWindow[0] >= timeWindow[1]):
             raise UnsupportedInputError("ERROR: End time should be later than start time.")
@@ -625,10 +606,10 @@ def rndNodeTimeWindows(
             endTime = max(rnd1, rnd2)
             nodes[n][timeWindowFieldName] = [startTime, endTime]
 
-    elif (method['mode'] == 'RandomInt'):
-        if ('timeWindow' not in method or type(method['timeWindow']) not in [list, tuple] or len(method['timeWindow']) != 2):
-            raise MissingParameterError("ERROR: Missing required key 'timeWindow' in `method` or incorrect format.")
-        timeWindow = method['timeWindow']
+    elif (mode == 'RandomInt'):
+        if ('timeWindow' not in kwargs or type(kwargs['timeWindow']) not in [list, tuple] or len(kwargs['timeWindow']) != 2):
+            raise MissingParameterError("ERROR: Missing required key 'timeWindow' in `kwargs` or incorrect format.")
+        timeWindow = kwargs['timeWindow']
 
         if (timeWindow[0] >= timeWindow[1]):
             raise UnsupportedInputError("ERROR: End time should be later than start time.")
@@ -641,18 +622,16 @@ def rndNodeTimeWindows(
             nodes[n][timeWindowFieldName] = [startTime, endTime]
 
     else:
-        raise UnsupportedInputError("ERROR: Unsupported option for `method`. Supported 'mode' includes: 'Random', 'RandomInt', 'RandomStart', 'RandomStartInt'.")
+        raise UnsupportedInputError("ERROR: Unsupported option for `kwargs`. Supported 'mode' includes: 'Random', 'RandomInt', 'RandomStart', 'RandomStartInt'.")
 
     return nodes
 
 def rndNodeDemands(
     nodes: dict,
     nodeIDs: list[int|str]|str = 'All',
-    method: dict = {
-            'mode': 'RandomInt',
-            'range': [0, 100]
-        },
-    demandFieldName = 'demand'
+    mode = 'RandomInt',
+    demandFieldName = 'demand',
+    **kwargs
     ) -> dict:
 
     """Assign 'demand' for given nodes
@@ -668,13 +647,13 @@ def rndNodeDemands(
                 if (i not in nodes):
                     raise OutOfRangeError("ERROR: Node %s is not in `nodes`." % i)
 
-    if (method == None or 'mode' not in method):
-        raise MissingParameterError("ERROR: Missing required field `method`, or missing required key 'mode' in `method`.")
+    if (kwargs == None or 'mode' not in kwargs):
+        raise MissingParameterError("ERROR: Missing required field `kwargs`, or missing required key 'mode' in `kwargs`.")
 
-    if (method['mode'] == 'Random'):
-        if ('range' not in method or type(method['range']) not in [list, tuple] or len(method['range']) != 2):
-            raise MissingParameterError("ERROR: Missing required key 'range' in `method` or incorrect format.")
-        Range = method['range']
+    if (mode == 'Random'):
+        if ('range' not in kwargs or type(kwargs['range']) not in [list, tuple] or len(kwargs['range']) != 2):
+            raise MissingParameterError("ERROR: Missing required key 'range' in `kwargs` or incorrect format.")
+        Range = kwargs['range']
 
         if (Range[0] >= Range[1]):
             raise UnsupportedInputError("ERROR: Upper range should be greater than lower range.")
@@ -683,10 +662,10 @@ def rndNodeDemands(
             rnd = Range[0] + (Range[1] - Range[0]) * random.random()
             nodes[n][demandFieldName] = rnd
 
-    elif (method['mode'] == 'RandomInt'):
-        if ('range' not in method or type(method['range']) not in [list, tuple] or len(method['range']) != 2):
-            raise MissingParameterError("ERROR: Missing required key 'range' in `method` or incorrect format.")
-        Range = method['range']
+    elif (mode == 'RandomInt'):
+        if ('range' not in kwargs or type(kwargs['range']) not in [list, tuple] or len(kwargs['range']) != 2):
+            raise MissingParameterError("ERROR: Missing required key 'range' in `kwargs` or incorrect format.")
+        Range = kwargs['range']
 
         if (Range[0] >= Range[1]):
             raise UnsupportedInputError("ERROR: Upper range should be greater than lower range.")
@@ -696,21 +675,16 @@ def rndNodeDemands(
             nodes[n][demandFieldName] = rnd
 
     else:
-        raise UnsupportedInputError("ERROR: Unsupported option for `method`. Supported 'mode' includes: 'Random', and 'RandomInt'.")
+        raise UnsupportedInputError("ERROR: Unsupported option for `kwargs`. Supported 'mode' includes: 'Random', and 'RandomInt'.")
 
     return nodes
 
 def rndArcs(
     A: int|None = None,
     arcIDs: list[int|str] = [],
-    method: dict = {
-            'distr': 'UniformLengthInSquareXY',
-            'xRange': (0, 100),
-            'yRange': (0, 100),
-            'minLen': 0,
-            'maxLen': 10
-        },
-    arcFieldName: str = 'arc'
+    distr = 'UniformLengthInSquareXY',
+    arcFieldName: str = 'arc',
+    **kwargs
     ) -> dict:
 
     """Randomly create a set of arcs (to be visited) 
@@ -722,10 +696,10 @@ def rndArcs(
         Number of arcs to be visited
     arcIDs: list, optional, default None
         Alternative input parameter of `A`. A list of arc IDs, `A` will be overwritten if `arcIDs` is given
-    method: dictionary, optional, default {'distr': 'UniformLengthInSquareXY', 'xRange': (0, 100), 'yRange': (0, 100), 'minLen': 0, 'maxLen': 10}
+    kwargs: dictionary, optional, default {'distr': 'UniformLengthInSquareXY', 'xRange': (0, 100), 'yRange': (0, 100), 'minLen': 0, 'maxLen': 10}
         Spatial distribution of arcs, optional are as following:
         1) (default) Uniformly sample from a square on the Euclidean space, with uniformly selected length
-        >>> method = {
+        >>> kwargs = {
         ...     'distr': 'UniformLengthInSquareXY',
         ...     'xRange': (0, 100),
         ...     'yRange': (0, 100),
@@ -736,7 +710,7 @@ def rndArcs(
     """
 
     # Sanity check ============================================================
-    if (method == None or 'distr' not in method):
+    if (kwargs == None or 'distr' not in kwargs):
         raise MissingParameterError(ERROR_MISSING_ARCS_DISTR)
 
     arcs = {}
@@ -746,21 +720,21 @@ def rndArcs(
         arcIDs = [i for i in range(A)]
 
     # Generate instance =======================================================
-    if (method['distr'] == 'UniformLengthInSquareXY'):
-        if ('minLen' not in method or 'maxLen' not in method):
-            raise MissingParameterError("ERROR: Missing required field 'minLen' and/or 'maxLen' in `method`")
+    if (distr == 'UniformLengthInSquareXY'):
+        if ('minLen' not in kwargs or 'maxLen' not in kwargs):
+            raise MissingParameterError("ERROR: Missing required field 'minLen' and/or 'maxLen' in `kwargs`")
         xRange = None
         yRange = None
-        if ('xRange' not in method or 'yRange' not in method):
+        if ('xRange' not in kwargs or 'yRange' not in kwargs):
             xRange = [0, 100]
             yRange = [0, 100]
             warnings.warn("WARNING: Set sample area to be default as a (0, 100) x (0, 100) square")
         else:
-            xRange = [float(method['xRange'][0]), float(method['xRange'][1])]
-            yRange = [float(method['yRange'][0]), float(method['yRange'][1])]
+            xRange = [float(kwargs['xRange'][0]), float(kwargs['xRange'][1])]
+            yRange = [float(kwargs['yRange'][0]), float(kwargs['yRange'][1])]
         for n in arcIDs:
             arcs[n] = {
-                arcFieldName : _rndArcUniformSquareXY(xRange, yRange, method['minLen'], method['maxLen'])
+                arcFieldName : _rndArcUniformSquareXY(xRange, yRange, kwargs['minLen'], kwargs['maxLen'])
             }
     else:
         raise UnsupportedInputError(ERROR_MISSING_ARCS_DISTR)
@@ -778,29 +752,16 @@ def _rndArcUniformSquareXY(xRange: list[int]|list[float], yRange: list[int]|list
 def rndPolygons(
     P: int|None = None,
     polyIDs: list[int|str] = [],
-    method: dict = {
-        'distr': "UniformSquareXY",
-        'xRange': (0, 100),
-        'yRange': (0, 100),
-        'shape': "Circle",
-        'radius': 10,
-        'lod': 30,
-        'avoidOverlapFlag': False,
-        'mergeFlag': True
-    },
+    distr = "UniformSquareXY",
+    shape = 'Circle',
     anchorFieldName = 'anchor',
-    polyFieldName = 'poly'
+    polyFieldName = 'poly',
+    **kwargs
     ) -> dict:
 
     # Sanity check ============================================================
-    if (method == None):
-        raise MissingParameterError("ERROR: Missing required field `method`")
-
-    if ('shape' not in method):
-        raise MissingParameterError("ERROR: Missing required key 'shape' in `method`.")
-
-    if ('distr' not in method): 
-        raise MissingParameterError("ERROR: Missing required key 'distr' in `method`.")
+    if (kwargs == None):
+        raise MissingParameterError("ERROR: Missing required field `kwargs`")
 
     if (polyIDs == [] and P == None):
         raise MissingParameterError("ERROR: Missing required field `P` and `polyIDs`.")
@@ -812,44 +773,45 @@ def rndPolygons(
     anchors = rndNodes(
         N = P,
         nodeIDs = polyIDs,
-        method = method,
-        locFieldName = anchorFieldName)
+        distr = distr,
+        locFieldName = anchorFieldName,
+        **kwargs)
 
     # Next, create P polygons relative to anchor points =======================
     polysB4Merge = []
     avoidOverlapFlag = False
-    if ('avoidOverlapFlag' in method and method['avoidOverlapFlag'] == True):
+    if ('avoidOverlapFlag' in kwargs and kwargs['avoidOverlapFlag'] == True):
         avoidOverlapFlag = True
 
     for p in polyIDs:
-        if (method['shape'] == 'FixedPoly'):
-            if ('poly' not in method):
-                raise MissingParameterError("ERROR: Missing required key 'poly' in `method`")
-            poly = [[i[0] + anchors[p][anchorFieldName][0], i[1] + anchors[p][anchorFieldName][1]] for i in method['poly']]
+        if (shape == 'FixedPoly'):
+            if ('poly' not in kwargs):
+                raise MissingParameterError("ERROR: Missing required key 'poly' in `kwargs`")
+            poly = [[i[0] + anchors[p][anchorFieldName][0], i[1] + anchors[p][anchorFieldName][1]] for i in kwargs['poly']]
         
-        elif (method['shape'] == 'Circle'):
-            if ('radius' not in method):
-                raise MissingParameterError("ERROR: Missing required key 'radius' in `method`")
+        elif (shape == 'Circle'):
+            if ('radius' not in kwargs):
+                raise MissingParameterError("ERROR: Missing required key 'radius' in `kwargs`")
             # By default, a circle is plotted by a 30-gon
             lod = 30
-            if ('lod' in method and type(method['lod']) == int):
-                lod = method['lod']
+            if ('lod' in kwargs and type(kwargs['lod']) == int):
+                lod = kwargs['lod']
             poly = [[
-                anchors[p][anchorFieldName][0] + method['radius'] * math.sin(2 * d * math.pi / lod),
-                anchors[p][anchorFieldName][1] + method['radius'] * math.cos(2 * d * math.pi / lod),
+                anchors[p][anchorFieldName][0] + kwargs['radius'] * math.sin(2 * d * math.pi / lod),
+                anchors[p][anchorFieldName][1] + kwargs['radius'] * math.cos(2 * d * math.pi / lod),
             ] for d in range(lod + 1)]
         
-        elif (method['shape'] == 'Square'):
-            if ('maxLen' not in method):
-                raise MissingParameterError("ERROR: Missing required key 'maxLen' in `method`")
-            if ('minLen' not in method):
-                raise MissingParameterError("ERROR: Missing required key 'minLen' in `method`")
-            if (method['minLen'] > method['maxLen']):
+        elif (shape == 'Square'):
+            if ('maxLen' not in kwargs):
+                raise MissingParameterError("ERROR: Missing required key 'maxLen' in `kwargs`")
+            if ('minLen' not in kwargs):
+                raise MissingParameterError("ERROR: Missing required key 'minLen' in `kwargs`")
+            if (kwargs['minLen'] > kwargs['maxLen']):
                 warnings.warn("WARNING: 'minLen' is greater than 'maxLen', will be swapped")
-                method['maxLen'], method['minLen'] = method['minLen'], method['maxLen']
+                kwargs['maxLen'], kwargs['minLen'] = kwargs['minLen'], kwargs['maxLen']
             
-            width = random.uniform(method['minLen'], method['maxLen'])
-            height = random.uniform(method['minLen'], method['maxLen'])
+            width = random.uniform(kwargs['minLen'], kwargs['maxLen'])
+            height = random.uniform(kwargs['minLen'], kwargs['maxLen'])
 
             poly = [
                 [anchors[p][anchorFieldName][0] - width / 2, anchors[p][anchorFieldName][1] - height / 2], 
@@ -858,20 +820,20 @@ def rndPolygons(
                 [anchors[p][anchorFieldName][0] - width / 2, anchors[p][anchorFieldName][1] + height / 2]
             ]
 
-        elif (method['shape'] == 'Egg'):
-            if ('a' not in method or 'b' not in method or 'c' not in method):
+        elif (shape == 'Egg'):
+            if ('a' not in kwargs or 'b' not in kwargs or 'c' not in kwargs):
                 raise MissingParameterError("ERROR: Missing required key 'a', 'b', and/or 'c'.")
             direction = 0
-            if ('direction' in method):
-                direction = method['direction']
+            if ('direction' in kwargs):
+                direction = kwargs['direction']
             lod = 30
-            if ('lod' in method and type(method['lod']) == int):
-                lod = method['lod']
+            if ('lod' in kwargs and type(kwargs['lod']) == int):
+                lod = kwargs['lod']
             # Formulation:
             # \frac{x^2}{(a - b)x + ab} + \frac{y^2}{c^2} = 1
-            a = method['a']
-            b = method['b']
-            c = method['c']            
+            a = kwargs['a']
+            b = kwargs['b']
+            c = kwargs['c']            
             vHLod = math.ceil(lod * 2 / 9)
             vTLod = math.ceil(lod / 9)
             hLod = math.ceil(lod * 2 / 3)
@@ -911,21 +873,21 @@ def rndPolygons(
                 pt = ptInDistXY(anchors[p][anchorFieldName], di + direction, r)
                 poly.append(pt)
         
-        elif (method['shape'] == 'RandomCurvy'):
-            if ('maxRadius' not in method or 'minRadius' not in method):
-                raise MissingParameterError("ERROR: Missing required key 'maxRadius' or 'minRadius' in `method`")
+        elif (shape == 'RandomCurvy'):
+            if ('maxRadius' not in kwargs or 'minRadius' not in kwargs):
+                raise MissingParameterError("ERROR: Missing required key 'maxRadius' or 'minRadius' in `kwargs`")
             lod = 30
-            if ('lod' in method and type(method['lod']) == int):
-                lod = method['lod']
+            if ('lod' in kwargs and type(kwargs['lod']) == int):
+                lod = kwargs['lod']
             r = []
             for i in range(lod + 1):
-                r.append(method['minRadius'])
+                r.append(kwargs['minRadius'])
             N = 4
-            if ('N' in method and type(method['N']) == int):
-                N = method['N']
+            if ('N' in kwargs and type(kwargs['N']) == int):
+                N = kwargs['N']
             w = 3
-            if ('w' in method and type(method['w']) == int):
-                w = method['w']
+            if ('w' in kwargs and type(kwargs['w']) == int):
+                w = kwargs['w']
             for k in range(N):
                 a = random.uniform(0, 1)
                 b = random.randint(1, w)
@@ -934,21 +896,21 @@ def rndPolygons(
                     r[i] += a * math.sin(b * 2 * i * math.pi / lod + math.pi * c)
             maxRI = max(r)
             for i in range(len(r)):
-                r[i] = r[i] * (method['maxRadius'] - method['minRadius']) / maxRI
+                r[i] = r[i] * (kwargs['maxRadius'] - kwargs['minRadius']) / maxRI
             poly = [[
-                anchors[p][anchorFieldName][0] + (r[d] + method['minRadius']) * math.sin(2 * d * math.pi / lod),
-                anchors[p][anchorFieldName][1] + (r[d] + method['minRadius']) * math.cos(2 * d * math.pi / lod),
+                anchors[p][anchorFieldName][0] + (r[d] + kwargs['minRadius']) * math.sin(2 * d * math.pi / lod),
+                anchors[p][anchorFieldName][1] + (r[d] + kwargs['minRadius']) * math.cos(2 * d * math.pi / lod),
             ] for d in range(lod + 1)]
 
-        elif (method['shape'] == 'RandomConvex'):
+        elif (shape == 'RandomConvex'):
             raise VrpSolverNotAvailableError("ERROR: Constructing...")
         
         else:
-            raise UnsupportedInputError("ERROR: Unsupported option for `method`. Supported 'shape' includes: 'Poly', 'Circle', and 'RandomCurvy'.")
+            raise UnsupportedInputError("ERROR: Unsupported option for `kwargs`. Supported 'shape' includes: 'Poly', 'Circle', and 'RandomCurvy'.")
         polysB4Merge.append([poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON])
         
     # If mergeFlag, merge the polygons ========================================
-    if ('mergeFlag' in method and method['mergeFlag'] == True):
+    if ('mergeFlag' in kwargs and kwargs['mergeFlag'] == True):
         polyShape = []
         for p in polysB4Merge:
             polyShape.append(p)
@@ -959,7 +921,7 @@ def rndPolygons(
         
     # Reindex =================================================================
     polys = {}
-    if ('mergeFlag' in method and method['mergeFlag'] == True):
+    if ('mergeFlag' in kwargs and kwargs['mergeFlag'] == True):
         newIDs = []
         for i in range(len(polysMerged)):
             newIDs.append([])

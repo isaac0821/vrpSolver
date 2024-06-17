@@ -2233,7 +2233,7 @@ def circleByCenterXY(center: pt, radius: int|float, lod: int = 30) -> poly:
     return circle
 
 # Sort nodes ==================================================================
-def nodeSeqByDist(nodes: dict, nodeIDs: list|str = 'All', locFieldName = 'loc', edges: dict = {'method': 'Euclidean'}, refLoc: pt|None = None, refNodeID: int|str|None = None) -> list:
+def nodeSeqByDist(nodes: dict, nodeIDs: list|str = 'All', locFieldName = 'loc', refLoc: pt|None = None, refNodeID: int|str|None = None) -> list:
     # Define nodeIDs
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
@@ -2254,7 +2254,7 @@ def nodeSeqByDist(nodes: dict, nodeIDs: list|str = 'All', locFieldName = 'loc', 
     sortedSeq = []
     sortedSeqHeap = []
     for n in nodeIDs:
-        dist = scaleDist(loc1 = refLoc, loc2 = nodes[n][locFieldName], edges = edges)['dist']
+        dist = scaleDist(loc1 = refLoc, loc2 = nodes[n][locFieldName], edges = 'Euclidean')['dist']
         heapq.heappush(sortedSeqHeap, (dist, n))
     while (len(sortedSeqHeap) > 0):
         sortedSeq.append(heapq.heappop(sortedSeqHeap)[1])  
@@ -2311,7 +2311,7 @@ def nodeSeqBySweeping(nodes: dict, nodeIDs: list|str = 'All', locFieldName = 'lo
 
     return sweepSeq
 
-def nodesInIsochrone(nodes: dict, nodeIDs: list|str = 'All', locFieldName = 'loc', edges: dict = {'method': 'Euclidean'}, refLoc: pt|None = None, refNodeID: int|str|None = None, isoRange: float = None, sortFlag: bool = False) -> list: 
+def nodesInIsochrone(nodes: dict, nodeIDs: list|str = 'All', locFieldName = 'loc', refLoc: pt|None = None, refNodeID: int|str|None = None, isoRange: float = None, sortFlag: bool = False) -> list: 
     # FIXME: Need an algorithm to filter out locations that are clearly too far from refLoc
     # Define nodeIDs
     if (type(nodeIDs) is not list):
@@ -2338,7 +2338,7 @@ def nodesInIsochrone(nodes: dict, nodeIDs: list|str = 'All', locFieldName = 'loc
     if (sortFlag):        
         nearSetHeap = []
         for n in nodeIDs:
-            dist = scaleDist(loc1 = refLoc, loc2 = nodes[n][locFieldName], edges = edges)['dist']
+            dist = scaleDist(loc1 = refLoc, loc2 = nodes[n][locFieldName], edges = 'Euclidean')['dist']
             if (dist <= isoRange):
                 heapq.heappush(nearSetHeap, (dist, n))
         while (len(nearSetHeap) > 0):
@@ -2346,7 +2346,7 @@ def nodesInIsochrone(nodes: dict, nodeIDs: list|str = 'All', locFieldName = 'loc
         nearest = nearSet[0]
     else:
         for n in nodeIDs:
-            dist = scaleDist(loc1 = refLoc, loc2 = nodes[n][locFieldName], edges = edges)['dist']
+            dist = scaleDist(loc1 = refLoc, loc2 = nodes[n][locFieldName], edges = 'Euclidean')['dist']
             if (dist <= isoRange):
                 nearSet.append(n)
             if (dist <= nearestDist):
@@ -2358,28 +2358,24 @@ def nodesInIsochrone(nodes: dict, nodeIDs: list|str = 'All', locFieldName = 'loc
     }
 
 # Create distance matrix ======================================================
-def matrixDist(nodes: dict, edges: dict = {'method': 'Euclidean'}, nodeIDs: list|str = 'All', locFieldName: str = 'loc') -> dict:
+def matrixDist(nodes: dict, nodeIDs: list|str = 'All', edges: str = 'Euclidean', locFieldName: str = 'loc', **kwargs) -> dict:
     # Define tau
     tau = {}
     pathLoc = {}
 
-    if (type(edges) != dict or 'method' not in edges):
-        raise MissingParameterError(ERROR_MISSING_EDGES)
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
             nodeIDs = []
             for i in nodes:
                 nodeIDs.append(i)
 
-    if (edges['method'] == 'Euclidean'):
-        speed = 1 if 'speed' not in edges else edges['speed']
+    if (edges == 'Euclidean'):
         tau, pathLoc = _matrixDistEuclideanXY(
             nodes = nodes, 
             nodeIDs = nodeIDs, 
-            speed = speed, 
             locFieldName = locFieldName)
-    elif (edges['method'] == 'EuclideanBarrier'):
-        if ('polys' not in edges or edges['polys'] == None):
+    elif (edges == 'EuclideanBarrier'):
+        if ('polys' not in kwargs or kwargs['polys'] == None):
             warnings.warning("WARNING: No barrier provided.")
             tau, pathLoc = _matrixDistEuclideanXY(
                 nodes = nodes, 
@@ -2389,53 +2385,50 @@ def matrixDist(nodes: dict, edges: dict = {'method': 'Euclidean'}, nodeIDs: list
             tau, pathLoc = _matrixDistBtwPolysXY(
                 nodes = nodes, 
                 nodeIDs = nodeIDs, 
-                polys = edges['polys'], 
+                polys = kwargs['polys'], 
                 locFieldName = locFieldName)
-    elif (edges['method'] == 'LatLon'):
-        speed = 1 if 'speed' not in edges else edges['speed']
+    elif (edges == 'LatLon'):
+        distUnit = 'meter' if 'distUnit' not in kwargs else kwargs['distUnit']
         tau, pathLoc = _matrixDistLatLon(
             nodes = nodes, 
             nodeIDs = nodeIDs, 
-            speed=speed, 
+            distUnit = distUnit,
             locFieldName = locFieldName)
-    elif (edges['method'] == 'Manhatten'):
-        speed = 1 if 'speed' not in edges else edges['speed']
+    elif (edges == 'Manhatten'):
         tau, pathLoc = _matrixDistManhattenXY(
             nodes = nodes, 
             nodeIDs = nodeIDs, 
-            speed = speed, 
             locFieldName = locFieldName)
-    elif (edges['method'] == 'Dictionary'):
-        if ('tau' not in edges or edges['tau'] == None):
-            raise MissingParameterError("'tau' is not specified")
-        for p in edges['tau']:
-            speed = 1 if 'speed' not in edges else edges['speed']
-            tau[p] = edges['tau'][p] / speed
-            pathLoc[p] = edges['path'][p] if 'path' in edges else [nodes[p[0]][locFieldName], nodes[p[1]][locFieldName]]
-    elif (edges['method'] == 'Grid'):
-        if ('grid' not in edges or edges['grid'] == None):
-            raise MissingParameterError("'grid' is not specified")
-        if ('column' not in edges['grid'] or 'row' not in edges['grid']):
+    elif (edges == 'Dictionary'):
+        if ('tau' not in kwargs or kwargs['tau'] == None):
+            raise MissingParameterError("ERROR: 'tau' is not specified")
+        for p in kwargs['tau']:
+            tau[p] = kwargs['tau'][p]
+            pathLoc[p] = kwargs['path'][p] if 'path' in kwargs else [nodes[p[0]][locFieldName], nodes[p[1]][locFieldName]]
+    elif (edges == 'Grid'):
+        if ('grid' not in kwargs or kwargs['grid'] == None):
+            raise MissingParameterError("ERROR: 'grid' is not specified")
+        if ('column' not in kwargs['grid'] or 'row' not in kwargs['grid']):
             raise MissingParameterError("'column' and 'row' need to be specified in 'grid'")
         tau, pathLoc = _matrixDistGrid(
             nodes = nodes, 
             nodeIDs = nodeIDs, 
-            grids = edges['grid'], 
+            grids = kwargs['grid'], 
             locFieldName = locFieldName)
     else:
         raise UnsupportedInputError(ERROR_MISSING_EDGES)        
 
     return tau, pathLoc
 
-def _matrixDistEuclideanXY(nodes: dict, nodeIDs: list, speed = 1, locFieldName = 'loc'):
+def _matrixDistEuclideanXY(nodes: dict, nodeIDs: list, locFieldName = 'loc'):
     tau = {}
     pathLoc = {}
     for i in nodeIDs:
         for j in nodeIDs:
             if (i != j):
                 d = distEuclideanXY(nodes[i][locFieldName], nodes[j][locFieldName])
-                tau[i, j] = d['dist'] / speed
-                tau[j, i] = d['dist'] / speed
+                tau[i, j] = d['dist']
+                tau[j, i] = d['dist']
                 pathLoc[i, j] = [nodes[i][locFieldName], nodes[j][locFieldName]]
                 pathLoc[j, i] = [nodes[j][locFieldName], nodes[i][locFieldName]]
             else:
@@ -2445,15 +2438,15 @@ def _matrixDistEuclideanXY(nodes: dict, nodeIDs: list, speed = 1, locFieldName =
                 pathLoc[j, i] = []
     return tau, pathLoc
 
-def _matrixDistManhattenXY(nodes: dict, nodeIDs: list, speed = 1, locFieldName = 'loc'):
+def _matrixDistManhattenXY(nodes: dict, nodeIDs: list, locFieldName = 'loc'):
     tau = {}
     pathLoc = {}
     for i in nodeIDs:
         for j in nodeIDs:
             if (i != j):
                 d = distManhattenXY(nodes[i][locFieldName], nodes[j][locFieldName])
-                tau[i, j] = d['dist'] / speed
-                tau[j, i] = d['dist'] / speed
+                tau[i, j] = d['dist']
+                tau[j, i] = d['dist']
                 pathLoc[i, j] = d['path']
                 pathLoc[j, i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
             else:
@@ -2463,15 +2456,15 @@ def _matrixDistManhattenXY(nodes: dict, nodeIDs: list, speed = 1, locFieldName =
                 pathLoc[j, i] = []
     return tau, pathLoc
 
-def _matrixDistLatLon(nodes: dict, nodeIDs: list, distUnit = 'meter', speed = 1, locFieldName = 'loc'):
+def _matrixDistLatLon(nodes: dict, nodeIDs: list, distUnit = 'meter', locFieldName = 'loc'):
     tau = {}
     pathLoc = {}
     for i in nodeIDs:
         for j in nodeIDs:
             if (i != j):
                 d = distLatLon(nodes[i][locFieldName], nodes[j][locFieldName], distUnit)
-                tau[i, j] = d['dist'] / speed
-                tau[j, i] = d['dist'] / speed
+                tau[i, j] = d['dist']
+                tau[j, i] = d['dist']
                 pathLoc[i, j] = [nodes[i][locFieldName], nodes[j][locFieldName]]
                 pathLoc[j, i] = [nodes[j][locFieldName], nodes[i][locFieldName]]
             else:
@@ -2521,31 +2514,27 @@ def _matrixDistBtwPolysXY(nodes: dict, nodeIDs: list, polys: polys, polyVG = Non
                 pathLoc[j, i] = []
     return tau, pathLoc
 
-def vectorDist(loc: pt, nodes: dict, edges: dict = {'method': 'Euclidean'}, nodeIDs: list|str = 'All', locFieldName: str = 'loc') -> dict:
+def vectorDist(loc: pt, nodes: dict, edges: str = 'Euclidean', nodeIDs: list|str = 'All', locFieldName: str = 'loc', **kwargs) -> dict:
     # Define tau
     tau = {}
     revTau = {}
     pathLoc = {}
     revPathLoc = {}
 
-    if (type(edges) != dict or 'method' not in edges):
-        raise MissingParameterError(ERROR_MISSING_EDGES)
     if (type(nodeIDs) is not list):
         if (nodeIDs == 'All'):
             nodeIDs = []
             for i in nodes:
                 nodeIDs.append(i)
 
-    if (edges['method'] == 'Euclidean'):
-        speed = 1 if 'speed' not in edges else edges['speed']
+    if (edges == 'Euclidean'):
         tau, revTau, pathLoc, revPath = _vectorDistEuclideanXY(
             loc = loc,
             nodes = nodes, 
             nodeIDs = nodeIDs, 
-            speed = speed, 
             locFieldName = locFieldName)
-    elif (edges['method'] == 'EuclideanBarrier'):
-        if ('polys' not in edges or edges['polys'] == None):
+    elif (edges == 'EuclideanBarrier'):
+        if ('polys' not in kwargs or kwargs['polys'] == None):
             warnings.warning("WARNING: No barrier provided.")
             tau, revTau, pathLoc, revPath = _vectorDistEuclideanXY(
                 loc = loc,
@@ -2557,34 +2546,30 @@ def vectorDist(loc: pt, nodes: dict, edges: dict = {'method': 'Euclidean'}, node
                 loc = loc,
                 nodes = nodes, 
                 nodeIDs = nodeIDs, 
-                polys = edges['polys'], 
+                polys = kwargs['polys'], 
                 locFieldName = locFieldName)
-    elif (edges['method'] == 'LatLon'):
-        speed = 1 if 'speed' not in edges else edges['speed']
+    elif (edges == 'LatLon'):
         tau, revTau, pathLoc, revPath = _vectorDistLatLon(
             loc = loc,
             nodes = nodes, 
             nodeIDs = nodeIDs, 
-            speed=speed, 
             locFieldName = locFieldName)
-    elif (edges['method'] == 'Manhatten'):
-        speed = 1 if 'speed' not in edges else edges['speed']
+    elif (edges == 'Manhatten'):
         tau, revTau, pathLoc, revPath = _vectorDistManhattenXY(
             loc = loc,
             nodes = nodes, 
             nodeIDs = nodeIDs, 
-            speed = speed, 
             locFieldName = locFieldName)
-    elif (edges['method'] == 'Grid'):
-        if ('grid' not in edges or edges['grid'] == None):
+    elif (edges == 'Grid'):
+        if ('grid' not in kwargs or kwargs['grid'] == None):
             raise MissingParameterError("'grid' is not specified")
-        if ('column' not in edges['grid'] or 'row' not in edges['grid']):
+        if ('column' not in kwargs['grid'] or 'row' not in kwargs['grid']):
             raise MissingParameterError("'column' and 'row' need to be specified in 'grid'")
         tau, revTau, pathLoc, revPath = _vectorDistGrid(
             loc = loc,
             nodes = nodes, 
             nodeIDs = nodeIDs, 
-            grids = edges['grid'], 
+            grids = kwargs['grid'], 
             locFieldName = locFieldName)
     else:
         raise UnsupportedInputError(ERROR_MISSING_EDGES)        
@@ -2660,53 +2645,47 @@ def _vectorDistBtwPolysXY(loc: pt, nodes: dict, nodeIDs: list, polys: polys, pol
         revPathLoc[i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
     return tau, revTau, pathLoc, revPathLoc
 
-def scaleDist(loc1: pt, loc2: pt, edges: dict = {'method': 'Euclidean'}) -> dict:
+def scaleDist(loc1: pt, loc2: pt, edges: str = 'Euclidean', **kwargs) -> dict:
     # Define tau
     dist = None
     revDist = None
     pathLoc = []
     revPathLoc = []
 
-    if (type(edges) != dict or 'method' not in edges):
-        raise MissingParameterError(ERROR_MISSING_EDGES)
-
-    if (edges['method'] == 'Euclidean'):
-        speed = 1 if 'speed' not in edges else edges['speed']
+    if (edges == 'Euclidean'):
         dist = distEuclideanXY(loc1, loc2)['dist']
         revDist = dist
         pathLoc = [loc1, loc2]
         revPathLoc = [loc2, loc1]
-    elif (edges['method'] == 'EuclideanBarrier'):
-        if ('polys' not in edges or edges['polys'] == None):
+    elif (edges == 'EuclideanBarrier'):
+        if ('polys' not in kwargs or kwargs['polys'] == None):
             warnings.warning("WARNING: No barrier provided.")
             dist = distEuclideanXY(loc1, loc2)['dist']
             revDist = dist
             pathLoc = [loc1, loc2]
             revPathLoc = [loc2, loc1]
         else:
-            res = distBtwPolysXY(pt1, pt2, edges['polys'])
+            res = distBtwPolysXY(pt1, pt2, kwargs['polys'])
             dist = res['dist']
             revDist = dist
             pathLoc = [i for i in res['path']]
             revPathLoc = [pathLoc[len(pathLoc) - i - 1] for i in range(len(pathLoc))]
-    elif (edges['method'] == 'LatLon'):
-        speed = 1 if 'speed' not in edges else edges['speed']
+    elif (edges == 'LatLon'):
         dist = distLatLon(loc1, loc2)['dist']
         revDist = dist
         pathLoc = [loc1, loc2]
         revPathLoc = [loc2, loc1]
-    elif (edges['method'] == 'Manhatten'):
-        speed = 1 if 'speed' not in edges else edges['speed']
+    elif (edges == 'Manhatten'):
         dist = distManhattenXY(loc1, loc2)['dist']
         revDist = dist
         pathLoc = [loc1, (pt1[0], pt2[1]), loc2]
         revPathLoc = [loc2, (pt1[0], pt2[1]), loc1]
-    elif (edges['method'] == 'Grid'):
-        if ('grid' not in edges or edges['grid'] == None):
+    elif (edges == 'Grid'):
+        if ('grid' not in kwargs or kwargs['grid'] == None):
             raise MissingParameterError("'grid' is not specified")
-        if ('column' not in edges['grid'] or 'row' not in edges['grid']):
+        if ('column' not in kwargs['grid'] or 'row' not in kwargs['grid']):
             raise MissingParameterError("'column' and 'row' need to be specified in 'grid'")
-        res = distOnGrid(loc1, loc2, edges['grid'])
+        res = distOnGrid(loc1, loc2, kwargs['grid'])
         dist = res['dist']
         revDist = dist
         pathLoc = [i for i in res['path']]
@@ -2736,7 +2715,7 @@ def distManhattenXY(pt1: pt, pt2: pt) -> dict:
         'path': [pt1, (pt1[0], pt2[1]), pt2]
     }
 
-def distBtwPolysXY(pt1:pt, pt2:pt, polys:polys, polyVG:dict=None) -> dict:
+def distBtwPolysXY(pt1:pt, pt2:pt, polys:polys, polyVG: dict = None) -> dict:
     # Reference: Computational Geometry: Algorithms and Applications Third Edition
     # By Mark de Berg et al. Page 326 - 330
     # With some modifications
@@ -2825,7 +2804,7 @@ def distLatLon(pt1: pt, pt2: pt, distUnit: str = 'meter') -> dict:
         'path': [pt1, pt2]
     }
 
-def distOnGrid(pt1: pt, pt2: pt, grid: dict, algo: dict = {'method': 'A*', 'measure': 'Manhatten'}) -> dict:
+def distOnGrid(pt1: pt, pt2: pt, grid: dict, algo: str = 'A*', **kwargs) -> dict:
     """Given two coordinates on the grid, finds the 'shortest' path to travel
 
     Parameters
@@ -2868,10 +2847,10 @@ def distOnGrid(pt1: pt, pt2: pt, grid: dict, algo: dict = {'method': 'A*', 'meas
     res = None
 
     # Call path finding =======================================================
-    if (algo['method'] == 'A*'):
-        if ('measure' not in algo or algo['measure'] not in ['Manhatten', 'Euclidean']):
+    if (algo == 'A*'):
+        if ('measure' not in kwargs or kwargs['measure'] not in ['Manhatten', 'Euclidean']):
             warnings.warn("WARNING: Set distance measurement to be default as 'Manhatten")
-        res = _distOnGridAStar(column, row, barriers, pt1, pt2, algo['measure'])
+        res = _distOnGridAStar(column, row, barriers, pt1, pt2, kwargs['measure'])
     else:
         raise UnsupportedInputError("Error: Incorrect or not available grid path finding option!")
     return res

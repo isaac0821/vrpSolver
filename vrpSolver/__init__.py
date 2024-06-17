@@ -103,7 +103,6 @@ from .geometry import *
 # TSP/VRP
 from .tsp import *
 from .satsp import *
-from .tspEx import *
 from .mtsp import *
 
 from .vrptw import *

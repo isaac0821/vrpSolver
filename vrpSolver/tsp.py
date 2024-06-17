@@ -13,28 +13,18 @@ def solveTSP(
     depotID: int|str = 0,
     nodeIDs: list[int|str]|str = 'All',
     serviceTime: float = 0,
-    vehicles: dict = {
-        0: {'speed': 1}
-    },
+    predefinedArcs: list[list[tuple[int|str]]] = [],
+    vehicles: dict = {0: {'speed': 1}},
     vehicleID: int|str = 0,
-    edges: dict = {
-        'method': "Euclidean", 
-        'ratio': 1
-    },
-    method: dict = {
-        'algo': 'IP',
-        'fml': 'DFJ_Lazy',
-        'solver': 'Gurobi',
-        'timeLimit': None,
-        'outputFlag': False,
-        'env': None
-    },
+    edges: str = 'Euclidean',
+    algo = 'IP',
     detailsFlag: bool = False,
-    metaFlag: bool = False
+    metaFlag: bool = False,
+    **kwargs
     ) -> dict:
 
 
-    """Use IP formulation to find optimal TSP solution
+    """Use MIP/Heuristic/Metaheuristic to find optimal/suboptimal TSP solution
 
     Parameters
     ----------
@@ -45,42 +35,42 @@ def solveTSP(
             ...     nodeID1: {'loc': (x, y)},
             ...     nodeID2: {'loc': (x, y)}, # ...
             ... }
-    edges: dictionary, required, default as {'method': "Euclidean", 'ratio': 1}
+    edges: dictionary, required, default as {'kwargs': "Euclidean", 'ratio': 1}
         The traveling matrix. The options are as follows::
             1) (default) Euclidean space
             >>> edge = {
-            ...     'method': 'Euclidean',
+            ...     'kwargs': 'Euclidean',
             ...     'ratio': 1 # Optional, default to be 1
             ... }
             2) By given pairs of lat/lon
             >>> edge = {
-            ...     'method': 'LatLon',
+            ...     'kwargs': 'LatLon',
             ...     'unit': 'meters' # Optional, default to be 1
             ... }
             3) ManhattenDistance
             >>> edge = {
-            ...     'method': 'Manhatten',
+            ...     'kwargs': 'Manhatten',
             ...     'ratio': 1 # Optional, default to be 1
             ... }
             4) By a given dictionary
             >>> edge = {
-            ...     'method': 'Dictionary',
+            ...     'kwargs': 'Dictionary',
             ...     'dictionary': dictionary,
             ...     'ratio': 1 # Optional, default to be 1
             ... }
             5) On the grids
             >>> edge = {
-            ...     'method': 'Grid',
+            ...     'kwargs': 'Grid',
             ...     'grid': grid
             ... }
-    method: dictionary, required, default as {'solver': 'Gurobi', 'timeLimit': None, 'gapTolerance': None, 'outputFlag': False}
+    kwargs: dictionary, required, default as {'solver': 'Gurobi', 'timeLimit': None, 'gapTolerance': None, 'outputFlag': False}
         The settings for the MILP solver, right now Gurobi supports all formulation and COPT supports 'DFJ_Lazy', the format is as following:
-            >>> method = {
+            >>> kwargs = {
             ...     'fml': 'DFJ_Lazy',
             ...     'solver': 'Gurobi',
             ...     'timeLimit': timeLimit, # Time limit in seconds, for 'DFJ_Plainloop' is the total time limit
             ...     'gapTolerance': gapTolerance,
-            ...     'outputFlag': False # Turn off method log output by default
+            ...     'outputFlag': False # Turn off kwargs log output by default
             ... }
     depotID: int or string, required, default as 0
         The ID of depot.
@@ -130,26 +120,38 @@ def solveTSP(
         if (vehicleID not in vehicles):
             raise MissingParameterError("ERROR: Cannot find `vehicleID` in `vehicles`.")
 
-    if (method == None or 'algo' not in method or method['algo'] not in ['IP', 'Heuristic']):
-        raise OutOfRangeError("ERROR: Select method['algo'] from ['IP', 'Heuristic']")
-    elif (method['algo'] == 'IP'):
-        if ('solver' not in method):
-            raise MissingParameterError("ERROR: Missing required field `method`.")
-        elif (method['solver'] == 'Gurobi' and method['fml'] not in ['DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', 'QAP']):
-            raise OutOfRangeError("ERROR: Gurobi option supports 'DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', and 'QAP' formulations", )
-        elif (method['solver'] == 'COPT' and method['fml'] not in ['DFJ_Lazy']):
+    if (algo == 'IP'):
+        if ('solver' not in kwargs):
+            raise MissingParameterError("ERROR: Missing required field `solver`.")
+        elif (kwargs['solver'] == 'Gurobi' and kwargs['fml'] not in ['DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', 'QAP']):
+            raise OutOfRangeError("ERROR: Gurobi option s upports 'DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', and 'QAP' formulations", )
+        elif (kwargs['solver'] == 'COPT' and kwargs['fml'] not in ['DFJ_Lazy']):
             raise OutOfRangeError("ERROR: COPT option supports 'DFJ_Lazy' formulations", )
-    elif (method['algo'] == 'Heuristic'):
-        if ('cons' not in method and 'impv' not in method):
+    elif (algo == 'Heuristic'):
+        if ('cons' not in kwargs and 'impv' not in kwargs):
             raise MissingParameterError(ERROR_MISSING_TSP_ALGO)
+
+    if (predefinedArcs != None and len(predefinedArcs) > 0):
+        if (not (algo == 'IP' and 'fml' in kwargs and kwargs['fml'] in ['DFJ_Lazy'])):
+            raise OutOfRangeError("ERROR: TSP with pre-defined arcs is supported by DFJ_Lazy only, for now.")
 
     # Define tau ==============================================================
     tau = None
     path = None
     if (detailsFlag):
-        tau, path = matrixDist(nodes, edges, nodeIDs, locFieldName)
+        tau, path = matrixDist(
+            nodes = nodes, 
+            nodeIDs = nodeIDs,
+            edges = edges, 
+            locFieldName = locFieldName,
+            **kwargs)
     else:
-        tau, _ = matrixDist(nodes, edges, nodeIDs, locFieldName)
+        tau, _ = matrixDist(
+            nodes = nodes, 
+            nodeIDs = nodeIDs,
+            edges = edges, 
+            locFieldName = locFieldName,
+            **kwargs)
 
     # Check symmetric =========================================================
     asymFlag = False
@@ -159,14 +161,29 @@ def solveTSP(
             break
 
     # TSP =====================================================================
-    if (method['algo'] == 'IP'):
-        tsp = _ipTSP(nodeIDs, tau, method)
-        tsp['fml'] = method['fml']
-    elif (method['algo'] == 'Heuristic'):
+    if (algo == 'IP'):
+        outputFlag = None if 'outputFlag' not in kwargs else kwargs['outputFlag']
+        timeLimit = None if 'timeLimit' not in kwargs else kwargs['timeLimit']
+        gapTolerance = None if 'gapTolerance' not in kwargs else kwargs['gapTolerance']
+        tsp = _ipTSP(
+            nodeIDs = nodeIDs, 
+            tau = tau, 
+            solver = kwargs['solver'], 
+            fml = kwargs['fml'], 
+            predefinedArcs = predefinedArcs, 
+            outputFlag = outputFlag, 
+            timeLimit = timeLimit, 
+            gapTolerance = gapTolerance)
+
+        tsp['fml'] = kwargs['fml']
+        tsp['solver'] = kwargs['solver']
+    elif (algo == 'Heuristic'):
         nodeObj = {}
         for n in nodeIDs:
             nodeObj[n] = RouteNode(n, value=nodes[n][locFieldName])
-        tsp = _heuTSP((nodeObj, tau, depotID, nodeIDs, asymFlag, method))
+        tsp = _heuTSP(nodeObj, tau, depotID, nodeIDs, asymFlag, **kwargs)
+    else:
+        raise OutOfRangeError("ERROR: Select 'algo' from ['IP', 'Heuristic'].")
 
     # Fix the sequence to make it start from the depot ========================
     startIndex = 0
@@ -202,7 +219,7 @@ def solveTSP(
         # 对每个leg检索path中的shapepoints，涉及到serviceTime，先不看最后一段leg
         for i in range(1, len(nodeSeq) - 1):
             # 对于Euclidean型的，没有中间节点
-            if (edges['method'] in ['Euclidean', 'LatLon']):
+            if (edges in ['Euclidean', 'LatLon']):
                 curTime += tau[nodeSeq[i - 1], nodeSeq[i]] / vehicles[vehicleID]['speed']
                 curLoc = nodes[nodeSeq[i]][locFieldName]
                 timedSeq.append((curLoc, curTime))
@@ -218,7 +235,7 @@ def solveTSP(
                 # curLoc = curLoc
                 timedSeq.append((curLoc, curTime))
         # 现在补上最后一段leg
-        if (edges['method'] in ['Euclidean', 'LatLon']):
+        if (edges in ['Euclidean', 'LatLon']):
             curTime += tau[nodeSeq[-2], nodeSeq[-1]] / vehicles[vehicleID]['speed']
             curLoc = nodes[nodeSeq[-1]][locFieldName]
             timedSeq.append((curLoc, curTime))
@@ -238,7 +255,7 @@ def solveTSP(
         'ofv': ofv,
         'seq': nodeSeq,
     }
-    if (method['algo'] == 'IP'):
+    if (algo == 'IP'):
         res['gap'] = tsp['gap']
         res['solType'] = tsp['solType']
         res['lowerBound'] = tsp['lowerBound']
@@ -247,73 +264,35 @@ def solveTSP(
     
     if (metaFlag):
         res['serviceTime'] = serviceTime
-        res['method'] = method
     if (detailsFlag):
         res['vehicles'] = vehicles
 
     return res
 
-def _ipTSP(tau, nodeIDs, method) -> dict|None:
-
-    # Solve by different formulations =========================================
+def _ipTSP(nodeIDs, tau, solver, fml, predefinedArcs, outputFlag, timeLimit, gapTolerance) -> dict|None:
     tsp = None
-    if (method['solver'] == 'Gurobi'):
-        if (method['fml'] == 'DFJ_Lazy'):
-            tsp = _ipTSPGurobiLazyCuts(
-                nodeIDs, 
-                tau, 
-                method['outputFlag'] if 'outputFlag' in method else None, 
-                method['timeLimit'] if 'timeLimit' in method else None, 
-                method['gapTolerance'] if 'gapTolerance' in method else None)
-        elif (method['fml'] == 'DFJ_Plainloop'):
-            tsp = _ipTSPGurobiPlainLoop(
-                nodeIDs, 
-                tau, 
-                method['outputFlag'] if 'outputFlag' in method else None, 
-                method['timeLimit'] if 'timeLimit' in method else None, 
-                method['gapTolerance'] if 'gapTolerance' in method else None)
-        elif (method['fml'] == 'MTZ'):
-            tsp = _ipTSPGurobiMTZ(
-                nodeIDs, 
-                tau, 
-                method['outputFlag'] if 'outputFlag' in method else None, 
-                method['timeLimit'] if 'timeLimit' in method else None, 
-                method['gapTolerance'] if 'gapTolerance' in method else None)
-        elif (method['fml'] == 'ShortestPath'):
-            tsp = _ipTSPGurobiShortestPath(
-                nodeIDs, 
-                tau, 
-                method['outputFlag'] if 'outputFlag' in method else None, 
-                method['timeLimit'] if 'timeLimit' in method else None, 
-                method['gapTolerance'] if 'gapTolerance' in method else None)
-        elif (method['fml'] == 'MultiCommodityFlow'):
-            tsp = _ipTSPGurobiMultiCommodityFlow(
-                nodeIDs, 
-                tau, 
-                method['outputFlag'] if 'outputFlag' in method else None, 
-                method['timeLimit'] if 'timeLimit' in method else None, 
-                method['gapTolerance'] if 'gapTolerance' in method else None)
-        elif (method['fml'] == 'QAP'):
-            tsp = _ipTSPGurobiQAP(
-                nodeIDs, 
-                tau, 
-                method['outputFlag'] if 'outputFlag' in method else None, 
-                method['timeLimit'] if 'timeLimit' in method else None, 
-                method['gapTolerance'] if 'gapTolerance' in method else None)    
-    elif (method['solver'] == 'COPT'):
-        if (method['fml'] == 'DFJ_Lazy'):
-            tsp = _ipTSPCOPTLazyCuts(
-                nodeIDs, 
-                tau, 
-                method['outputFlag'] if 'outputFlag' in method else None, 
-                method['timeLimit'] if 'timeLimit' in method else None,
-                method['env'] if 'env' in method else None)
+    if (solver == 'Gurobi'):
+        if (fml == 'DFJ_Lazy'):
+            tsp = _ipTSPGurobiLazyCuts(nodeIDs, tau, predefinedArcs, outputFlag, timeLimit, gapTolerance)
+        elif (fml == 'DFJ_Plainloop'):
+            tsp = _ipTSPGurobiPlainLoop(nodeIDs, tau, outputFlag, timeLimit, gapTolerance)
+        elif (fml == 'MTZ'):
+            tsp = _ipTSPGurobiMTZ(nodeIDs, tau, outputFlag, timeLimit, gapTolerance)
+        elif (fml == 'ShortestPath'):
+            tsp = _ipTSPGurobiShortestPath(nodeIDs, tau, outputFlag, timeLimit, gapTolerance)
+        elif (fml == 'MultiCommodityFlow'):
+            tsp = _ipTSPGurobiMultiCommodityFlow(nodeIDs, tau, outputFlag, timeLimit, gapTolerance)
+        elif (fml == 'QAP'):
+            tsp = _ipTSPGurobiQAP(nodeIDs, tau, outputFlag, timeLimit, gapTolerance)
+    elif (solver == 'COPT'):
+        if (fml == 'DFJ_Lazy'):
+            tsp = _ipTSPCOPTLazyCuts(nodeIDs, tau, outputFlag, timeLimit)
     if (tsp == None):
         raise UnsupportedInputError("ERROR: Incorrect or not available TSP formulation option!")
     
     return tsp
 
-def _ipTSPGurobiLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
+def _ipTSPGurobiLazyCuts(nodeIDs, tau, predefinedArcs, outputFlag, timeLimit, gapTolerance):
     try:
         import gurobipy as grb
     except:
@@ -349,6 +328,14 @@ def _ipTSPGurobiLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
         TSP.addConstr(grb.quicksum(x[i, j] for j in nodeIDs if i != j) == 1, name = 'leave_%s' % str(i))
         TSP.addConstr(grb.quicksum(x[j, i] for j in nodeIDs if i != j) == 1, name = 'enter_%s' % str(i))
 
+    # Predefined arcs =========================================================
+    if (predefinedArcs != None and len(predefinedArcs) > 0):
+        for arcs in predefinedArcs:
+            for arc in arcs:
+                if ((arc[0], arc[1]) not in x or (arc[1], arc[0]) not in x):
+                    raise UnsupportedInputError("ERROR: Cannot find arc[%s, %s] and/or arc[%s, %s]" % (arc[0], arc[1], arc[1], arc[0]))
+            TSP.addConstr(grb.quicksum(x[arc[0], arc[1]] for arc in arcs) == 1)
+
     # Sub-tour elimination ====================================================
     TSP._x = x
     def subtourelim(model, where):
@@ -365,7 +352,6 @@ def _ipTSPGurobiLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
 
     # TSP with callback =======================================================
     TSP.optimize(subtourelim)
-    # TSP.write("T.lp")
 
     # Reconstruct solution ====================================================
     ofv = None
@@ -376,29 +362,28 @@ def _ipTSPGurobiLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     lb = None
     ub = None
     runtime = None
+
+    ofv = TSP.getObjective().getValue()
+    for i, j in x:
+        if (x[i, j].x > 0.5):
+            arcs.append([i, j])
+    currentNode = nodeIDs[0]
+    seq.append(currentNode)
+    while (len(arcs) > 0):
+        for i in range(len(arcs)):
+            if (arcs[i][0] == currentNode):
+                currentNode = arcs[i][1]
+                seq.append(currentNode)
+                arcs.pop(i)
+                break
     if (TSP.status == grb.GRB.status.OPTIMAL):
         solType = 'IP_Optimal'
-        ofv = TSP.getObjective().getValue()
-        for i, j in x:
-            if (x[i, j].x > 0.5):
-                arcs.append([i, j])
-        currentNode = nodeIDs[0]
-        seq.append(currentNode)
-        while (len(arcs) > 0):
-            for i in range(len(arcs)):
-                if (arcs[i][0] == currentNode):
-                    currentNode = arcs[i][1]
-                    seq.append(currentNode)
-                    arcs.pop(i)
-                    break
         gap = 0
         lb = ofv
         ub = ofv
         runtime = TSP.Runtime
     elif (TSP.status == grb.GRB.status.TIME_LIMIT):
         solType = 'IP_TimeLimit'
-        ofv = None
-        seq = []
         gap = TSP.MIPGap
         lb = TSP.ObjBoundC
         ub = TSP.ObjVal
@@ -484,29 +469,28 @@ def _ipTSPGurobiPlainLoop(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     lb = None
     ub = None
     runtime = None
+
+    ofv = TSP.getObjective().getValue()
+    for i, j in x:
+        if (x[i, j].x > 0.5):
+            arcs.append([i, j])
+    currentNode = 0
+    seq.append(nodeIDs[currentNode])
+    while (len(arcs) > 0):
+        for i in range(len(arcs)):
+            if (arcs[i][0] == currentNode):
+                currentNode = arcs[i][1]
+                seq.append(nodeIDs[currentNode])
+                arcs.pop(i)
+                break
     if (TSP.status == grb.GRB.status.OPTIMAL):
         solType = 'IP_Optimal'
-        ofv = TSP.getObjective().getValue()
-        for i, j in x:
-            if (x[i, j].x > 0.5):
-                arcs.append([i, j])
-        currentNode = 0
-        seq.append(nodeIDs[currentNode])
-        while (len(arcs) > 0):
-            for i in range(len(arcs)):
-                if (arcs[i][0] == currentNode):
-                    currentNode = arcs[i][1]
-                    seq.append(nodeIDs[currentNode])
-                    arcs.pop(i)
-                    break
         gap = 0
         lb = ofv
         ub = ofv
         runtime = accRuntime
     elif (TSP.status == grb.GRB.status.TIME_LIMIT):
         solType = 'IP_TimeLimit'
-        ofv = None
-        seq = []
         gap = TSP.MIPGap
         lb = TSP.ObjBoundC
         ub = TSP.ObjVal
@@ -584,30 +568,29 @@ def _ipTSPGurobiMTZ(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     lb = None
     ub = None
     runtime = None
+
+    ofv = TSP.getObjective().getValue()
+    gap = TSP.Params.MIPGapAbs
+    for i, j in x:
+        if (x[i, j].x > 0.5):
+            arcs.append([i, j])
+    currentNode = 0
+    seq.append(nodeIDs[currentNode])
+    while (len(arcs) > 0):
+        for i in range(len(arcs)):
+            if (arcs[i][0] == currentNode):
+                currentNode = arcs[i][1]
+                seq.append(nodeIDs[currentNode])
+                arcs.pop(i)
+                break    
     if (TSP.status == grb.GRB.status.OPTIMAL):
         solType = 'IP_Optimal'
-        ofv = TSP.getObjective().getValue()
-        gap = TSP.Params.MIPGapAbs
-        for i, j in x:
-            if (x[i, j].x > 0.5):
-                arcs.append([i, j])
-        currentNode = 0
-        seq.append(nodeIDs[currentNode])
-        while (len(arcs) > 0):
-            for i in range(len(arcs)):
-                if (arcs[i][0] == currentNode):
-                    currentNode = arcs[i][1]
-                    seq.append(nodeIDs[currentNode])
-                    arcs.pop(i)
-                    break
         gap = 0
         lb = ofv
         ub = ofv
         runtime = TSP.Runtime
     elif (TSP.status == grb.GRB.status.TIME_LIMIT):
         solType = 'IP_TimeLimit'
-        ofv = None
-        seq = []
         gap = TSP.MIPGap
         lb = TSP.ObjBoundC
         ub = TSP.ObjVal
@@ -681,29 +664,28 @@ def _ipTSPGurobiShortestPath(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     lb = None
     ub = None
     runtime = None
+
+    ofv = TSP.getObjective().getValue()
+    for i, j, t in x:
+        if (x[i, j, t].x > 0.5):
+            arcs.append([i, j])
+    currentNode = 0
+    seq.append(nodeIDs[currentNode])
+    while (len(arcs) > 0):
+        for i in range(len(arcs)):
+            if (arcs[i][0] == currentNode):
+                currentNode = arcs[i][1]
+                seq.append(nodeIDs[currentNode])
+                arcs.pop(i)
+                break
     if (TSP.status == grb.GRB.status.OPTIMAL):
         solType = 'IP_Optimal'
-        ofv = TSP.getObjective().getValue()
-        for i, j, t in x:
-            if (x[i, j, t].x > 0.5):
-                arcs.append([i, j])
-        currentNode = 0
-        seq.append(nodeIDs[currentNode])
-        while (len(arcs) > 0):
-            for i in range(len(arcs)):
-                if (arcs[i][0] == currentNode):
-                    currentNode = arcs[i][1]
-                    seq.append(nodeIDs[currentNode])
-                    arcs.pop(i)
-                    break
         gap = 0
         lb = ofv
         ub = ofv
         runtime = TSP.Runtime
     elif (TSP.status == grb.GRB.status.TIME_LIMIT):
         solType = 'IP_TimeLimit'
-        ofv = None
-        seq = []
         gap = TSP.MIPGap
         lb = TSP.ObjBoundC
         ub = TSP.ObjVal
@@ -791,29 +773,28 @@ def _ipTSPGurobiMultiCommodityFlow(nodeIDs, tau, outputFlag, timeLimit, gapToler
     lb = None
     ub = None
     runtime = None
+
+    ofv = TSP.getObjective().getValue()
+    for i, j in x:
+        if (x[i, j].x > 0.5):
+            arcs.append([i, j])
+    currentNode = 0
+    seq.append(nodeIDs[currentNode])
+    while (len(arcs) > 0):
+        for i in range(len(arcs)):
+            if (arcs[i][0] == currentNode):
+                currentNode = arcs[i][1]
+                seq.append(nodeIDs[currentNode])
+                arcs.pop(i)
+                break
     if (TSP.status == grb.GRB.status.OPTIMAL):
         solType = 'IP_Optimal'
-        ofv = TSP.getObjective().getValue()
-        for i, j in x:
-            if (x[i, j].x > 0.5):
-                arcs.append([i, j])
-        currentNode = 0
-        seq.append(nodeIDs[currentNode])
-        while (len(arcs) > 0):
-            for i in range(len(arcs)):
-                if (arcs[i][0] == currentNode):
-                    currentNode = arcs[i][1]
-                    seq.append(nodeIDs[currentNode])
-                    arcs.pop(i)
-                    break
         gap = 0
         lb = ofv
         ub = ofv
         runtime = TSP.Runtime
     elif (TSP.status == grb.GRB.status.TIME_LIMIT):
         solType = 'IP_TimeLimit'
-        ofv = None
-        seq = []
         gap = TSP.MIPGap
         lb = TSP.ObjBoundC
         ub = TSP.ObjVal
@@ -908,23 +889,22 @@ def _ipTSPGurobiQAP(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     ub = None
     runtime = None
     solType = None
+
+    ofv = TSP.getObjective().getValue()
+    for j in range(n):
+        for i in range(n):
+            if (i != j and x[i, j].X > 0.9):
+                seq.append(nodeIDs[i])
+                break
+    seq.append(seq[0])
     if (TSP.status == grb.GRB.status.OPTIMAL):
         solType = 'IP_Optimal'
-        ofv = TSP.getObjective().getValue()
-        for j in range(n):
-            for i in range(n):
-                if (i != j and x[i, j].X > 0.9):
-                    seq.append(nodeIDs[i])
-                    break
-        seq.append(seq[0])
         gap = 0
         lb = ofv
         ub = ofv
         runtime = TSP.Runtime
     elif (TSP.status == grb.GRB.status.TIME_LIMIT):
         solType = 'IP_TimeLimit'
-        ofv = None
-        seq = []
         gap = TSP.MIPGap
         lb = TSP.ObjBoundC
         ub = TSP.ObjVal
@@ -940,18 +920,14 @@ def _ipTSPGurobiQAP(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
         'runtime': runtime
     }
 
-def _ipTSPCOPTLazyCuts(nodeIDs, tau, outputFlag, timeLimit, env):
+def _ipTSPCOPTLazyCuts(nodeIDs, tau, outputFlag, timeLimit):
     try:
-        import coptpy as cp
-        envconfig = cp.EnvrConfig()
-        envconfig.set('nobanner', '1')
-        AVAIL_SOLVER = 'COPT'
-        if (env == None):
-            env = cp.Envr(envconfig)
+        import coptpy as cp            
     except(ImportError):
         print("ERROR: Cannot find COPT")
         return
-
+    
+    env = cp.Envr(envconfig)
     TSP = env.createModel("TSP")
 
     # Initialize
@@ -1051,11 +1027,12 @@ def _ipTSPCOPTLazyCuts(nodeIDs, tau, outputFlag, timeLimit, env):
         'runtime': runtime
     }
 
-def _heuTSP(nodeObj, tau, depotID, nodeIDs, asymFlag, method) -> dict|None:
+def _heuTSP(nodeObj, tau, depotID, nodeIDs, asymFlag, **kwargs) -> dict|None:
 
-    """Use heuristic methods to find suboptimal TSP solution
-
+    """Use heuristic kwargss to find suboptimal TSP solution
+    
     Parameters
+    
     ----------
 
     nodes: dictionary, required, default None
@@ -1064,65 +1041,65 @@ def _heuTSP(nodeObj, tau, depotID, nodeIDs, asymFlag, method) -> dict|None:
             ...     nodeID1: {'loc': (x, y)},
             ...     nodeID2: {'loc': (x, y)}, # ...
             ... }
-    edges: dictionary, required, default as {'method': "Euclidean", 'ratio': 1}
+    edges: dictionary, required, default as {'kwargs': "Euclidean", 'ratio': 1}
         The traveling matrix. The options are as follows::
             1) (default) Euclidean space
             >>> edge = {
-            ...     'method': 'Euclidean',
+            ...     'kwargs': 'Euclidean',
             ...     'ratio': 1 # Optional, default to be 1
             ... }
             2) By given pairs of lat/lon
             >>> edge = {
-            ...     'method': 'LatLon',
+            ...     'kwargs': 'LatLon',
             ...     'unit': 'meters' # Optional, default to be 1
             ... }
             3) ManhattenDistance
             >>> edge = {
-            ...     'method': 'Manhatten',
+            ...     'kwargs': 'Manhatten',
             ...     'ratio': 1 # Optional, default to be 1
             ... }
             4) By a given dictionary
             >>> edge = {
-            ...     'method': 'Dictionary',
+            ...     'kwargs': 'Dictionary',
             ...     'dictionary': dictionary,
             ...     'ratio': 1 # Optional, default to be 1
             ... }
             5) On the grids
             >>> edge = {
-            ...     'method': 'Grid',
+            ...     'kwargs': 'Grid',
             ...     'grid': grid
             ... }
-    method: dictionary, required, default as {'cons': 'Insertion', 'impv': '2opt'}
+    kwargs: dictionary, required, default as {'cons': 'Insertion', 'impv': '2opt'}
         The algorithm configuration. Includes two phases, use 'cons' to specify constructive heuristic, and 'impv' to specify local improvement heurisitc::
             1) (default) Insertion
-            >>> method = {
+            >>> kwargs = {
             ...     'cons': 'Insertion',
             ...     'initSeq': initSeq, # An initial sequence, defalt [depotID]
-            ...     'impv': '2Opt' # Options are: 'Reinsert', '2Opt', can select multiple methods by collecting them into a list, e.g. ['Reinsert', '2Opt']
+            ...     'impv': '2Opt' # Options are: 'Reinsert', '2Opt', can select multiple kwargss by collecting them into a list, e.g. ['Reinsert', '2Opt']
             ... }
             2) Nearest neighborhood / k-nearest neighborhood
-            >>> method = {
+            >>> kwargs = {
             ...     'cons': 'NearestNeighbor',
             ...     'k': 1, # 1: nearest neighbor, 2 ~ K: k-nearest neighbor, -1: farthest neighbor 
             ... }
             3) Sweep
-            >>> method = {
+            >>> kwargs = {
             ...     'cons': 'Sweep'
             ... }
             4) (not available) Christofides
-            >>> method = {
+            >>> kwargs = {
             ...     'cons': 'Christofides'
             ... }
             5) (not available) Cycle cover, particular for Asymmetric TSP
-            >>> method = {
+            >>> kwargs = {
             ...     'cons': 'CycleCover'
             ... }
             6) Random sequence
-            >>> method = {
+            >>> kwargs = {
             ...     'cons': 'Random'
             ... }
             7) Given sequence for further local improvements
-            >>> method = {
+            >>> kwargs = {
             ...     'cons': None, # or skip this
             ...     'initSeq': initSeq, # An initial sequence, cannot be None in this case
             ... }
@@ -1152,27 +1129,27 @@ def _heuTSP(nodeObj, tau, depotID, nodeIDs, asymFlag, method) -> dict|None:
     # NOTE: Output of this phase should be a Route() object
     seqObj = Route(tau, asymFlag)
     # An initial solution is given
-    if ('cons' not in method or method['cons'] == 'Initial' or method['cons'] == None):
-        if ('initSeq' not in method):
+    if ('cons' not in kwargs or kwargs['cons'] == 'Initial' or kwargs['cons'] == None):
+        if ('initSeq' not in kwargs):
             raise MissingParameterError("ERROR: Need 'initSeq' for local improvement")
-        elif (len(method['initSeq']) != len(nodeIDs) + 1):
+        elif (len(kwargs['initSeq']) != len(nodeIDs) + 1):
             raise UnsupportedInputError("ERROR: Length of 'initSeq' is incorrect, check if the sequence starts and ends with `depotID`")
         else:
-            notInNodeIDs = [v for v in method['initSeq'] if v not in nodeIDs]
+            notInNodeIDs = [v for v in kwargs['initSeq'] if v not in nodeIDs]
             if (len(notInNodeIDs) > 0):
                 raise OutOfRangeError("ERROR: The following nodes in 'initSeq' is not in `nodeIDs`: %s" % list2String(notInNodeIDs))
-        for i in method['initSeq'][:-1]:
+        for i in kwargs['initSeq'][:-1]:
             seqObj.append(nodeObj[i])
 
     # Insertion heuristic
-    elif (method['cons'] == 'Insertion' or method['cons'] == 'RandomInsertion'):
+    elif (kwargs['cons'] == 'Insertion' or kwargs['cons'] == 'RandomInsertion'):
         initSeq = None
         
         randomInsertionFlag = False
-        if (method['cons'] == 'RandomInsertion'):
+        if (kwargs['cons'] == 'RandomInsertion'):
             randomInsertionFlag = True
         
-        if ('initSeq' not in method):   
+        if ('initSeq' not in kwargs):   
             farthestDist = -1
             farthestID = None
             for n in nodeIDs:
@@ -1187,33 +1164,33 @@ def _heuTSP(nodeObj, tau, depotID, nodeIDs, asymFlag, method) -> dict|None:
             initSeq = [depotID, farthestID, depotID]
             seqObj = _consTSPInsertion(nodeIDs, initSeq, nodeObj, tau, asymFlag, randomInsertionFlag)
         else:
-            notInNodeIDs = [v for v in method['initSeq'] if v not in nodeIDs]
+            notInNodeIDs = [v for v in kwargs['initSeq'] if v not in nodeIDs]
             if (len(notInNodeIDs) > 0):
                 raise OutOfRangeError("ERROR: The following nodes in 'initSeq' is not in `nodeIDs`: %s" % list2String(notInNodeIDs))
             else:
-                seqObj = _consTSPInsertion(nodeIDs, method['initSeq'], tau, asymFlag, randomInsertionFlag)
+                seqObj = _consTSPInsertion(nodeIDs, kwargs['initSeq'], tau, asymFlag, randomInsertionFlag)
     
     # Neighborhood based heuristic, including nearest neighborhood, k-nearest neighborhood, and furthest neighborhood
-    elif (method['cons'] == 'NearestNeighbor'):
+    elif (kwargs['cons'] == 'NearestNeighbor'):
         nnSeq = None
-        if ('k' not in method or method['k'] == 1):
+        if ('k' not in kwargs or kwargs['k'] == 1):
             nnSeq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, 1)
-        elif (method['k'] == -1):
+        elif (kwargs['k'] == -1):
             nnSeq = _consTSPFarthestNeighbor(depotID, nodeIDs, tau)
-        elif (method['k'] >= 1):
-            nnSeq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, method['k'])
+        elif (kwargs['k'] >= 1):
+            nnSeq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, kwargs['k'])
         for i in nnSeq:
             seqObj.append(nodeObj[i])
 
     # Sweep heuristic
-    elif (method['cons'] == 'Sweep'):
+    elif (kwargs['cons'] == 'Sweep'):
         sweepSeq = _consTSPSweep(nodes, depotID, nodeIDs, locFieldName)
         for i in sweepSeq:
             seqObj.append(nodeObj[i])
         seqObj.rehead(depotID)
 
     # Christofides Algorithm, guaranteed <= 1.5 * optimal
-    elif (method['cons'] == 'Christofides'):
+    elif (kwargs['cons'] == 'Christofides'):
         if (not asymFlag):
             cfSeq = _consTSPChristofides(depotID, tau)
             for i in cfSeq:
@@ -1222,12 +1199,12 @@ def _heuTSP(nodeObj, tau, depotID, nodeIDs, asymFlag, method) -> dict|None:
             raise UnsupportedInputError("ERROR: 'Christofides' algorithm is not designed for Asymmetric TSP")
 
     # Cycle Cover Algorithm, specially designed for Asymmetric TSP
-    elif (method['cons'] == 'CycleCover'):
+    elif (kwargs['cons'] == 'CycleCover'):
         raise VrpSolverNotAvailableError("ERROR: 'CycleCover' algorithm is not available yet, please stay tune")
         seqObj = _consTSPCycleCover(depotID, nodeIDs, tau)
 
     # Randomly create a sequence
-    elif (method['cons'] == 'Random'):
+    elif (kwargs['cons'] == 'Random'):
         rndSeq = _consTSPRandom(depotID, nodeIDs)
         for i in rndSeq:
             seqObj.append(nodeObj[i])
@@ -1240,16 +1217,16 @@ def _heuTSP(nodeObj, tau, depotID, nodeIDs, asymFlag, method) -> dict|None:
     consOfv = seqObj.dist
 
     # Local improvement phase =================================================
-    # NOTE: Local improvement phase operates by class methods
+    # NOTE: Local improvement phase operates by class kwargss
     # NOTE: For the local improvement, try every local search operator provided in a greedy way
-    if ('impv' in method and method['impv'] != None and method['impv'] != []):
+    if ('impv' in kwargs and kwargs['impv'] != None and kwargs['impv'] != []):
         canImpvFlag = True
         while (canImpvFlag):
             canImpvFlag = False
 
             # 2Opt
-            if (not canImpvFlag and '2Opt' in method['impv']):
-                canImpvFlag = _impvTSP2Opt(seqObj)
+            if (not canImpvFlag and '2Opt' in kwargs['impv']):
+                canImpvFlag = seqObj.impv2Opt()
 
     ofv = seqObj.dist
     seq = [n.key for n in seqObj.traverse(closeFlag = True)]
@@ -1376,7 +1353,4 @@ def _consTSPChristofides(depotID, tau):
     return seq
 
 def _consTSPCycleCover(depotID, tau):
-    raise VrpSolverNotAvailableError("ERROR: vrpSolver has not implement this method yet")
-
-def _impvTSP2Opt(seq):
-    return seq.impv2Opt()
+    raise VrpSolverNotAvailableError("ERROR: vrpSolver has not implement this kwargs yet")
