@@ -20,10 +20,7 @@ def solveVRPTW(
     serviceTimeFieldName: str = 'serviceTime',
     depotID: int|str = 0,
     customerIDs: list[int|str]|str = 'AllButDepot',
-    edges: dict = {
-        'method': "Euclidean", 
-        'ratio': 1
-    },
+    edges: str = "Euclidean", 
     method: dict = {
         'algo': 'CG',
         'subproblemAlgo': 'IP',
@@ -96,19 +93,18 @@ def solveVRPTW(
         for i in customerIDs:
             tau[depotID, i] = tauStart[i]
             tau[i, dupDepotID] = tauEnd[i]
-        tau[depotID, dupDepotID] = 0
-        tau[dupDepotID, depotID] = 0
 
     # Pricing problem =========================================================
     @runtime("pricingIP")
     def _pricingIP(pi):
+        # print(pi)
         sub = grb.Model('Pricing')
 
         # Define decision variables
         w = {}
         for i in nodePlus:
             for j in nodeMinus:
-                if (i != j):
+                if (i != j and not (i == depotID and j == dupDepotID)):
                     w[i, j] = sub.addVar(
                         vtype = grb.GRB.BINARY, 
                         obj = tau[i, j] - pi[i], 
@@ -144,10 +140,10 @@ def solveVRPTW(
 
         # Assignment constraints
         for i in customerIDs:
-            sub.addConstr(grb.quicksum(w[i, j] for j in nodeMinus if i != j) 
-                == grb.quicksum(w[j, i] for j in nodePlus if i != j))
-        sub.addConstr(grb.quicksum(w[depotID, j] for j in nodeMinus) == 1)
-        sub.addConstr(grb.quicksum(w[j, dupDepotID] for j in nodePlus) == 1)
+            sub.addConstr(grb.quicksum(w[i, j] for j in nodeMinus if i != j and not (i == depotID and j == dupDepotID)) 
+                == grb.quicksum(w[j, i] for j in nodePlus if i != j and not (i == depotID and j == dupDepotID)))
+        sub.addConstr(grb.quicksum(w[depotID, j] for j in nodeMinus if j != dupDepotID) == 1)
+        sub.addConstr(grb.quicksum(w[i, dupDepotID] for i in nodePlus if i != depotID) == 1)
         sub.update()
 
         # Capacity constraints
@@ -160,7 +156,7 @@ def solveVRPTW(
         M += max(tau.values())
         for i in nodePlus:
             for j in nodeMinus:
-                if (i != j):
+                if (i != j and not (i == depotID and j == dupDepotID)):
                     sub.addConstr(t[i] + tau[i, j] + nodes[i][serviceTimeFieldName] - M * (1 - w[i, j]) <= t[j])
         sub.update()
 
@@ -241,6 +237,7 @@ def solveVRPTW(
                 c = None
                 a = None
                 route = None
+
         return {
             'ofv': ofv,
             'cr': c,
@@ -249,111 +246,144 @@ def solveVRPTW(
         }
 
     def _pricingLabeling(pi):
-        g = nx.Digraph()        
-        estT = 0
-        latT = float('inf')
-        if (timeWindowFieldName in nodes[depotID]):
-            estT = nodes[depotID][timeWindowFieldName][0]
-            latT = nodes[depotID][timeWindowFieldName][1]
-        g.add_node(depotID,
-            nodeType = 'Depot',
-            timeWindow = [estT, latT],
-            demand = 0,
-            serviceTime = nodes[depotID][serviceTimeFieldName],
-            arrivalTime = None,     # Label - Arrival time
-            minDist = 0,            # Label - Minimum distance from depot
-            preNode = None)         # Label - Previous node
-        for i in customerIDs:
+
+        def _createGraph():
+            g = nx.DiGraph()
             estT = 0
             latT = float('inf')
-            if (timeWindowFieldName in nodes[i]):
-                estT = nodes[i][timeWindowFieldName][0]
-                latT = nodes[i][timeWindowFieldName][1]
-            g.add_node(
-                nodeType = 'Customer',
+            if (timeWindowFieldName in nodes[depotID]):
+                estT = nodes[depotID][timeWindowFieldName][0]
+                latT = nodes[depotID][timeWindowFieldName][1]
+            g.add_node(depotID,
+                nodeType = 'Depot',
                 timeWindow = [estT, latT],
-                demand = 0,
-                serviceTime = nodes[i][serviceTimeFieldName],
+                weight = 0,
+                serviceTime = nodes[depotID][serviceTimeFieldName],
                 arrivalTime = None,     # Label - Arrival time
                 minDist = 0,            # Label - Minimum distance from depot
                 preNode = None)         # Label - Previous node
-        for i in nodePlus:
-            for j in nodeMinus:
-                g.add_edge(i, j, 
-                    travelTime = tau[i, j] - pi[i], 
-                    travelDist = tau[i, j] - pi[i])
+            g.add_node(dupDepotID,
+                nodeType = 'Depot',
+                timeWindow = [estT, latT],
+                weight = 0,
+                serviceTime = nodes[depotID][serviceTimeFieldName],
+                arrivalTime = None,     # Label - Arrival time
+                minDist = 0,            # Label - Minimum distance from depot
+                preNode = None)         # Label - Previous node
+            for i in customerIDs:
+                estT = 0
+                latT = float('inf')
+                if (timeWindowFieldName in nodes[i]):
+                    estT = nodes[i][timeWindowFieldName][0]
+                    latT = nodes[i][timeWindowFieldName][1]
+                g.add_node(
+                    i,
+                    nodeType = 'Customer',
+                    timeWindow = [estT, latT],
+                    weight = nodes[i][demandFieldName],
+                    serviceTime = nodes[i][serviceTimeFieldName],
+                    arrivalTime = None,     # Label - Arrival time
+                    minDist = 0,            # Label - Minimum distance from depot
+                    preNode = None)         # Label - Previous node
+            for i in nodePlus:
+                for j in nodeMinus:
+                    if (i != j and not (i == depotID and j == dupDepotID)):
+                        g.add_edge(i, j, 
+                            travelTime = tau[i, j], 
+                            travelDist = tau[i, j] - pi[i])
+            return g
+
+        def _initializeLabel():
+            return [{
+                'path': [depotID],
+                'dist': 0,
+                'load': 0,
+                'time': 0
+            }]
 
         def _feasibility(curPath, node):
             # Check if node has been covered
-            if (node in curPath):
+            if (node in curPath['path']):
                 return False
             # Check time windows
             lastNode = curPath['path'][-1]
             arrTime = curPath['time'] + g.edges[lastNode, node]['travelTime']
-            availTW = g.nodes[child]['timeWindow']
+            availTW = []
+            if (node != dupDepotID):
+                availTW = g.nodes[node]['timeWindow']
+            else:
+                availTW = g.nodes[depotID]['timeWindow']
             if (arrTime < availTW[0] or arrTime > availTW[1]):
+                return False
+            # Check loads
+            accLoad = curPath['load'] + g.nodes[node]['weight']
+            if (accLoad > vehCap):
                 return False
             return True
 
+        def _extendPath(curPath, node):
+            # Make a copy
+            extendPath = {
+                'path': [i for i in curPath['path']],
+                'time': curPath['time'],
+                'load': curPath['load'],
+                'dist': curPath['dist']
+            }                
+            extendPath['path'].append(child)
+            # Extend the path
+            extendPath['dist'] += g.edges[lastNode, child]['travelDist']
+            extendPath['load'] += g.nodes[node]['weight']
+            extendPath['time'] = max(
+                curPath['time'] + g.edges[lastNode, child]['travelTime'],
+                g.nodes[node]['timeWindow'][0])
+            return extendPath
+
         def _dominate(label1, label2):
             # Given two labels
-            # - return True if label1 is dominating label2
-            # - return False if label1 is dominated by label2
-            # - return None if not comparable
-            if (label1['path'][-1] == label2['path'][-1]):
-                return None
-            if (label1['dist'] <= label2['dist']
-                and label1['time'] <= label2['time']):
+            # - return True if label1 is dominating label2, label2 is useless
+            # - return False if label2 is not dominated by label1
+            if (label1['path'][-1] == label2['path'][-1]
+                and label1['dist'] <= label2['dist']
+                and label1['time'] <= label2['time']
+                and label1['load'] <= label2['load']):
                 return True
             else:
                 return False
 
+        # Main ================================================================
+        g = _createGraph()
+
         # 初始label, queue, path
-        queue = [{
-            'path': [depotID],
-            'dist': 0,
-            'time': 0
-        }]
+        queue = _initializeLabel()
         path = {}
+        accSol = 0
 
         # 主循环
         while (len(queue) > 0):
             # 从队列中取出第一个
             curPath = queue.pop(0)
-
+            
             # 尝试拓展该标签
             lastNode = curPath['path'][-1]
             for child in g.successors(lastNode):
-                # 先复制一个curPath，用于尝试是否能拓展
-                extendPath = {
-                    'path': [i for i in curPath['path']],
-                    'time': curPath['time'],
-                    'dist': curPath['dist']
-                }
-                
-                # 可拓展的条件：feasibility check
                 if (_feasibility(curPath, child)):
-                    extendPath['path'].append(child)
-                    extendPath['dist'] += g.edges[lastNode, child]['travelDist']
-                    extendPath['time'] += g.edges[lastNode, child]['travelTime']
+                    extendPath = _extendPath(curPath, child)
+                    print("Extended: ", extendPath['path'])
                     queue.append(extendPath)
-                path[len(path)] = curPath
+                    if (child == dupDepotID):
+                        path[accSol] = extendPath
+                        accSol += 1
 
             # 移除dominated label
             removeQueueIndex = []
-            for i in queue:
-                for j in queue:
-                    if (_dominate(queue[i], queue[j]) == True
-                        and i not in removeQueueIndex):
-                        removeQueueIndex.append(i)
-            queue = [queue[i] for i in len(queue) if i not in removeQueueIndex]
-            removePathIndex = []
-            for i in path:
-                for j in path:
-                    if (_dominate(path[i], path[j]) == True
-                        and i not in removePathIndex):
-                        removePathIndex.append(i)
-            path = {path[i] for i in path if i not in removePathIndex}
+            for i in range(len(queue)):
+                for j in range(len(queue)):
+                    if (i != j 
+                        and _dominate(queue[i], queue[j]) == True
+                        and j not in removeQueueIndex):
+                        removeQueueIndex.append(j)
+            print("Remove %s labels." % len(removeQueueIndex))
+            queue = [queue[i] for i in range(len(queue)) if i not in removeQueueIndex]
 
         optPath = None
         minDist = float('inf')
@@ -363,11 +393,24 @@ def solveVRPTW(
                 minDist = path[i]['dist']
                 optPath = path[i]
 
+        ofv = optPath['dist']
+        c = 0
+        for i in range(len(optPath['path']) - 1):
+            c += tau[optPath['path'][i], optPath['path'][i + 1]]
+        a = {}
+        for i in customerIDs:
+            if (i in optPath['path']):
+                a[i] = 1
+            else:
+                a[i] = 0
+
+        print(ofv)
+
         return {
             'ofv': ofv,
             'cr': c,
             'ai': a,
-            'route': route
+            'route': optPath['path']
         }
 
     # Master problem initialization ===========================================
