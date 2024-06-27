@@ -525,11 +525,12 @@ def solveVRPTW(
     solRoute = {}
     acc = 1
     for i in y:
-        if (y[i].x > 0.9):            
+        if (y[i].x > 0.9):
             solRoute[acc] = {
-                'route': routes[i],
+                'route': routes[i][:-1],
                 'length': c[i]
             }
+            solRoute[acc]['route'].append(depotID)
             acc += 1
     ofv = CVRPTW.getObjective().getValue()
 
