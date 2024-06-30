@@ -93,7 +93,6 @@ def solveVRPTW(
             tau[i, dupDepotID] = tauEnd[i]
 
     # Pricing problem =========================================================
-    @runtime("pricingIP")
     def _pricingIP(pi):
         # print(pi)
         sub = grb.Model('Pricing')
@@ -105,7 +104,7 @@ def solveVRPTW(
                 if (i != j and not (i == depotID and j == dupDepotID)):
                     w[i, j] = sub.addVar(
                         vtype = grb.GRB.BINARY, 
-                        obj = (tau[i, j] - pi[i]) * w[i, j],
+                        obj = (tau[i, j] - pi[i]),
                         name = 'w_%s_%s' % (i, j))
         t = {}
         for i in customerIDs:
@@ -246,7 +245,8 @@ def solveVRPTW(
     def _pricingPulse(pi):
         return
 
-    def _pricingLabeling(pi):
+    def _pricingLabelSetting(pi):
+        @runtime("createGraph")
         def _createGraph():
             g = nx.DiGraph()
             estT = 0
@@ -287,6 +287,7 @@ def solveVRPTW(
                 'load': 0,
                 'time': 0
             }
+        @runtime("feasibility")
         def _feasibility(curPath, nextNode):
             # Check if node has been covered
             if (nextNode in curPath['path']):
@@ -310,6 +311,7 @@ def solveVRPTW(
             if (accLoad > vehCap):
                 return False
             return True
+        @runtime("extendPath")
         def _extendPath(curPath, nextNode):
             # Make a copy
             extendPath = {
@@ -325,8 +327,9 @@ def solveVRPTW(
             extendPath['load'] += g.nodes[nextNode]['weight']
             extendPath['time'] = max(
                 curPath['time'] + g.edges[lastNode, nextNode]['travelDist'],
-                g.nodes[nextNode]['timeWindow'][0])
+                g.nodes[nextNode]['timeWindow'][0]) + g.nodes[nextNode]['serviceTime']
             return extendPath
+        @runtime("dominate")
         def _dominate(label1, label2):
             # Given two labels
             # - return True if label1 is dominating label2, label2 is useless
@@ -338,6 +341,23 @@ def solveVRPTW(
                 return True
             else:
                 return False
+
+        @runtime("cleanQueue")
+        def _cleanQueue(queue):
+            # 移除dominated label
+            removeQueueIndex = []
+            for i in range(len(queue)):
+                for j in range(len(queue)):
+                    if (i != j
+                        and _dominate(queue[i], queue[j]) == True
+                        and j not in removeQueueIndex):
+                        removeQueueIndex.append(j)
+            print("Remove %s Q labels." % len(removeQueueIndex))
+            queue = [queue[i] for i in range(len(queue)) if i not in removeQueueIndex]
+
+            # 将queue进行排序
+            queue = sorted(queue, key = lambda d: d['dist'])
+            return queue
 
         # Main ================================================================
         g = _createGraph()
@@ -353,6 +373,17 @@ def solveVRPTW(
             # print(len(queue))
             # 从队列中取出第一个
             curPath = queue.pop()
+
+            # 从队列中取出dist最小的那个
+            # shortestIdx = None
+            # shortestDist = float('inf')
+            # for i in range(len(queue)):
+            #     if (queue[i]['dist'] < shortestDist):
+            #         shortestIdx = i
+            #         shortestDist = queue[i]['dist']
+            # print("Get %s item." % shortestIdx)
+            # curPath = queue[shortestIdx]
+            # queue.pop(shortestIdx)
             
             # 尝试拓展该标签
             lastNode = curPath['path'][-1]
@@ -367,30 +398,11 @@ def solveVRPTW(
                             break
                     if (nonDominatedFlag):
                         queue.append(extendPath)
-            # print(len(queue))
-            path[accSol] = curPath
-            accSol += 1
+            if (lastNode == dupDepotID):
+                path[accSol] = curPath
+                accSol += 1
 
-            # 移除dominated label
-            removeQueueIndex = []
-            for i in range(len(queue)):
-                for j in range(len(queue)):
-                    if (i != j
-                        and _dominate(queue[i], queue[j]) == True
-                        and j not in removeQueueIndex):
-                        removeQueueIndex.append(j)
-            # print("Remove %s Q labels." % len(removeQueueIndex))
-            queue = [queue[i] for i in range(len(queue)) if i not in removeQueueIndex]
-
-            removePathIndex = []
-            for i in path:
-                for j in path:
-                    if (i != j
-                        and _dominate(path[i], path[j]) == True
-                        and j not in removePathIndex):                                                
-                        removePathIndex.append(j)
-            # print("Remove %s P labels." % len(removePathIndex))
-            path = {i: path[i] for i in path if i not in removePathIndex}
+            queue = _cleanQueue(queue)
 
         optPath = None
         minDist = float('inf')
@@ -480,13 +492,10 @@ def solveVRPTW(
                 pi[constraint] = cons[constraint].Pi
             # 将约束的对偶转入给子问题
             subproblem = None
-            subproblemPrime = None
             if (method['subproblemAlgo'] == 'IP'):
                 subproblem = _pricingIP(pi)
-                # subproblemPrime = _pricingLabeling(pi)
-            else:
-                subproblem = _pricingLabeling(pi)
-                # subproblemPrime = _pricingIP(pi)
+            elif (method['subproblemAlgo'] == 'LabelSetting'):
+                subproblem = _pricingLabelSetting(pi)
             
             # 如果子问题有解，且reduce cost小于0
             if (subproblem['ofv'] != None and subproblem['ofv'] - cons[depotID].Pi < -CONST_EPSILON):
@@ -499,14 +508,6 @@ def solveVRPTW(
                 writeLog(subproblem['ai'])
                 writeLog("Reduce cost: %s" % (cons[depotID].Pi - subproblem['ofv']))
                 writeLog("Iteration time: " + str(round((datetime.datetime.now() - startIter).total_seconds(), 2)) + "[s]")
-
-                # writeLog(hyphenStr(""))
-                # writeLog("Subroute found by Labeling: " + list2String(subproblemPrime['route']))
-                # writeLog("OFV: %s" % subproblemPrime['ofv'])
-                # writeLog("Cost: %s" % subproblemPrime['cr'])
-                # writeLog(subproblemPrime['ai'])
-                # writeLog("Reduce cost: %s" % (cons[depotID].Pi - subproblemPrime['ofv']))
-                # writeLog("Iteration time: " + str(round((datetime.datetime.now() - startIter).total_seconds(), 2)) + "[s]")
                 
                 # 新路径的cost
                 accRID = max(list(y.keys())) + 1
