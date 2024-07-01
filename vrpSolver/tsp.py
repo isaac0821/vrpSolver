@@ -17,7 +17,7 @@ def solveTSP(
     vehicles: dict = {0: {'speed': 1}},
     vehicleID: int|str = 0,
     edges: str = 'Euclidean',
-    algo = 'IP',
+    algo: str = 'IP',
     detailsFlag: bool = False,
     metaFlag: bool = False,
     **kwargs
@@ -161,6 +161,7 @@ def solveTSP(
             break
 
     # TSP =====================================================================
+    tsp = None
     if (algo == 'IP'):
         outputFlag = None if 'outputFlag' not in kwargs else kwargs['outputFlag']
         timeLimit = None if 'timeLimit' not in kwargs else kwargs['timeLimit']
@@ -174,14 +175,19 @@ def solveTSP(
             outputFlag = outputFlag, 
             timeLimit = timeLimit, 
             gapTolerance = gapTolerance)
-
         tsp['fml'] = kwargs['fml']
         tsp['solver'] = kwargs['solver']
     elif (algo == 'Heuristic'):
         nodeObj = {}
         for n in nodeIDs:
             nodeObj[n] = RouteNode(n, value=nodes[n][locFieldName])
-        tsp = _heuTSP(nodeObj, tau, depotID, nodeIDs, asymFlag, **kwargs)
+        tsp = _heuTSP(
+            nodeObj = nodeObj, 
+            tau = tau, 
+            depotID = depotID, 
+            nodes = nodeIDs, 
+            asymFlag = asymFlag, 
+            **kwargs)
     else:
         raise OutOfRangeError("ERROR: Select 'algo' from ['IP', 'Heuristic'].")
 
@@ -260,8 +266,7 @@ def solveTSP(
         res['solType'] = tsp['solType']
         res['lowerBound'] = tsp['lowerBound']
         res['upperBound'] = tsp['upperBound']
-        res['runtime'] = tsp['runtime']
-    
+        res['runtime'] = tsp['runtime']    
     if (metaFlag):
         res['serviceTime'] = serviceTime
     if (detailsFlag):

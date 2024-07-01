@@ -21,15 +21,10 @@ def solveVRPTW(
     depotID: int|str = 0,
     customerIDs: list[int|str]|str = 'AllButDepot',
     edges: str = "Euclidean", 
-    method: dict = {
-        'algo': 'CG',
-        'subproblemAlgo': 'IP',
-        'solver': 'Gurobi',
-        'stop': {'maxRuntime': 1200},
-        'outputFlag': False
-    },
+    algo: str = 'CG_EarlyBranching',
     detailsFlag: bool = False,
-    metaFlag: bool = False
+    metaFlag: bool = False,
+    **kwargs
     ) -> dict|None:
 
     # Sanity check ============================================================
@@ -62,8 +57,8 @@ def solveVRPTW(
     if (detailsFlag):
         tau, path = matrixDist(
             nodes = nodes, 
-            edges = edges, 
             nodeIDs = customerIDs, 
+            edges = edges,             
             locFieldName = locFieldName)
         tauStart, tauEnd, pathStart, pathEnd = vectorDist(
             loc = nodes[depotID][locFieldName],
@@ -91,6 +86,9 @@ def solveVRPTW(
         for i in customerIDs:
             tau[depotID, i] = tauStart[i]
             tau[i, dupDepotID] = tauEnd[i]
+
+    # Dynamic columns =========================================================
+    columns = {}
 
     # Pricing problem =========================================================
     def _pricingIP(pi):
@@ -159,8 +157,6 @@ def solveVRPTW(
 
         # Solve
         sub.setParam("OutputFlag", 0)
-        if ('stop' in method and 'maxIterRuntime' in method['stop']):
-            sub.setParam(grb.GRB.Param.TimeLimit, method['stop']['maxIterRuntime'])
         sub.modelSense = grb.GRB.MINIMIZE
         sub.optimize()
 
@@ -242,9 +238,7 @@ def solveVRPTW(
             'route': route
         }
 
-    def _pricingPulse(pi):
-        return
-
+    @runtime("pricingLabelSetting")
     def _pricingLabelSetting(pi):
         @runtime("createGraph")
         def _createGraph():
@@ -258,12 +252,14 @@ def solveVRPTW(
                 nodeType = 'Depot',
                 timeWindow = [estT, latT],
                 weight = 0,
-                serviceTime = nodes[depotID][serviceTimeFieldName])
+                serviceTime = nodes[depotID][serviceTimeFieldName],
+                label = None)
             g.add_node(dupDepotID,
                 nodeType = 'Depot',
                 timeWindow = [estT, latT],
                 weight = 0,
-                serviceTime = nodes[depotID][serviceTimeFieldName])
+                serviceTime = nodes[depotID][serviceTimeFieldName],
+                label = None)
             for i in customerIDs:
                 estT = 0
                 latT = float('inf')
@@ -274,7 +270,8 @@ def solveVRPTW(
                     nodeType = 'Customer',
                     timeWindow = [estT, latT],
                     weight = nodes[i][demandFieldName],
-                    serviceTime = nodes[i][serviceTimeFieldName])
+                    serviceTime = nodes[i][serviceTimeFieldName],
+                    label = None)
             for i in nodePlus:
                 for j in nodeMinus:
                     if (i != j and not (i == depotID and j == dupDepotID)):
@@ -292,23 +289,21 @@ def solveVRPTW(
             # Check if node has been covered
             if (nextNode in curPath['path']):
                 return False
+            # Check loads
+            accLoad = curPath['load'] + g.nodes[nextNode]['weight']
+            if (accLoad > vehCap):
+                return False
             # Check time windows
             lastNode = curPath['path'][-1]
             arrTime = max(
                 curPath['time'] + g.edges[lastNode, nextNode]['travelDist'],
                 g.nodes[nextNode]['timeWindow'][0])
-
             availTW = []
             if (nextNode != dupDepotID):
                 availTW = g.nodes[nextNode]['timeWindow']
             else:
                 availTW = g.nodes[depotID]['timeWindow']
-
             if (arrTime < availTW[0] or arrTime > availTW[1]):
-                return False
-            # Check loads
-            accLoad = curPath['load'] + g.nodes[nextNode]['weight']
-            if (accLoad > vehCap):
                 return False
             return True
         @runtime("extendPath")
@@ -341,21 +336,9 @@ def solveVRPTW(
                 return True
             else:
                 return False
-
-        @runtime("cleanQueue")
-        def _cleanQueue(queue):
-            # 移除dominated label
-            removeQueueIndex = []
-            for i in range(len(queue)):
-                for j in range(len(queue)):
-                    if (i != j
-                        and _dominate(queue[i], queue[j]) == True
-                        and j not in removeQueueIndex):
-                        removeQueueIndex.append(j)
-            print("Remove %s Q labels." % len(removeQueueIndex))
-            queue = [queue[i] for i in range(len(queue)) if i not in removeQueueIndex]
-
-            # 将queue进行排序
+        # 将queue进行排序
+        @runtime("sortQueue")
+        def _sortQueue(queue):
             queue = sorted(queue, key = lambda d: d['dist'])
             return queue
 
@@ -365,7 +348,7 @@ def solveVRPTW(
         # 初始label, queue, path
         queue = [_initializeLabel()]
 
-        path = {}
+        path = []
         accSol = 0
 
         # 主循环
@@ -374,45 +357,37 @@ def solveVRPTW(
             # 从队列中取出第一个
             curPath = queue.pop()
 
-            # 从队列中取出dist最小的那个
-            # shortestIdx = None
-            # shortestDist = float('inf')
-            # for i in range(len(queue)):
-            #     if (queue[i]['dist'] < shortestDist):
-            #         shortestIdx = i
-            #         shortestDist = queue[i]['dist']
-            # print("Get %s item." % shortestIdx)
-            # curPath = queue[shortestIdx]
-            # queue.pop(shortestIdx)
-            
-            # 尝试拓展该标签
-            lastNode = curPath['path'][-1]
+            # 取出来的路径是不是非支配解？
+            curPathNonDominatedFlag = True
+            for i in range(len(queue)):
+                if (_dominate(queue[i], curPath)):
+                    curPathNonDominatedFlag = False
+                    break
 
-            for child in g.successors(lastNode):
-                if (_feasibility(curPath, child)):
-                    extendPath = _extendPath(curPath, child)
-                    nonDominatedFlag = True
-                    for i in range(len(queue)):
-                        if (_dominate(queue[i], extendPath)):
-                            nonDominatedFlag = False
-                            break
-                    if (nonDominatedFlag):
-                        queue.append(extendPath)
-            if (lastNode == dupDepotID):
-                path[accSol] = curPath
-                accSol += 1
+            # 如果取出来的路径不是支配解，说明有可能可以拓展
+            if (curPathNonDominatedFlag):
+                # 尝试拓展该标签
+                lastNode = curPath['path'][-1]
+                # 最后的节点的后续节点
+                for child in g.successors(lastNode):
+                    if (_feasibility(curPath, child)):
+                        extendPath = _extendPath(curPath, child)
+                        nonDominatedFlag = True
+                        for i in range(len(queue)):
+                            if (_dominate(queue[i], extendPath)):
+                                nonDominatedFlag = False
+                                break
+                        if (nonDominatedFlag):
+                            queue.append(extendPath)
+                if (lastNode == dupDepotID):
+                    path.append(curPath)
 
-            queue = _cleanQueue(queue)
+                # queue = _cleanQueue(queue)
+                queue = _sortQueue(queue)
 
-        optPath = None
-        minDist = float('inf')
-        # print(len(path))
-        for i in path:
-            if (path[i]['path'][-1] == dupDepotID
-                and path[i]['dist'] < minDist):
-                minDist = path[i]['dist']
-                optPath = path[i]
 
+        path = sorted(path, key = lambda d: d['dist'])
+        optPath = path[0]
         ofv = optPath['dist']
         c = 0
         for i in range(len(optPath['path']) - 1):
@@ -490,11 +465,12 @@ def solveVRPTW(
             pi = {}
             for constraint in cons:
                 pi[constraint] = cons[constraint].Pi
+
             # 将约束的对偶转入给子问题
             subproblem = None
-            if (method['subproblemAlgo'] == 'IP'):
+            if (kwargs['subproblemAlgo'] == 'IP'):
                 subproblem = _pricingIP(pi)
-            elif (method['subproblemAlgo'] == 'LabelSetting'):
+            elif (kwargs['subproblemAlgo'] == 'LabelSetting'):
                 subproblem = _pricingLabelSetting(pi)
             
             # 如果子问题有解，且reduce cost小于0
@@ -505,7 +481,6 @@ def solveVRPTW(
                 writeLog("Subroute found: " + list2String(subproblem['route']))
                 writeLog("OFV: %s" % subproblem['ofv'])
                 writeLog("Cost: %s" % subproblem['cr'])
-                writeLog(subproblem['ai'])
                 writeLog("Reduce cost: %s" % (cons[depotID].Pi - subproblem['ofv']))
                 writeLog("Iteration time: " + str(round((datetime.datetime.now() - startIter).total_seconds(), 2)) + "[s]")
                 
@@ -528,10 +503,6 @@ def solveVRPTW(
 
         # Re-optimize
         CVRPTW.optimize()
-        oneIter = (datetime.datetime.now() - startIter).total_seconds()
-        accTime += oneIter
-        if ('stop' in method and 'maxRuntime' in method['stop'] and accTime > method['stop']['maxRuntime']):
-            canAddVarFlag = False
 
     # Interpret solution for lower bound ======================================
     lb = CVRPTW.getObjective().getValue()

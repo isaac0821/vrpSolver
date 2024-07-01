@@ -7,7 +7,7 @@ from .common import *
 from .geometry import *
 from .msg import *
 
-def ipOP(
+def solveOP(
     nodes: dict, 
     maxBudget: float,
     locFieldName: str = 'loc',
@@ -18,19 +18,11 @@ def ipOP(
         0: {'speed': 1}
     },
     vehicleID: int|str = 0,
-    edges: dict = {
-        'method': "Euclidean", 
-        'ratio': 1
-    },
-    method: dict = {
-        'fml': 'MTZ',
-        'solver': 'Gurobi',
-        'timeLimit': None,
-        'outputFlag': False,
-        'env': None
-    },
+    edges: str = 'Euclidean',
+    algo: str = 'IP',
     detailsFlag: bool = False,
-    metaFlag: bool = False
+    metaFlag: bool = False,
+    **kwargs
     ) -> dict|None:
 
     """Orienteering Problem"""
@@ -59,27 +51,39 @@ def ipOP(
             raise MissingParameterError("ERROR: Missing required field `vehicles`.")
         if (vehicleID not in vehicles):
             raise MissingParameterError("ERROR: Cannot find `vehicleID` in `vehicles`.")
-    if (method == None or 'solver' not in method):
-        raise MissingParameterError("ERROR: Missing required field `method`.")
-    elif (method['solver'] == 'Gurobi' and method['fml'] not in ['DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', 'QAP']):
-        raise OutOfRangeError("ERROR: Gurobi option supports 'DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', and 'QAP' formulations", )
-    elif (method['solver'] == 'COPT' and method['fml'] not in ['DFJ_Lazy']):
-        raise OutOfRangeError("ERROR: COPT option supports 'DFJ_Lazy' formulations", )
+    if (algo == 'IP'):
+        if ('solver' not in kwargs):
+            raise MissingParameterError("ERROR: Missing required field `solver`.")
+        elif (kwargs['solver'] == 'Gurobi' and kwargs['fml'] not in ['DFJ_Lazy']):
+            raise OutOfRangeError("ERROR: Gurobi option s upports 'DFJ_Lazy' formulations", )
+        else:
+            raise OutOfRangeError("ERROR: Missing correct `solver` option.")
 
     # Define tau ==============================================================
     tau = None
     path = None
     if (detailsFlag):
-        tau, path = matrixDist(nodes, edges, nodeIDs, locFieldName)
+        tau, path = matrixDist(
+            nodes = nodes, 
+            nodeIDs = nodeIDs,
+            edges = edges, 
+            locFieldName = locFieldName,
+            **kwargs)
     else:
-        tau, _ = matrixDist(nodes, edges, nodeIDs, locFieldName)
+        tau, _ = matrixDist(
+            nodes = nodes, 
+            nodeIDs = nodeIDs,
+            edges = edges, 
+            locFieldName = locFieldName,
+            **kwargs)
+
     price = {}
     for i in nodeIDs:
         price[i] = nodes[i][priceFieldName]
 
     # Solve by formulation ====================================================
     op = None
-    if (method['solver'] == 'Gurobi'):
+    if (algo == 'IP'):
         if (method['fml'] == 'MTZ'):
             op = _ipOPGurobiMTZ(
                 nodeIDs, 
@@ -169,6 +173,16 @@ def ipOP(
 
     return res
 
+def _ipOP(nodeIDs, depotID, tau, price, maxBudget, outputFlag, timeLimit, gapTolerance):
+    op = None
+    if (solver == 'Gurobi'):
+        if (fml == 'DFJ_Lazy'):
+            op = _ipOPGurobiMTZ(nodeIDs, depotID, tau, price, maxBudget, outputFlag, timeLimit, gapTolerance)
+    if (op == None):
+        raise UnsupportedInputError("ERROR: Currently OP can be calculated by Gurobi using MTZ formulation")
+
+    return op
+
 def _ipOPGurobiMTZ(nodeIDs, depotID, tau, price, maxBudget, outputFlag, timeLimit, gapTolerance):
     try:
         import gurobipy as grb
@@ -242,23 +256,25 @@ def _ipOPGurobiMTZ(nodeIDs, depotID, tau, price, maxBudget, outputFlag, timeLimi
     ub = None
     runtime = None
     dist = None
+
+    ofv = OP.getObjective().getValue()
+    dist = 0
+    for i, j in x:
+        if (x[i, j].x > 0.5):
+            arcs.append([i, j])
+            dist += tau[i, j]
+    currentNode = 0
+    seq.append(nodeIDs[currentNode])
+    while (len(arcs) > 0):
+        for i in range(len(arcs)):
+            if (arcs[i][0] == currentNode):
+                currentNode = arcs[i][1]
+                seq.append(nodeIDs[currentNode])
+                arcs.pop(i)
+                break
+
     if (OP.status == grb.GRB.status.OPTIMAL):
         solType = 'IP_Optimal'
-        ofv = OP.getObjective().getValue()
-        dist = 0
-        for i, j in x:
-            if (x[i, j].x > 0.5):
-                arcs.append([i, j])
-                dist += tau[i, j]
-        currentNode = 0
-        seq.append(nodeIDs[currentNode])
-        while (len(arcs) > 0):
-            for i in range(len(arcs)):
-                if (arcs[i][0] == currentNode):
-                    currentNode = arcs[i][1]
-                    seq.append(nodeIDs[currentNode])
-                    arcs.pop(i)
-                    break
         gap = 0
         lb = ofv
         ub = ofv
@@ -267,20 +283,6 @@ def _ipOPGurobiMTZ(nodeIDs, depotID, tau, price, maxBudget, outputFlag, timeLimi
         solType = 'IP_TimeLimit'
         ofv = OP.getObjective().getValue()
         gap = OP.Params.MIPGapAbs
-        dist = 0
-        for i, j in x:
-            if (x[i, j].x > 0.5):
-                arcs.append([i, j])
-                dist += tau[i, j]
-        currentNode = 0
-        seq.append(nodeIDs[currentNode])
-        while (len(arcs) > 0):
-            for i in range(len(arcs)):
-                if (arcs[i][0] == currentNode):
-                    currentNode = arcs[i][1]
-                    seq.append(nodeIDs[currentNode])
-                    arcs.pop(i)
-                    break
         gap = OP.MIPGap
         lb = OP.ObjBoundC
         ub = OP.ObjVal
