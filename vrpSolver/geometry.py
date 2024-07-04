@@ -19,7 +19,24 @@ from .ds import *
 
 # Point versus Objects ========================================================
 def is2PtsSame(pt1: pt, pt2: pt, error: float = CONST_EPSILON) -> bool:
-    """Are two points at the 'same' location"""
+    """
+    Are two points at the 'same' location?
+
+    Parameters
+    ----------
+    pt1: pt, Required
+        Coordinate of the first point
+    pt2: pt, Required
+        Coordinate of the second point
+    error: float, Optional, default as CONST_EPSILON
+        Error tolerance
+
+    Return
+    ------
+    bool
+        True if two points are at the same location, False else-wise
+
+    """
     if (abs(pt1[0] - pt2[0]) >= error):
         return False
     if (abs(pt1[1] - pt2[1]) >= error):
@@ -27,7 +44,25 @@ def is2PtsSame(pt1: pt, pt2: pt, error: float = CONST_EPSILON) -> bool:
     return True
 
 def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt, error: float = CONST_EPSILON) -> bool | None:
-    """Are three given pts in a clock-wise order, None as they are collinear"""
+    """
+    Are three given pts in a clock-wise order, None as they are collinear
+
+    Parameters
+    ----------
+    pt1: pt, Required
+        Coordinate of the first point
+    pt2: pt, Required
+        Coordinate of the second point
+    pt3: pt, Required
+        Coordinate of the third point
+    error: float, Optional, default as CONST_EPSILON
+        Error tolerance
+
+    Return
+    ------
+    bool | None
+        True if three given points are in a clock-wise order, False if they are in counter-clock-wise order, None if they are collinear
+    """
     if (is2PtsSame(pt1, pt2) or is2PtsSame(pt2, pt3) or is2PtsSame(pt1, pt3)):
         # If points are overlapped, return None as collinear
         return None
@@ -46,7 +81,24 @@ def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt, error: float = CONST_EPSILON) -> 
         return False
 
 def isPtOnLine(pt: pt, line: line, error: float = CONST_EPSILON) -> bool:
-    """Is a pt on the line."""
+    """
+    Is a pt on the line?
+
+    Parameters
+    ----------
+    pt: pt, Required
+        Coordinate of the point
+    line: line, Required
+        Two coordinates to form a line
+    error: float, Optional, default as CONST_EPSILON
+        Error tolerance
+
+    Return
+    ------
+    bool
+        True if the point is on the line, False else-wise
+
+    """
     if (is2PtsSame(line[0], line[1], error = error)):
         raise ZeroVectorError()
     if (is3PtsClockWise(pt, line[0], line[1], error = error) == None):
@@ -55,7 +107,26 @@ def isPtOnLine(pt: pt, line: line, error: float = CONST_EPSILON) -> bool:
         return False
 
 def isPtOnSeg(pt: pt, seg: line, interiorOnly: bool=False, error:float = CONST_EPSILON) -> bool:
-    """Is a pt on the segment"""
+    """
+    Is a pt on the lines segment?
+
+    Parameters
+    ----------
+    pt: pt, Required
+        Coordinate of the point
+    segment: line, Required
+        Two coordinates to form a line segment
+    interiorOnly: bool, Optional, default as False
+        True if only consider intersecting in the interior
+    error: float, Optional, default as CONST_EPSILON
+        Error tolerance
+
+    Return
+    ------
+    bool
+        True if the point is on the line segment, False else-wise
+
+    """
     onLine = isPtOnLine(pt, seg, error = error)
     if (onLine == False):
         return False
@@ -75,7 +146,26 @@ def isPtOnSeg(pt: pt, seg: line, interiorOnly: bool=False, error:float = CONST_E
         return onSeg
 
 def isPtOnRay(pt: pt, ray: line, interiorOnly: bool=False, error = CONST_EPSILON) -> bool:
-    """Is a pt on the ray, could be at the end."""
+    """
+    Is a pt on the ray?
+
+    Parameters
+    ----------
+    pt: pt, Required
+        Coordinate of the point
+    segment: line, Required
+        Two coordinates to form a line segment
+    interiorOnly: bool, Optional, default as False
+        True if only consider intersecting in the interior
+    error: float, Optional, default as CONST_EPSILON
+        Error tolerance
+
+    Return
+    ------
+    bool
+        True if the point is on the line segment, False else-wise
+
+    """
     onLine = isPtOnLine(pt, ray, error = error)
     if (onLine == False):
         return False
@@ -94,16 +184,54 @@ def isPtOnRay(pt: pt, ray: line, interiorOnly: bool=False, error = CONST_EPSILON
     else:
         return onRay
 
-def isPtOnPolyEdge(pt: pt, poly: poly) -> bool:
-    """Is a point on any edge of a polygon"""
+def isPtOnPolyEdge(pt: pt, poly: poly, error: float = CONST_EPSILON) -> bool:
+    """
+    Is a pt on the edge of the polygon?
+
+    Parameters
+    ----------
+    pt: pt, Required
+        Coordinate of the point
+    poly: poly, Required
+        The polygon
+    error: float, Optional, default as CONST_EPSILON
+        Error tolerance
+
+    Return
+    ------
+    bool
+        True if the point is on the line segment, False else-wise
+
+    """
+
     # Check if the pt is on any of the edge segment ===========================
     for i in range(-1, len(poly) - 1):
-        if (isPtOnSeg(pt, [poly[i], poly[i + 1]])):
+        if (isPtOnSeg(pt, [poly[i], poly[i + 1]], error)):
             return True
     return False
 
-def isPtInPoly(pt: pt, poly: poly, interiorOnly: bool=False) -> bool:
-    """Is a pt in the polygon, could be on the edge"""
+def isPtInPoly(pt: pt, poly: poly, interiorOnly: bool=False, error: float = CONST_EPSILON) -> bool:
+    """
+    Is a pt in the polygon?
+
+    Parameters
+    ----------
+    pt: pt, Required
+        Coordinate of the point
+    poly: poly, Required
+        The polygon
+    interiorOnly: bool, Optional, default as False
+        True if only consider intersecting in the interior
+    error: float, Optional, default as CONST_EPSILON
+        Error tolerance
+
+    Return
+    ------
+    bool
+        True if the point is on the line segment, False else-wise
+
+    """
+
     x = pt[1]
     y = pt[0]
     inPoly = False
@@ -122,13 +250,29 @@ def isPtInPoly(pt: pt, poly: poly, interiorOnly: bool=False) -> bool:
         j = i
     # Check if the intertion is in the interior ===============================
     if (interiorOnly):
-        return inPoly and not isPtOnPolyEdge(pt, poly)
+        return inPoly and not isPtOnPolyEdge(pt, poly, error)
     else:
         return inPoly
 
 # Point to line-shape =========================================================
 def rayPerp2Line(pt: pt, line: line) -> line:
-    """Given a point and a line, return a ray from that point and perpendicular to the givne line"""
+    """
+    Given a point and a line, return a ray from that point and perpendicular to the given line
+
+    Parameters
+    ----------
+    pt: pt, Required
+        The point where the ray will go through
+    line: line Required
+        The line which the ray is perpendicular to
+
+    Return
+    ------
+    line
+        A ray that is perpendicular to the line
+
+    """
+
     if (isPtOnLine(pt, line)):
         raise ZeroVectorError()
 
@@ -148,7 +292,22 @@ def rayPerp2Line(pt: pt, line: line) -> line:
     return ray
 
 def ptFoot2Line(pt: pt, line: line) -> pt:
-    """Given a point and a line, return the foot of that point on the line"""
+    """
+    Given a point and a line, return the foot of that point on the line
+
+    Parameters
+    ----------
+    pt: pt, Required
+        The point where the foot will go through
+    line: line Required
+        The line which the foot is perpendicular to
+
+    Return
+    ------
+    pt
+        The foot of that point on the line
+
+    """
     if (isPtOnLine(pt, line)):
         return tuple(pt)
     else:
@@ -157,13 +316,33 @@ def ptFoot2Line(pt: pt, line: line) -> pt:
 
 # Line-shape intersection =====================================================
 def intLine2Line(line1: line, line2: line) -> dict:
-    # Validation ==============================================================
+    """
+    The intersection of a line to another line
+
+    Parameters
+    ----------
+    line1: line, Required
+        The first line
+    line2: line, Required
+        The second line
+
+    Return
+    ------
+    dict
+        >>> {
+        ...     'status': 'Cross', # Relations between two objects,
+        ...     'intersect': pt, # The intersection,
+        ...     'intersectType': 'Point', # Type of intersection
+        ...     'interiorFlag': False, # True if the intersection is at the boundary
+        ... }
+    """
+    
     if (is2PtsSame(line1[0], line1[1])):
         raise ZeroVectorError(line1)
     if (is2PtsSame(line2[0], line2[1])):
         raise ZeroVectorError(line2)
 
-    # Get Ax + By + C = 0 =====================================================
+    # Get Ax + By + C = 0
     def abc(pt1, pt2):
         x1, y1 = pt1
         x2, y2 = pt2
@@ -172,12 +351,12 @@ def intLine2Line(line1: line, line2: line) -> dict:
         c = x1 * y2 - x2 * y1
         return a, b, c
 
-    # Calculate intersection ==================================================
+    # Calculate intersection
     a1, b1, c1 = abc(line1[0], line1[1])
     a2, b2, c2 = abc(line2[0], line2[1])
     D = a1 * b2 - a2 * b1
 
-    # Check if parallel =======================================================
+    # Check if parallel
     # 共线情形
     if (D == 0 and is3PtsClockWise(line1[0], line1[1], line2[0]) == None):
         return {
@@ -206,6 +385,27 @@ def intLine2Line(line1: line, line2: line) -> dict:
         }
 
 def intLine2Seg(line: line, seg: line) -> dict:
+    """
+    The intersection of a line to another line segment
+
+    Parameters
+    ----------
+    line: line, Required
+        The first line
+    segment: line, Required
+        The second line segment
+
+    Return
+    ------
+    dict
+        >>> {
+        ...     'status': 'Cross', # Relations between two objects,
+        ...     'intersect': pt, # The intersection,
+        ...     'intersectType': 'Point', # Type of intersection
+        ...     'interiorFlag': False, # True if the intersection is at the boundary
+        ... }
+    """
+
     intPt = intLine2Line(line, seg)
 
     # 如果直线不相交，返回不相交
@@ -250,6 +450,27 @@ def intLine2Seg(line: line, seg: line) -> dict:
         }
 
 def intLine2Ray(line: line, ray: line) -> dict:
+    """
+    The intersection of a line to a ray
+
+    Parameters
+    ----------
+    line: line, Required
+        The first line
+    ray: line, Required
+        The second ray
+
+    Return
+    ------
+    dict
+        >>> {
+        ...     'status': 'Cross', # Relations between two objects,
+        ...     'intersect': pt, # The intersection,
+        ...     'intersectType': 'Point', # Type of intersection
+        ...     'interiorFlag': False, # True if the intersection is at the boundary
+        ... }
+    """
+
     intPt = intLine2Line(line, ray)
 
     # 若直线不相交，返回不相交
@@ -294,9 +515,50 @@ def intLine2Ray(line: line, ray: line) -> dict:
         }        
 
 def intSeg2Line(seg: line, line: line) -> dict:
+    """
+    The intersection of a line segment to another line
+
+    Parameters
+    ----------
+    seg: line, Required
+        The first line segment
+    line: line, Required
+        The second line
+
+    Return
+    ------
+    dict
+        >>> {
+        ...     'status': 'Cross', # Relations between two objects,
+        ...     'intersect': pt, # The intersection,
+        ...     'intersectType': 'Point', # Type of intersection
+        ...     'interiorFlag': False, # True if the intersection is at the boundary
+        ... }
+    """
     return intLine2Seg(line, seg)
 
 def intSeg2Seg(seg1: line, seg2: line) -> dict:
+    """
+    The intersection of a line segment to another line segment
+
+    Parameters
+    ----------
+    seg1: line, Required
+        The first line segment
+    seg2: line, Required
+        The second line segment
+
+    Return
+    ------
+    dict
+        >>> {
+        ...     'status': 'Cross', # Relations between two objects,
+        ...     'intersect': pt, # The intersection,
+        ...     'intersectType': 'Point', # Type of intersection
+        ...     'interiorFlag': False, # True if the intersection is at the boundary
+        ... }
+    """
+
     intPt = intLine2Line(seg1, seg2)
 
     # 若直线不相交，返回不相交
@@ -441,6 +703,27 @@ def intSeg2Seg(seg1: line, seg2: line) -> dict:
         }
 
 def intSeg2Ray(seg: line, ray: line) -> dict:
+    """
+    The intersection of a line segment to a ray
+
+    Parameters
+    ----------
+    line: line, Required
+        The first line
+    ray: line, Required
+        The second line
+
+    Return
+    ------
+    dict
+        >>> {
+        ...     'status': 'Cross', # Relations between two objects,
+        ...     'intersect': pt, # The intersection,
+        ...     'intersectType': 'Point', # Type of intersection
+        ...     'interiorFlag': False, # True if the intersection is at the boundary
+        ... }
+    """
+
     intPt = intLine2Line(seg, ray)
 
     # 若直线不相交，返回不相交
@@ -537,12 +820,73 @@ def intSeg2Ray(seg: line, ray: line) -> dict:
         }
 
 def intRay2Line(ray: line, line: line) -> dict:
+    """
+    The intersection of a ray to another line
+
+    Parameters
+    ----------
+    ray: line, Required
+        The first line
+    line: line, Required
+        The second line
+
+    Return
+    ------
+    dict
+        >>> {
+        ...     'status': 'Cross', # Relations between two objects,
+        ...     'intersect': pt, # The intersection,
+        ...     'intersectType': 'Point', # Type of intersection
+        ...     'interiorFlag': False, # True if the intersection is at the boundary
+        ... }
+    """
     return intLine2Ray(line, ray)
 
 def intRay2Seg(ray: line, seg: line) -> dict:
+    """
+    The intersection of a ray to another line segment
+
+    Parameters
+    ----------
+    ray: line, Required
+        The first line
+    segment: line, Required
+        The second line
+
+    Return
+    ------
+    dict
+        >>> {
+        ...     'status': 'Cross', # Relations between two objects,
+        ...     'intersect': pt, # The intersection,
+        ...     'intersectType': 'Point', # Type of intersection
+        ...     'interiorFlag': False, # True if the intersection is at the boundary
+        ... }
+    """
     return intSeg2Ray(seg, ray)
 
 def intRay2Ray(ray1: line, ray2: line) -> dict:
+    """
+    The intersection of a ray to another ray
+
+    Parameters
+    ----------
+    ray1: line, Required
+        The first line
+    ray2: line, Required
+        The second line
+
+    Return
+    ------
+    dict
+        >>> {
+        ...     'status': 'Cross', # Relations between two objects,
+        ...     'intersect': pt, # The intersection,
+        ...     'intersectType': 'Point', # Type of intersection
+        ...     'interiorFlag': False, # True if the intersection is at the boundary
+        ... }
+    """
+
     intPt = intLine2Line(ray1, ray2)
 
     # 若直线不相交，返回不相交
@@ -627,38 +971,23 @@ def intRay2Ray(ray1: line, ray2: line) -> dict:
             'interiorFlag': True
         }
 
-def crossSeg2Seg(seg1: line, seg2: line) -> list[list[pt]] | None:
-    """Given two line segments return the line segments that are crossed by each other"""
-    intSeg = intSeg2Seg(seg1, seg2)
-    if (intSeg['status'] == 'Cross'):
-        segs = []
-        if (intSeg['interiorFlag'] == True):
-            segs.append([seg1[0], intSeg['intersect']])
-            segs.append([intSeg['intersect'], seg1[1]])
-            segs.append([seg2[0], intSeg['intersect']])
-            segs.append([intSeg['intersect'], seg2[1]])
-        else:
-            if (is2PtsSame(seg1[0], intSeg['intersect'])):
-                segs.append(seg1)
-            elif (is2PtsSame(seg1[1], intSeg['intersect'])):
-                segs.append(seg1)
-            else:
-                segs.append([seg1[0], intSeg['intersect']])
-                segs.append([intSeg['intersect'], seg1[1]])
-            if (is2PtsSame(seg2[0], intSeg['intersect'])):
-                segs.append(seg2)
-            elif (is2PtsSame(seg2[1], intSeg['intersect'])):
-                segs.append(seg2)
-            else:
-                segs.append([seg2[0], intSeg['intersect']])
-                segs.append([intSeg['intersect'], seg2[1]])
-        return segs
-    else:
-        return [seg1, seg2]
-
 # Line-shape versus Line-shape ===================================================
 def isLineIntLine(line1: line, line2: line) -> bool:
-    """Is two line intersect with each other"""
+    """
+    Is two line intersect with each other?
+
+    Parameters
+    ----------
+    line1: line, Required
+        The first line
+    line2: line, Required
+        The second line
+
+    Return
+    ------
+    bool
+        True if intersects
+    """
     intPt = intLine2Line(line1, line2)
     if (intPt['intersect'] == None):
         return False
@@ -666,7 +995,23 @@ def isLineIntLine(line1: line, line2: line) -> bool:
         return True
 
 def isLineIntSeg(line: line, seg: line, interiorOnly:bool=False) -> bool:
-    """Is a line intersect with a segment"""
+    """
+    Is a line intersect with a line segment?
+
+    Parameters
+    ----------
+    line: line, Required
+        The first line
+    seg: line, Required
+        The second line segment
+    interiorOnly: bool, Optional, default as False
+        True if only consider intersecting in the interior
+
+    Return
+    ------
+    bool
+        True if intersects
+    """
     intPt = intLine2Seg(line, seg)
     # 无相交点
     if (intPt['intersect'] == None):
@@ -679,7 +1024,23 @@ def isLineIntSeg(line: line, seg: line, interiorOnly:bool=False) -> bool:
         return True
 
 def isLineIntRay(line: line, ray: line, interiorOnly: bool=False) -> bool:
-    """Is a line intersect with a ray"""
+    """
+    Is a line intersect with a ray?
+
+    Parameters
+    ----------
+    line: line, Required
+        The first line
+    ray: line, Required
+        The second ray
+    interiorOnly: bool, Optional, default as False
+        True if only consider intersecting in the interior
+
+    Return
+    ------
+    bool
+        True if intersects
+    """    
     intPt = intLine2Ray(line, ray)
     # 无相交点
     if (intPt['intersect'] == None):
@@ -692,11 +1053,43 @@ def isLineIntRay(line: line, ray: line, interiorOnly: bool=False) -> bool:
         return True
 
 def isSegIntLine(seg: line, line: line, interiorOnly: bool=False) -> bool:
-    """Is a segment intersect with a line"""
+    """
+    Is a line segment intersect with a line?
+
+    Parameters
+    ----------
+    seg: line, Required
+        The first line segment
+    line: line, Required
+        The second line
+    interiorOnly: bool, Optional, default as False
+        True if only consider intersecting in the interior
+        
+    Return
+    ------
+    bool
+        True if intersects
+    """   
     return isLineIntSeg(line, seg, interiorOnly)
 
 def isSegIntSeg(seg1: line, seg2: line, interiorOnly: bool=False) -> bool:
-    """Are two segment intersect with each other, could be at the end of a segment"""
+    """
+    Is a line segment intersect with another line segment?
+
+    Parameters
+    ----------
+    seg1: line, Required
+        The first line segment
+    seg2: line, Required
+        The second line
+    interiorOnly: bool, Optional, default as False
+        True if only consider intersecting in the interior
+        
+    Return
+    ------
+    bool
+        True if intersects
+    """ 
     intPt = intSeg2Seg(seg1, seg2)
     # 无相交点
     if (intPt['intersect'] == None):
@@ -709,7 +1102,23 @@ def isSegIntSeg(seg1: line, seg2: line, interiorOnly: bool=False) -> bool:
         return True
 
 def isSegIntRay(seg: line, ray: line, interiorOnly: bool=False) -> bool:
-    """Is a segment intersect with a ray, could be at the end of the segment/ray"""
+    """
+    Is a line segment intersect with a ray?
+
+    Parameters
+    ----------
+    seg: line, Required
+        The first line segment
+    ray: line, Required
+        The second line
+    interiorOnly: bool, Optional, default as False
+        True if only consider intersecting in the interior
+        
+    Return
+    ------
+    bool
+        True if intersects
+    """ 
     intPt = intSeg2Ray(seg, ray)
     # 无相交点
     if (intPt['intersect'] == None):
@@ -722,7 +1131,21 @@ def isSegIntRay(seg: line, ray: line, interiorOnly: bool=False) -> bool:
         return True
 
 def isSegIntBoundingbox(seg: line, boundingBox: list) -> bool:
-    # If any end is inside bounding box
+    """
+    Is a line segment intersect with a given bounding box?
+
+    Parameters
+    ----------
+    seg: line, Required
+        The first line segment
+    boundingBox: list, Required
+        A list, in the following format: [minX, maxX, minY, maxY]
+        
+    Return
+    ------
+    bool
+        True if intersects
+    """ 
     if (boundingBox[0] <= seg[0][0] <= boundingBox[2] and boundingBox[1] <= seg[0][1] <= boundingBox[3]):
         return True
     if (boundingBox[0] <= seg[1][0] <= boundingBox[2] and boundingBox[1] <= seg[1][1] <= boundingBox[3]):
@@ -753,15 +1176,63 @@ def isSegIntBoundingbox(seg: line, boundingBox: list) -> bool:
     return False
 
 def isRayIntLine(ray: line, line: line, interiorOnly: bool=False) -> bool:
-    """Is a ray intersect with a line"""
+    """
+    Is a ray intersect with a line?
+
+    Parameters
+    ----------
+    ray: line, Required
+        The first line segment
+    line: line, Required
+        The second line
+    interiorOnly: bool, Optional, default as False
+        True if only consider intersecting in the interior
+        
+    Return
+    ------
+    bool
+        True if intersects
+    """ 
     return isLineIntRay(line, ray, interiorOnly)
 
 def isRayIntSeg(ray: line, seg: line, interiorOnly: bool=False) -> bool:
-    """Is a ray intersect with a segment"""
+    """
+    Is a ray intersect with a line segment?
+
+    Parameters
+    ----------
+    ray: line, Required
+        The first line segment
+    seg: line, Required
+        The second line
+    interiorOnly: bool, Optional, default as False
+        True if only consider intersecting in the interior
+        
+    Return
+    ------
+    bool
+        True if intersects
+    """ 
     return isSegIntRay(seg, ray, interiorOnly)
 
 def isRayIntRay(ray1: line, ray2: line, interiorOnly: bool=False) -> bool:
-    """Is a segment intersect with a ray, could be at the end of the segment/ray"""
+    """
+    Is a ray intersect with a ray?
+
+    Parameters
+    ----------
+    ray1: line, Required
+        The first line segment
+    ray2: line, Required
+        The second line
+    interiorOnly: bool, Optional, default as False
+        True if only consider intersecting in the interior
+        
+    Return
+    ------
+    bool
+        True if intersects
+    """ 
     intPt = intRay2Ray(ray1, ray2)
     # 无相交点
     if (intPt['intersect'] == None):
@@ -775,11 +1246,36 @@ def isRayIntRay(ray1: line, ray2: line, interiorOnly: bool=False) -> bool:
 
 # Line-shape intersect with polygon ===========================================
 def intLine2Poly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
-    # Sanity check ============================================================
+    """
+    The intersection of a line to a polygon
+
+    Parameters
+    ----------
+    line: line, Required
+        The first line
+    poly: poly, Optional, default as None
+        The second polygon
+    polyShapely: shapely.Polygon, Optional, default as None
+        The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
+    returnShaplelyObj: bool, Optional, default as False
+        True if alter the result to be a shapely object        
+
+    Return
+    ------
+    dict
+        >>> {
+        ...     'status': 'Cross', # Relations between two objects,
+        ...     'intersect': pt, # The intersection,
+        ...     'intersectType': 'Point', # Type of intersection
+        ...     'interiorFlag': False, # True if the intersection is at the boundary
+        ... }
+    """
+
+    # Sanity check
     if (poly == None and polyShapely == None):
         raise MissingParameterError("ERROR: `poly` and `polyShapely` cannot be None at the same time.")
 
-    # Projct points to the line ===============================================
+    # Projct points to the line
     projPts = []    
     for pt in poly:
         projPts.append(ptFoot2Line(pt, line))
@@ -791,7 +1287,32 @@ def intLine2Poly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None,
     return intSeg2Poly(seg, poly, polyShapely, returnShaplelyObj)
 
 def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
-    # WARNING: Results are not reliable on both ends of the seg.
+    """
+    The intersection of a line segment to a polygon
+
+    Parameters
+    ----------
+    seg: line, Required
+        The first line segment
+    poly: poly, Optional, default as None
+        The second polygon
+    polyShapely: shapely.Polygon, Optional, default as None
+        The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
+    returnShaplelyObj: bool, Optional, default as False
+        True if alter the result to be a shapely object        
+
+    Return
+    ------
+    dict
+        >>> {
+        ...     'status': 'Cross', # Relations between two objects,
+        ...     'intersect': pt, # The intersection,
+        ...     'intersectType': 'Point', # Type of intersection
+        ...     'interiorFlag': False, # True if the intersection is at the boundary
+        ... }
+    """
+
+    # WARNING: Results may not be reliable on both ends of the seg.
     # NOTE: 20231103 暂时用了一个stupid way来处理了
 
     # Sanity check ============================================================
@@ -907,12 +1428,36 @@ def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, r
         return intSp
 
 def intRay2Poly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
-    # Convert ray to a proper segment
-    # Sanity check ============================================================
+    """
+    The intersection of a ray to a polygon
+
+    Parameters
+    ----------
+    ray: line, Required
+        The first ray
+    poly: poly, Optional, default as None
+        The second polygon
+    polyShapely: shapely.Polygon, Optional, default as None
+        The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
+    returnShaplelyObj: bool, Optional, default as False
+        True if alter the result to be a shapely object        
+
+    Return
+    ------
+    dict
+        >>> {
+        ...     'status': 'Cross', # Relations between two objects,
+        ...     'intersect': pt, # The intersection,
+        ...     'intersectType': 'Point', # Type of intersection
+        ...     'interiorFlag': False, # True if the intersection is at the boundary
+        ... }
+    """
+
+    # Sanity check
     if (poly == None and polyShapely == None):
         raise MissingParameterError("ERROR: `poly` and `polyShapely` cannot be None at the same time.")
 
-    # Projct points to the line ===============================================
+    # Project points to the line
     projPts = []    
     for pt in poly:
         projPts.append(ptFoot2Line(pt, ray))
@@ -945,20 +1490,45 @@ def intRay2Poly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, r
         return intSeg2Poly(seg, poly, polyShapely, returnShaplelyObj)
 
 def intSeq2Poly(seq: list[pt], poly: poly, seqShapely: shapely.LineString=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False):
-    # Sanity check ============================================================
+    """
+    The intersection of a sequence to a polygon
+
+    Parameters
+    ----------
+    seq: list of pt, Required
+        The first sequence of points
+    poly: poly, Optional, default as None
+        The second polygon
+    polyShapely: shapely.Polygon, Optional, default as None
+        The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
+    returnShaplelyObj: bool, Optional, default as False
+        True if alter the result to be a shapely object        
+
+    Return
+    ------
+    dict
+        >>> {
+        ...     'status': 'Cross', # Relations between two objects,
+        ...     'intersect': pt, # The intersection,
+        ...     'intersectType': 'Point', # Type of intersection
+        ...     'interiorFlag': False, # True if the intersection is at the boundary
+        ... }
+    """
+
+    # Sanity check
     if (seq == None and seqShapely == None):
         raise MissingParameterError("ERROR: `seq` and `seqShapely` cannot be None at the same time.")
     if (poly == None and polyShapely == None):
         raise MissingParameterError("ERROR: `poly` and `polyShapely` cannot be None at the same time.")
 
-    # get shapely objects =====================================================
+    # get shapely objects
     if (seqShapely == None):
         seqShapely = shapely.LineString(seq)
     if (polyShapely == None):
         polyShapely = shapely.Polygon(poly)
     intShape = shapely.intersection(seqShapely, polyShapely)
 
-    # If return shapely objects no processing needed ==========================
+    # If return shapely objects no processing needed
     if (returnShaplelyObj):
         return intShape 
     # 若不相交，返回不相交
@@ -1007,7 +1577,25 @@ def intSeq2Poly(seq: list[pt], poly: poly, seqShapely: shapely.LineString=None, 
 
 # Line-shape versus polygon ===================================================
 def isLineIntPoly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None, interiorOnly: bool=False) -> bool:
-    """Is a line intersect with a polygon"""
+    """
+    Is a line intersects to a polygon?
+
+    Parameters
+    ----------
+    line: line, Required
+        The first line
+    poly: poly, Optional, default as None
+        The second polygon
+    polyShapely: shapely.Polygon, Optional, default as None
+        The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
+    returnShaplelyObj: bool, Optional, default as False
+        True if alter the result to be a shapely object        
+
+    Return
+    ------
+    bool
+        True if intersects
+    """
     intSp = intLine2Poly(line, poly, polyShapely)
     # 若只输出了一个字典，按字典判断
     if (isinstance(intSp, dict)):
@@ -1022,7 +1610,27 @@ def isLineIntPoly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None
         return False
 
 def isSegIntPoly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, interiorOnly: bool=False) -> bool:
-    # WARNING: results are not reliable if `interiorFlag` == False.
+    """
+    Is a line segment intersects to a polygon?
+
+    Parameters
+    ----------
+    seg: line, Required
+        The first line
+    poly: poly, Optional, default as None
+        The second polygon
+    polyShapely: shapely.Polygon, Optional, default as None
+        The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
+    returnShaplelyObj: bool, Optional, default as False
+        True if alter the result to be a shapely object        
+
+    Return
+    ------
+    bool
+        True if intersects
+    """
+
+    # WARNING: results may not be reliable if `interiorFlag` == False.
     
     """Is a segment intersect with a polygon"""
     intSp = intSeg2Poly(seg, poly, polyShapely)
@@ -1039,7 +1647,26 @@ def isSegIntPoly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, 
         return False
 
 def isRayIntPoly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, interiorOnly: bool=False) -> bool:
-    """Is a ray intersect with a polygon"""
+    """
+    Is a ray intersects to a polygon?
+
+    Parameters
+    ----------
+    ray: line, Required
+        The first line
+    poly: poly, Optional, default as None
+        The second polygon
+    polyShapely: shapely.Polygon, Optional, default as None
+        The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
+    returnShaplelyObj: bool, Optional, default as False
+        True if alter the result to be a shapely object        
+
+    Return
+    ------
+    bool
+        True if intersects
+    """
+
     intSp = intRay2Poly(ray, poly, polyShapely)
     # 若只输出了一个字典，按字典判断
     if (isinstance(intSp, dict)):
@@ -1055,6 +1682,31 @@ def isRayIntPoly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, 
 
 # Poly vs poly ================================================================
 def intPoly2Poly(poly1: poly=None, poly2: poly=None, poly1Shapely: shapely.Polygon=None, poly2Shapely: shapely.Polygon=None):
+    """
+    Intersection between two polygons
+
+    Parameters
+    ----------
+    poly1: poly, Optional, default as None
+        The first polygon
+    poly2: poly, Optional, default as None
+        The second polygon
+    poly1Shapely: shapely.Polygon, Optional, default as None
+        The correspond shapely object for the first polygon. Need to provide one of the following fields: [`poly1`, `poly1Shapely`]
+    poly2Shapely: shapely.Polygon, Optional, default as None
+        The correspond shapely object for the second polygon. Need to provide one of the following fields: [`poly2`, `poly2Shapely`]
+
+    Return
+    ------
+    dict
+        >>> {
+        ...     'status': 'Cross', # Relations between two objects,
+        ...     'intersect': pt, # The intersection,
+        ...     'intersectType': 'Point', # Type of intersection
+        ...     'interiorFlag': False, # True if the intersection is at the boundary
+        ... }
+    """
+
     if (poly1Shapely == None):
         poly1Shapely = shapely.Polygon([p for p in poly1])
     if (poly2Shapely == None):
@@ -1126,6 +1778,31 @@ def intPoly2Poly(poly1: poly=None, poly2: poly=None, poly1Shapely: shapely.Polyg
         }
 
 def isPolyIntPoly(poly1: poly=None, poly2: poly=None, poly1Shapely: shapely.Polygon=None, poly2Shapely: shapely.Polygon=None, interiorOnly: bool=False) -> bool:
+    """
+    Is a polygon intersect to another polygon
+
+    Parameters
+    ----------
+    poly1: poly, Optional, default as None
+        The first polygon
+    poly2: poly, Optional, default as None
+        The second polygon
+    poly1Shapely: shapely.Polygon, Optional, default as None
+        The correspond shapely object for the first polygon. Need to provide one of the following fields: [`poly1`, `poly1Shapely`]
+    poly2Shapely: shapely.Polygon, Optional, default as None
+        The correspond shapely object for the second polygon. Need to provide one of the following fields: [`poly2`, `poly2Shapely`]
+
+    Return
+    ------
+    dict
+        >>> {
+        ...     'status': 'Cross', # Relations between two objects,
+        ...     'intersect': pt, # The intersection,
+        ...     'intersectType': 'Point', # Type of intersection
+        ...     'interiorFlag': False, # True if the intersection is at the boundary
+        ... }
+    """
+
     intSp = intPoly2Poly(poly1, poly2, poly1Shapely, poly2Shapely)
     # 若只输出了一个字典，按字典判断
     if (isinstance(intSp, dict)):
@@ -1141,12 +1818,46 @@ def isPolyIntPoly(poly1: poly=None, poly2: poly=None, poly1Shapely: shapely.Poly
 
 # Distance from Point to Object ===============================================
 def distPt2Line(pt: pt, line: line) -> float:
+    """
+    The distance between a point and a line
+
+    Parameters
+    ----------
+    pt: pt, Required
+        The point
+    line: line, Required
+        The line
+
+    Return
+    ------
+    float
+        The distance between two objects
+
+    """
+
     area = calTriangleAreaXY(pt, line[0], line[1])
     a = distEuclideanXY(line[0], line[1])['dist']
     h = 2 * area / a
     return h
 
 def distPt2Seg(pt: pt, seg: line) -> float:
+    """
+    The distance between a point and a line segment
+
+    Parameters
+    ----------
+    pt: pt, Required
+        The point
+    seg: line, Required
+        The line segment
+
+    Return
+    ------
+    float
+        The distance between two objects
+
+    """
+
     foot = ptFoot2Line(pt, seg)
     if (isPtOnSeg(foot, seg)):
         return distEuclideanXY(pt, foot)['dist']
@@ -1154,6 +1865,23 @@ def distPt2Seg(pt: pt, seg: line) -> float:
         return min(distEuclideanXY(pt, seg[0])['dist'], distEuclideanXY(pt, seg[1])['dist'])
 
 def distPt2Ray(pt: pt, ray: line) -> float:
+    """
+    The distance between a point and a ray
+
+    Parameters
+    ----------
+    pt: pt, Required
+        The point
+    ray: line, Required
+        The ray
+
+    Return
+    ------
+    float
+        The distance between two objects
+
+    """
+
     foot = ptFoot2Line(pt, ray)
     if (isPtOnRay(foot)):
         return distEuclideanXY(pt, foot)
@@ -1161,6 +1889,23 @@ def distPt2Ray(pt: pt, ray: line) -> float:
         return distEuclideanXY(pt, ray[0])
 
 def distPt2Seq(pt: pt, seq: list[pt]) -> float:
+    """
+    The distance between a point and a sequence of points
+
+    Parameters
+    ----------
+    pt: pt, Required
+        The point
+    seq: list of pt, Required
+        A sequence of points
+
+    Return
+    ------
+    float
+        The distance between two objects
+
+    """
+
     # FIXME: stupid way, needs improvement
     if (len(seq) == 2):
         return distPt2Seg(pt, seq)
@@ -1178,6 +1923,25 @@ def distPt2Seq(pt: pt, seq: list[pt]) -> float:
                    dist2Seg(pt, [seq[minIndex], seq[minIndex - 1]]))
 
 def distPt2Poly(pt: pt, poly: poly=None, polyShapely: shapely.Polygon=None) -> float:
+    """
+    The distance between a point and a polygon
+
+    Parameters
+    ----------
+    pt: pt, Required
+        The point
+    poly: poly, Optional, default as None
+        The polygon
+    polyShapely: shapely.Polygon, Optional, default as None
+        The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
+
+    Return
+    ------
+    float
+        The distance between two objects
+
+    """
+
     if (poly == None and polyShapely == None):
         raise MissingParameterError("ERROR: Missing required field `poly` or `polyShapely`")
 
@@ -1187,6 +1951,28 @@ def distPt2Poly(pt: pt, poly: poly=None, polyShapely: shapely.Polygon=None) -> f
     return shapely.distance(ptShapely, polyShapely)
 
 def nearestPtLine2Poly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None) -> dict:
+    """
+    Find the nearest point between a line and a polygon
+
+    Parameters
+    ----------
+    line: line, Required
+        The line
+    poly: poly, Optional, default as None
+        The polygon
+    polyShapely: shapely.Polygon, Optional, default as None
+        The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
+
+    Return
+    ------
+    dict
+        >>> {
+        ...     'ptOnLine': pt, # The point from the line,
+        ...     'ptOnPoly': pt, # The point from the polygon,
+        ... }
+
+    """
+
     if (poly == None and polyShapely == None):
         raise MissingParameterError("ERROR: Missing required field `poly` or `polyShapely`")
 
@@ -1207,14 +1993,13 @@ def vecPolar2XY(vecPolar: pt) -> pt:
 
     Parameters
     ----------
-    vecPolar: tuple[float|int, float|int], required
-        2-tuple (vVal, vDeg), `vVal` is the norm and `vDeg` is the direction, 0 as North, clockwise, in [0, 360)
+    vecPolar: tuple[float|int, float|int], Required
+        A 2-tuple (vVal, vDeg), `vVal` is the norm and `vDeg` is the direction, 0 as North, clockwise, in [0, 360)
 
     Returns
     -------
-
     tuple[float|int, float|int]
-
+        The XY vector
     """
 
     # Initialize ==============================================================
@@ -1240,17 +2025,15 @@ def vecXY2Polar(vecXY: pt) -> pt:
 
     Parameters
     ----------
-
     vecXY: tuple[float|int, float|int], required
-        2-tuple (vX, vY), the coordinate of vector
-
+        A 2-tuple (vX, vY), the coordinate of vector
 
     Returns
     -------
-
     tuple[float|int, float|int]
-
+        The polar vector
     """    
+
     (vX, vY) = vecXY    
     vDeg = 0
     vVal = 0
@@ -1286,7 +2069,20 @@ def vecXY2Polar(vecXY: pt) -> pt:
     return (vVal, vDeg)
 
 def ptXY2LatLonMercator(ptXY: pt) -> pt:
-    """Given a point in (x, y), try to map it with a (lat, lon) coordinate with necessary inputs"""
+    """
+    Given a point in (x, y), map it to a (lat, lon) coordinate using Mercator projection
+
+    Parameters
+    ----------
+    ptXY: pt, Required
+        The coordinate in (x, y)
+
+    Return
+    ------
+    tuple
+        The coordinate in (lat, lon)
+
+    """
 
     # Ref: https://wiki.openstreetmap.org/wiki/Mercator#Python
     (x, y) = ptXY
@@ -1296,7 +2092,20 @@ def ptXY2LatLonMercator(ptXY: pt) -> pt:
     return ptLatLon
 
 def ptLatLon2XYMercator(ptLatLon: pt) -> pt:
-    """Given a point int (lat, lon), try to map it with a (x, y) coordinates with necessary inputs"""
+    """
+    Given a point in (lat, lon), map it to a (x, y) coordinate using Mercator projection
+
+    Parameters
+    ----------
+    ptLatLon: pt, Require
+        The coordinate in (lat, lon)
+
+    Return
+    ------
+    tuple
+        The coordinate in (x, y)
+
+    """
 
     # Ref: https://wiki.openstreetmap.org/wiki/Mercator#Python
     (lat, lon) = ptLatLon
@@ -2971,6 +3780,7 @@ def _distOnGridAStar(column, row, barriers, pt1, pt2, distMeasure):
 
 # Path touring through polygons ===============================================
 def polyPath2Mileage(repSeq: list, path: list[pt], nodes: dict):
+
     # NOTE: 根据p2pPath，得到足够多的子问题信息以生成cut
     # Step 1: 先把转折点找出来
     # NOTE: error取值不能太小，因为用的是30边形拟合的圆 + poly2Poly，导致误差其实还蛮大的
@@ -3276,20 +4086,19 @@ def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
     }
 
 # obj2ObjPath =================================================================
-def poly2PolyPath(startPt: pt, endPt: pt, polys: polys = None, method: dict = {'algo': 'SOCP', 'solver': 'Gurobi', 'outputFlag': False}):
+def poly2PolyPath(startPt: pt, endPt: pt, polys: polys = None, algo: str = 'SOCP', **kwargs):
     
     """Find path between geometries, e.g., polys, circles, arcpolys, mixed.
 
     Parameters
     ----------
-
-    startPt: pt, required, default None
+    startPt: pt, Required, default None
         The coordinate which starts the path.
-    endPt: pt, required, default None
+    endPt: pt, Required, default None
         The coordinate which ends the path.
-    polys: polys, required, default None
-        A list of polys, or circles, or arcpolys, or a mix of those objects to be visited in given sequence
-    method: dict, required, default {'shape': 'Poly', 'barriers': None, 'errTol': CONST_EPSILON}
+    polys: polys, Required, default None
+        A list of polys to be visited in given sequence
+    method: dict, Required, default {'shape': 'Poly', 'barriers': None, 'errTol': CONST_EPSILON}
         A dictionary to indicate the subroutine to be used. Options includes
             1) Between polygons using heuristics
                 >>> method = {
@@ -3328,10 +4137,10 @@ def poly2PolyPath(startPt: pt, endPt: pt, polys: polys = None, method: dict = {'
     if ('outputFlag' in method):
         outputFlag = method['outputFlag']
 
-    if (method['algo'] == 'AdaptIter' and ('barriers' not in method or method['barriers'] == None)):
-        res = _poly2PolyPathAdaptIter(startPt, endPt, polys, {'errTol': errTol})
-    elif (method['algo'] == 'SOCP' and ('solver' not in method or method['solver'] == 'Gurobi')):
-        res = _poly2PolyPathGurobi(startPt, endPt, polys, {'outputFlag': outputFlag})
+    if (algo == 'AdaptIter'):
+        res = _poly2PolyPathAdaptIter(startPt, endPt, polys, **kwargs)
+    elif (algo == 'SOCP' and 'solver' == 'Gurobi'):
+        res = _poly2PolyPathGurobi(startPt, endPt, polys, **kwargs)
     else:
         raise UnsupportedInputError("ERROR: Not support by vrpSolver for now.")
 
@@ -3341,7 +4150,7 @@ def poly2PolyPath(startPt: pt, endPt: pt, polys: polys = None, method: dict = {'
         'runtime': None if 'runtime' not in res else res['runtime']
     }
 
-def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, config: dict = {'errTol': CONST_EPSILON}):
+def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, errTol = CONST_EPSILON):
 
     """Given a list of points, each belongs to a neighborhood of a node, find the shortest path between each steps
 
@@ -3478,7 +4287,7 @@ def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, config: dict =
             newDist += tau[(sp[i][0], sp[i][1]), (sp[i + 1][0], sp[i + 1][1])]
         newDist += distEuclideanXY(polyRings[sp[-2][0]].query(sp[-2][1]).value, endPt)['dist']
 
-        if (abs(newDist - dist) <= config['errTol']):
+        if (abs(newDist - dist) <= errTol):
             refineFlag = False
 
         dist = newDist
@@ -3494,10 +4303,10 @@ def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, config: dict =
         'dist': dist
     }
 
-def _poly2PolyPathGurobi(startPt: pt, endPt: pt, polys: polys, config: dict = {'outputFlag': False}):
-    return _seg2SegPathGurobi(startPt, endPt, polys, lbX = None, lbY = None, ubX = None, ubY = None, closedFlag = True, config = config)
+def _poly2PolyPathGurobi(startPt: pt, endPt: pt, polys: polys,  outputFlag = False, gapTol = None, timeLimit = None):
+    return _seg2SegPathGurobi(startPt, endPt, polys, closedFlag = True, outputFlag, gapTol, timeLimit)
 
-def _seg2SegPathGurobi(startPt: pt, endPt: pt, segs: segs, lbX: None, lbY: None, ubX: None, ubY: None, config: dict = {'outputFlag': False}, closedFlag = False):
+def _seg2SegPathGurobi(startPt: pt, endPt: pt, segs, closedFlag = False, outputFlag = False, gapTol = None, timeLimit = None):
     try:
         import gurobipy as grb
     except(ImportError):
@@ -3505,15 +4314,12 @@ def _seg2SegPathGurobi(startPt: pt, endPt: pt, segs: segs, lbX: None, lbY: None,
         return
 
     model = grb.Model("SOCP")
-    if (config == None or 'outputFlag' not in config or config['outputFlag'] == False):
-        model.setParam('OutputFlag', 0)
-    else:
-        model.setParam('OutputFlag', 1)
+    model.setParam('OutputFlag', 0 if outputFlag = False else 1)
 
-    if (config != None and 'gapTol' in config):
-        model.setParam('MIPGap', config['gapTol'])
-
-    model.setParam(grb.GRB.Param.TimeLimit, 15)
+    if (gapTol != None):
+        model.setParam('MIPGap', gapTol)
+    if (timeLimit != None):
+        model.setParam(grb.GRB.Param.TimeLimit, timeLimit)
 
     # Parameters ==============================================================
     if (lbX == None or lbY == None or ubX == None or ubY == None):
@@ -3922,141 +4728,4 @@ def _circle2CirclePathCOPT(startPt: pt, endPt: pt, circles: dict, config: dict =
     return {
         'path': path,
         'dist': ofv
-    }
-
-def arcNei2ArcNeiPath(startPt: pt, endPt: pt, arcs: dict, repSeq: list, radius: float):
-    # NOTE: repSeq starts and ends with the depot
-    try:
-        import gurobipy as grb
-    except(ImportError):
-        print("ERROR: Cannot find Gurobi")
-        return
-
-    model = grb.Model("SOCP")
-    model.setParam('OutputFlag', 0)
-
-    # Parameters ==============================================================
-    # anchor starts from startPt, in between are a list of circles, ends with endPt
-    anchor = [startPt]
-    for i in range(1, len(repSeq) - 1):
-        if (repSeq[i] % 2 == 0):
-            anchor.append(arcs[int(repSeq[i] / 2) - 1]['arc'][1])
-        else:
-            anchor.append(arcs[int((repSeq[i] + 1) / 2) - 1]['arc'][0])
-    anchor.append(endPt)
-
-    allX = [startPt[0], endPt[0]]
-    allY = [startPt[1], endPt[1]]
-    for i in range(len(anchor)):
-        allX.append(anchor[i][0] - radius)
-        allX.append(anchor[i][0] + radius)
-        allY.append(anchor[i][1] - radius)
-        allY.append(anchor[i][1] + radius)
-    lbX = min(allX) - 1
-    lbY = min(allY) - 1
-    ubX = max(allX) + 1
-    ubY = max(allY) + 1
-
-    # Decision variables ======================================================
-    # NOTE: x, y index starts by 1
-    x = {}
-    y = {}
-    for i in range(1, len(repSeq) - 1):
-        x[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "x_%s" % i, lb = lbX, ub = ubX)
-        y[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "y_%s" % i, lb = lbY, ub = ubY)
-
-    # Distance from ((xi, yi)) to (x[i + 1], y[i + 1]), 
-    # where startPt = (x[0], y[0]) and endPt = (x[len(circles) + 1], y[len(circles) + 1])
-    d = {}
-    for i in range(len(repSeq) - 1):
-        d[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'd_%s' % i)
-    model.setObjective(grb.quicksum(d[i] for i in range(len(repSeq) - 1)), grb.GRB.MINIMIZE)
-
-    # Aux vars - distance between (x, y)
-    dx = {}
-    dy = {}
-    for i in range(len(repSeq) - 1):
-        dx[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'dx_%s' % i, lb = -float('inf'), ub = float('inf'))
-        dy[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'dy_%s' % i, lb = -float('inf'), ub = float('inf'))
-    # Aux vars - distance from (x, y) to the center
-    rx = {}
-    ry = {}
-    for i in range(1, len(repSeq) - 1):
-        rx[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'rx_%s' % i, lb = -float('inf'), ub = float('inf'))
-        ry[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'ry_%s' % i, lb = -float('inf'), ub = float('inf'))
-
-    # SOCP Constraints ========================================================
-    # Aux constr - dx dy
-    model.addConstr(dx[0] == x[1] - anchor[0][0])
-    model.addConstr(dy[0] == y[1] - anchor[0][1])
-    for i in range(1, len(repSeq) - 2):
-        model.addConstr(dx[i] == x[i + 1] - x[i])
-        model.addConstr(dy[i] == y[i + 1] - y[i])
-    model.addConstr(dx[len(repSeq) - 2] == anchor[-1][0] - x[len(repSeq) - 2])
-    model.addConstr(dy[len(repSeq) - 2] == anchor[-1][1] - y[len(repSeq) - 2])
-
-    # Aux constr - rx ry
-    for i in range(1, len(repSeq) - 1):
-        model.addConstr(rx[i] == x[i] - anchor[i][0])
-        model.addConstr(ry[i] == y[i] - anchor[i][1])
-
-    # Distance btw visits
-    for i in range(len(repSeq) - 1):
-        model.addQConstr(d[i] ** 2 >= dx[i] ** 2 + dy[i] ** 2)
-
-    for i in range(1, len(repSeq) - 1):
-        model.addQConstr(rx[i] ** 2 + ry[i] ** 2 <= radius ** 2)
-
-    # ArcBtw Constraints ======================================================
-    arcBtwInside = {}
-    checked = []
-    for i in range(1, len(repSeq) - 2):
-        if (repSeq[i] not in checked):
-            arcID = int(repSeq[i] / 2) - 1 if repSeq[i] % 2 == 0 else int((repSeq[i] + 1) / 2) - 1
-            pairID = repSeq[i] + 1 if repSeq[i] % 2 == 1 else repSeq[i] - 1
-            for j in range(i + 1, len(repSeq) - 1):
-                if (repSeq[j] != pairID):
-                    if (arcID not in arcBtwInside):
-                        arcBtwInside[arcID] = [j]
-                    else:
-                        arcBtwInside[arcID].append(j)
-                else:
-                    checked.append(repSeq[i])
-                    checked.append(repSeq[j])
-                    break
-    for arcID in arcBtwInside:
-        coeff = arcBtwNeighConstr(arcs[arcID], radius)
-        for j in arcBtwInside[arcID]:
-            model.addConstr(coeff['A'] * x[j] + coeff['B'] * y[j] + coeff['CAbove'] >= 0, name = f'arcBtw_{arcID}_{j}_above')
-            model.addConstr(coeff['A'] * x[j] + coeff['B'] * y[j] + coeff['CBelow'] <= 0, name = f'arcBtw_{arcID}_{j}_below')
-
-    # Optimize ================================================================
-    # model.write("SOCP.lp")
-    model.optimize()
-
-    # Post-processing =========================================================
-    ofv = None
-    path = [startPt]
-    if (model.status == grb.GRB.status.OPTIMAL):
-        solType = 'IP_Optimal'
-        ofv = model.getObjective().getValue()
-        for i in x:
-            path.append((x[i].x, y[i].x))
-        path.append(endPt)
-        gap = 0
-        lb = ofv
-        ub = ofv
-    elif (model.status == grb.GRB.status.TIME_LIMIT):
-        solType = 'IP_TimeLimit'
-        ofv = model.ObjVal
-        for i in x:
-            path.append((x[i].x, y[i].x))
-        path.append(endPt)
-        gap = model.MIPGap
-        lb = model.ObjBoundC
-        ub = model.ObjVal
-    return {
-        'path': path,
-        'dist': ofv,
-        'runtime': model.Runtime
     }

@@ -365,30 +365,30 @@ def plotArcs(
         if (xMin == None or xMax == None or yMin == None or yMax == None):
             allX = []
             allY = []
-            if (arcFieldName in arcs):
-                for i in arcs:
-                    if (not xyReverseFlag):
-                        allX.append(arcs[i][arcFieldName][0][0])
-                        allX.append(arcs[i][arcFieldName][1][0])
-                        allY.append(arcs[i][arcFieldName][0][1])
-                        allY.append(arcs[i][arcFieldName][1][1])
-                    else:
-                        allX.append(arcs[i][arcFieldName][0][1])
-                        allX.append(arcs[i][arcFieldName][1][1])
-                        allY.append(arcs[i][arcFieldName][0][0])
-                        allY.append(arcs[i][arcFieldName][1][0])
-            else:
-                for i in arcs:
-                    if (not xyReverseFlag):
-                        allX.append(arcs[i][arcStartLocFieldName][0])
-                        allY.append(arcs[i][arcStartLocFieldName][1])
-                        allX.append(arcs[i][arcEndLocFieldName][0])
-                        allY.append(arcs[i][arcEndLocFieldName][1])
-                    else:
-                        allX.append(arcs[i][arcStartLocFieldName][1])
-                        allY.append(arcs[i][arcStartLocFieldName][0])
-                        allX.append(arcs[i][arcEndLocFieldName][1])
-                        allY.append(arcs[i][arcEndLocFieldName][0])
+            # if (arcFieldName in arcs):
+            for i in arcs:
+                if (not xyReverseFlag):
+                    allX.append(arcs[i][arcFieldName][0][0])
+                    allX.append(arcs[i][arcFieldName][1][0])
+                    allY.append(arcs[i][arcFieldName][0][1])
+                    allY.append(arcs[i][arcFieldName][1][1])
+                else:
+                    allX.append(arcs[i][arcFieldName][0][1])
+                    allX.append(arcs[i][arcFieldName][1][1])
+                    allY.append(arcs[i][arcFieldName][0][0])
+                    allY.append(arcs[i][arcFieldName][1][0])
+            # else:
+            #     for i in arcs:
+            #         if (not xyReverseFlag):
+            #             allX.append(arcs[i][arcStartLocFieldName][0])
+            #             allY.append(arcs[i][arcStartLocFieldName][1])
+            #             allX.append(arcs[i][arcEndLocFieldName][0])
+            #             allY.append(arcs[i][arcEndLocFieldName][1])
+            #         else:
+            #             allX.append(arcs[i][arcStartLocFieldName][1])
+            #             allY.append(arcs[i][arcStartLocFieldName][0])
+            #             allX.append(arcs[i][arcEndLocFieldName][1])
+            #             allY.append(arcs[i][arcEndLocFieldName][0])
                         
                                     
             if (xMin == None):
