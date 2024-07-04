@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Data Structures &#8212; vrpSolver 0.0.56 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=649a27d8" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinxdoc.css?v=87629129" />
+    <script src="_static/documentation_options.js?v=8f83b1af"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Welcome to vrpSolver’s documentation!" href="index.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to vrpSolver’s documentation!"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">vrpSolver 0.0.56 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Data Structures</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="data-structures">
+<h1>Data Structures<a class="headerlink" href="#data-structures" title="Link to this heading">¶</a></h1>
+<p><em>vrpSolver</em> uses dictionaries to store different objects, such as <cite>nodes</cite>, <cite>arcs</cite>, <cite>roads</cite>, etc. One of the main reasons for doing so is that dictionaries does not require any additional python packages. Additionally, dictionaries can have flexible definitions of keys, so that the data used in <em>vrpSolver</em> can be used in other python packages that the user is using. In addition, two easy-to-use functions are provided (in <cite>common.py</cite>) for exporting and importing dictionaries. They are <a class="reference internal" href="vrpSolver.common.html#vrpSolver.common.saveDictionary" title="vrpSolver.common.saveDictionary"><code class="xref py py-func docutils literal notranslate"><span class="pre">saveDictionary()</span></code></a> and <a class="reference internal" href="vrpSolver.common.html#vrpSolver.common.loadDictionary" title="vrpSolver.common.loadDictionary"><code class="xref py py-func docutils literal notranslate"><span class="pre">loadDictionary()</span></code></a>.</p>
+<section id="nodes">
+<h2><cite>nodes</cite><a class="headerlink" href="#nodes" title="Link to this heading">¶</a></h2>
+<p>The <cite>nodes</cite> dictionary has to contain the location information of a node, additionally, it may include other information as follows:</p>
+<ul class="simple">
+<li><p>‘loc’: The location of the nodes in (x, y) or (lat, lon). In some functions, the key of ‘loc’ may be redirected by the <cite>locFieldName</cite> parameter.</p></li>
+<li><p>‘neighbor’: Polygons that are surrounding nodes. In the format of a list of points. This is particularly useful for the “close-enough” problems.</p></li>
+</ul>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Data Structures</a><ul>
+<li><a class="reference internal" href="#nodes"><cite>nodes</cite></a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="index.html"
+                          title="previous chapter">Welcome to vrpSolver’s documentation!</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/data_structures.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="index.html" title="Welcome to vrpSolver’s documentation!"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">vrpSolver 0.0.56 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Data Structures</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2024, Lan Peng.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.7.
+    </div>
+  </body>
+</html>
