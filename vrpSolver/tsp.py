@@ -29,60 +29,23 @@ def solveTSP(
     Parameters
     ----------
 
-    nodes: dictionary, required, default None
-        The coordinates of given nodes, in the following format::
-            >>> nodes = {
-            ...     nodeID1: {'loc': (x, y)},
-            ...     nodeID2: {'loc': (x, y)}, # ...
-            ... }
-    edges: dictionary, required, default as {'kwargs': "Euclidean", 'ratio': 1}
-        The traveling matrix. The options are as follows::
-            1) (default) Euclidean space
-            >>> edge = {
-            ...     'kwargs': 'Euclidean',
-            ...     'ratio': 1 # Optional, default to be 1
-            ... }
-            2) By given pairs of lat/lon
-            >>> edge = {
-            ...     'kwargs': 'LatLon',
-            ...     'unit': 'meters' # Optional, default to be 1
-            ... }
-            3) ManhattenDistance
-            >>> edge = {
-            ...     'kwargs': 'Manhatten',
-            ...     'ratio': 1 # Optional, default to be 1
-            ... }
-            4) By a given dictionary
-            >>> edge = {
-            ...     'kwargs': 'Dictionary',
-            ...     'dictionary': dictionary,
-            ...     'ratio': 1 # Optional, default to be 1
-            ... }
-            5) On the grids
-            >>> edge = {
-            ...     'kwargs': 'Grid',
-            ...     'grid': grid
-            ... }
-    kwargs: dictionary, required, default as {'solver': 'Gurobi', 'timeLimit': None, 'gapTolerance': None, 'outputFlag': False}
-        The settings for the MILP solver, right now Gurobi supports all formulation and COPT supports 'DFJ_Lazy', the format is as following:
-            >>> kwargs = {
-            ...     'fml': 'DFJ_Lazy',
-            ...     'solver': 'Gurobi',
-            ...     'timeLimit': timeLimit, # Time limit in seconds, for 'DFJ_Plainloop' is the total time limit
-            ...     'gapTolerance': gapTolerance,
-            ...     'outputFlag': False # Turn off kwargs log output by default
-            ... }
-    depotID: int or string, required, default as 0
+    nodes: dict, required
+        The coordinates of given nodes.
+    locFieldName: str, optional, default as 'loc'
+        The key value in `nodes` indicating the location of each node.
+    depotID: int|string, optional, default as 0
         The ID of depot.
-    nodeIDs: string 'All' or a list of node IDs, required, default as 'All'
+    nodeIDs: string 'All' or a list of node IDs, optional, default as 'All'
         The following are two options: 1) 'All', all nodes will be visited, 2) A list of node IDs to be visited.
     serviceTime: float, optional, default as 0
         The service time needed at each location.
+    edges: string, optional, default as 'Euclidean'
+        The methods for the calculation of distances between nodes. Options and required additional information are referred to :func:`~vrpSolver.geometry.matrixDist()`.
 
     Returns
     -------
 
-    dictionary
+    dict
         A TSP solution in the following format::
             >>> solution = {
             ...     'ofv': ofv,

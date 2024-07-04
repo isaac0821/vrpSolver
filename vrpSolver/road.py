@@ -12,35 +12,31 @@ def createRoadNetworkFromGeoJSON(
     buildingIncludedFlag: bool = False
     ) -> dict:
 
-    """Given a geoJSON file, returns a road network dictionaries which only includes road info
-
-    Note
-    ----
-    This function is incomplete, for the roads that partitially inside boundary, need to be truncated
+    """Given a path to geoJSON file, returns a road network dictionary with roads (and buildings)
 
 
     Parameters
     ----------
     
     geoJSONPath: string, required
-        The path to a geoJSON file
+        The path to a geoJSON file (".geojson")
     boundaryLatLon: list[pt], optionan, default as None
         Filter out the area that are not within the boundary, if given
     projType: string, optional, default as 'LatLon'
-        Determine the axises of exported data, options are: 'LatLon' and 'Mercator'
+        Determine the axises of exported data, options are ['LatLon', 'Mercator']
     buildingIncludedFlag: bool, optional, default as False
         True if buildings are included
 
     Returns
     -------
 
-    dictionary
-        A road network dictionary, in the following formatt::
-        >>> road = {
-        ...     'boundary': boundary,
-        ...     'road': road,
-        ...     'building': building
-        ... }
+    dict
+        A road network dictionary, in the following formatt:
+            >>> road = {
+            ...     'boundary': boundary,
+            ...     'road': road,
+            ...     'building': building
+            ... }
     """
 
     # Open the geojson file ===================================================

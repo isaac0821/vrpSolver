@@ -25,12 +25,25 @@ def plotLocs(
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
     showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
     ):
+
+    """Plot locations on a figure
+
+    Parameters
+    ----------
+    locs: list of pt, Required
+        A list of locations to be plotted
+    locColor: str, Optional, Default as 'Random'
+        The color of locations to be plotted, 'Random' if the color is randomized
+
+
+
+    """
 
     # Check for required fields ===============================================
     if (locs == None):
@@ -128,8 +141,8 @@ def plotNodes(
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
     showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
@@ -140,17 +153,7 @@ def plotNodes(
     Parameters
     ----------
     nodes: dictionary, required
-        The coordinates and other attributions of the nodes to be plotted, in the following format::
-            >>> nodes = {
-            ...     nodeID1: {
-            ...         'loc': (x, y),
-            ...         'marker': 'r',    # Optional, default as 'o'
-            ...         'markersize': 2,  # Optional, default as None
-            ...         'color': 'red',   # Optional, default as 'Random'
-            ...         'size': 3,        # Optional, default as 3
-            ...         'fontsize': 3,    # Optional, default as 3
-            ...     }, # ...
-            ... }
+        A :ref:`nodes` dictionary
     nodeColor: str, optional, default 'Random'
         Alternative option. If 'color' is provided in `node`, this will be ignored.
     neighborColor: str, optional, default 'gray'
@@ -306,8 +309,8 @@ def plotArcs(
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
     showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
@@ -519,8 +522,8 @@ def plotLocSeq(
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
     showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
@@ -617,8 +620,8 @@ def plotNodeSeq(
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
     showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
@@ -628,7 +631,6 @@ def plotNodeSeq(
 
     Parameters
     ----------
-
     nodes: dictionary, required
         The coordinates and other attributions of the nodes to be plotted, in the following format::
             >>> nodes = {
@@ -726,8 +728,8 @@ def plotPoly(
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
     showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
@@ -875,8 +877,8 @@ def plotCircle(
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
     showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
@@ -918,8 +920,8 @@ def plotPolygons(
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
     showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
@@ -1035,7 +1037,6 @@ def plotProvinceMap(
 
     Parameters
     ----------
-
     country: string, required, default 'U.S.'
         Country of the province
     province: string | list[string], required, default ['New York']
@@ -1142,8 +1143,8 @@ def plotRoads(
     roadShowFlags: list[str, bool]|str|bool = 'All',
     fig = None,
     ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
     showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
@@ -1153,7 +1154,6 @@ def plotRoads(
 
     Parameters
     ----------
-
     roads: dict, required
         The road network dictionary, including the geometry shape. In the following format::
             >>> roads = {
@@ -1294,8 +1294,8 @@ def plotBuildings(
     buildingShowFlags: list[str, bool]|str|bool = False,
     fig = None,
     ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
     showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True

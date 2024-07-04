@@ -25,7 +25,7 @@ def solveOP(
     **kwargs
     ) -> dict|None:
 
-    """Orienteering Problem"""
+    """Solve the Orienteering Problem"""
 
     # Sanity check ============================================================
     if (nodes == None or type(nodes) != dict):

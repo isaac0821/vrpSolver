@@ -54,11 +54,39 @@ class VrpSolverNotAvailableError(Exception):
     pass
 
 def saveDictionary(obj, name: str) -> None:
+    """
+    Save the dictionary to local file as `.pkl`
+
+    Parameters
+    ----------
+
+    obj: dict, required
+        The dictionary to be saved
+    name: str, required
+        The name of local file without `.pkl`
+    """
     saveName = name + '.pkl'
     with open(name + '.pkl', 'wb') as f:
         pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
 def loadDictionary(name: str) -> None:
+    """
+    Load a dictionary from a local `.pkl` file
+
+    Parameters
+    ----------
+
+    name: str, required
+        The name of local file with `.pkl`
+
+    Returns
+    -------
+
+    dict
+        The dictionary loaded from local
+
+    """
+
     with open(name + '.pkl', 'rb') as f:
         return pickle.load(f)
  

@@ -12,11 +12,6 @@ from .common import *
 from .msg import *
 from .ds import *
 
-# History =====================================================================
-# 20231219 - A stable version from the past
-# 20240117 - Visible area visFromPt()
-# =============================================================================
-
 # Point versus Objects ========================================================
 def is2PtsSame(pt1: pt, pt2: pt, error: float = CONST_EPSILON) -> bool:
     """
@@ -24,11 +19,11 @@ def is2PtsSame(pt1: pt, pt2: pt, error: float = CONST_EPSILON) -> bool:
 
     Parameters
     ----------
-    pt1: pt, Required
+    pt1: pt, required
         Coordinate of the first point
-    pt2: pt, Required
+    pt2: pt, required
         Coordinate of the second point
-    error: float, Optional, default as CONST_EPSILON
+    error: float, optional, default as CONST_EPSILON
         Error tolerance
 
     Return
@@ -49,13 +44,13 @@ def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt, error: float = CONST_EPSILON) -> 
 
     Parameters
     ----------
-    pt1: pt, Required
+    pt1: pt, required
         Coordinate of the first point
-    pt2: pt, Required
+    pt2: pt, required
         Coordinate of the second point
-    pt3: pt, Required
+    pt3: pt, required
         Coordinate of the third point
-    error: float, Optional, default as CONST_EPSILON
+    error: float, optional, default as CONST_EPSILON
         Error tolerance
 
     Return
@@ -86,11 +81,11 @@ def isPtOnLine(pt: pt, line: line, error: float = CONST_EPSILON) -> bool:
 
     Parameters
     ----------
-    pt: pt, Required
+    pt: pt, required
         Coordinate of the point
-    line: line, Required
+    line: line, required
         Two coordinates to form a line
-    error: float, Optional, default as CONST_EPSILON
+    error: float, optional, default as CONST_EPSILON
         Error tolerance
 
     Return
@@ -112,13 +107,13 @@ def isPtOnSeg(pt: pt, seg: line, interiorOnly: bool=False, error:float = CONST_E
 
     Parameters
     ----------
-    pt: pt, Required
+    pt: pt, required
         Coordinate of the point
-    segment: line, Required
+    segment: line, required
         Two coordinates to form a line segment
-    interiorOnly: bool, Optional, default as False
+    interiorOnly: bool, optional, default as False
         True if only consider intersecting in the interior
-    error: float, Optional, default as CONST_EPSILON
+    error: float, optional, default as CONST_EPSILON
         Error tolerance
 
     Return
@@ -151,13 +146,13 @@ def isPtOnRay(pt: pt, ray: line, interiorOnly: bool=False, error = CONST_EPSILON
 
     Parameters
     ----------
-    pt: pt, Required
+    pt: pt, required
         Coordinate of the point
-    segment: line, Required
+    segment: line, required
         Two coordinates to form a line segment
-    interiorOnly: bool, Optional, default as False
+    interiorOnly: bool, optional, default as False
         True if only consider intersecting in the interior
-    error: float, Optional, default as CONST_EPSILON
+    error: float, optional, default as CONST_EPSILON
         Error tolerance
 
     Return
@@ -190,11 +185,11 @@ def isPtOnPolyEdge(pt: pt, poly: poly, error: float = CONST_EPSILON) -> bool:
 
     Parameters
     ----------
-    pt: pt, Required
+    pt: pt, required
         Coordinate of the point
-    poly: poly, Required
+    poly: poly, required
         The polygon
-    error: float, Optional, default as CONST_EPSILON
+    error: float, optional, default as CONST_EPSILON
         Error tolerance
 
     Return
@@ -216,13 +211,13 @@ def isPtInPoly(pt: pt, poly: poly, interiorOnly: bool=False, error: float = CONS
 
     Parameters
     ----------
-    pt: pt, Required
+    pt: pt, required
         Coordinate of the point
-    poly: poly, Required
+    poly: poly, required
         The polygon
-    interiorOnly: bool, Optional, default as False
+    interiorOnly: bool, optional, default as False
         True if only consider intersecting in the interior
-    error: float, Optional, default as CONST_EPSILON
+    error: float, optional, default as CONST_EPSILON
         Error tolerance
 
     Return
@@ -261,7 +256,7 @@ def rayPerp2Line(pt: pt, line: line) -> line:
 
     Parameters
     ----------
-    pt: pt, Required
+    pt: pt, required
         The point where the ray will go through
     line: line Required
         The line which the ray is perpendicular to
@@ -297,7 +292,7 @@ def ptFoot2Line(pt: pt, line: line) -> pt:
 
     Parameters
     ----------
-    pt: pt, Required
+    pt: pt, required
         The point where the foot will go through
     line: line Required
         The line which the foot is perpendicular to
@@ -321,9 +316,9 @@ def intLine2Line(line1: line, line2: line) -> dict:
 
     Parameters
     ----------
-    line1: line, Required
+    line1: line, required
         The first line
-    line2: line, Required
+    line2: line, required
         The second line
 
     Return
@@ -390,9 +385,9 @@ def intLine2Seg(line: line, seg: line) -> dict:
 
     Parameters
     ----------
-    line: line, Required
+    line: line, required
         The first line
-    segment: line, Required
+    segment: line, required
         The second line segment
 
     Return
@@ -455,9 +450,9 @@ def intLine2Ray(line: line, ray: line) -> dict:
 
     Parameters
     ----------
-    line: line, Required
+    line: line, required
         The first line
-    ray: line, Required
+    ray: line, required
         The second ray
 
     Return
@@ -520,9 +515,9 @@ def intSeg2Line(seg: line, line: line) -> dict:
 
     Parameters
     ----------
-    seg: line, Required
+    seg: line, required
         The first line segment
-    line: line, Required
+    line: line, required
         The second line
 
     Return
@@ -543,9 +538,9 @@ def intSeg2Seg(seg1: line, seg2: line) -> dict:
 
     Parameters
     ----------
-    seg1: line, Required
+    seg1: line, required
         The first line segment
-    seg2: line, Required
+    seg2: line, required
         The second line segment
 
     Return
@@ -708,9 +703,9 @@ def intSeg2Ray(seg: line, ray: line) -> dict:
 
     Parameters
     ----------
-    line: line, Required
+    line: line, required
         The first line
-    ray: line, Required
+    ray: line, required
         The second line
 
     Return
@@ -825,9 +820,9 @@ def intRay2Line(ray: line, line: line) -> dict:
 
     Parameters
     ----------
-    ray: line, Required
+    ray: line, required
         The first line
-    line: line, Required
+    line: line, required
         The second line
 
     Return
@@ -848,9 +843,9 @@ def intRay2Seg(ray: line, seg: line) -> dict:
 
     Parameters
     ----------
-    ray: line, Required
+    ray: line, required
         The first line
-    segment: line, Required
+    segment: line, required
         The second line
 
     Return
@@ -871,9 +866,9 @@ def intRay2Ray(ray1: line, ray2: line) -> dict:
 
     Parameters
     ----------
-    ray1: line, Required
+    ray1: line, required
         The first line
-    ray2: line, Required
+    ray2: line, required
         The second line
 
     Return
@@ -978,9 +973,9 @@ def isLineIntLine(line1: line, line2: line) -> bool:
 
     Parameters
     ----------
-    line1: line, Required
+    line1: line, required
         The first line
-    line2: line, Required
+    line2: line, required
         The second line
 
     Return
@@ -1000,11 +995,11 @@ def isLineIntSeg(line: line, seg: line, interiorOnly:bool=False) -> bool:
 
     Parameters
     ----------
-    line: line, Required
+    line: line, required
         The first line
-    seg: line, Required
+    seg: line, required
         The second line segment
-    interiorOnly: bool, Optional, default as False
+    interiorOnly: bool, optional, default as False
         True if only consider intersecting in the interior
 
     Return
@@ -1029,11 +1024,11 @@ def isLineIntRay(line: line, ray: line, interiorOnly: bool=False) -> bool:
 
     Parameters
     ----------
-    line: line, Required
+    line: line, required
         The first line
-    ray: line, Required
+    ray: line, required
         The second ray
-    interiorOnly: bool, Optional, default as False
+    interiorOnly: bool, optional, default as False
         True if only consider intersecting in the interior
 
     Return
@@ -1058,11 +1053,11 @@ def isSegIntLine(seg: line, line: line, interiorOnly: bool=False) -> bool:
 
     Parameters
     ----------
-    seg: line, Required
+    seg: line, required
         The first line segment
-    line: line, Required
+    line: line, required
         The second line
-    interiorOnly: bool, Optional, default as False
+    interiorOnly: bool, optional, default as False
         True if only consider intersecting in the interior
         
     Return
@@ -1078,11 +1073,11 @@ def isSegIntSeg(seg1: line, seg2: line, interiorOnly: bool=False) -> bool:
 
     Parameters
     ----------
-    seg1: line, Required
+    seg1: line, required
         The first line segment
-    seg2: line, Required
+    seg2: line, required
         The second line
-    interiorOnly: bool, Optional, default as False
+    interiorOnly: bool, optional, default as False
         True if only consider intersecting in the interior
         
     Return
@@ -1107,11 +1102,11 @@ def isSegIntRay(seg: line, ray: line, interiorOnly: bool=False) -> bool:
 
     Parameters
     ----------
-    seg: line, Required
+    seg: line, required
         The first line segment
-    ray: line, Required
+    ray: line, required
         The second line
-    interiorOnly: bool, Optional, default as False
+    interiorOnly: bool, optional, default as False
         True if only consider intersecting in the interior
         
     Return
@@ -1136,9 +1131,9 @@ def isSegIntBoundingbox(seg: line, boundingBox: list) -> bool:
 
     Parameters
     ----------
-    seg: line, Required
+    seg: line, required
         The first line segment
-    boundingBox: list, Required
+    boundingBox: list, required
         A list, in the following format: [minX, maxX, minY, maxY]
         
     Return
@@ -1181,11 +1176,11 @@ def isRayIntLine(ray: line, line: line, interiorOnly: bool=False) -> bool:
 
     Parameters
     ----------
-    ray: line, Required
+    ray: line, required
         The first line segment
-    line: line, Required
+    line: line, required
         The second line
-    interiorOnly: bool, Optional, default as False
+    interiorOnly: bool, optional, default as False
         True if only consider intersecting in the interior
         
     Return
@@ -1201,11 +1196,11 @@ def isRayIntSeg(ray: line, seg: line, interiorOnly: bool=False) -> bool:
 
     Parameters
     ----------
-    ray: line, Required
+    ray: line, required
         The first line segment
-    seg: line, Required
+    seg: line, required
         The second line
-    interiorOnly: bool, Optional, default as False
+    interiorOnly: bool, optional, default as False
         True if only consider intersecting in the interior
         
     Return
@@ -1221,11 +1216,11 @@ def isRayIntRay(ray1: line, ray2: line, interiorOnly: bool=False) -> bool:
 
     Parameters
     ----------
-    ray1: line, Required
+    ray1: line, required
         The first line segment
-    ray2: line, Required
+    ray2: line, required
         The second line
-    interiorOnly: bool, Optional, default as False
+    interiorOnly: bool, optional, default as False
         True if only consider intersecting in the interior
         
     Return
@@ -1251,13 +1246,13 @@ def intLine2Poly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None,
 
     Parameters
     ----------
-    line: line, Required
+    line: line, required
         The first line
-    poly: poly, Optional, default as None
+    poly: poly, optional, default as None
         The second polygon
-    polyShapely: shapely.Polygon, Optional, default as None
+    polyShapely: shapely.Polygon, optional, default as None
         The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
-    returnShaplelyObj: bool, Optional, default as False
+    returnShaplelyObj: bool, optional, default as False
         True if alter the result to be a shapely object        
 
     Return
@@ -1292,13 +1287,13 @@ def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, r
 
     Parameters
     ----------
-    seg: line, Required
+    seg: line, required
         The first line segment
-    poly: poly, Optional, default as None
+    poly: poly, optional, default as None
         The second polygon
-    polyShapely: shapely.Polygon, Optional, default as None
+    polyShapely: shapely.Polygon, optional, default as None
         The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
-    returnShaplelyObj: bool, Optional, default as False
+    returnShaplelyObj: bool, optional, default as False
         True if alter the result to be a shapely object        
 
     Return
@@ -1433,13 +1428,13 @@ def intRay2Poly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, r
 
     Parameters
     ----------
-    ray: line, Required
+    ray: line, required
         The first ray
-    poly: poly, Optional, default as None
+    poly: poly, optional, default as None
         The second polygon
-    polyShapely: shapely.Polygon, Optional, default as None
+    polyShapely: shapely.Polygon, optional, default as None
         The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
-    returnShaplelyObj: bool, Optional, default as False
+    returnShaplelyObj: bool, optional, default as False
         True if alter the result to be a shapely object        
 
     Return
@@ -1495,13 +1490,13 @@ def intSeq2Poly(seq: list[pt], poly: poly, seqShapely: shapely.LineString=None, 
 
     Parameters
     ----------
-    seq: list of pt, Required
+    seq: list of pt, required
         The first sequence of points
-    poly: poly, Optional, default as None
+    poly: poly, optional, default as None
         The second polygon
-    polyShapely: shapely.Polygon, Optional, default as None
+    polyShapely: shapely.Polygon, optional, default as None
         The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
-    returnShaplelyObj: bool, Optional, default as False
+    returnShaplelyObj: bool, optional, default as False
         True if alter the result to be a shapely object        
 
     Return
@@ -1582,13 +1577,13 @@ def isLineIntPoly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None
 
     Parameters
     ----------
-    line: line, Required
+    line: line, required
         The first line
-    poly: poly, Optional, default as None
+    poly: poly, optional, default as None
         The second polygon
-    polyShapely: shapely.Polygon, Optional, default as None
+    polyShapely: shapely.Polygon, optional, default as None
         The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
-    returnShaplelyObj: bool, Optional, default as False
+    returnShaplelyObj: bool, optional, default as False
         True if alter the result to be a shapely object        
 
     Return
@@ -1615,13 +1610,13 @@ def isSegIntPoly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, 
 
     Parameters
     ----------
-    seg: line, Required
+    seg: line, required
         The first line
-    poly: poly, Optional, default as None
+    poly: poly, optional, default as None
         The second polygon
-    polyShapely: shapely.Polygon, Optional, default as None
+    polyShapely: shapely.Polygon, optional, default as None
         The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
-    returnShaplelyObj: bool, Optional, default as False
+    returnShaplelyObj: bool, optional, default as False
         True if alter the result to be a shapely object        
 
     Return
@@ -1652,13 +1647,13 @@ def isRayIntPoly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, 
 
     Parameters
     ----------
-    ray: line, Required
+    ray: line, required
         The first line
-    poly: poly, Optional, default as None
+    poly: poly, optional, default as None
         The second polygon
-    polyShapely: shapely.Polygon, Optional, default as None
+    polyShapely: shapely.Polygon, optional, default as None
         The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
-    returnShaplelyObj: bool, Optional, default as False
+    returnShaplelyObj: bool, optional, default as False
         True if alter the result to be a shapely object        
 
     Return
@@ -1687,13 +1682,13 @@ def intPoly2Poly(poly1: poly=None, poly2: poly=None, poly1Shapely: shapely.Polyg
 
     Parameters
     ----------
-    poly1: poly, Optional, default as None
+    poly1: poly, optional, default as None
         The first polygon
-    poly2: poly, Optional, default as None
+    poly2: poly, optional, default as None
         The second polygon
-    poly1Shapely: shapely.Polygon, Optional, default as None
+    poly1Shapely: shapely.Polygon, optional, default as None
         The correspond shapely object for the first polygon. Need to provide one of the following fields: [`poly1`, `poly1Shapely`]
-    poly2Shapely: shapely.Polygon, Optional, default as None
+    poly2Shapely: shapely.Polygon, optional, default as None
         The correspond shapely object for the second polygon. Need to provide one of the following fields: [`poly2`, `poly2Shapely`]
 
     Return
@@ -1783,13 +1778,13 @@ def isPolyIntPoly(poly1: poly=None, poly2: poly=None, poly1Shapely: shapely.Poly
 
     Parameters
     ----------
-    poly1: poly, Optional, default as None
+    poly1: poly, optional, default as None
         The first polygon
-    poly2: poly, Optional, default as None
+    poly2: poly, optional, default as None
         The second polygon
-    poly1Shapely: shapely.Polygon, Optional, default as None
+    poly1Shapely: shapely.Polygon, optional, default as None
         The correspond shapely object for the first polygon. Need to provide one of the following fields: [`poly1`, `poly1Shapely`]
-    poly2Shapely: shapely.Polygon, Optional, default as None
+    poly2Shapely: shapely.Polygon, optional, default as None
         The correspond shapely object for the second polygon. Need to provide one of the following fields: [`poly2`, `poly2Shapely`]
 
     Return
@@ -1823,9 +1818,9 @@ def distPt2Line(pt: pt, line: line) -> float:
 
     Parameters
     ----------
-    pt: pt, Required
+    pt: pt, required
         The point
-    line: line, Required
+    line: line, required
         The line
 
     Return
@@ -1846,9 +1841,9 @@ def distPt2Seg(pt: pt, seg: line) -> float:
 
     Parameters
     ----------
-    pt: pt, Required
+    pt: pt, required
         The point
-    seg: line, Required
+    seg: line, required
         The line segment
 
     Return
@@ -1870,9 +1865,9 @@ def distPt2Ray(pt: pt, ray: line) -> float:
 
     Parameters
     ----------
-    pt: pt, Required
+    pt: pt, required
         The point
-    ray: line, Required
+    ray: line, required
         The ray
 
     Return
@@ -1894,9 +1889,9 @@ def distPt2Seq(pt: pt, seq: list[pt]) -> float:
 
     Parameters
     ----------
-    pt: pt, Required
+    pt: pt, required
         The point
-    seq: list of pt, Required
+    seq: list of pt, required
         A sequence of points
 
     Return
@@ -1928,11 +1923,11 @@ def distPt2Poly(pt: pt, poly: poly=None, polyShapely: shapely.Polygon=None) -> f
 
     Parameters
     ----------
-    pt: pt, Required
+    pt: pt, required
         The point
-    poly: poly, Optional, default as None
+    poly: poly, optional, default as None
         The polygon
-    polyShapely: shapely.Polygon, Optional, default as None
+    polyShapely: shapely.Polygon, optional, default as None
         The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
 
     Return
@@ -1956,11 +1951,11 @@ def nearestPtLine2Poly(line: line, poly: poly=None, polyShapely: shapely.Polygon
 
     Parameters
     ----------
-    line: line, Required
+    line: line, required
         The line
-    poly: poly, Optional, default as None
+    poly: poly, optional, default as None
         The polygon
-    polyShapely: shapely.Polygon, Optional, default as None
+    polyShapely: shapely.Polygon, optional, default as None
         The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
 
     Return
@@ -1993,7 +1988,7 @@ def vecPolar2XY(vecPolar: pt) -> pt:
 
     Parameters
     ----------
-    vecPolar: tuple[float|int, float|int], Required
+    vecPolar: tuple[float|int, float|int], required
         A 2-tuple (vVal, vDeg), `vVal` is the norm and `vDeg` is the direction, 0 as North, clockwise, in [0, 360)
 
     Returns
@@ -2074,7 +2069,7 @@ def ptXY2LatLonMercator(ptXY: pt) -> pt:
 
     Parameters
     ----------
-    ptXY: pt, Required
+    ptXY: pt, required
         The coordinate in (x, y)
 
     Return
@@ -2097,7 +2092,7 @@ def ptLatLon2XYMercator(ptLatLon: pt) -> pt:
 
     Parameters
     ----------
-    ptLatLon: pt, Require
+    ptLatLon: pt, required
         The coordinate in (lat, lon)
 
     Return
@@ -2116,7 +2111,23 @@ def ptLatLon2XYMercator(ptLatLon: pt) -> pt:
 
 # Polys =======================================================================
 def polysUnion(polys:polys=None, polysShapely:list[shapely.Polygon]=None, returnShaplelyObj:bool=False) -> list:
-    """Given a list of polygons which could be intersecting to each other, return unioned polygons that are not intersecting"""
+    """
+    Given a list of polygons which could be intersecting to each other, return unioned polygons that are not intersecting
+
+    Parameters
+    ----------
+    polys: poly, optional, default as None
+        A list of polygons
+    polysShapely: shapely.Polygon, optional, default as None
+        The correspond shapely objects for polygons. Need to provide one of the following fields: [`polys`, `polysShapely`]
+    returnShaplelyObj: bool, optional, default as False
+        True if alter the result to be a shapely object
+
+    Return
+    ------
+    list of polys
+        A list of polygons
+    """
     if (polys == None and polysShapely == None):
         raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
     if (polysShapely == None):
@@ -2140,6 +2151,29 @@ def polysUnion(polys:polys=None, polysShapely:list[shapely.Polygon]=None, return
     return unionPolys
 
 def polysSubtract(polys:polys=None, polysShapely:list[shapely.Polygon]=None, subPolys:polys=None, subPolysShapely: list[shapely.Polygon]=None, returnShaplelyObj:bool=False) -> list:
+    """
+    Given a list of polygons, subtract a list of polygon from the first list of polygons
+
+    Parameters
+    ----------
+    polys: poly, optional, default as None
+        A list of polygons
+    polysShapely: shapely.Polygon, optional, default as None
+        The correspond shapely objects for polygons. Need to provide one of the following fields: [`polys`, `polysShapely`]
+    subPolys: poly, optional, default as None
+        A list of polygons to substract
+    subPolysShapely: shapely.Polygon, optional, default as None
+        The correspond shapely objects for polygons. Need to provide one of the following fields: [`subPolys`, `subPolysShapely`]    
+
+    returnShaplelyObj: bool, optional, default as False
+        True if alter the result to be a shapely object
+
+    Return
+    ------
+    list of polys
+        A list of polygons
+    """
+
     if (polys == None and polysShapely == None):
         raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
     if (subPolys == None and subPolysShapely == None):
@@ -2173,6 +2207,24 @@ def polysSubtract(polys:polys=None, polysShapely:list[shapely.Polygon]=None, sub
     return diffPolys
 
 def polysIntersect(polys: polys=None, polysShapely:list[shapely.Polygon]=None, returnShaplelyObj:bool=False) -> list:
+    """
+    Given a list of polygons which could be intersecting to each other, return the intersecting polygons
+
+    Parameters
+    ----------
+    polys: poly, optional, default as None
+        A list of polygons
+    polysShapely: shapely.Polygon, optional, default as None
+        The correspond shapely objects for polygons. Need to provide one of the following fields: [`polys`, `polysShapely`]
+    returnShaplelyObj: bool, optional, default as False
+        True if alter the result to be a shapely object
+
+    Return
+    ------
+    list of polys
+        A list of polygons
+    """
+
     if (polys == None and polysShapely == None):
         raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
     if (polysShapely == None):
@@ -3167,7 +3219,54 @@ def nodesInIsochrone(nodes: dict, nodeIDs: list|str = 'All', locFieldName = 'loc
     }
 
 # Create distance matrix ======================================================
-def matrixDist(nodes: dict, nodeIDs: list|str = 'All', edges: str = 'Euclidean', locFieldName: str = 'loc', **kwargs) -> dict:
+def matrixDist(nodes: dict, locFieldName: str = 'loc', nodeIDs: list|str = 'All', edges: str = 'Euclidean', **kwargs) -> dict:
+    """
+    Given a `nodes` dictionary, returns the traveling matrix between nodes
+
+    Parameters
+    ----------
+
+    nodes: dict, required
+        A `nodes` dictionary with location information
+    locFieldName: str, optional, default as 'loc'
+        The key in nodes dictionary to indicate the locations
+    nodeIDs: list of int|str, or 'All', optional, default as 'All'
+        A list of nodes in `nodes` that needs to be considered, other nodes will be ignored
+    edges: str, optional, default as 'Euclidean'
+        The methods for the calculation of distances between nodes. Options and required additional information are as follows:
+
+        1) (default) 'Euclidean', using Euclidean distance, no additional information needed
+        2) 'EuclideanBarrier', using Euclidean distance, if `polys` is provided, the path between nodes will consider them as barriers and by pass those areas.
+            - polys: list of poly, the polygons to be considered as barriers
+        3) 'LatLon', calculate distances by lat/lon, no additional information needed
+        4) 'ManhattenXY', calculate distance by Manhatten distance
+            - distUnit: str, the unit of distance, default as 'meter'
+        5) 'Dictionary', directly provide the travel matrix
+            - tau: the traveling matrix
+        6) 'Grid', traveling on a grid with barriers, usually used in warehouses
+            - column: number of columns
+            - row: number of rows
+            - barrier: a list of coordinates on the grid indicating no-entrance
+    **kwargs: optional
+        Provide additional inputs for different `edges` options
+
+    Returns
+    -------
+
+    tuple
+        Two dictionaries, the first one is the travel matrix, the second one is the dictionary for path between start and end locations (useful for 'EuclideanBarrier')
+            >>> dist = {
+            ...     (i, j) = 100, # distance between i and j
+            ...     ..., 
+            ... }
+            >>> path = {
+            ...     (i, j) = [pt1, ...], # path between i and j
+            ...     ..., 
+            ... }
+
+    """
+
+
     # Define tau
     tau = {}
     pathLoc = {}
@@ -3613,7 +3712,7 @@ def distLatLon(pt1: pt, pt2: pt, distUnit: str = 'meter') -> dict:
         'path': [pt1, pt2]
     }
 
-def distOnGrid(pt1: pt, pt2: pt, grid: dict, algo: str = 'A*', **kwargs) -> dict:
+def distOnGrid(pt1: pt, pt2: pt, column, row, barriers = [], algo: str = 'A*', **kwargs) -> dict:
     """Given two coordinates on the grid, finds the 'shortest' path to travel
 
     Parameters
@@ -3630,7 +3729,7 @@ def distOnGrid(pt1: pt, pt2: pt, grid: dict, algo: str = 'A*', **kwargs) -> dict
         Starting location on the grid
     pt2: 2-tuple|2-list, required
         Ending location on the grid 
-    algo: dictionary, required, default as {'method': 'A*', 'distMeasure': 'Manhatten'}
+    algo: dict, required, default as {'method': 'A*', 'distMeasure': 'Manhatten'}
         The algorithm configuration. For example
         1) A*
             >>> algo = {
@@ -3640,7 +3739,7 @@ def distOnGrid(pt1: pt, pt2: pt, grid: dict, algo: str = 'A*', **kwargs) -> dict
 
     Returns
     -------
-    dictionary
+    dict
         A path on the given grid, in the following formatt::
             >>> res = {
             ...     'dist': dist,
@@ -4092,13 +4191,13 @@ def poly2PolyPath(startPt: pt, endPt: pt, polys: polys = None, algo: str = 'SOCP
 
     Parameters
     ----------
-    startPt: pt, Required, default None
+    startPt: pt, required, default None
         The coordinate which starts the path.
-    endPt: pt, Required, default None
+    endPt: pt, required, default None
         The coordinate which ends the path.
-    polys: polys, Required, default None
+    polys: polys, required, default None
         A list of polys to be visited in given sequence
-    method: dict, Required, default {'shape': 'Poly', 'barriers': None, 'errTol': CONST_EPSILON}
+    method: dict, required, default {'shape': 'Poly', 'barriers': None, 'errTol': CONST_EPSILON}
         A dictionary to indicate the subroutine to be used. Options includes
             1) Between polygons using heuristics
                 >>> method = {
@@ -4138,9 +4237,21 @@ def poly2PolyPath(startPt: pt, endPt: pt, polys: polys = None, algo: str = 'SOCP
         outputFlag = method['outputFlag']
 
     if (algo == 'AdaptIter'):
-        res = _poly2PolyPathAdaptIter(startPt, endPt, polys, **kwargs)
+        errTol = CONST_EPSILON
+        if ('errTol' in kwargs):
+            errTol = kwargs['errTol']
+        res = _poly2PolyPathAdaptIter(startPt, endPt, polys, errTol)
     elif (algo == 'SOCP' and 'solver' == 'Gurobi'):
-        res = _poly2PolyPathGurobi(startPt, endPt, polys, **kwargs)
+        outputFlag = False
+        if ('outputFlag' in kwargs):
+            outputFlag = kwargs['outputFlag']
+        gapTol = None
+        if ('gapTol' in kwargs):
+            gapTol = kwargs['gapTol']
+        timeLimit = None
+        if ('timeLimit' in kwargs):
+            timeLimit = kwargs['timeLimit']
+        res = _poly2PolyPathGurobi(startPt, endPt, polys, outputFlag, gapTol, timeLimit)
     else:
         raise UnsupportedInputError("ERROR: Not support by vrpSolver for now.")
 
@@ -4304,7 +4415,14 @@ def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, errTol = CONST
     }
 
 def _poly2PolyPathGurobi(startPt: pt, endPt: pt, polys: polys,  outputFlag = False, gapTol = None, timeLimit = None):
-    return _seg2SegPathGurobi(startPt, endPt, polys, closedFlag = True, outputFlag, gapTol, timeLimit)
+    return _seg2SegPathGurobi(
+        startPt = startPt, 
+        endPt = endPt, 
+        segs = polys, 
+        closedFlag = True, 
+        outputFlag = outputFlag, 
+        gapTol = gapTol, 
+        timeLimit = timeLimit)
 
 def _seg2SegPathGurobi(startPt: pt, endPt: pt, segs, closedFlag = False, outputFlag = False, gapTol = None, timeLimit = None):
     try:
@@ -4314,7 +4432,7 @@ def _seg2SegPathGurobi(startPt: pt, endPt: pt, segs, closedFlag = False, outputF
         return
 
     model = grb.Model("SOCP")
-    model.setParam('OutputFlag', 0 if outputFlag = False else 1)
+    model.setParam('OutputFlag', 0 if outputFlag == False else 1)
 
     if (gapTol != None):
         model.setParam('MIPGap', gapTol)
