@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>vrpSolver.tsp &#8212; vrpSolver 0.0.56 documentation</title>
-    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=649a27d8" />
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b849a4e9" />
     <link rel="stylesheet" type="text/css" href="../../_static/sphinxdoc.css?v=87629129" />
     <script src="../../_static/documentation_options.js?v=8f83b1af"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
@@ -50,10 +50,10 @@
     <span class="n">locFieldName</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">,</span>
     <span class="n">depotID</span><span class="p">:</span> <span class="nb">int</span><span class="o">|</span><span class="nb">str</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
     <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="o">|</span><span class="nb">str</span><span class="p">]</span><span class="o">|</span><span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;All&#39;</span><span class="p">,</span>
-    <span class="n">serviceTime</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
-    <span class="n">predefinedArcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="o">|</span><span class="nb">str</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">[],</span>
     <span class="n">vehicles</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;speed&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">}},</span>
     <span class="n">vehicleID</span><span class="p">:</span> <span class="nb">int</span><span class="o">|</span><span class="nb">str</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="n">serviceTime</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="n">predefinedArcs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">int</span><span class="o">|</span><span class="nb">str</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">[],</span>
     <span class="n">edges</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Euclidean&#39;</span><span class="p">,</span>
     <span class="n">algo</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;IP&#39;</span><span class="p">,</span>
     <span class="n">detailsFlag</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
@@ -62,23 +62,58 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 
 
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Use MIP/Heuristic/Metaheuristic to find optimal/suboptimal TSP solution</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Use MIP/Heuristic to find optimal/sub-optimal TSP solution</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 
 <span class="sd">    nodes: dict, required</span>
-<span class="sd">        The coordinates of given nodes.</span>
+<span class="sd">        The `nodes` dictionary, with coordinates of given nodes. See :ref:`nodes`</span>
 <span class="sd">    locFieldName: str, optional, default as &#39;loc&#39;</span>
 <span class="sd">        The key value in `nodes` indicating the location of each node.</span>
 <span class="sd">    depotID: int|string, optional, default as 0</span>
-<span class="sd">        The ID of depot.</span>
+<span class="sd">        The node ID of the depot.</span>
 <span class="sd">    nodeIDs: string &#39;All&#39; or a list of node IDs, optional, default as &#39;All&#39;</span>
 <span class="sd">        The following are two options: 1) &#39;All&#39;, all nodes will be visited, 2) A list of node IDs to be visited.</span>
+<span class="sd">    vehicles: dict, optional, default as {0: {&#39;speed&#39;: 1}}</span>
+<span class="sd">        The vehicle information, since the TSP optimizes route for one vehicle, only the first vehicle with `vehicleID` will be considered. The speed of vehicle needs to be specified.</span>
+<span class="sd">    vehicleID: int|str, optional, default as 0</span>
+<span class="sd">        The vehicle that takes the TSP route in `vehicles`.</span>
 <span class="sd">    serviceTime: float, optional, default as 0</span>
-<span class="sd">        The service time needed at each location.</span>
+<span class="sd">        The service time needed at each location. If `serviceTime` is provided in `nodes`, it will be ignored.</span>
+<span class="sd">    predefinedArcs: list of nodeID pairs, optional, default as []</span>
+<span class="sd">        In some cases, some of the arcs are predefined, they will be modeled as additional constraints.</span>
 <span class="sd">    edges: string, optional, default as &#39;Euclidean&#39;</span>
 <span class="sd">        The methods for the calculation of distances between nodes. Options and required additional information are referred to :func:`~vrpSolver.geometry.matrixDist()`.</span>
+<span class="sd">    algo: string, optional, default as &#39;IP&#39;</span>
+<span class="sd">        Select the algorithm for calculating TSP. Options and required additional inputs are as follows:</span>
+<span class="sd">        </span>
+<span class="sd">        1) (default) &#39;IP&#39;, use (Mixed) Integer Programming to solve TSP. Needs commercial solver such as Gurobi and COPT.</span>
+<span class="sd">            - solver: str, supports &#39;Gurobi&#39; and &#39;COPT&#39;.</span>
+<span class="sd">            - fml: str, choose formulation of TSP:</span>
+<span class="sd">                - if use &#39;Gurobi&#39; as solver, fml supports the following options: [&#39;DFJ_Lazy&#39;, &#39;DFJ_Plainloop&#39;, &#39;MTZ&#39;, &#39;ShortestPath&#39;, &#39;MultiCommodityFlow&#39;, &#39;QAP&#39;]. In fact, &#39;DFJ_Lazy&#39; will be faster than all other formulations, implementation of different formulation is for education purpose.</span>
+<span class="sd">                - if use &#39;COPT&#39; as solver, fml supports &#39;DFJ_Lazy&#39;.</span>
+<span class="sd">            - timeLimit: int|float, additional stopping criteria</span>
+<span class="sd">            - gapTolerance: int|float, additional stopping criteria</span>
+<span class="sd">            - outputFlag: bool, True if turn on the log output from solver. Default to be False</span>
+<span class="sd">        2) &#39;Heuristic&#39;, use different 2-phase heuristic methods to solve TSP to sub-optimal. </span>
+<span class="sd">            - cons: str, choose a construction heuristic to find a feasible TSP solution, options and addition inputs needed are as follows:</span>
+<span class="sd">                - cons = &#39;Initial&#39;, use a given initial solution, requires the following information:</span>
+<span class="sd">                    - initSeq: a list of node IDs</span>
+<span class="sd">                - cons = &#39;Insertion&#39;, in each iteration, insert a node into the existing route, which has the minimal cost.</span>
+<span class="sd">                - cons = &#39;RandomInsertion&#39;, in each iteration, randomly insert a not that has not yet been inserted to the route.</span>
+<span class="sd">                - cons = &#39;NearestNeighbor&#39;, in each iteration, find the (k-)nearest node to the end of existing route and add it to the route.</span>
+<span class="sd">                    - k: the k-th nearest neighbor, default to be 1</span>
+<span class="sd">                - cons = &#39;Sweep&#39;, sweep all nodes clock-wise (or counter-clock-wise) and add the node to the route one by one.</span>
+<span class="sd">                - cons = &#39;Christofides&#39;, use Christofides algorithm</span>
+<span class="sd">                - cons = &#39;CycleCover&#39;, use CycleCover algorithm, particularly design for Asymmetric TSP</span>
+<span class="sd">                - cons = &#39;Random&#39;, randomly create a feasible route</span>
+<span class="sd">            - impv: str, choose the local improvement heuristic to improve the existing feasible route</span>
+<span class="sd">                - impv = &#39;2Opt&#39;, use the 2-opt algorithm</span>
+<span class="sd">    detailsFlag: bool, optional, default as False</span>
+<span class="sd">        If True, an additional field `vehicle` will be added into the solution, which can be used for animation. See :func:`~vrpSolver.plot.aniRouting()`.</span>
+<span class="sd">    **kwargs: optional</span>
+<span class="sd">        Provide additional inputs for different `edges` options and `algo` options</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
@@ -209,7 +244,16 @@
     <span class="n">tsp</span><span class="p">[</span><span class="s1">&#39;seq&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">nodeSeq</span>
 
     <span class="c1"># Add service time if provided ============================================</span>
-    <span class="n">ofv</span> <span class="o">=</span> <span class="n">tsp</span><span class="p">[</span><span class="s1">&#39;ofv&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">nodeIDs</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">serviceTime</span>
+    <span class="n">hasServiceTimeInfoFlag</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">sumServiceTime</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;serviceTime&#39;</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">]):</span>
+            <span class="n">sumServiceTime</span> <span class="o">+=</span> <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="s1">&#39;serviceTime&#39;</span><span class="p">]</span>
+            <span class="n">hasServiceTimeInfoFlag</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">hasServiceTimeInfoFlag</span><span class="p">):</span>
+        <span class="n">ofv</span> <span class="o">=</span> <span class="n">tsp</span><span class="p">[</span><span class="s1">&#39;ofv&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">nodeIDs</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">serviceTime</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ofv</span> <span class="o">=</span> <span class="n">tsp</span><span class="p">[</span><span class="s1">&#39;ofv&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="n">sumServiceTime</span>
 
     <span class="c1"># Post optimization (for detail information) ==============================</span>
     <span class="k">if</span> <span class="p">(</span><span class="n">detailsFlag</span><span class="p">):</span>
@@ -237,7 +281,10 @@
                     <span class="n">curLoc</span> <span class="o">=</span> <span class="n">shapepointsInBtw</span><span class="p">[</span><span class="n">j</span><span class="p">]</span>
                     <span class="n">timedSeq</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">curLoc</span><span class="p">,</span> <span class="n">curTime</span><span class="p">))</span>
             <span class="c1"># 如果有service time，则加上一段在原处等待的时间</span>
-            <span class="k">if</span> <span class="p">(</span><span class="n">serviceTime</span> <span class="o">!=</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">serviceTime</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;serviceTime&#39;</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">[</span><span class="n">nodeSeq</span><span class="p">[</span><span class="n">i</span><span class="p">]]):</span>
+                <span class="n">curTime</span> <span class="o">+=</span> <span class="n">nodes</span><span class="p">[</span><span class="n">nodeSeq</span><span class="p">[</span><span class="n">i</span><span class="p">]][</span><span class="s1">&#39;serviceTime&#39;</span><span class="p">]</span>
+                <span class="n">timedSeq</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">curLoc</span><span class="p">,</span> <span class="n">curTime</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="p">(</span><span class="n">serviceTime</span> <span class="o">!=</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">serviceTime</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
                 <span class="n">curTime</span> <span class="o">+=</span> <span class="n">serviceTime</span>
                 <span class="c1"># curLoc = curLoc</span>
                 <span class="n">timedSeq</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">curLoc</span><span class="p">,</span> <span class="n">curTime</span><span class="p">))</span>
@@ -269,6 +316,7 @@
         <span class="n">res</span><span class="p">[</span><span class="s1">&#39;upperBound&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tsp</span><span class="p">[</span><span class="s1">&#39;upperBound&#39;</span><span class="p">]</span>
         <span class="n">res</span><span class="p">[</span><span class="s1">&#39;runtime&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">tsp</span><span class="p">[</span><span class="s1">&#39;runtime&#39;</span><span class="p">]</span>    
     <span class="k">if</span> <span class="p">(</span><span class="n">metaFlag</span><span class="p">):</span>
+        <span class="n">res</span><span class="p">[</span><span class="s1">&#39;algo&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">algo</span>
         <span class="n">res</span><span class="p">[</span><span class="s1">&#39;serviceTime&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">serviceTime</span>
     <span class="k">if</span> <span class="p">(</span><span class="n">detailsFlag</span><span class="p">):</span>
         <span class="n">res</span><span class="p">[</span><span class="s1">&#39;vehicles&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">vehicles</span>
@@ -1035,103 +1083,6 @@
     <span class="p">}</span>
 
 <span class="k">def</span> <span class="nf">_heuTSP</span><span class="p">(</span><span class="n">nodeObj</span><span class="p">,</span> <span class="n">tau</span><span class="p">,</span> <span class="n">depotID</span><span class="p">,</span> <span class="n">nodeIDs</span><span class="p">,</span> <span class="n">asymFlag</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="o">|</span><span class="kc">None</span><span class="p">:</span>
-
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Use heuristic kwargss to find suboptimal TSP solution</span>
-<span class="sd">    </span>
-<span class="sd">    Parameters</span>
-<span class="sd">    </span>
-<span class="sd">    ----------</span>
-
-<span class="sd">    nodes: dictionary, required, default None</span>
-<span class="sd">        The coordinates of given nodes, in the following format::</span>
-<span class="sd">            &gt;&gt;&gt; nodes = {</span>
-<span class="sd">            ...     nodeID1: {&#39;loc&#39;: (x, y)},</span>
-<span class="sd">            ...     nodeID2: {&#39;loc&#39;: (x, y)}, # ...</span>
-<span class="sd">            ... }</span>
-<span class="sd">    edges: dictionary, required, default as {&#39;kwargs&#39;: &quot;Euclidean&quot;, &#39;ratio&#39;: 1}</span>
-<span class="sd">        The traveling matrix. The options are as follows::</span>
-<span class="sd">            1) (default) Euclidean space</span>
-<span class="sd">            &gt;&gt;&gt; edge = {</span>
-<span class="sd">            ...     &#39;kwargs&#39;: &#39;Euclidean&#39;,</span>
-<span class="sd">            ...     &#39;ratio&#39;: 1 # Optional, default to be 1</span>
-<span class="sd">            ... }</span>
-<span class="sd">            2) By given pairs of lat/lon</span>
-<span class="sd">            &gt;&gt;&gt; edge = {</span>
-<span class="sd">            ...     &#39;kwargs&#39;: &#39;LatLon&#39;,</span>
-<span class="sd">            ...     &#39;unit&#39;: &#39;meters&#39; # Optional, default to be 1</span>
-<span class="sd">            ... }</span>
-<span class="sd">            3) ManhattenDistance</span>
-<span class="sd">            &gt;&gt;&gt; edge = {</span>
-<span class="sd">            ...     &#39;kwargs&#39;: &#39;Manhatten&#39;,</span>
-<span class="sd">            ...     &#39;ratio&#39;: 1 # Optional, default to be 1</span>
-<span class="sd">            ... }</span>
-<span class="sd">            4) By a given dictionary</span>
-<span class="sd">            &gt;&gt;&gt; edge = {</span>
-<span class="sd">            ...     &#39;kwargs&#39;: &#39;Dictionary&#39;,</span>
-<span class="sd">            ...     &#39;dictionary&#39;: dictionary,</span>
-<span class="sd">            ...     &#39;ratio&#39;: 1 # Optional, default to be 1</span>
-<span class="sd">            ... }</span>
-<span class="sd">            5) On the grids</span>
-<span class="sd">            &gt;&gt;&gt; edge = {</span>
-<span class="sd">            ...     &#39;kwargs&#39;: &#39;Grid&#39;,</span>
-<span class="sd">            ...     &#39;grid&#39;: grid</span>
-<span class="sd">            ... }</span>
-<span class="sd">    kwargs: dictionary, required, default as {&#39;cons&#39;: &#39;Insertion&#39;, &#39;impv&#39;: &#39;2opt&#39;}</span>
-<span class="sd">        The algorithm configuration. Includes two phases, use &#39;cons&#39; to specify constructive heuristic, and &#39;impv&#39; to specify local improvement heurisitc::</span>
-<span class="sd">            1) (default) Insertion</span>
-<span class="sd">            &gt;&gt;&gt; kwargs = {</span>
-<span class="sd">            ...     &#39;cons&#39;: &#39;Insertion&#39;,</span>
-<span class="sd">            ...     &#39;initSeq&#39;: initSeq, # An initial sequence, defalt [depotID]</span>
-<span class="sd">            ...     &#39;impv&#39;: &#39;2Opt&#39; # Options are: &#39;Reinsert&#39;, &#39;2Opt&#39;, can select multiple kwargss by collecting them into a list, e.g. [&#39;Reinsert&#39;, &#39;2Opt&#39;]</span>
-<span class="sd">            ... }</span>
-<span class="sd">            2) Nearest neighborhood / k-nearest neighborhood</span>
-<span class="sd">            &gt;&gt;&gt; kwargs = {</span>
-<span class="sd">            ...     &#39;cons&#39;: &#39;NearestNeighbor&#39;,</span>
-<span class="sd">            ...     &#39;k&#39;: 1, # 1: nearest neighbor, 2 ~ K: k-nearest neighbor, -1: farthest neighbor </span>
-<span class="sd">            ... }</span>
-<span class="sd">            3) Sweep</span>
-<span class="sd">            &gt;&gt;&gt; kwargs = {</span>
-<span class="sd">            ...     &#39;cons&#39;: &#39;Sweep&#39;</span>
-<span class="sd">            ... }</span>
-<span class="sd">            4) (not available) Christofides</span>
-<span class="sd">            &gt;&gt;&gt; kwargs = {</span>
-<span class="sd">            ...     &#39;cons&#39;: &#39;Christofides&#39;</span>
-<span class="sd">            ... }</span>
-<span class="sd">            5) (not available) Cycle cover, particular for Asymmetric TSP</span>
-<span class="sd">            &gt;&gt;&gt; kwargs = {</span>
-<span class="sd">            ...     &#39;cons&#39;: &#39;CycleCover&#39;</span>
-<span class="sd">            ... }</span>
-<span class="sd">            6) Random sequence</span>
-<span class="sd">            &gt;&gt;&gt; kwargs = {</span>
-<span class="sd">            ...     &#39;cons&#39;: &#39;Random&#39;</span>
-<span class="sd">            ... }</span>
-<span class="sd">            7) Given sequence for further local improvements</span>
-<span class="sd">            &gt;&gt;&gt; kwargs = {</span>
-<span class="sd">            ...     &#39;cons&#39;: None, # or skip this</span>
-<span class="sd">            ...     &#39;initSeq&#39;: initSeq, # An initial sequence, cannot be None in this case</span>
-<span class="sd">            ... }</span>
-<span class="sd">    depotID: int or string, required, default as 0</span>
-<span class="sd">        The ID of depot.</span>
-<span class="sd">    nodeIDs: string &#39;All&#39; or a list of node IDs, required, default as &#39;All&#39;</span>
-<span class="sd">        The following are two options: 1) &#39;All&#39;, all nodes will be visited, 2) A list of node IDs to be visited.</span>
-<span class="sd">    serviceTime: float, optional, default as 0</span>
-<span class="sd">        The service time needed at each location.</span>
-<span class="sd">    returnRouteObjectFlag: bool, optional, default as False</span>
-<span class="sd">        If true, in the &#39;seq&#39; field of output, return the Route() object instead of a list</span>
-
-<span class="sd">    Returns</span>
-<span class="sd">    -------</span>
-
-<span class="sd">    dictionary</span>
-<span class="sd">        A TSP solution in the following format::</span>
-<span class="sd">            &gt;&gt;&gt; solution = {</span>
-<span class="sd">            ...     &#39;ofv&#39;: ofv,</span>
-<span class="sd">            ...     &#39;route&#39;: route,</span>
-<span class="sd">            ...     &#39;detail&#39;: detail</span>
-<span class="sd">            ... }</span>
-
-<span class="sd">    &quot;&quot;&quot;</span>
-
     <span class="c1"># Construction heuristics =================================================</span>
     <span class="c1"># NOTE: Output of this phase should be a Route() object</span>
     <span class="n">seqObj</span> <span class="o">=</span> <span class="n">Route</span><span class="p">(</span><span class="n">tau</span><span class="p">,</span> <span class="n">asymFlag</span><span class="p">)</span>

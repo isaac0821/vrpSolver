@@ -8,11 +8,16 @@ Welcome to vrpSolver's documentation!
 
 .. toctree::
    :maxdepth: 4
-   :caption: Contents:
+   :caption: Data structures:
 
-   data_structures
+   dictionaries
+   geo_objs
 
-Modules
-=======
+.. toctree::
+   :caption: Modules:
 
-* :ref:`modindex`
+   vrpSolver.common
+   vrpSolver.instance
+   vrpSolver.geometry
+   vrpSolver.tsp
+   vrpSolver.plot

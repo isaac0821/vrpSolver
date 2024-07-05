@@ -109,7 +109,7 @@ def isPtOnSeg(pt: pt, seg: line, interiorOnly: bool=False, error:float = CONST_E
     ----------
     pt: pt, required
         Coordinate of the point
-    segment: line, required
+    seg: line, required
         Two coordinates to form a line segment
     interiorOnly: bool, optional, default as False
         True if only consider intersecting in the interior
@@ -148,7 +148,7 @@ def isPtOnRay(pt: pt, ray: line, interiorOnly: bool=False, error = CONST_EPSILON
     ----------
     pt: pt, required
         Coordinate of the point
-    segment: line, required
+    ray: line, required
         Two coordinates to form a line segment
     interiorOnly: bool, optional, default as False
         True if only consider intersecting in the interior
@@ -387,7 +387,7 @@ def intLine2Seg(line: line, seg: line) -> dict:
     ----------
     line: line, required
         The first line
-    segment: line, required
+    seg: line, required
         The second line segment
 
     Return
@@ -845,7 +845,7 @@ def intRay2Seg(ray: line, seg: line) -> dict:
     ----------
     ray: line, required
         The first line
-    segment: line, required
+    seg: line, required
         The second line
 
     Return
@@ -1734,7 +1734,7 @@ def intPoly2Poly(poly1: poly=None, poly2: poly=None, poly1Shapely: shapely.Polyg
             'intersectType': 'Polygon',
             'interiorFlag': True
         }
-    # MultiPoint/MultiLineString/MultiPolygon/Geometrycollection
+    # MultiPoint/MultiLineString/MultiPolygon/GeometryCollection
     elif (intType in [4, 5, 6, 7]):
         intSp = []
         for g in intShape.geoms:
@@ -2249,26 +2249,25 @@ def polysIntersect(polys: polys=None, polysShapely:list[shapely.Polygon]=None, r
     return intersectionPoly
 
 def polysSteinerZone(polys: dict, order: int|None = None) -> list[dict]:
-    
     """Given a node dictionary, returns a list of Steiner zones
 
     Warning!!!
     ----------
-    This function needs to be rewritten. It's not trackable now
+    This function needs to be rewritten. It's not traceable now.
 
     Parameters
     ----------
 
     polys: dictionary, required
         The polys dictionary with neighborhood.
-    order: int, optional, defalut None
+    order: int, optional, default None
         Maximum order of Steiner zone
 
     Returns
     -------
 
     list[dict]
-        A list of Steiner zone dictionaris, each in the following format::
+        A list of Steiner zone dictionaries, each in the following format::
             >>> SteinerZone = {
             ...     'poly': poly,
             ...     'repPt': centroid,
@@ -2402,19 +2401,14 @@ def polysBoundingBox(polys:polys=None, polysShapely:list[shapely.Polygon]=None):
     return polysBox
 
 def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
-    if (polygons == None):
-        raise MissingParameterError("ERROR: Missing required field 'polygons'.")
-
-    # polysBox = polysBoundingBox(polys, polysShapely)
-
-    # First, for each leg in the seq, find the individual polygons intersect with the leg
+     # First, for each leg in the seq, find the individual polygons intersect with the leg
     actions = {}
     actionIDOnLeg = 0
     for i in range(len(seq) - 1):
         seg = [seq[i], seq[i + 1]]
 
         # NOTE: 准备用segment tree
-        # NOTE: For now use the naive way - checking the boundingbox
+        # NOTE: For now use the naive way - checking the bounding box
         for pID in polygons:
             # 根据Seg和poly的相交情况做判断
             segIntPoly = intSeg2Poly(seg = seg, poly = polygons[pID][polyFieldName])
@@ -2533,6 +2527,23 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
     return sortedActions
 
 def ptPolyCenter(poly: poly=None, polyShapely: shapely.Polygon=None) -> pt:
+    """
+    Given a poly, returns the centroid of the poly
+
+    Parameters
+    ----------
+    poly: poly, optional, default as None
+        The polygon
+    polyShapely: shapely.Polygon, optional, default as None
+        The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
+
+    Returns
+    -------
+    pt
+        The centroid
+
+    """
+
     if (poly == None and polyShapely == None):
         raise MissingParameterError("ERROR: Missing required field 'poly' or 'polyShapely'.")
     if (polyShapely == None):
@@ -2544,16 +2555,31 @@ def ptPolyCenter(poly: poly=None, polyShapely: shapely.Polygon=None) -> pt:
 
 # Visibility check ============================================================
 def polysVisibleGraph(polys:polys) -> dict:
+    """
+    Create a visual graph for given polys.
+
+    Parameters
+    ----------
+    polys: polys, required
+        The polys to create visual graph
+
+    Return
+    ------
+    dict
+        Each polygon has a index p, each point in the polygon has a index e, therefore, a (p, e) pair defines a location. The visual graph returns use (p, e) as keys, collects the location of (p, e) in 'loc', and finds the set of visible (p, e) in 'visible'
+
+    """
+
     vg = {}
     for p in range(len(polys)):
         for e in range(len(polys[p])):
             vg[(p, e)] = {'loc': polys[p][e], 'visible': []}
-            W = visPtAmongPolys((p, e), polys, knownVG=vg)
+            W = _visPtAmongPolys((p, e), polys, knownVG=vg)
             for w in W:
                 vg[(p, e)]['visible'].append(w)
     return vg
 
-def visPtAmongPolys(v:int|str|tuple, polys:polys, standalonePts:dict|None=None, knownVG:dict={}) -> list:
+def _visPtAmongPolys(v:int|str|tuple, polys:polys, standalonePts:dict|None=None, knownVG:dict={}) -> list:
     # NOTE: 该函数不需要使用shapely
     vertices = {}
     polyVertices = []
@@ -2726,50 +2752,30 @@ def visPtAmongPolys(v:int|str|tuple, polys:polys, standalonePts:dict|None=None, 
                 T.delete((min(vIdxWiPrev, vIdxWi), max(vIdxWiPrev, vIdxWi)))
     return W
 
-def visPolyFromPt(v:int|str|tuple, range:float, polys:polys, standalonePts:dict|None=None, knownVG:dict={}, lod:int = 36) -> list:
-    
-    # Step 1: fi
-
-
-    return poly
-
-def circleShadowByPolys(circle: dict = None, polys: polys = None, lod: int = 30):
-    standalonePts = {'c': {'loc': circle['center']}}
-    cirR = circle['radius']
-
-    remain = [[
-        circle['center'][0] + circle['radius'] * math.sin(2 * d * math.pi / lod),
-        circle['center'][1] + circle['radius'] * math.cos(2 * d * math.pi / lod),
-    ] for d in range(lod + 1)]
-
-    # 分别计算每个poly的阴影遮挡
-    for poly in polys:
-        # 首先计算poly从
-
-        visExpt = visPtAmongPolys('c', [poly], standalonePts)
-
-
-
-    visExpt = visPtAmongPolys('c', polys, standalonePts)
-    visLocs = []
-    for v in visExpt:
-        visLocs.append(polys[v[0]][v[1]])
-    return visCircle
-
-def polyShadowByPolys(poly: poly = None, anchor: pt = None, polys: polys = None):
-    standalonePts = {'c': {'loc': circle['center']}}
-
-    # FIXME: 不得已的办法，把polygons拿去triangulate，然后逐个计算遮挡阴影
-
-    # 分别计算每个poly的遮挡
-    for p in polys:
-        # 首先计算有几个遮挡的转折点，若只有两个，则可以简单的划分为阴面和阳面
-        pass
-
-    return visPoly
-
 # Time seq related ============================================================
 def snapInTimedSeq(timedSeq: list[tuple[pt, float]], t: float) -> pt:
+    """
+    Given a timedSeq, return the location, speed, and trajectory at time t
+
+    Parameters
+    ----------
+
+    timedSeq: timedSeq, required
+        The timed sequence
+    t: float, required
+        The snapshot timestamp
+
+    Return
+    ------
+    dict
+        >>> {
+        ...     'loc': location,
+        ...     'speed': speed,
+        ...     'trajectory': trajectory
+        ... }
+
+    """
+
     for i in range(len(timedSeq) - 1):
         if (timedSeq[i][1] > timedSeq[i + 1][1]):
             raise UnsupportedInputError("ERROR: `timedSeq` should be a non-descending sequence.")
@@ -2820,6 +2826,26 @@ def snapInTimedSeq(timedSeq: list[tuple[pt, float]], t: float) -> pt:
     }
 
 def traceInTimedSeq(timedSeq: list[tuple[pt, float]], ts: float, te: float) -> list[pt]:
+    """
+    Given a timedSeq, a start time and an end time, returns the trace between start time and end time.
+
+    Parameters
+    ----------
+
+    timedSeq: timedSeq, required
+        The timed sequence
+    ts: float, required
+        The start time
+    te: float, required
+        The end time
+
+    Return
+    ------
+    list
+        The line segment sequence between start time and end time in the timedSeq
+
+    """
+
     for i in range(len(timedSeq) - 1):
         if (timedSeq[i][1] > timedSeq[i + 1][1]):
             raise UnsupportedInputError("ERROR: `timedSeq` should be a non-descending sequence.")
@@ -2986,13 +3012,13 @@ def locSeqMileage(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
 
 # Area calculation ============================================================
 def calTriangleAreaEdge(a: float, b: float, c: float) -> float:
-    # Using Heron's Formula ===================================================
+    
     s = (a / 2 + b / 2 + c / 2)
     area = math.sqrt(s * (s - a) * (s - b) * (s - c))
     return area
 
 def calTriangleAreaXY(pt1: pt, pt2: pt, pt3: pt) -> float:
-    # Using determinant =======================================================
+    
     [x1, y1] = pt1
     [x2, y2] = pt2
     [x3, y3] = pt3
@@ -3002,8 +3028,6 @@ def calTriangleAreaXY(pt1: pt, pt2: pt, pt3: pt) -> float:
 
 def calPolyAreaXY(poly: poly) -> float:
     lstTriangle = tripy.earclip(poly)
-
-    # Weight them and make draws ==============================================
     area = 0
     for i in range(len(lstTriangle)):
         area += calTriangleAreaXY(lstTriangle[i][0], lstTriangle[i][1], lstTriangle[i][2])
@@ -3011,21 +3035,18 @@ def calPolyAreaXY(poly: poly) -> float:
 
 def calPolyAreaLatLon(polyLatLon: poly) -> float:
     """Returns the area surrounded by polyLatLon on the Earth"""
-
-    # Additional packages =====================================================
     try:
         from pyproj import Geod
     except:
         raise ImportError
 
-    # Create polygon ==========================================================
     # NOTE: shapely is in [lon, lat] format
     rev = []
     for p in polyLatLon:
         rev.append((p[1], p[0]))
     polygon = shapely.Polygon(rev)
 
-    # Using pyproj to calculate ===============================================
+    # Using pyproj to calculate
     # Ref: https://hypc.github.io/2020/03/16/python-geo-area/
     geod = Geod(ellps = "WGS84")
     area = abs(geod.geometry_area_perimeter(polygon)[0])
@@ -3227,7 +3248,7 @@ def matrixDist(nodes: dict, locFieldName: str = 'loc', nodeIDs: list|str = 'All'
     ----------
 
     nodes: dict, required
-        A `nodes` dictionary with location information
+        A `nodes`dictionary with location information
     locFieldName: str, optional, default as 'loc'
         The key in nodes dictionary to indicate the locations
     nodeIDs: list of int|str, or 'All', optional, default as 'All'
@@ -3239,8 +3260,8 @@ def matrixDist(nodes: dict, locFieldName: str = 'loc', nodeIDs: list|str = 'All'
         2) 'EuclideanBarrier', using Euclidean distance, if `polys` is provided, the path between nodes will consider them as barriers and by pass those areas.
             - polys: list of poly, the polygons to be considered as barriers
         3) 'LatLon', calculate distances by lat/lon, no additional information needed
-        4) 'ManhattenXY', calculate distance by Manhatten distance
             - distUnit: str, the unit of distance, default as 'meter'
+        4) 'ManhattenXY', calculate distance by Manhatten distance            
         5) 'Dictionary', directly provide the travel matrix
             - tau: the traveling matrix
         6) 'Grid', traveling on a grid with barriers, usually used in warehouses
@@ -3254,18 +3275,9 @@ def matrixDist(nodes: dict, locFieldName: str = 'loc', nodeIDs: list|str = 'All'
     -------
 
     tuple
-        Two dictionaries, the first one is the travel matrix, the second one is the dictionary for path between start and end locations (useful for 'EuclideanBarrier')
-            >>> dist = {
-            ...     (i, j) = 100, # distance between i and j
-            ...     ..., 
-            ... }
-            >>> path = {
-            ...     (i, j) = [pt1, ...], # path between i and j
-            ...     ..., 
-            ... }
+        Two dictionaries, the first one is the travel matrix, index by (nodeID1, nodeID2), the second one is the dictionary for path between start and end locations (useful for 'EuclideanBarrier').
 
     """
-
 
     # Define tau
     tau = {}
@@ -3422,7 +3434,34 @@ def _matrixDistBtwPolysXY(nodes: dict, nodeIDs: list, polys: polys, polyVG = Non
                 pathLoc[j, i] = []
     return tau, pathLoc
 
-def vectorDist(loc: pt, nodes: dict, edges: str = 'Euclidean', nodeIDs: list|str = 'All', locFieldName: str = 'loc', **kwargs) -> dict:
+def vectorDist(loc: pt, nodes: dict, locFieldName: str = 'loc', nodeIDs: list|str = 'All', edges: str = 'Euclidean', **kwargs) -> dict:
+    """
+    Given a location and a `nodes` dictionary, returns the traveling distance and path between the location to each node.
+
+    Parameters
+    ----------
+
+    loc: pt, required
+        Origin/destination location.
+    nodes: dict, required
+        A `nodes`dictionary with location information. See :ref:`nodes` for reference.
+    locFieldName: str, optional, default as 'loc'
+        The key in nodes dictionary to indicate the locations
+    nodeIDs: list of int|str, or 'All', optional, default as 'All'
+        A list of nodes in `nodes` that needs to be considered, other nodes will be ignored
+    edges: str, optional, default as 'Euclidean'
+        The methods for the calculation of distances between nodes. Options and required additional information are referred to :func:`~vrpSolver.geometry.matrixDist()`.
+    **kwargs: optional
+        Provide additional inputs for different `edges` options
+
+    Returns
+    -------
+
+    tuple
+        tau, revTau, pathLoc, revPathLoc. Four dictionaries, the first one is the travel distance from loc to each node index by nodeID, the second the travel distance from each node back to loc. The third and fourth dictionaries are the corresponded path.
+
+    """
+
     # Define tau
     tau = {}
     revTau = {}
@@ -3554,6 +3593,29 @@ def _vectorDistBtwPolysXY(loc: pt, nodes: dict, nodeIDs: list, polys: polys, pol
     return tau, revTau, pathLoc, revPathLoc
 
 def scaleDist(loc1: pt, loc2: pt, edges: str = 'Euclidean', **kwargs) -> dict:
+    """
+    Given a two locations, returns the traveling distance and path between locations.
+
+    Parameters
+    ----------
+
+    loc1: pt, required
+        The first location.
+    loc2: pt, required
+        The second location.
+    edges: str, optional, default as 'Euclidean'
+        The methods for the calculation of distances between nodes. Options and required additional information are referred to :func:`~vrpSolver.geometry.matrixDist()`.
+    **kwargs: optional
+        Provide additional inputs for different `edges` options
+
+    Returns
+    -------
+
+    dict
+        tau, revTau, pathLoc, revPathLoc. Four keys, the first one is the travel distance from loc to each node index by nodeID, the second the travel distance from each node back to loc. The third and fourth dictionaries are the corresponded path.
+
+    """
+
     # Define tau
     dist = None
     revDist = None
@@ -3610,20 +3672,68 @@ def scaleDist(loc1: pt, loc2: pt, edges: str = 'Euclidean', **kwargs) -> dict:
 
 # Distance calculation ========================================================
 def distEuclideanXY(pt1: pt, pt2: pt) -> dict:
-    """Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number"""
+    """
+    Gives a Euclidean distance based on two coords.
+
+    Parameters
+    ----------
+    pt1: pt, required
+        The first location
+    pt2: pt, required
+        The second location
+
+    Returns
+    -------
+    dict
+        A dictionary, with the distance in 'dist', and the path in 'path'
+    """
     return {
         'dist': math.sqrt((pt1[0] - pt2[0]) ** 2 + (pt1[1] - pt2[1]) ** 2),
         'path': [pt1, pt2]
     }
 
 def distManhattenXY(pt1: pt, pt2: pt) -> dict:
-    """Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number"""
+    """
+    Gives a Manhatten distance based on two coords.
+
+    Parameters
+    ----------
+    pt1: pt, required
+        The first location
+    pt2: pt, required
+        The second location
+
+    Returns
+    -------
+    dict
+        A dictionary, with the distance in 'dist', and the path in 'path'
+    """
     return {
         'dist': abs(pt1[0] - pt2[0]) + abs(pt1[1] - pt2[1]),
         'path': [pt1, (pt1[0], pt2[1]), pt2]
     }
 
 def distBtwPolysXY(pt1:pt, pt2:pt, polys:polys, polyVG: dict = None) -> dict:
+    """
+    Gives a Manhatten distance based on two coords.
+
+    Parameters
+    ----------
+    pt1: pt, required
+        The first location
+    pt2: pt, required
+        The second location
+    polys: polys, required
+        The polygons as barriers.
+    polyVG: dict, optional, default as None
+        The pre-calculated visual-graph using :func:`~vrpSolver.polysVisibleGraph()`. To avoid repeated calculation
+
+    Returns
+    -------
+    dict
+        A dictionary, with the distance in 'dist', and the path in 'path'
+    """
+
     # Reference: Computational Geometry: Algorithms and Applications Third Edition
     # By Mark de Berg et al. Page 326 - 330
     # With some modifications
@@ -3662,10 +3772,10 @@ def distBtwPolysXY(pt1:pt, pt2:pt, polys:polys, polyVG: dict = None) -> dict:
             'visible': [i for i in polyVG[p]['visible']]
         }
     vertices['s'] = {'loc': pt1, 'visible': []}
-    Ws = visPtAmongPolys('s', polys, {'s': {'loc': pt1, 'visible': []}})
+    Ws = _visPtAmongPolys('s', polys, {'s': {'loc': pt1, 'visible': []}})
     vertices['s']['visible'] = Ws
     vertices['e'] = {'loc': pt2, 'visible': []}
-    We = visPtAmongPolys('e', polys, {'e': {'loc': pt2, 'visible': []}})
+    We = _visPtAmongPolys('e', polys, {'e': {'loc': pt2, 'visible': []}})
     vertices['e']['visible'] = We
 
     # Find shortest path ======================================================
@@ -3687,7 +3797,21 @@ def distBtwPolysXY(pt1:pt, pt2:pt, polys:polys, polyVG: dict = None) -> dict:
     }
 
 def distLatLon(pt1: pt, pt2: pt, distUnit: str = 'meter') -> dict:
-    """Gives a Euclidean distance based on two lat/lon coords, if two coordinates are the same, return a small number"""
+    """
+    Gives a distance based on two lat/lon coords.
+
+    Parameters
+    ----------
+    pt1: pt, required
+        The first location
+    pt2: pt, required
+        The second location
+
+    Returns
+    -------
+    dict
+        A dictionary, with the distance in 'dist', and the path in 'path'
+    """
     
     # Get radius as in distUnit ===============================================
     R = None
@@ -3713,52 +3837,45 @@ def distLatLon(pt1: pt, pt2: pt, distUnit: str = 'meter') -> dict:
     }
 
 def distOnGrid(pt1: pt, pt2: pt, column, row, barriers = [], algo: str = 'A*', **kwargs) -> dict:
-    """Given two coordinates on the grid, finds the 'shortest' path to travel
+    """
+    Given two coordinates on the grid, finds the 'shortest' path to travel
 
     Parameters
     ----------
 
-    grid: dictionary, required, default as None
-        The environment of a grid area, in the following format:
-            >>> grid = {
-            ...     'column': col, # Number of columns,
-            ...     'row': row, # Number of rows,
-            ...     'barriers': barriers, # A list of coordinates,
-            ... }
-    pt1: 2-tuple|2-list, required
+    pt1: pt, required
         Starting location on the grid
-    pt2: 2-tuple|2-list, required
+    pt2: pt, required
         Ending location on the grid 
-    algo: dict, required, default as {'method': 'A*', 'distMeasure': 'Manhatten'}
+    column: int, required
+        Number of columns
+    row: int, required
+        Number of rows
+    barriers: list[pt], optional, default as []
+        A list of coordinates as barriers on the grid.
+    algo: dict, required, default as 'A*'
         The algorithm configuration. For example
-        1) A*
-            >>> algo = {
-            ...     'method': A*,
-            ...     'measure': 'Manhatten', # Options: 'Manhatten', 'Euclidean'
-            ... }
+
+        1) A*, use the A star algorithm, additional information needed is as follows
+            - measure: str, optional, default as 'Manhatten'            
+    **kwargs: optional
+        Provide additional inputs for different `algo` options
 
     Returns
     -------
     dict
-        A path on the given grid, in the following formatt::
-            >>> res = {
-            ...     'dist': dist,
-            ...     'path': path,
-            ... }
-
+        A dictionary, with the distance in 'dist', and the path in 'path'
     """
 
-    # Decode ==================================================================
-    column = grid['column']
-    row = grid['row']
-    barriers = grid['barriers']
     res = None
-
-    # Call path finding =======================================================
     if (algo == 'A*'):
+        measure = None
         if ('measure' not in kwargs or kwargs['measure'] not in ['Manhatten', 'Euclidean']):
             warnings.warn("WARNING: Set distance measurement to be default as 'Manhatten")
-        res = _distOnGridAStar(column, row, barriers, pt1, pt2, kwargs['measure'])
+            measure = 'Manhatten'
+        else:
+            measure = kwargs['measure']
+        res = _distOnGridAStar(column, row, barriers, pt1, pt2, measure)
     else:
         raise UnsupportedInputError("Error: Incorrect or not available grid path finding option!")
     return res
@@ -4561,7 +4678,7 @@ def _seg2SegPathGurobi(startPt: pt, endPt: pt, segs, closedFlag = False, outputF
 
 def circle2CirclePath(startPt: pt, endPt: pt, circles: list[dict] = None, method: dict = {'algo': 'SOCP', 'solver': 'Gurobi'}):
     
-    """Find path between geometries, e.g., polys, circles, arcpolys, mixed.
+    """Find path between circles.
 
     Parameters
     ----------
@@ -4570,8 +4687,8 @@ def circle2CirclePath(startPt: pt, endPt: pt, circles: list[dict] = None, method
         The coordinate which starts the path.
     endPt: pt, required, default None
         The coordinate which ends the path.
-    circles: polys|dict, required, default None
-        A list of polys, or circles, or arcpolys, or a mix of those objects to be visited in given sequence
+    circles: dict, required, default None
+        A list of circles to be visited in given sequence.
     method: dict, required, default {'shape': 'Poly', 'barriers': None, 'errTol': CONST_EPSILON}
         A dictionary to indicate the subroutine to be used. Options includes
             1) Between circles using heuristics

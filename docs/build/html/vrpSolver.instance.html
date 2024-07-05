@@ -6,14 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
     <title>vrpSolver.instance module &#8212; vrpSolver 0.0.56 documentation</title>
-    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=649a27d8" />
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b849a4e9" />
     <link rel="stylesheet" type="text/css" href="_static/sphinxdoc.css?v=87629129" />
     <script src="_static/documentation_options.js?v=8f83b1af"></script>
     <script src="_static/doctools.js?v=9a2dae69"></script>
     <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
     <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
     <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" /> 
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="vrpSolver.geometry module" href="vrpSolver.geometry.html" />
+    <link rel="prev" title="vrpSolver.common module" href="vrpSolver.common.html" /> 
   </head><body>
     <div class="related" role="navigation" aria-label="related navigation">
       <h3>Navigation</h3>
@@ -24,6 +26,12 @@
         <li class="right" >
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
+        <li class="right" >
+          <a href="vrpSolver.geometry.html" title="vrpSolver.geometry module"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="vrpSolver.common.html" title="vrpSolver.common module"
+             accesskey="P">previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="index.html">vrpSolver 0.0.56 documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">vrpSolver.instance module</a></li> 
       </ul>
@@ -45,10 +53,10 @@
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>A</strong> (<em>integer</em><em>, </em><em>optional</em><em>, </em><em>default as None</em>) – Number of arcs to be visited</p></li>
 <li><p><strong>arcIDs</strong> (<em>list</em><em>, </em><em>optional</em><em>, </em><em>default as None</em>) – Alternative input parameter of <cite>A</cite>. A list of arc IDs, <cite>A</cite> will be overwritten if <cite>arcIDs</cite> is given</p></li>
-<li><p><strong>distr</strong> (<em>str</em><em>, </em><em>optional</em><em>, </em><em>default as 'UniformLengthInSquareXY'</em>) – <p>The distribution of arcs. Options and required addtional inputs are as follows:</p>
+<li><p><strong>distr</strong> (<em>str</em><em>, </em><em>optional</em><em>, </em><em>default as 'UniformLengthInSquareXY'</em>) – <p>The distribution of arcs. Options and required additional inputs are as follows:</p>
 <ol class="arabic simple">
 <li><dl class="simple">
-<dt>(default) ‘UniformLengthInSquareXY’, Uniformly sample from a square on the Euclidean space, with uniformly selected length</dt><dd><ul>
+<dt>(default) ‘UniformLengthInSquareXY’, uniformly sample from a square on the Euclidean space, with uniformly selected length</dt><dd><ul>
 <li><p>xRange: 2-tuple, with minimum/maximum range of x, default as (0, 100)</p></li>
 <li><p>yRange: 2-tuple, with minimum/maximum range of y, default as (0, 100)</p></li>
 <li><p>minLen: float, minimum length of the arcs</p></li>
@@ -82,7 +90,7 @@
 <li><p><strong>distr</strong> (<em>string</em><em>, </em><em>optional</em><em>, </em><em>default as 'UniformSquareXY'</em>) – <p>Spatial distribution of locations, options and required addtional inputs are as follows:</p>
 <ol class="arabic simple">
 <li><dl class="simple">
-<dt>(default) ‘UniformSquareXY’, Uniformly sample from a square on the Euclidean space</dt><dd><ul>
+<dt>(default) ‘UniformSquareXY’, uniformly sample from a square on the Euclidean space</dt><dd><ul>
 <li><p>xRange: 2-tuple, with minimum/maximum range of x, default as (0, 100)</p></li>
 <li><p>yRange: 2-tuple, with minimum/maximum range of y, default as (0, 100)</p></li>
 </ul>
@@ -90,7 +98,7 @@
 </dl>
 </li>
 <li><dl class="simple">
-<dt>’UniformPolyXY’, Uniformly sample from a given polygon</dt><dd><ul>
+<dt>’UniformPolyXY’, uniformly sample from a given polygon</dt><dd><ul>
 <li><p>polyXY: poly, the polygon of the area, (no holes)</p></li>
 <li><p>polyXYs: list of polys, alternative option for <cite>polyXY</cite></p></li>
 </ul>
@@ -98,7 +106,7 @@
 </dl>
 </li>
 <li><dl class="simple">
-<dt>’UniformAvoidPolyXY’, Uniformly sample from a squre avoiding some polygons</dt><dd><ul>
+<dt>’UniformAvoidPolyXY’, uniformly sample from a squre avoiding some polygons</dt><dd><ul>
 <li><p>xRange: 2-tuple, with minimum/maximum range of x, default as (0, 100)</p></li>
 <li><p>yRange: 2-tuple, with minimum/maximum range of y, default as (0, 100)</p></li>
 <li><p>polyXY: poly, the polygon of the area, (no holes)</p></li>
@@ -108,7 +116,7 @@
 </dl>
 </li>
 <li><dl class="simple">
-<dt>’UniformCircleXY’, Uniformly sample from a circle on the Euclidean space</dt><dd><ul>
+<dt>’UniformCircleXY’, uniformly sample from a circle on the Euclidean space</dt><dd><ul>
 <li><p>centerXY: 2-tuple, the center of circle</p></li>
 <li><p>radius: float, the radius of the circle</p></li>
 </ul>
@@ -116,7 +124,7 @@
 </dl>
 </li>
 <li><dl class="simple">
-<dt>’UniformPolyLatLon’, Uniformly sample from a polygon by lat/lon</dt><dd><ul>
+<dt>’UniformPolyLatLon’, uniformly sample from a polygon by lat/lon</dt><dd><ul>
 <li><p>polyLatLon: poly, the polygon of the area, (no holes)</p></li>
 <li><p>polyLatLons: list of polys, alternative option for <cite>polyLatLon</cite></p></li>
 </ul>
@@ -124,7 +132,7 @@
 </dl>
 </li>
 <li><dl class="simple">
-<dt>’UniformCircleLatLon’, Uniformly sample from a circle by lat/lon</dt><dd><ul>
+<dt>’UniformCircleLatLon’, uniformly sample from a circle by lat/lon</dt><dd><ul>
 <li><p>centerLatLon: 2-tuple, the (lat, lon) for the center</p></li>
 <li><p>radiusInMeters: float, the radius of the circle in meters</p></li>
 </ul>
@@ -132,7 +140,7 @@
 </dl>
 </li>
 <li><dl class="simple">
-<dt>’RoadNetworkPolyLatLon’, Uniformly generate within a given polygon on a road network</dt><dd><ul>
+<dt>’RoadNetworkPolyLatLon’, uniformly generate within a given polygon on a road network</dt><dd><ul>
 <li><p>roads: dict, the road network dictionary</p></li>
 <li><p>polyLatLon: poly, optional, the polygon on the map to sample from</p></li>
 <li><p>polyLatLons: list of polys, optional, alternative for <cite>polyLatLon</cite></p></li>
@@ -142,7 +150,7 @@
 </dl>
 </li>
 <li><dl class="simple">
-<dt>’RoadNetworkCircleLatLon’, Uniformly generate within a circle on a road network</dt><dd><ul>
+<dt>’RoadNetworkCircleLatLon’, uniformly generate within a circle on a road network</dt><dd><ul>
 <li><p>roads: dict, the road network dictionary</p></li>
 <li><p>centerLatLon: 2-tuple, the (lat, lon) for the center</p></li>
 <li><p>radiusInMeters: float, the radius of the circle in meters</p></li>
@@ -339,6 +347,16 @@
 </ul>
 
   </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="vrpSolver.common.html"
+                          title="previous chapter">vrpSolver.common module</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="vrpSolver.geometry.html"
+                          title="next chapter">vrpSolver.geometry module</a></p>
+  </div>
   <div role="note" aria-label="source link">
     <h3>This Page</h3>
     <ul class="this-page-menu">
@@ -369,6 +387,12 @@
         <li class="right" >
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
+        <li class="right" >
+          <a href="vrpSolver.geometry.html" title="vrpSolver.geometry module"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="vrpSolver.common.html" title="vrpSolver.common module"
+             >previous</a> |</li>
         <li class="nav-item nav-item-0"><a href="index.html">vrpSolver 0.0.56 documentation</a> &#187;</li>
         <li class="nav-item nav-item-this"><a href="">vrpSolver.instance module</a></li> 
       </ul>

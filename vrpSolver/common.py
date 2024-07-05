@@ -17,9 +17,6 @@ pt = list[float] | tuple[float, float]
 poly = list[list[float]] | list[tuple[float, float]]
 polys = list[list[list[float]]] | list[list[tuple[float, float]]]
 circle = tuple[pt, float]
-arcSeg = list[pt] | tuple[pt, pt, pt|None]
-arcPoly = list[arcSeg]
-arcPolys = list[arcPoly]
 line = list[pt]
 
 DEBUG_WRITE_LOG = False

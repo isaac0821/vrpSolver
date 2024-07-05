@@ -12,10 +12,10 @@ def solveTSP(
     locFieldName: str = 'loc',
     depotID: int|str = 0,
     nodeIDs: list[int|str]|str = 'All',
-    serviceTime: float = 0,
-    predefinedArcs: list[list[tuple[int|str]]] = [],
     vehicles: dict = {0: {'speed': 1}},
     vehicleID: int|str = 0,
+    serviceTime: float = 0,
+    predefinedArcs: list[list[tuple[int|str]]] = [],
     edges: str = 'Euclidean',
     algo: str = 'IP',
     detailsFlag: bool = False,
@@ -24,23 +24,58 @@ def solveTSP(
     ) -> dict:
 
 
-    """Use MIP/Heuristic/Metaheuristic to find optimal/suboptimal TSP solution
+    """Use MIP/Heuristic to find optimal/sub-optimal TSP solution
 
     Parameters
     ----------
 
     nodes: dict, required
-        The coordinates of given nodes.
+        The `nodes` dictionary, with coordinates of given nodes. See :ref:`nodes`
     locFieldName: str, optional, default as 'loc'
         The key value in `nodes` indicating the location of each node.
     depotID: int|string, optional, default as 0
-        The ID of depot.
+        The node ID of the depot.
     nodeIDs: string 'All' or a list of node IDs, optional, default as 'All'
         The following are two options: 1) 'All', all nodes will be visited, 2) A list of node IDs to be visited.
+    vehicles: dict, optional, default as {0: {'speed': 1}}
+        The vehicle information, since the TSP optimizes route for one vehicle, only the first vehicle with `vehicleID` will be considered. The speed of vehicle needs to be specified.
+    vehicleID: int|str, optional, default as 0
+        The vehicle that takes the TSP route in `vehicles`.
     serviceTime: float, optional, default as 0
-        The service time needed at each location.
+        The service time needed at each location. If `serviceTime` is provided in `nodes`, it will be ignored.
+    predefinedArcs: list of nodeID pairs, optional, default as []
+        In some cases, some of the arcs are predefined, they will be modeled as additional constraints.
     edges: string, optional, default as 'Euclidean'
         The methods for the calculation of distances between nodes. Options and required additional information are referred to :func:`~vrpSolver.geometry.matrixDist()`.
+    algo: string, optional, default as 'IP'
+        Select the algorithm for calculating TSP. Options and required additional inputs are as follows:
+        
+        1) (default) 'IP', use (Mixed) Integer Programming to solve TSP. Needs commercial solver such as Gurobi and COPT.
+            - solver: str, supports 'Gurobi' and 'COPT'.
+            - fml: str, choose formulation of TSP:
+                - if use 'Gurobi' as solver, fml supports the following options: ['DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', 'QAP']. In fact, 'DFJ_Lazy' will be faster than all other formulations, implementation of different formulation is for education purpose.
+                - if use 'COPT' as solver, fml supports 'DFJ_Lazy'.
+            - timeLimit: int|float, additional stopping criteria
+            - gapTolerance: int|float, additional stopping criteria
+            - outputFlag: bool, True if turn on the log output from solver. Default to be False
+        2) 'Heuristic', use different 2-phase heuristic methods to solve TSP to sub-optimal. 
+            - cons: str, choose a construction heuristic to find a feasible TSP solution, options and addition inputs needed are as follows:
+                - cons = 'Initial', use a given initial solution, requires the following information:
+                    - initSeq: a list of node IDs
+                - cons = 'Insertion', in each iteration, insert a node into the existing route, which has the minimal cost.
+                - cons = 'RandomInsertion', in each iteration, randomly insert a not that has not yet been inserted to the route.
+                - cons = 'NearestNeighbor', in each iteration, find the (k-)nearest node to the end of existing route and add it to the route.
+                    - k: the k-th nearest neighbor, default to be 1
+                - cons = 'Sweep', sweep all nodes clock-wise (or counter-clock-wise) and add the node to the route one by one.
+                - cons = 'Christofides', use Christofides algorithm
+                - cons = 'CycleCover', use CycleCover algorithm, particularly design for Asymmetric TSP
+                - cons = 'Random', randomly create a feasible route
+            - impv: str, choose the local improvement heuristic to improve the existing feasible route
+                - impv = '2Opt', use the 2-opt algorithm
+    detailsFlag: bool, optional, default as False
+        If True, an additional field `vehicle` will be added into the solution, which can be used for animation. See :func:`~vrpSolver.plot.aniRouting()`.
+    **kwargs: optional
+        Provide additional inputs for different `edges` options and `algo` options
 
     Returns
     -------
@@ -171,7 +206,16 @@ def solveTSP(
     tsp['seq'] = nodeSeq
 
     # Add service time if provided ============================================
-    ofv = tsp['ofv'] + (len(nodeIDs) - 1) * serviceTime
+    hasServiceTimeInfoFlag = False
+    sumServiceTime = 0
+    for n in nodeIDs:
+        if ('serviceTime' in nodes[n]):
+            sumServiceTime += nodes[n]['serviceTime']
+            hasServiceTimeInfoFlag = True
+    if (not hasServiceTimeInfoFlag):
+        ofv = tsp['ofv'] + (len(nodeIDs) - 1) * serviceTime
+    else:
+        ofv = tsp['ofv'] + sumServiceTime
 
     # Post optimization (for detail information) ==============================
     if (detailsFlag):
@@ -199,7 +243,10 @@ def solveTSP(
                     curLoc = shapepointsInBtw[j]
                     timedSeq.append((curLoc, curTime))
             # 如果有service time，则加上一段在原处等待的时间
-            if (serviceTime != None and serviceTime > 0):
+            if ('serviceTime' in nodes[nodeSeq[i]]):
+                curTime += nodes[nodeSeq[i]]['serviceTime']
+                timedSeq.append((curLoc, curTime))
+            elif (serviceTime != None and serviceTime > 0):
                 curTime += serviceTime
                 # curLoc = curLoc
                 timedSeq.append((curLoc, curTime))
@@ -231,6 +278,7 @@ def solveTSP(
         res['upperBound'] = tsp['upperBound']
         res['runtime'] = tsp['runtime']    
     if (metaFlag):
+        res['algo'] = algo
         res['serviceTime'] = serviceTime
     if (detailsFlag):
         res['vehicles'] = vehicles
@@ -996,103 +1044,6 @@ def _ipTSPCOPTLazyCuts(nodeIDs, tau, outputFlag, timeLimit):
     }
 
 def _heuTSP(nodeObj, tau, depotID, nodeIDs, asymFlag, **kwargs) -> dict|None:
-
-    """Use heuristic kwargss to find suboptimal TSP solution
-    
-    Parameters
-    
-    ----------
-
-    nodes: dictionary, required, default None
-        The coordinates of given nodes, in the following format::
-            >>> nodes = {
-            ...     nodeID1: {'loc': (x, y)},
-            ...     nodeID2: {'loc': (x, y)}, # ...
-            ... }
-    edges: dictionary, required, default as {'kwargs': "Euclidean", 'ratio': 1}
-        The traveling matrix. The options are as follows::
-            1) (default) Euclidean space
-            >>> edge = {
-            ...     'kwargs': 'Euclidean',
-            ...     'ratio': 1 # Optional, default to be 1
-            ... }
-            2) By given pairs of lat/lon
-            >>> edge = {
-            ...     'kwargs': 'LatLon',
-            ...     'unit': 'meters' # Optional, default to be 1
-            ... }
-            3) ManhattenDistance
-            >>> edge = {
-            ...     'kwargs': 'Manhatten',
-            ...     'ratio': 1 # Optional, default to be 1
-            ... }
-            4) By a given dictionary
-            >>> edge = {
-            ...     'kwargs': 'Dictionary',
-            ...     'dictionary': dictionary,
-            ...     'ratio': 1 # Optional, default to be 1
-            ... }
-            5) On the grids
-            >>> edge = {
-            ...     'kwargs': 'Grid',
-            ...     'grid': grid
-            ... }
-    kwargs: dictionary, required, default as {'cons': 'Insertion', 'impv': '2opt'}
-        The algorithm configuration. Includes two phases, use 'cons' to specify constructive heuristic, and 'impv' to specify local improvement heurisitc::
-            1) (default) Insertion
-            >>> kwargs = {
-            ...     'cons': 'Insertion',
-            ...     'initSeq': initSeq, # An initial sequence, defalt [depotID]
-            ...     'impv': '2Opt' # Options are: 'Reinsert', '2Opt', can select multiple kwargss by collecting them into a list, e.g. ['Reinsert', '2Opt']
-            ... }
-            2) Nearest neighborhood / k-nearest neighborhood
-            >>> kwargs = {
-            ...     'cons': 'NearestNeighbor',
-            ...     'k': 1, # 1: nearest neighbor, 2 ~ K: k-nearest neighbor, -1: farthest neighbor 
-            ... }
-            3) Sweep
-            >>> kwargs = {
-            ...     'cons': 'Sweep'
-            ... }
-            4) (not available) Christofides
-            >>> kwargs = {
-            ...     'cons': 'Christofides'
-            ... }
-            5) (not available) Cycle cover, particular for Asymmetric TSP
-            >>> kwargs = {
-            ...     'cons': 'CycleCover'
-            ... }
-            6) Random sequence
-            >>> kwargs = {
-            ...     'cons': 'Random'
-            ... }
-            7) Given sequence for further local improvements
-            >>> kwargs = {
-            ...     'cons': None, # or skip this
-            ...     'initSeq': initSeq, # An initial sequence, cannot be None in this case
-            ... }
-    depotID: int or string, required, default as 0
-        The ID of depot.
-    nodeIDs: string 'All' or a list of node IDs, required, default as 'All'
-        The following are two options: 1) 'All', all nodes will be visited, 2) A list of node IDs to be visited.
-    serviceTime: float, optional, default as 0
-        The service time needed at each location.
-    returnRouteObjectFlag: bool, optional, default as False
-        If true, in the 'seq' field of output, return the Route() object instead of a list
-
-    Returns
-    -------
-
-    dictionary
-        A TSP solution in the following format::
-            >>> solution = {
-            ...     'ofv': ofv,
-            ...     'route': route,
-            ...     'detail': detail
-            ... }
-
-    """
-
     # Construction heuristics =================================================
     # NOTE: Output of this phase should be a Route() object
     seqObj = Route(tau, asymFlag)

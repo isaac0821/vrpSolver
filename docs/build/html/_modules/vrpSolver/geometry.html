@@ -5,28 +5,34 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>vrpSolver.geometry &#8212; vrpSolver 0.0.56 documentation</title>
-    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=f63d8bfa" />
-    <link rel="stylesheet" type="text/css" href="../../_static/haiku.css?v=dfa0e015" />
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b849a4e9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinxdoc.css?v=87629129" />
     <script src="../../_static/documentation_options.js?v=8f83b1af"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" /> 
   </head><body>
-      <div class="header" role="banner"><h1 class="heading"><a href="../../index.html">
-          <span>vrpSolver 0.0.56 documentation</span></a></h1>
-        <h2 class="heading"><span>vrpSolver.geometry</span></h2>
-      </div>
-      <div class="topnav" role="navigation" aria-label="top navigation">
-      
-        <p>
-        <a class="uplink" href="../../index.html">Contents</a>
-        </p>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">vrpSolver 0.0.56 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">vrpSolver.geometry</a></li> 
+      </ul>
+    </div>  
 
-      </div>
-      <div class="content" role="main">
-        
-        
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
   <h1>Source code for vrpSolver.geometry</h1><div class="highlight"><pre>
 <span></span><span class="kn">import</span> <span class="nn">geopy.distance</span>
 <span class="kn">import</span> <span class="nn">heapq</span>
@@ -150,7 +156,7 @@
 <span class="sd">    ----------</span>
 <span class="sd">    pt: pt, required</span>
 <span class="sd">        Coordinate of the point</span>
-<span class="sd">    segment: line, required</span>
+<span class="sd">    seg: line, required</span>
 <span class="sd">        Two coordinates to form a line segment</span>
 <span class="sd">    interiorOnly: bool, optional, default as False</span>
 <span class="sd">        True if only consider intersecting in the interior</span>
@@ -192,7 +198,7 @@
 <span class="sd">    ----------</span>
 <span class="sd">    pt: pt, required</span>
 <span class="sd">        Coordinate of the point</span>
-<span class="sd">    segment: line, required</span>
+<span class="sd">    ray: line, required</span>
 <span class="sd">        Two coordinates to form a line segment</span>
 <span class="sd">    interiorOnly: bool, optional, default as False</span>
 <span class="sd">        True if only consider intersecting in the interior</span>
@@ -449,7 +455,7 @@
 <span class="sd">    ----------</span>
 <span class="sd">    line: line, required</span>
 <span class="sd">        The first line</span>
-<span class="sd">    segment: line, required</span>
+<span class="sd">    seg: line, required</span>
 <span class="sd">        The second line segment</span>
 
 <span class="sd">    Return</span>
@@ -925,7 +931,7 @@
 <span class="sd">    ----------</span>
 <span class="sd">    ray: line, required</span>
 <span class="sd">        The first line</span>
-<span class="sd">    segment: line, required</span>
+<span class="sd">    seg: line, required</span>
 <span class="sd">        The second line</span>
 
 <span class="sd">    Return</span>
@@ -1871,7 +1877,7 @@
             <span class="s1">&#39;intersectType&#39;</span><span class="p">:</span> <span class="s1">&#39;Polygon&#39;</span><span class="p">,</span>
             <span class="s1">&#39;interiorFlag&#39;</span><span class="p">:</span> <span class="kc">True</span>
         <span class="p">}</span>
-    <span class="c1"># MultiPoint/MultiLineString/MultiPolygon/Geometrycollection</span>
+    <span class="c1"># MultiPoint/MultiLineString/MultiPolygon/GeometryCollection</span>
     <span class="k">elif</span> <span class="p">(</span><span class="n">intType</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">]):</span>
         <span class="n">intSp</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">intShape</span><span class="o">.</span><span class="n">geoms</span><span class="p">:</span>
@@ -2431,26 +2437,25 @@
 <div class="viewcode-block" id="polysSteinerZone">
 <a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.polysSteinerZone">[docs]</a>
 <span class="k">def</span> <span class="nf">polysSteinerZone</span><span class="p">(</span><span class="n">polys</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span><span class="o">|</span><span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
-<span class="w">    </span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Given a node dictionary, returns a list of Steiner zones</span>
 
 <span class="sd">    Warning!!!</span>
 <span class="sd">    ----------</span>
-<span class="sd">    This function needs to be rewritten. It&#39;s not trackable now</span>
+<span class="sd">    This function needs to be rewritten. It&#39;s not traceable now.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 
 <span class="sd">    polys: dictionary, required</span>
 <span class="sd">        The polys dictionary with neighborhood.</span>
-<span class="sd">    order: int, optional, defalut None</span>
+<span class="sd">    order: int, optional, default None</span>
 <span class="sd">        Maximum order of Steiner zone</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 
 <span class="sd">    list[dict]</span>
-<span class="sd">        A list of Steiner zone dictionaris, each in the following format::</span>
+<span class="sd">        A list of Steiner zone dictionaries, each in the following format::</span>
 <span class="sd">            &gt;&gt;&gt; SteinerZone = {</span>
 <span class="sd">            ...     &#39;poly&#39;: poly,</span>
 <span class="sd">            ...     &#39;repPt&#39;: centroid,</span>
@@ -2566,8 +2571,6 @@
     <span class="k">return</span> <span class="n">lstSteinerZone</span></div>
 
  
-<div class="viewcode-block" id="polysBoundingBox">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.polysBoundingBox">[docs]</a>
 <span class="k">def</span> <span class="nf">polysBoundingBox</span><span class="p">(</span><span class="n">polys</span><span class="p">:</span><span class="n">polys</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">polysShapely</span><span class="p">:</span><span class="nb">list</span><span class="p">[</span><span class="n">shapely</span><span class="o">.</span><span class="n">Polygon</span><span class="p">]</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
     <span class="k">if</span> <span class="p">(</span><span class="n">polys</span> <span class="o">==</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">polysShapely</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
         <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required field &#39;polys&#39; or &#39;polysShapely&#39;.&quot;</span><span class="p">)</span>
@@ -2584,25 +2587,17 @@
             <span class="n">y</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
         <span class="n">polysBox</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="nb">min</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nb">min</span><span class="p">(</span><span class="n">y</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">y</span><span class="p">)])</span>
 
-    <span class="k">return</span> <span class="n">polysBox</span></div>
+    <span class="k">return</span> <span class="n">polysBox</span>
 
-
-<div class="viewcode-block" id="polygonsAlongLocSeq">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.polygonsAlongLocSeq">[docs]</a>
 <span class="k">def</span> <span class="nf">polygonsAlongLocSeq</span><span class="p">(</span><span class="n">seq</span><span class="p">,</span> <span class="n">polygons</span><span class="p">:</span><span class="nb">dict</span><span class="p">,</span> <span class="n">polyFieldName</span> <span class="o">=</span> <span class="s1">&#39;poly&#39;</span><span class="p">):</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">polygons</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required field &#39;polygons&#39;.&quot;</span><span class="p">)</span>
-
-    <span class="c1"># polysBox = polysBoundingBox(polys, polysShapely)</span>
-
-    <span class="c1"># First, for each leg in the seq, find the individual polygons intersect with the leg</span>
+     <span class="c1"># First, for each leg in the seq, find the individual polygons intersect with the leg</span>
     <span class="n">actions</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">actionIDOnLeg</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
         <span class="n">seg</span> <span class="o">=</span> <span class="p">[</span><span class="n">seq</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">seq</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]]</span>
 
         <span class="c1"># NOTE: 准备用segment tree</span>
-        <span class="c1"># NOTE: For now use the naive way - checking the boundingbox</span>
+        <span class="c1"># NOTE: For now use the naive way - checking the bounding box</span>
         <span class="k">for</span> <span class="n">pID</span> <span class="ow">in</span> <span class="n">polygons</span><span class="p">:</span>
             <span class="c1"># 根据Seg和poly的相交情况做判断</span>
             <span class="n">segIntPoly</span> <span class="o">=</span> <span class="n">intSeg2Poly</span><span class="p">(</span><span class="n">seg</span> <span class="o">=</span> <span class="n">seg</span><span class="p">,</span> <span class="n">poly</span> <span class="o">=</span> <span class="n">polygons</span><span class="p">[</span><span class="n">pID</span><span class="p">][</span><span class="n">polyFieldName</span><span class="p">])</span>
@@ -2718,12 +2713,28 @@
         <span class="n">i</span> <span class="o">==</span> <span class="mi">0</span>
         <span class="ow">or</span> <span class="ow">not</span> <span class="n">is2PtsSame</span><span class="p">(</span><span class="n">sortedActions</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">][</span><span class="s1">&#39;loc&#39;</span><span class="p">],</span> <span class="n">sortedActions</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="s1">&#39;loc&#39;</span><span class="p">]))]</span>
 
-    <span class="k">return</span> <span class="n">sortedActions</span></div>
-
+    <span class="k">return</span> <span class="n">sortedActions</span>
 
 <div class="viewcode-block" id="ptPolyCenter">
 <a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.ptPolyCenter">[docs]</a>
 <span class="k">def</span> <span class="nf">ptPolyCenter</span><span class="p">(</span><span class="n">poly</span><span class="p">:</span> <span class="n">poly</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">polyShapely</span><span class="p">:</span> <span class="n">shapely</span><span class="o">.</span><span class="n">Polygon</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pt</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given a poly, returns the centroid of the poly</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    poly: poly, optional, default as None</span>
+<span class="sd">        The polygon</span>
+<span class="sd">    polyShapely: shapely.Polygon, optional, default as None</span>
+<span class="sd">        The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    pt</span>
+<span class="sd">        The centroid</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">if</span> <span class="p">(</span><span class="n">poly</span> <span class="o">==</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">polyShapely</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
         <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required field &#39;poly&#39; or &#39;polyShapely&#39;.&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="p">(</span><span class="n">polyShapely</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
@@ -2735,22 +2746,17 @@
 
 
 <span class="c1"># Visibility check ============================================================</span>
-<div class="viewcode-block" id="polysVisibleGraph">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.polysVisibleGraph">[docs]</a>
 <span class="k">def</span> <span class="nf">polysVisibleGraph</span><span class="p">(</span><span class="n">polys</span><span class="p">:</span><span class="n">polys</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
     <span class="n">vg</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">polys</span><span class="p">)):</span>
         <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">polys</span><span class="p">[</span><span class="n">p</span><span class="p">])):</span>
             <span class="n">vg</span><span class="p">[(</span><span class="n">p</span><span class="p">,</span> <span class="n">e</span><span class="p">)]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;loc&#39;</span><span class="p">:</span> <span class="n">polys</span><span class="p">[</span><span class="n">p</span><span class="p">][</span><span class="n">e</span><span class="p">],</span> <span class="s1">&#39;visible&#39;</span><span class="p">:</span> <span class="p">[]}</span>
-            <span class="n">W</span> <span class="o">=</span> <span class="n">visPtAmongPolys</span><span class="p">((</span><span class="n">p</span><span class="p">,</span> <span class="n">e</span><span class="p">),</span> <span class="n">polys</span><span class="p">,</span> <span class="n">knownVG</span><span class="o">=</span><span class="n">vg</span><span class="p">)</span>
+            <span class="n">W</span> <span class="o">=</span> <span class="n">_visPtAmongPolys</span><span class="p">((</span><span class="n">p</span><span class="p">,</span> <span class="n">e</span><span class="p">),</span> <span class="n">polys</span><span class="p">,</span> <span class="n">knownVG</span><span class="o">=</span><span class="n">vg</span><span class="p">)</span>
             <span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="n">W</span><span class="p">:</span>
                 <span class="n">vg</span><span class="p">[(</span><span class="n">p</span><span class="p">,</span> <span class="n">e</span><span class="p">)][</span><span class="s1">&#39;visible&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">w</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">vg</span></div>
+    <span class="k">return</span> <span class="n">vg</span>
 
-
-<div class="viewcode-block" id="visPtAmongPolys">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.visPtAmongPolys">[docs]</a>
-<span class="k">def</span> <span class="nf">visPtAmongPolys</span><span class="p">(</span><span class="n">v</span><span class="p">:</span><span class="nb">int</span><span class="o">|</span><span class="nb">str</span><span class="o">|</span><span class="nb">tuple</span><span class="p">,</span> <span class="n">polys</span><span class="p">:</span><span class="n">polys</span><span class="p">,</span> <span class="n">standalonePts</span><span class="p">:</span><span class="nb">dict</span><span class="o">|</span><span class="kc">None</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">knownVG</span><span class="p">:</span><span class="nb">dict</span><span class="o">=</span><span class="p">{})</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<span class="k">def</span> <span class="nf">_visPtAmongPolys</span><span class="p">(</span><span class="n">v</span><span class="p">:</span><span class="nb">int</span><span class="o">|</span><span class="nb">str</span><span class="o">|</span><span class="nb">tuple</span><span class="p">,</span> <span class="n">polys</span><span class="p">:</span><span class="n">polys</span><span class="p">,</span> <span class="n">standalonePts</span><span class="p">:</span><span class="nb">dict</span><span class="o">|</span><span class="kc">None</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">knownVG</span><span class="p">:</span><span class="nb">dict</span><span class="o">=</span><span class="p">{})</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
     <span class="c1"># NOTE: 该函数不需要使用shapely</span>
     <span class="n">vertices</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">polyVertices</span> <span class="o">=</span> <span class="p">[]</span>
@@ -2921,64 +2927,34 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">T</span><span class="o">.</span><span class="n">query</span><span class="p">((</span><span class="nb">min</span><span class="p">(</span><span class="n">vIdxWiPrev</span><span class="p">,</span> <span class="n">vIdxWi</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">vIdxWiPrev</span><span class="p">,</span> <span class="n">vIdxWi</span><span class="p">)))</span><span class="o">.</span><span class="n">isNil</span><span class="p">):</span>
                 <span class="n">T</span><span class="o">.</span><span class="n">delete</span><span class="p">((</span><span class="nb">min</span><span class="p">(</span><span class="n">vIdxWiPrev</span><span class="p">,</span> <span class="n">vIdxWi</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">vIdxWiPrev</span><span class="p">,</span> <span class="n">vIdxWi</span><span class="p">)))</span>
-    <span class="k">return</span> <span class="n">W</span></div>
-
-
-<div class="viewcode-block" id="visPolyFromPt">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.visPolyFromPt">[docs]</a>
-<span class="k">def</span> <span class="nf">visPolyFromPt</span><span class="p">(</span><span class="n">v</span><span class="p">:</span><span class="nb">int</span><span class="o">|</span><span class="nb">str</span><span class="o">|</span><span class="nb">tuple</span><span class="p">,</span> <span class="nb">range</span><span class="p">:</span><span class="nb">float</span><span class="p">,</span> <span class="n">polys</span><span class="p">:</span><span class="n">polys</span><span class="p">,</span> <span class="n">standalonePts</span><span class="p">:</span><span class="nb">dict</span><span class="o">|</span><span class="kc">None</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">knownVG</span><span class="p">:</span><span class="nb">dict</span><span class="o">=</span><span class="p">{},</span> <span class="n">lod</span><span class="p">:</span><span class="nb">int</span> <span class="o">=</span> <span class="mi">36</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
-    
-    <span class="c1"># Step 1: fi</span>
-
-
-    <span class="k">return</span> <span class="n">poly</span></div>
-
-
-<div class="viewcode-block" id="circleShadowByPolys">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.circleShadowByPolys">[docs]</a>
-<span class="k">def</span> <span class="nf">circleShadowByPolys</span><span class="p">(</span><span class="n">circle</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">polys</span><span class="p">:</span> <span class="n">polys</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">lod</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">):</span>
-    <span class="n">standalonePts</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;loc&#39;</span><span class="p">:</span> <span class="n">circle</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">]}}</span>
-    <span class="n">cirR</span> <span class="o">=</span> <span class="n">circle</span><span class="p">[</span><span class="s1">&#39;radius&#39;</span><span class="p">]</span>
-
-    <span class="n">remain</span> <span class="o">=</span> <span class="p">[[</span>
-        <span class="n">circle</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">circle</span><span class="p">[</span><span class="s1">&#39;radius&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">d</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">lod</span><span class="p">),</span>
-        <span class="n">circle</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">circle</span><span class="p">[</span><span class="s1">&#39;radius&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">d</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">lod</span><span class="p">),</span>
-    <span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">lod</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
-
-    <span class="c1"># 分别计算每个poly的阴影遮挡</span>
-    <span class="k">for</span> <span class="n">poly</span> <span class="ow">in</span> <span class="n">polys</span><span class="p">:</span>
-        <span class="c1"># 首先计算poly从</span>
-
-        <span class="n">visExpt</span> <span class="o">=</span> <span class="n">visPtAmongPolys</span><span class="p">(</span><span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="p">[</span><span class="n">poly</span><span class="p">],</span> <span class="n">standalonePts</span><span class="p">)</span>
-
-
-
-    <span class="n">visExpt</span> <span class="o">=</span> <span class="n">visPtAmongPolys</span><span class="p">(</span><span class="s1">&#39;c&#39;</span><span class="p">,</span> <span class="n">polys</span><span class="p">,</span> <span class="n">standalonePts</span><span class="p">)</span>
-    <span class="n">visLocs</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">visExpt</span><span class="p">:</span>
-        <span class="n">visLocs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">polys</span><span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]][</span><span class="n">v</span><span class="p">[</span><span class="mi">1</span><span class="p">]])</span>
-    <span class="k">return</span> <span class="n">visCircle</span></div>
-
-
-<div class="viewcode-block" id="polyShadowByPolys">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.polyShadowByPolys">[docs]</a>
-<span class="k">def</span> <span class="nf">polyShadowByPolys</span><span class="p">(</span><span class="n">poly</span><span class="p">:</span> <span class="n">poly</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">anchor</span><span class="p">:</span> <span class="n">pt</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">polys</span><span class="p">:</span> <span class="n">polys</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
-    <span class="n">standalonePts</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;c&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;loc&#39;</span><span class="p">:</span> <span class="n">circle</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">]}}</span>
-
-    <span class="c1"># FIXME: 不得已的办法，把polygons拿去triangulate，然后逐个计算遮挡阴影</span>
-
-    <span class="c1"># 分别计算每个poly的遮挡</span>
-    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">polys</span><span class="p">:</span>
-        <span class="c1"># 首先计算有几个遮挡的转折点，若只有两个，则可以简单的划分为阴面和阳面</span>
-        <span class="k">pass</span>
-
-    <span class="k">return</span> <span class="n">visPoly</span></div>
-
+    <span class="k">return</span> <span class="n">W</span>
 
 <span class="c1"># Time seq related ============================================================</span>
 <div class="viewcode-block" id="snapInTimedSeq">
 <a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.snapInTimedSeq">[docs]</a>
 <span class="k">def</span> <span class="nf">snapInTimedSeq</span><span class="p">(</span><span class="n">timedSeq</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">pt</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span> <span class="n">t</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pt</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given a timedSeq, return the location, speed, and trajectory at time t</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    timedSeq: timedSeq, required</span>
+<span class="sd">        The timed sequence</span>
+<span class="sd">    t: float, required</span>
+<span class="sd">        The snapshot timestamp</span>
+
+<span class="sd">    Return</span>
+<span class="sd">    ------</span>
+<span class="sd">    dict</span>
+<span class="sd">        &gt;&gt;&gt; {</span>
+<span class="sd">        ...     &#39;loc&#39;: location,</span>
+<span class="sd">        ...     &#39;speed&#39;: speed,</span>
+<span class="sd">        ...     &#39;trajectory&#39;: trajectory</span>
+<span class="sd">        ... }</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">timedSeq</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">timedSeq</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">timedSeq</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]):</span>
             <span class="k">raise</span> <span class="n">UnsupportedInputError</span><span class="p">(</span><span class="s2">&quot;ERROR: `timedSeq` should be a non-descending sequence.&quot;</span><span class="p">)</span>
@@ -3029,8 +3005,6 @@
     <span class="p">}</span></div>
 
 
-<div class="viewcode-block" id="traceInTimedSeq">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.traceInTimedSeq">[docs]</a>
 <span class="k">def</span> <span class="nf">traceInTimedSeq</span><span class="p">(</span><span class="n">timedSeq</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="n">pt</span><span class="p">,</span> <span class="nb">float</span><span class="p">]],</span> <span class="n">ts</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">te</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pt</span><span class="p">]:</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">timedSeq</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
         <span class="k">if</span> <span class="p">(</span><span class="n">timedSeq</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">timedSeq</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]):</span>
@@ -3092,12 +3066,9 @@
             <span class="n">trace</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">timedSeq</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
         <span class="n">trace</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">teLoc</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">trace</span></div>
-
+    <span class="k">return</span> <span class="n">trace</span>
 
 <span class="c1"># Loc seq related =============================================================</span>
-<div class="viewcode-block" id="locSeqSortPts">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.locSeqSortPts">[docs]</a>
 <span class="k">def</span> <span class="nf">locSeqSortPts</span><span class="p">(</span><span class="n">seq</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pt</span><span class="p">],</span> <span class="n">pts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pt</span><span class="p">],</span> <span class="n">allowNotIncludeFlag</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
     <span class="c1"># First, calculate accumulated dist since start for each turning point of locSeq</span>
     <span class="n">acc</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -3131,11 +3102,8 @@
     <span class="k">return</span> <span class="p">{</span>
         <span class="s1">&#39;sortedPts&#39;</span><span class="p">:</span> <span class="n">sortedPts</span><span class="p">,</span>
         <span class="s1">&#39;notIncludedPts&#39;</span><span class="p">:</span> <span class="n">notIncludedPts</span>
-    <span class="p">}</span></div>
+    <span class="p">}</span>
 
-
-<div class="viewcode-block" id="locSeqSortNodes">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.locSeqSortNodes">[docs]</a>
 <span class="k">def</span> <span class="nf">locSeqSortNodes</span><span class="p">(</span><span class="n">seq</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pt</span><span class="p">],</span> <span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">locFieldName</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">,</span> <span class="n">allowNotIncludeFlag</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span> 
     <span class="n">acc</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
     <span class="n">sofar</span> <span class="o">=</span> <span class="mi">0</span>
@@ -3167,8 +3135,7 @@
     <span class="k">return</span> <span class="p">{</span>
         <span class="s1">&#39;sortedNodeIDs&#39;</span><span class="p">:</span> <span class="n">sortedNodeIDs</span><span class="p">,</span>
         <span class="s1">&#39;notIncludedNodeIDs&#39;</span><span class="p">:</span> <span class="n">notIncludedNodeIDs</span>
-    <span class="p">}</span></div>
-
+    <span class="p">}</span>
 
 <div class="viewcode-block" id="locSeqMileage">
 <a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.locSeqMileage">[docs]</a>
@@ -3207,58 +3174,44 @@
 
 
 <span class="c1"># Area calculation ============================================================</span>
-<div class="viewcode-block" id="calTriangleAreaEdge">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.calTriangleAreaEdge">[docs]</a>
 <span class="k">def</span> <span class="nf">calTriangleAreaEdge</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">c</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-    <span class="c1"># Using Heron&#39;s Formula ===================================================</span>
+    
     <span class="n">s</span> <span class="o">=</span> <span class="p">(</span><span class="n">a</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">b</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">c</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
     <span class="n">area</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">s</span> <span class="o">*</span> <span class="p">(</span><span class="n">s</span> <span class="o">-</span> <span class="n">a</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">s</span> <span class="o">-</span> <span class="n">b</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">s</span> <span class="o">-</span> <span class="n">c</span><span class="p">))</span>
-    <span class="k">return</span> <span class="n">area</span></div>
+    <span class="k">return</span> <span class="n">area</span>
 
-
-<div class="viewcode-block" id="calTriangleAreaXY">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.calTriangleAreaXY">[docs]</a>
 <span class="k">def</span> <span class="nf">calTriangleAreaXY</span><span class="p">(</span><span class="n">pt1</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">pt2</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">pt3</span><span class="p">:</span> <span class="n">pt</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-    <span class="c1"># Using determinant =======================================================</span>
+    
     <span class="p">[</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">]</span> <span class="o">=</span> <span class="n">pt1</span>
     <span class="p">[</span><span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">]</span> <span class="o">=</span> <span class="n">pt2</span>
     <span class="p">[</span><span class="n">x3</span><span class="p">,</span> <span class="n">y3</span><span class="p">]</span> <span class="o">=</span> <span class="n">pt3</span>
     <span class="n">val</span> <span class="o">=</span> <span class="p">(</span><span class="n">x2</span> <span class="o">*</span> <span class="n">y3</span> <span class="o">+</span> <span class="n">x3</span> <span class="o">*</span> <span class="n">y1</span> <span class="o">+</span> <span class="n">x1</span> <span class="o">*</span> <span class="n">y2</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">x2</span> <span class="o">*</span> <span class="n">y1</span> <span class="o">+</span> <span class="n">x3</span> <span class="o">*</span> <span class="n">y2</span> <span class="o">+</span> <span class="n">x1</span> <span class="o">*</span> <span class="n">y3</span><span class="p">)</span>
     <span class="n">area</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">area</span></div>
+    <span class="k">return</span> <span class="n">area</span>
 
-
-<div class="viewcode-block" id="calPolyAreaXY">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.calPolyAreaXY">[docs]</a>
 <span class="k">def</span> <span class="nf">calPolyAreaXY</span><span class="p">(</span><span class="n">poly</span><span class="p">:</span> <span class="n">poly</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="n">lstTriangle</span> <span class="o">=</span> <span class="n">tripy</span><span class="o">.</span><span class="n">earclip</span><span class="p">(</span><span class="n">poly</span><span class="p">)</span>
-
-    <span class="c1"># Weight them and make draws ==============================================</span>
     <span class="n">area</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">lstTriangle</span><span class="p">)):</span>
         <span class="n">area</span> <span class="o">+=</span> <span class="n">calTriangleAreaXY</span><span class="p">(</span><span class="n">lstTriangle</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">lstTriangle</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="n">lstTriangle</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
-    <span class="k">return</span> <span class="n">area</span></div>
-
+    <span class="k">return</span> <span class="n">area</span>
 
 <div class="viewcode-block" id="calPolyAreaLatLon">
 <a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.calPolyAreaLatLon">[docs]</a>
 <span class="k">def</span> <span class="nf">calPolyAreaLatLon</span><span class="p">(</span><span class="n">polyLatLon</span><span class="p">:</span> <span class="n">poly</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Returns the area surrounded by polyLatLon on the Earth&quot;&quot;&quot;</span>
-
-    <span class="c1"># Additional packages =====================================================</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="kn">from</span> <span class="nn">pyproj</span> <span class="kn">import</span> <span class="n">Geod</span>
     <span class="k">except</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ImportError</span>
 
-    <span class="c1"># Create polygon ==========================================================</span>
     <span class="c1"># NOTE: shapely is in [lon, lat] format</span>
     <span class="n">rev</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">polyLatLon</span><span class="p">:</span>
         <span class="n">rev</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">p</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
     <span class="n">polygon</span> <span class="o">=</span> <span class="n">shapely</span><span class="o">.</span><span class="n">Polygon</span><span class="p">(</span><span class="n">rev</span><span class="p">)</span>
 
-    <span class="c1"># Using pyproj to calculate ===============================================</span>
+    <span class="c1"># Using pyproj to calculate</span>
     <span class="c1"># Ref: https://hypc.github.io/2020/03/16/python-geo-area/</span>
     <span class="n">geod</span> <span class="o">=</span> <span class="n">Geod</span><span class="p">(</span><span class="n">ellps</span> <span class="o">=</span> <span class="s2">&quot;WGS84&quot;</span><span class="p">)</span>
     <span class="n">area</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">geod</span><span class="o">.</span><span class="n">geometry_area_perimeter</span><span class="p">(</span><span class="n">polygon</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
@@ -3266,23 +3219,17 @@
     <span class="k">return</span> <span class="n">area</span></div>
 
 
-<div class="viewcode-block" id="calPolyPerimeterXY">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.calPolyPerimeterXY">[docs]</a>
 <span class="k">def</span> <span class="nf">calPolyPerimeterXY</span><span class="p">(</span><span class="n">poly</span><span class="p">:</span> <span class="n">poly</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="n">p</span> <span class="o">=</span> <span class="mi">0</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">poly</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
         <span class="n">p</span> <span class="o">+=</span> <span class="n">distEuclideanXY</span><span class="p">(</span><span class="n">poly</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">poly</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
-    <span class="k">return</span> <span class="n">p</span></div>
-
+    <span class="k">return</span> <span class="n">p</span>
 
 <span class="c1"># Location of points ==========================================================</span>
-<div class="viewcode-block" id="headingXY">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.headingXY">[docs]</a>
 <span class="k">def</span> <span class="nf">headingXY</span><span class="p">(</span><span class="n">pt1</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">pt2</span><span class="p">:</span> <span class="n">pt</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="n">vec</span> <span class="o">=</span> <span class="p">(</span><span class="n">pt2</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">pt1</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">pt2</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">pt1</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
     <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">vDeg</span><span class="p">)</span> <span class="o">=</span> <span class="n">vecXY2Polar</span><span class="p">(</span><span class="n">vec</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">vDeg</span></div>
-
+    <span class="k">return</span> <span class="n">vDeg</span>
 
 <div class="viewcode-block" id="headingLatLon">
 <a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.headingLatLon">[docs]</a>
@@ -3326,31 +3273,23 @@
     <span class="k">return</span> <span class="n">newLoc</span></div>
 
 
-<div class="viewcode-block" id="circleByCenterLatLon">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.circleByCenterLatLon">[docs]</a>
 <span class="k">def</span> <span class="nf">circleByCenterLatLon</span><span class="p">(</span><span class="n">center</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">radius</span><span class="p">:</span> <span class="nb">int</span><span class="o">|</span><span class="nb">float</span><span class="p">,</span> <span class="n">lod</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">poly</span><span class="p">:</span>
     <span class="n">circle</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">lod</span><span class="p">):</span>
         <span class="n">deg</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="mi">360</span> <span class="o">*</span> <span class="n">i</span><span class="p">)</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">lod</span><span class="p">)</span>
         <span class="n">pt</span> <span class="o">=</span> <span class="n">ptInDistLatLon</span><span class="p">(</span><span class="n">pt</span> <span class="o">=</span> <span class="n">center</span><span class="p">,</span> <span class="n">direction</span> <span class="o">=</span> <span class="n">deg</span><span class="p">,</span> <span class="n">distMeters</span> <span class="o">=</span> <span class="n">radius</span><span class="p">)</span>
         <span class="n">circle</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">circle</span></div>
+    <span class="k">return</span> <span class="n">circle</span>
 
-
-<div class="viewcode-block" id="circleByCenterXY">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.circleByCenterXY">[docs]</a>
 <span class="k">def</span> <span class="nf">circleByCenterXY</span><span class="p">(</span><span class="n">center</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">radius</span><span class="p">:</span> <span class="nb">int</span><span class="o">|</span><span class="nb">float</span><span class="p">,</span> <span class="n">lod</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">poly</span><span class="p">:</span>
     <span class="n">circle</span> <span class="o">=</span> <span class="p">[]</span>
     <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">lod</span><span class="p">):</span>
         <span class="n">deg</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="mi">360</span> <span class="o">*</span> <span class="n">i</span><span class="p">)</span> <span class="o">/</span> <span class="nb">float</span><span class="p">(</span><span class="n">lod</span><span class="p">)</span>
         <span class="n">pt</span> <span class="o">=</span> <span class="n">ptInDistXY</span><span class="p">(</span><span class="n">pt</span> <span class="o">=</span> <span class="n">center</span><span class="p">,</span> <span class="n">direction</span> <span class="o">=</span> <span class="n">deg</span><span class="p">,</span> <span class="n">dist</span> <span class="o">=</span> <span class="n">radius</span><span class="p">)</span>
         <span class="n">circle</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">circle</span></div>
-
+    <span class="k">return</span> <span class="n">circle</span>
 
 <span class="c1"># Sort nodes ==================================================================</span>
-<div class="viewcode-block" id="nodeSeqByDist">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.nodeSeqByDist">[docs]</a>
 <span class="k">def</span> <span class="nf">nodeSeqByDist</span><span class="p">(</span><span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="o">|</span><span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;All&#39;</span><span class="p">,</span> <span class="n">locFieldName</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">,</span> <span class="n">refLoc</span><span class="p">:</span> <span class="n">pt</span><span class="o">|</span><span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">refNodeID</span><span class="p">:</span> <span class="nb">int</span><span class="o">|</span><span class="nb">str</span><span class="o">|</span><span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
     <span class="c1"># Define nodeIDs</span>
     <span class="k">if</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">nodeIDs</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">list</span><span class="p">):</span>
@@ -3377,8 +3316,7 @@
     <span class="k">while</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sortedSeqHeap</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
         <span class="n">sortedSeq</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">heapq</span><span class="o">.</span><span class="n">heappop</span><span class="p">(</span><span class="n">sortedSeqHeap</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>  
 
-    <span class="k">return</span> <span class="n">sortedSeq</span></div>
-
+    <span class="k">return</span> <span class="n">sortedSeq</span>
 
 <div class="viewcode-block" id="nodeSeqBySweeping">
 <a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.nodeSeqBySweeping">[docs]</a>
@@ -3433,8 +3371,6 @@
     <span class="k">return</span> <span class="n">sweepSeq</span></div>
 
 
-<div class="viewcode-block" id="nodesInIsochrone">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.nodesInIsochrone">[docs]</a>
 <span class="k">def</span> <span class="nf">nodesInIsochrone</span><span class="p">(</span><span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="o">|</span><span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;All&#39;</span><span class="p">,</span> <span class="n">locFieldName</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">,</span> <span class="n">refLoc</span><span class="p">:</span> <span class="n">pt</span><span class="o">|</span><span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">refNodeID</span><span class="p">:</span> <span class="nb">int</span><span class="o">|</span><span class="nb">str</span><span class="o">|</span><span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">isoRange</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">sortFlag</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span> 
     <span class="c1"># FIXME: Need an algorithm to filter out locations that are clearly too far from refLoc</span>
     <span class="c1"># Define nodeIDs</span>
@@ -3479,8 +3415,7 @@
     <span class="k">return</span> <span class="p">{</span>
         <span class="s1">&#39;nearSet&#39;</span><span class="p">:</span> <span class="n">nearSet</span><span class="p">,</span>
         <span class="s1">&#39;nearest&#39;</span><span class="p">:</span> <span class="n">nearest</span>
-    <span class="p">}</span></div>
-
+    <span class="p">}</span>
 
 <span class="c1"># Create distance matrix ======================================================</span>
 <div class="viewcode-block" id="matrixDist">
@@ -3493,7 +3428,7 @@
 <span class="sd">    ----------</span>
 
 <span class="sd">    nodes: dict, required</span>
-<span class="sd">        A `nodes` dictionary with location information</span>
+<span class="sd">        A `nodes`dictionary with location information</span>
 <span class="sd">    locFieldName: str, optional, default as &#39;loc&#39;</span>
 <span class="sd">        The key in nodes dictionary to indicate the locations</span>
 <span class="sd">    nodeIDs: list of int|str, or &#39;All&#39;, optional, default as &#39;All&#39;</span>
@@ -3505,8 +3440,8 @@
 <span class="sd">        2) &#39;EuclideanBarrier&#39;, using Euclidean distance, if `polys` is provided, the path between nodes will consider them as barriers and by pass those areas.</span>
 <span class="sd">            - polys: list of poly, the polygons to be considered as barriers</span>
 <span class="sd">        3) &#39;LatLon&#39;, calculate distances by lat/lon, no additional information needed</span>
-<span class="sd">        4) &#39;ManhattenXY&#39;, calculate distance by Manhatten distance</span>
 <span class="sd">            - distUnit: str, the unit of distance, default as &#39;meter&#39;</span>
+<span class="sd">        4) &#39;ManhattenXY&#39;, calculate distance by Manhatten distance            </span>
 <span class="sd">        5) &#39;Dictionary&#39;, directly provide the travel matrix</span>
 <span class="sd">            - tau: the traveling matrix</span>
 <span class="sd">        6) &#39;Grid&#39;, traveling on a grid with barriers, usually used in warehouses</span>
@@ -3520,18 +3455,9 @@
 <span class="sd">    -------</span>
 
 <span class="sd">    tuple</span>
-<span class="sd">        Two dictionaries, the first one is the travel matrix, the second one is the dictionary for path between start and end locations (useful for &#39;EuclideanBarrier&#39;)</span>
-<span class="sd">            &gt;&gt;&gt; dist = {</span>
-<span class="sd">            ...     (i, j) = 100, # distance between i and j</span>
-<span class="sd">            ...     ..., </span>
-<span class="sd">            ... }</span>
-<span class="sd">            &gt;&gt;&gt; path = {</span>
-<span class="sd">            ...     (i, j) = [pt1, ...], # path between i and j</span>
-<span class="sd">            ...     ..., </span>
-<span class="sd">            ... }</span>
+<span class="sd">        Two dictionaries, the first one is the travel matrix, index by (nodeID1, nodeID2), the second one is the dictionary for path between start and end locations (useful for &#39;EuclideanBarrier&#39;).</span>
 
 <span class="sd">    &quot;&quot;&quot;</span>
-
 
     <span class="c1"># Define tau</span>
     <span class="n">tau</span> <span class="o">=</span> <span class="p">{}</span>
@@ -3691,7 +3617,34 @@
 
 <div class="viewcode-block" id="vectorDist">
 <a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.vectorDist">[docs]</a>
-<span class="k">def</span> <span class="nf">vectorDist</span><span class="p">(</span><span class="n">loc</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">edges</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Euclidean&#39;</span><span class="p">,</span> <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="o">|</span><span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;All&#39;</span><span class="p">,</span> <span class="n">locFieldName</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="k">def</span> <span class="nf">vectorDist</span><span class="p">(</span><span class="n">loc</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">locFieldName</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">,</span> <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="o">|</span><span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;All&#39;</span><span class="p">,</span> <span class="n">edges</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Euclidean&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given a location and a `nodes` dictionary, returns the traveling distance and path between the location to each node.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    loc: pt, required</span>
+<span class="sd">        Origin/destination location.</span>
+<span class="sd">    nodes: dict, required</span>
+<span class="sd">        A `nodes`dictionary with location information. See :ref:`nodes` for reference.</span>
+<span class="sd">    locFieldName: str, optional, default as &#39;loc&#39;</span>
+<span class="sd">        The key in nodes dictionary to indicate the locations</span>
+<span class="sd">    nodeIDs: list of int|str, or &#39;All&#39;, optional, default as &#39;All&#39;</span>
+<span class="sd">        A list of nodes in `nodes` that needs to be considered, other nodes will be ignored</span>
+<span class="sd">    edges: str, optional, default as &#39;Euclidean&#39;</span>
+<span class="sd">        The methods for the calculation of distances between nodes. Options and required additional information are referred to :func:`~vrpSolver.geometry.matrixDist()`.</span>
+<span class="sd">    **kwargs: optional</span>
+<span class="sd">        Provide additional inputs for different `edges` options</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    tuple</span>
+<span class="sd">        tau, revTau, pathLoc, revPathLoc. Four dictionaries, the first one is the travel distance from loc to each node index by nodeID, the second the travel distance from each node back to loc. The third and fourth dictionaries are the corresponded path.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="c1"># Define tau</span>
     <span class="n">tau</span> <span class="o">=</span> <span class="p">{}</span>
     <span class="n">revTau</span> <span class="o">=</span> <span class="p">{}</span>
@@ -3826,6 +3779,29 @@
 <div class="viewcode-block" id="scaleDist">
 <a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.scaleDist">[docs]</a>
 <span class="k">def</span> <span class="nf">scaleDist</span><span class="p">(</span><span class="n">loc1</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">loc2</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">edges</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Euclidean&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given a two locations, returns the traveling distance and path between locations.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    loc1: pt, required</span>
+<span class="sd">        The first location.</span>
+<span class="sd">    loc2: pt, required</span>
+<span class="sd">        The second location.</span>
+<span class="sd">    edges: str, optional, default as &#39;Euclidean&#39;</span>
+<span class="sd">        The methods for the calculation of distances between nodes. Options and required additional information are referred to :func:`~vrpSolver.geometry.matrixDist()`.</span>
+<span class="sd">    **kwargs: optional</span>
+<span class="sd">        Provide additional inputs for different `edges` options</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    tuple</span>
+<span class="sd">        tau, revTau, pathLoc, revPathLoc. Four dictionaries, the first one is the travel distance from loc to each node index by nodeID, the second the travel distance from each node back to loc. The third and fourth dictionaries are the corresponded path.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="c1"># Define tau</span>
     <span class="n">dist</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">revDist</span> <span class="o">=</span> <span class="kc">None</span>
@@ -3885,7 +3861,21 @@
 <div class="viewcode-block" id="distEuclideanXY">
 <a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.distEuclideanXY">[docs]</a>
 <span class="k">def</span> <span class="nf">distEuclideanXY</span><span class="p">(</span><span class="n">pt1</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">pt2</span><span class="p">:</span> <span class="n">pt</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Gives a Euclidean distance based on two coords.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    pt1: pt, required</span>
+<span class="sd">        The first location</span>
+<span class="sd">    pt2: pt, required</span>
+<span class="sd">        The second location</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        A dictionary, with the distance in &#39;dist&#39;, and the path in &#39;path&#39;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="p">{</span>
         <span class="s1">&#39;dist&#39;</span><span class="p">:</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">pt1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">pt2</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">pt1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">pt2</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">**</span> <span class="mi">2</span><span class="p">),</span>
         <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">pt1</span><span class="p">,</span> <span class="n">pt2</span><span class="p">]</span>
@@ -3895,7 +3885,21 @@
 <div class="viewcode-block" id="distManhattenXY">
 <a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.distManhattenXY">[docs]</a>
 <span class="k">def</span> <span class="nf">distManhattenXY</span><span class="p">(</span><span class="n">pt1</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">pt2</span><span class="p">:</span> <span class="n">pt</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Gives a Euclidean distance based on two coords, if two coordinates are the same, return a small number&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Gives a Manhatten distance based on two coords.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    pt1: pt, required</span>
+<span class="sd">        The first location</span>
+<span class="sd">    pt2: pt, required</span>
+<span class="sd">        The second location</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        A dictionary, with the distance in &#39;dist&#39;, and the path in &#39;path&#39;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="p">{</span>
         <span class="s1">&#39;dist&#39;</span><span class="p">:</span> <span class="nb">abs</span><span class="p">(</span><span class="n">pt1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">pt2</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="nb">abs</span><span class="p">(</span><span class="n">pt1</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">pt2</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
         <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">pt1</span><span class="p">,</span> <span class="p">(</span><span class="n">pt1</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">pt2</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">pt2</span><span class="p">]</span>
@@ -3905,6 +3909,26 @@
 <div class="viewcode-block" id="distBtwPolysXY">
 <a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.distBtwPolysXY">[docs]</a>
 <span class="k">def</span> <span class="nf">distBtwPolysXY</span><span class="p">(</span><span class="n">pt1</span><span class="p">:</span><span class="n">pt</span><span class="p">,</span> <span class="n">pt2</span><span class="p">:</span><span class="n">pt</span><span class="p">,</span> <span class="n">polys</span><span class="p">:</span><span class="n">polys</span><span class="p">,</span> <span class="n">polyVG</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Gives a Manhatten distance based on two coords.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    pt1: pt, required</span>
+<span class="sd">        The first location</span>
+<span class="sd">    pt2: pt, required</span>
+<span class="sd">        The second location</span>
+<span class="sd">    polys: polys, required</span>
+<span class="sd">        The polygons as barriers.</span>
+<span class="sd">    polyVG: dict, optional, default as None</span>
+<span class="sd">        The pre-calculated visual-graph using :func:`~vrpSolver.polysVisibleGraph()`. To avoid repeated calculation</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        A dictionary, with the distance in &#39;dist&#39;, and the path in &#39;path&#39;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="c1"># Reference: Computational Geometry: Algorithms and Applications Third Edition</span>
     <span class="c1"># By Mark de Berg et al. Page 326 - 330</span>
     <span class="c1"># With some modifications</span>
@@ -3943,10 +3967,10 @@
             <span class="s1">&#39;visible&#39;</span><span class="p">:</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">polyVG</span><span class="p">[</span><span class="n">p</span><span class="p">][</span><span class="s1">&#39;visible&#39;</span><span class="p">]]</span>
         <span class="p">}</span>
     <span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;s&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;loc&#39;</span><span class="p">:</span> <span class="n">pt1</span><span class="p">,</span> <span class="s1">&#39;visible&#39;</span><span class="p">:</span> <span class="p">[]}</span>
-    <span class="n">Ws</span> <span class="o">=</span> <span class="n">visPtAmongPolys</span><span class="p">(</span><span class="s1">&#39;s&#39;</span><span class="p">,</span> <span class="n">polys</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;s&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;loc&#39;</span><span class="p">:</span> <span class="n">pt1</span><span class="p">,</span> <span class="s1">&#39;visible&#39;</span><span class="p">:</span> <span class="p">[]}})</span>
+    <span class="n">Ws</span> <span class="o">=</span> <span class="n">_visPtAmongPolys</span><span class="p">(</span><span class="s1">&#39;s&#39;</span><span class="p">,</span> <span class="n">polys</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;s&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;loc&#39;</span><span class="p">:</span> <span class="n">pt1</span><span class="p">,</span> <span class="s1">&#39;visible&#39;</span><span class="p">:</span> <span class="p">[]}})</span>
     <span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;s&#39;</span><span class="p">][</span><span class="s1">&#39;visible&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">Ws</span>
     <span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;e&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;loc&#39;</span><span class="p">:</span> <span class="n">pt2</span><span class="p">,</span> <span class="s1">&#39;visible&#39;</span><span class="p">:</span> <span class="p">[]}</span>
-    <span class="n">We</span> <span class="o">=</span> <span class="n">visPtAmongPolys</span><span class="p">(</span><span class="s1">&#39;e&#39;</span><span class="p">,</span> <span class="n">polys</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;e&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;loc&#39;</span><span class="p">:</span> <span class="n">pt2</span><span class="p">,</span> <span class="s1">&#39;visible&#39;</span><span class="p">:</span> <span class="p">[]}})</span>
+    <span class="n">We</span> <span class="o">=</span> <span class="n">_visPtAmongPolys</span><span class="p">(</span><span class="s1">&#39;e&#39;</span><span class="p">,</span> <span class="n">polys</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;e&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;loc&#39;</span><span class="p">:</span> <span class="n">pt2</span><span class="p">,</span> <span class="s1">&#39;visible&#39;</span><span class="p">:</span> <span class="p">[]}})</span>
     <span class="n">vertices</span><span class="p">[</span><span class="s1">&#39;e&#39;</span><span class="p">][</span><span class="s1">&#39;visible&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">We</span>
 
     <span class="c1"># Find shortest path ======================================================</span>
@@ -3971,7 +3995,21 @@
 <div class="viewcode-block" id="distLatLon">
 <a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.distLatLon">[docs]</a>
 <span class="k">def</span> <span class="nf">distLatLon</span><span class="p">(</span><span class="n">pt1</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">pt2</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">distUnit</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;meter&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Gives a Euclidean distance based on two lat/lon coords, if two coordinates are the same, return a small number&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Gives a distance based on two lat/lon coords.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    pt1: pt, required</span>
+<span class="sd">        The first location</span>
+<span class="sd">    pt2: pt, required</span>
+<span class="sd">        The second location</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        A dictionary, with the distance in &#39;dist&#39;, and the path in &#39;path&#39;</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     
     <span class="c1"># Get radius as in distUnit ===============================================</span>
     <span class="n">R</span> <span class="o">=</span> <span class="kc">None</span>
@@ -4000,52 +4038,45 @@
 <div class="viewcode-block" id="distOnGrid">
 <a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.distOnGrid">[docs]</a>
 <span class="k">def</span> <span class="nf">distOnGrid</span><span class="p">(</span><span class="n">pt1</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">pt2</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">column</span><span class="p">,</span> <span class="n">row</span><span class="p">,</span> <span class="n">barriers</span> <span class="o">=</span> <span class="p">[],</span> <span class="n">algo</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;A*&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Given two coordinates on the grid, finds the &#39;shortest&#39; path to travel</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given two coordinates on the grid, finds the &#39;shortest&#39; path to travel</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
 
-<span class="sd">    grid: dictionary, required, default as None</span>
-<span class="sd">        The environment of a grid area, in the following format:</span>
-<span class="sd">            &gt;&gt;&gt; grid = {</span>
-<span class="sd">            ...     &#39;column&#39;: col, # Number of columns,</span>
-<span class="sd">            ...     &#39;row&#39;: row, # Number of rows,</span>
-<span class="sd">            ...     &#39;barriers&#39;: barriers, # A list of coordinates,</span>
-<span class="sd">            ... }</span>
-<span class="sd">    pt1: 2-tuple|2-list, required</span>
+<span class="sd">    pt1: pt, required</span>
 <span class="sd">        Starting location on the grid</span>
-<span class="sd">    pt2: 2-tuple|2-list, required</span>
+<span class="sd">    pt2: pt, required</span>
 <span class="sd">        Ending location on the grid </span>
-<span class="sd">    algo: dict, required, default as {&#39;method&#39;: &#39;A*&#39;, &#39;distMeasure&#39;: &#39;Manhatten&#39;}</span>
+<span class="sd">    column: int, required</span>
+<span class="sd">        Number of columns</span>
+<span class="sd">    row: int, required</span>
+<span class="sd">        Number of rows</span>
+<span class="sd">    barriers: list[pt], optional, default as []</span>
+<span class="sd">        A list of coordinates as barriers on the grid.</span>
+<span class="sd">    algo: dict, required, default as &#39;A*&#39;</span>
 <span class="sd">        The algorithm configuration. For example</span>
-<span class="sd">        1) A*</span>
-<span class="sd">            &gt;&gt;&gt; algo = {</span>
-<span class="sd">            ...     &#39;method&#39;: A*,</span>
-<span class="sd">            ...     &#39;measure&#39;: &#39;Manhatten&#39;, # Options: &#39;Manhatten&#39;, &#39;Euclidean&#39;</span>
-<span class="sd">            ... }</span>
+<span class="sd">        </span>
+<span class="sd">        1) A*, use the A star algorithm, additional information needed is as follows</span>
+<span class="sd">            - measure: str, optional, default as &#39;Manhatten&#39;            </span>
+<span class="sd">    **kwargs: optional</span>
+<span class="sd">        Provide additional inputs for different `algo` options</span>
 
 <span class="sd">    Returns</span>
 <span class="sd">    -------</span>
 <span class="sd">    dict</span>
-<span class="sd">        A path on the given grid, in the following formatt::</span>
-<span class="sd">            &gt;&gt;&gt; res = {</span>
-<span class="sd">            ...     &#39;dist&#39;: dist,</span>
-<span class="sd">            ...     &#39;path&#39;: path,</span>
-<span class="sd">            ... }</span>
-
+<span class="sd">        A dictionary, with the distance in &#39;dist&#39;, and the path in &#39;path&#39;</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="c1"># Decode ==================================================================</span>
-    <span class="n">column</span> <span class="o">=</span> <span class="n">grid</span><span class="p">[</span><span class="s1">&#39;column&#39;</span><span class="p">]</span>
-    <span class="n">row</span> <span class="o">=</span> <span class="n">grid</span><span class="p">[</span><span class="s1">&#39;row&#39;</span><span class="p">]</span>
-    <span class="n">barriers</span> <span class="o">=</span> <span class="n">grid</span><span class="p">[</span><span class="s1">&#39;barriers&#39;</span><span class="p">]</span>
     <span class="n">res</span> <span class="o">=</span> <span class="kc">None</span>
-
-    <span class="c1"># Call path finding =======================================================</span>
     <span class="k">if</span> <span class="p">(</span><span class="n">algo</span> <span class="o">==</span> <span class="s1">&#39;A*&#39;</span><span class="p">):</span>
+        <span class="n">measure</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;measure&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;measure&#39;</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;Manhatten&#39;</span><span class="p">,</span> <span class="s1">&#39;Euclidean&#39;</span><span class="p">]):</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;WARNING: Set distance measurement to be default as &#39;Manhatten&quot;</span><span class="p">)</span>
-        <span class="n">res</span> <span class="o">=</span> <span class="n">_distOnGridAStar</span><span class="p">(</span><span class="n">column</span><span class="p">,</span> <span class="n">row</span><span class="p">,</span> <span class="n">barriers</span><span class="p">,</span> <span class="n">pt1</span><span class="p">,</span> <span class="n">pt2</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;measure&#39;</span><span class="p">])</span>
+            <span class="n">measure</span> <span class="o">=</span> <span class="s1">&#39;Manhatten&#39;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">measure</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;measure&#39;</span><span class="p">]</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">_distOnGridAStar</span><span class="p">(</span><span class="n">column</span><span class="p">,</span> <span class="n">row</span><span class="p">,</span> <span class="n">barriers</span><span class="p">,</span> <span class="n">pt1</span><span class="p">,</span> <span class="n">pt2</span><span class="p">,</span> <span class="n">measure</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">UnsupportedInputError</span><span class="p">(</span><span class="s2">&quot;Error: Incorrect or not available grid path finding option!&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">res</span></div>
@@ -4166,8 +4197,6 @@
     <span class="p">}</span>
 
 <span class="c1"># Path touring through polygons ===============================================</span>
-<div class="viewcode-block" id="polyPath2Mileage">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.polyPath2Mileage">[docs]</a>
 <span class="k">def</span> <span class="nf">polyPath2Mileage</span><span class="p">(</span><span class="n">repSeq</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pt</span><span class="p">],</span> <span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">):</span>
 
     <span class="c1"># NOTE: 根据p2pPath，得到足够多的子问题信息以生成cut</span>
@@ -4389,11 +4418,8 @@
                     <span class="n">lastTurnPt</span> <span class="o">=</span> <span class="n">tangLoc</span>
                     <span class="n">turnPtMileageAcc</span> <span class="o">+=</span> <span class="n">dist</span>
     
-    <span class="k">return</span> <span class="n">mileage</span></div>
+    <span class="k">return</span> <span class="n">mileage</span>
 
-
-<div class="viewcode-block" id="locSeqRemoveDegen">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.locSeqRemoveDegen">[docs]</a>
 <span class="k">def</span> <span class="nf">locSeqRemoveDegen</span><span class="p">(</span><span class="n">seq</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pt</span><span class="p">],</span> <span class="n">error</span><span class="p">:</span><span class="nb">float</span><span class="o">=</span><span class="n">CONST_EPSILON</span><span class="p">):</span>
     <span class="c1"># Step 1: 先按是否重合对点进行聚合  </span>
     <span class="n">curLoc</span> <span class="o">=</span> <span class="n">seq</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -4475,8 +4501,7 @@
         <span class="s1">&#39;aggNodeList&#39;</span><span class="p">:</span> <span class="n">aggNodeList</span><span class="p">,</span>
         <span class="s1">&#39;removedFlag&#39;</span><span class="p">:</span> <span class="n">removedFlag</span><span class="p">,</span>
         <span class="s1">&#39;locatedSeg&#39;</span><span class="p">:</span> <span class="n">locatedSeg</span>
-    <span class="p">}</span></div>
-
+    <span class="p">}</span>
 
 <span class="c1"># obj2ObjPath =================================================================</span>
 <div class="viewcode-block" id="poly2PolyPath">
@@ -4860,7 +4885,7 @@
 <a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.circle2CirclePath">[docs]</a>
 <span class="k">def</span> <span class="nf">circle2CirclePath</span><span class="p">(</span><span class="n">startPt</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">endPt</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">circles</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">method</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;algo&#39;</span><span class="p">:</span> <span class="s1">&#39;SOCP&#39;</span><span class="p">,</span> <span class="s1">&#39;solver&#39;</span><span class="p">:</span> <span class="s1">&#39;Gurobi&#39;</span><span class="p">}):</span>
 <span class="w">    </span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Find path between geometries, e.g., polys, circles, arcpolys, mixed.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Find path between circles.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -4869,8 +4894,8 @@
 <span class="sd">        The coordinate which starts the path.</span>
 <span class="sd">    endPt: pt, required, default None</span>
 <span class="sd">        The coordinate which ends the path.</span>
-<span class="sd">    circles: polys|dict, required, default None</span>
-<span class="sd">        A list of polys, or circles, or arcpolys, or a mix of those objects to be visited in given sequence</span>
+<span class="sd">    circles: dict, required, default None</span>
+<span class="sd">        A list of circles to be visited in given sequence.</span>
 <span class="sd">    method: dict, required, default {&#39;shape&#39;: &#39;Poly&#39;, &#39;barriers&#39;: None, &#39;errTol&#39;: CONST_EPSILON}</span>
 <span class="sd">        A dictionary to indicate the subroutine to be used. Options includes</span>
 <span class="sd">            1) Between circles using heuristics</span>
@@ -5149,15 +5174,40 @@
     <span class="p">}</span>
 </pre></div>
 
+            <div class="clearer"></div>
+          </div>
+        </div>
       </div>
-      <div class="bottomnav" role="navigation" aria-label="bottom navigation">
-      
-        <p>
-        <a class="uplink" href="../../index.html">Contents</a>
-        </p>
-
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
       </div>
-
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">vrpSolver 0.0.56 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">vrpSolver.geometry</a></li> 
+      </ul>
+    </div>
     <div class="footer" role="contentinfo">
     &#169; Copyright 2024, Lan Peng.
       Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.7.

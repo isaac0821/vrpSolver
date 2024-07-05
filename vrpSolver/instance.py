@@ -23,32 +23,32 @@ def rndLocs(
     distr: string, optional, default as 'UniformSquareXY'
         Spatial distribution of locations, options and required addtional inputs are as follows:
 
-        1) (default) 'UniformSquareXY', Uniformly sample from a square on the Euclidean space
+        1) (default) 'UniformSquareXY', uniformly sample from a square on the Euclidean space
             - xRange: 2-tuple, with minimum/maximum range of x, default as (0, 100)
             - yRange: 2-tuple, with minimum/maximum range of y, default as (0, 100)
-        2) 'UniformPolyXY', Uniformly sample from a given polygon
+        2) 'UniformPolyXY', uniformly sample from a given polygon
             - polyXY: poly, the polygon of the area, (no holes)
             - polyXYs: list of polys, alternative option for `polyXY`
-        3) 'UniformAvoidPolyXY', Uniformly sample from a squre avoiding some polygons
+        3) 'UniformAvoidPolyXY', uniformly sample from a squre avoiding some polygons
             - xRange: 2-tuple, with minimum/maximum range of x, default as (0, 100)
             - yRange: 2-tuple, with minimum/maximum range of y, default as (0, 100)
             - polyXY: poly, the polygon of the area, (no holes)
             - polyXYs: list of polys, alternative option for `polyXY`
-        4) 'UniformCircleXY', Uniformly sample from a circle on the Euclidean space
+        4) 'UniformCircleXY', uniformly sample from a circle on the Euclidean space
             - centerXY: 2-tuple, the center of circle
             - radius: float, the radius of the circle
-        5) 'UniformPolyLatLon', Uniformly sample from a polygon by lat/lon
+        5) 'UniformPolyLatLon', uniformly sample from a polygon by lat/lon
             - polyLatLon: poly, the polygon of the area, (no holes)
             - polyLatLons: list of polys, alternative option for `polyLatLon`
-        6) 'UniformCircleLatLon', Uniformly sample from a circle by lat/lon
+        6) 'UniformCircleLatLon', uniformly sample from a circle by lat/lon
             - centerLatLon: 2-tuple, the (lat, lon) for the center
             - radiusInMeters: float, the radius of the circle in meters
-        7) 'RoadNetworkPolyLatLon', Uniformly generate within a given polygon on a road network
+        7) 'RoadNetworkPolyLatLon', uniformly generate within a given polygon on a road network
             - roads: dict, the road network dictionary
             - polyLatLon: poly, optional, the polygon on the map to sample from
             - polyLatLons: list of polys, optional, alternative for `polyLatLon`
             - roadClass: list[str], the road classes that allows to sample from
-        8) 'RoadNetworkCircleLatLon', Uniformly generate within a circle on a road network
+        8) 'RoadNetworkCircleLatLon', uniformly generate within a circle on a road network
             - roads: dict, the road network dictionary
             - centerLatLon: 2-tuple, the (lat, lon) for the center
             - radiusInMeters: float, the radius of the circle in meters
@@ -712,9 +712,9 @@ def rndArcs(
     arcIDs: list, optional, default as None
         Alternative input parameter of `A`. A list of arc IDs, `A` will be overwritten if `arcIDs` is given
     distr: str, optional, default as 'UniformLengthInSquareXY'
-        The distribution of arcs. Options and required addtional inputs are as follows:
+        The distribution of arcs. Options and required additional inputs are as follows:
 
-        1) (default) 'UniformLengthInSquareXY', Uniformly sample from a square on the Euclidean space, with uniformly selected length
+        1) (default) 'UniformLengthInSquareXY', uniformly sample from a square on the Euclidean space, with uniformly selected length
             - xRange: 2-tuple, with minimum/maximum range of x, default as (0, 100)
             - yRange: 2-tuple, with minimum/maximum range of y, default as (0, 100)
             - minLen: float, minimum length of the arcs

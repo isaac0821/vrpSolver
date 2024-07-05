@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>vrpSolver.instance &#8212; vrpSolver 0.0.56 documentation</title>
-    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=649a27d8" />
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b849a4e9" />
     <link rel="stylesheet" type="text/css" href="../../_static/sphinxdoc.css?v=87629129" />
     <script src="../../_static/documentation_options.js?v=8f83b1af"></script>
     <script src="../../_static/doctools.js?v=9a2dae69"></script>
@@ -61,32 +61,32 @@
 <span class="sd">    distr: string, optional, default as &#39;UniformSquareXY&#39;</span>
 <span class="sd">        Spatial distribution of locations, options and required addtional inputs are as follows:</span>
 
-<span class="sd">        1) (default) &#39;UniformSquareXY&#39;, Uniformly sample from a square on the Euclidean space</span>
+<span class="sd">        1) (default) &#39;UniformSquareXY&#39;, uniformly sample from a square on the Euclidean space</span>
 <span class="sd">            - xRange: 2-tuple, with minimum/maximum range of x, default as (0, 100)</span>
 <span class="sd">            - yRange: 2-tuple, with minimum/maximum range of y, default as (0, 100)</span>
-<span class="sd">        2) &#39;UniformPolyXY&#39;, Uniformly sample from a given polygon</span>
+<span class="sd">        2) &#39;UniformPolyXY&#39;, uniformly sample from a given polygon</span>
 <span class="sd">            - polyXY: poly, the polygon of the area, (no holes)</span>
 <span class="sd">            - polyXYs: list of polys, alternative option for `polyXY`</span>
-<span class="sd">        3) &#39;UniformAvoidPolyXY&#39;, Uniformly sample from a squre avoiding some polygons</span>
+<span class="sd">        3) &#39;UniformAvoidPolyXY&#39;, uniformly sample from a squre avoiding some polygons</span>
 <span class="sd">            - xRange: 2-tuple, with minimum/maximum range of x, default as (0, 100)</span>
 <span class="sd">            - yRange: 2-tuple, with minimum/maximum range of y, default as (0, 100)</span>
 <span class="sd">            - polyXY: poly, the polygon of the area, (no holes)</span>
 <span class="sd">            - polyXYs: list of polys, alternative option for `polyXY`</span>
-<span class="sd">        4) &#39;UniformCircleXY&#39;, Uniformly sample from a circle on the Euclidean space</span>
+<span class="sd">        4) &#39;UniformCircleXY&#39;, uniformly sample from a circle on the Euclidean space</span>
 <span class="sd">            - centerXY: 2-tuple, the center of circle</span>
 <span class="sd">            - radius: float, the radius of the circle</span>
-<span class="sd">        5) &#39;UniformPolyLatLon&#39;, Uniformly sample from a polygon by lat/lon</span>
+<span class="sd">        5) &#39;UniformPolyLatLon&#39;, uniformly sample from a polygon by lat/lon</span>
 <span class="sd">            - polyLatLon: poly, the polygon of the area, (no holes)</span>
 <span class="sd">            - polyLatLons: list of polys, alternative option for `polyLatLon`</span>
-<span class="sd">        6) &#39;UniformCircleLatLon&#39;, Uniformly sample from a circle by lat/lon</span>
+<span class="sd">        6) &#39;UniformCircleLatLon&#39;, uniformly sample from a circle by lat/lon</span>
 <span class="sd">            - centerLatLon: 2-tuple, the (lat, lon) for the center</span>
 <span class="sd">            - radiusInMeters: float, the radius of the circle in meters</span>
-<span class="sd">        7) &#39;RoadNetworkPolyLatLon&#39;, Uniformly generate within a given polygon on a road network</span>
+<span class="sd">        7) &#39;RoadNetworkPolyLatLon&#39;, uniformly generate within a given polygon on a road network</span>
 <span class="sd">            - roads: dict, the road network dictionary</span>
 <span class="sd">            - polyLatLon: poly, optional, the polygon on the map to sample from</span>
 <span class="sd">            - polyLatLons: list of polys, optional, alternative for `polyLatLon`</span>
 <span class="sd">            - roadClass: list[str], the road classes that allows to sample from</span>
-<span class="sd">        8) &#39;RoadNetworkCircleLatLon&#39;, Uniformly generate within a circle on a road network</span>
+<span class="sd">        8) &#39;RoadNetworkCircleLatLon&#39;, uniformly generate within a circle on a road network</span>
 <span class="sd">            - roads: dict, the road network dictionary</span>
 <span class="sd">            - centerLatLon: 2-tuple, the (lat, lon) for the center</span>
 <span class="sd">            - radiusInMeters: float, the radius of the circle in meters</span>
@@ -759,9 +759,9 @@
 <span class="sd">    arcIDs: list, optional, default as None</span>
 <span class="sd">        Alternative input parameter of `A`. A list of arc IDs, `A` will be overwritten if `arcIDs` is given</span>
 <span class="sd">    distr: str, optional, default as &#39;UniformLengthInSquareXY&#39;</span>
-<span class="sd">        The distribution of arcs. Options and required addtional inputs are as follows:</span>
+<span class="sd">        The distribution of arcs. Options and required additional inputs are as follows:</span>
 
-<span class="sd">        1) (default) &#39;UniformLengthInSquareXY&#39;, Uniformly sample from a square on the Euclidean space, with uniformly selected length</span>
+<span class="sd">        1) (default) &#39;UniformLengthInSquareXY&#39;, uniformly sample from a square on the Euclidean space, with uniformly selected length</span>
 <span class="sd">            - xRange: 2-tuple, with minimum/maximum range of x, default as (0, 100)</span>
 <span class="sd">            - yRange: 2-tuple, with minimum/maximum range of y, default as (0, 100)</span>
 <span class="sd">            - minLen: float, minimum length of the arcs</span>

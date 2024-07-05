@@ -40,7 +40,7 @@ def plotLocs(
         A list of locations to be plotted
     locColor: str, Optional, Default as 'Random'
         The color of locations to be plotted, 'Random' if the color is randomized
-
+    
 
 
     """
@@ -118,7 +118,7 @@ def plotLocs(
         if (locMarkersize == None):
             ax.plot(x, y, color = color, marker = locMarker)
         else:
-            ax.plot(x, y, color = color, marker = locMarker, markersize = locMarkersize)
+            ax.plot(x, y, color = color, marker = locMarker, markerSize = locMarkersize)
 
     # Axis on and off =========================================================
     if (not showAxis):
@@ -148,12 +148,13 @@ def plotNodes(
     showFig: bool = True
     ):
 
-    """Draw nodes
+    """
+    Draw nodes
 
     Parameters
     ----------
     nodes: dictionary, required
-        A :ref:`nodes` dictionary
+        A `nodes` dictionary. See :ref:`nodes` for reference.
     nodeColor: str, optional, default 'Random'
         Alternative option. If 'color' is provided in `node`, this will be ignored.
     neighborColor: str, optional, default 'gray'
@@ -179,7 +180,8 @@ def plotNodes(
 
     Returns
     -------
-    fig, ax: matplotlib.pyplot object
+    fig, ax
+        matplotlib.pyplot object
     """
 
     # Check for required fields ===============================================
@@ -248,8 +250,8 @@ def plotNodes(
         # Define marker and marker size ---------------------------------------
         if ('marker' in nodes[n]):
             nodeMarker = nodes[n]['marker']
-        if ('markersize' in nodes[n]):
-            nodeMarkersize = nodes[n]['markersize']
+        if ('markerSize' in nodes[n]):
+            nodeMarkersize = nodes[n]['markerSize']
 
         # plot nodes ----------------------------------------------------------
         x = None
@@ -263,7 +265,7 @@ def plotNodes(
         if (nodeMarkersize == None):
             ax.plot(x, y, color = color, marker = nodeMarker)
         else:
-            ax.plot(x, y, color = color, marker = nodeMarker, markersize = nodeMarkersize)
+            ax.plot(x, y, color = color, marker = nodeMarker, markerSize = nodeMarkersize)
         if ('label' not in nodes[n]):
             lbl = n
         else:
@@ -316,13 +318,14 @@ def plotArcs(
     showFig: bool = True
     ):
     
-    """Draw arcs
+    """
+    Draw arcs
 
     Parameters
     ----------
 
     arcs: dict, required
-        A set of arcs, each arc is defined by two points
+        An `arcs` dictionary, each arc is defined by two points. See :ref:`arcs` for reference.
     arcColor: string, optional, default 'Random'
         Color of arcs
     arcWidth: float, optional, default 1
@@ -350,7 +353,8 @@ def plotArcs(
 
     Returns
     -------
-    fig, ax: matplotlib.pyplot object
+    fig, ax
+        matplotlib.pyplot object
     """
 
     # Check for required fields ===============================================
@@ -368,30 +372,30 @@ def plotArcs(
         if (xMin == None or xMax == None or yMin == None or yMax == None):
             allX = []
             allY = []
-            # if (arcFieldName in arcs):
-            for i in arcs:
-                if (not xyReverseFlag):
-                    allX.append(arcs[i][arcFieldName][0][0])
-                    allX.append(arcs[i][arcFieldName][1][0])
-                    allY.append(arcs[i][arcFieldName][0][1])
-                    allY.append(arcs[i][arcFieldName][1][1])
-                else:
-                    allX.append(arcs[i][arcFieldName][0][1])
-                    allX.append(arcs[i][arcFieldName][1][1])
-                    allY.append(arcs[i][arcFieldName][0][0])
-                    allY.append(arcs[i][arcFieldName][1][0])
-            # else:
-            #     for i in arcs:
-            #         if (not xyReverseFlag):
-            #             allX.append(arcs[i][arcStartLocFieldName][0])
-            #             allY.append(arcs[i][arcStartLocFieldName][1])
-            #             allX.append(arcs[i][arcEndLocFieldName][0])
-            #             allY.append(arcs[i][arcEndLocFieldName][1])
-            #         else:
-            #             allX.append(arcs[i][arcStartLocFieldName][1])
-            #             allY.append(arcs[i][arcStartLocFieldName][0])
-            #             allX.append(arcs[i][arcEndLocFieldName][1])
-            #             allY.append(arcs[i][arcEndLocFieldName][0])
+            if (arcFieldName in arcs):
+                for i in arcs:
+                    if (not xyReverseFlag):
+                        allX.append(arcs[i][arcFieldName][0][0])
+                        allX.append(arcs[i][arcFieldName][1][0])
+                        allY.append(arcs[i][arcFieldName][0][1])
+                        allY.append(arcs[i][arcFieldName][1][1])
+                    else:
+                        allX.append(arcs[i][arcFieldName][0][1])
+                        allX.append(arcs[i][arcFieldName][1][1])
+                        allY.append(arcs[i][arcFieldName][0][0])
+                        allY.append(arcs[i][arcFieldName][1][0])
+            else:
+                for i in arcs:
+                    if (not xyReverseFlag):
+                        allX.append(arcs[i][arcStartLocFieldName][0])
+                        allY.append(arcs[i][arcStartLocFieldName][1])
+                        allX.append(arcs[i][arcEndLocFieldName][0])
+                        allY.append(arcs[i][arcEndLocFieldName][1])
+                    else:
+                        allX.append(arcs[i][arcStartLocFieldName][1])
+                        allY.append(arcs[i][arcStartLocFieldName][0])
+                        allX.append(arcs[i][arcEndLocFieldName][1])
+                        allY.append(arcs[i][arcEndLocFieldName][0])
                         
                                     
             if (xMin == None):
@@ -479,8 +483,8 @@ def plotArcs(
                 pt2 = ptInDistXY(ptM, direction = deg - 90, dist = arrowHeadWidth / 2)
                 ax.fill([ptH[0], pt1[0], pt2[0]], [ptH[1], pt1[1], pt2[1]], facecolor=arcColor, edgecolor=arcColor, linewidth=0)
 
-        ax.plot(x1, y1, color = startColor, marker = 'o', markersize = bothEndSize)
-        ax.plot(x2, y2, color = endColor, marker = 'o', markersize = bothEndSize)
+        ax.plot(x1, y1, color = startColor, marker = 'o', markerSize = bothEndSize)
+        ax.plot(x2, y2, color = endColor, marker = 'o', markerSize = bothEndSize)
         if (arcLabel == None and 'label' not in arcs[i]):
             lbl = i
         elif (arcLabel == None):
@@ -631,19 +635,8 @@ def plotNodeSeq(
 
     Parameters
     ----------
-    nodes: dictionary, required
-        The coordinates and other attributions of the nodes to be plotted, in the following format::
-            >>> nodes = {
-            ...     nodeID1: {
-            ...         'loc': (x, y),
-            ...         'marker': 'r',    # Optional, default as 'o'
-            ...         'markersize': 2,  # Optional, default as None
-            ...         'color': 'red',   # Optional, default as 'Random'
-            ...         'size': 3,        # Optional, default as 3
-            ...         'fontsize': 3,    # Optional, default as 3
-            ...         'neighbor': poly, # Optional, indicate if need to display the neighborhood
-            ...     }, # ...
-            ... }
+    nodes: dict, required
+        A `node` dictionary. See :ref:`nodes` for reference.
     nodeSeq: list[int|str], required
         A list of nodeIDs which will form a visiting sequence
     arcColor: string, optional, default 'Random'
@@ -1032,43 +1025,6 @@ def plotProvinceMap(
     saveFigPath: str|None = None,
     showFig: bool = True
     ):
-
-    """Draw arcs
-
-    Parameters
-    ----------
-    country: string, required, default 'U.S.'
-        Country of the province
-    province: string | list[string], required, default ['New York']
-        A province or a list of provinces to be plotted.
-    edgeWidth: float, optional, default 0.5
-        Width of the edge
-    edgeColor: string, optional, default 'Random'
-        Color of the edge
-    fillColor: string, optional, default None
-        Color filled in the polygon
-    fillStyle: string, optional, default "///"
-        Style filled in the polygon
-    opacity: float, optional, default 0.5
-        Opacity of the polygon
-    xyReverseFlag: bool, optional, default False
-        True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
-    fig: matplotlib object, optional, defaut None
-        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
-    ax: matplotlib object, optional, default None
-        See `fig`
-    figSize: 2-tuple, optional, default as (None, 5)
-        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.    
-    saveFigPath: string, optional, default as None
-        The path for exporting image if provided
-    showFig: bool, optional, default as True
-        True if show the figure in Juypter Notebook environment
-
-    Returns
-    -------
-    fig, ax: matplotlib.pyplot object
-    """
-
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
     
@@ -1149,41 +1105,6 @@ def plotRoads(
     saveFigPath: str|None = None,
     showFig: bool = True
     ): 
-
-    """Plot road network (and buildings) using given OSM transformed dictionary
-
-    Parameters
-    ----------
-    roads: dict, required
-        The road network dictionary, including the geometry shape. In the following format::
-            >>> roads = {
-            ...     'road': {roadID: {'class': class, 'shape': shape}}
-            ...     'building': {buildingID: {'type': type, 'shape': shape}}
-            ... }
-    roadWidth: dict[str, float]|float, optional
-        The width of roads. If a dictionary is given, will use the width in the dictionary, otherwise will be default as 1. If a float is given will use the float value.
-    roadColor: dict[str, str]|str, optional
-        The color of roads, works in the same way as `roadWidth`
-    roadShowFlags: dict[str, bool]|str|bool, optional, 'All'
-        Whether or not show some types of roads, works in the same way as `roadWidth`
-    bldColor: dict[str, str]|str, optional
-        The color of buildings, works in the same way as `roadWidth`
-    buildingShowFlags: dict[str, bool]|str|bool, optional
-        Whether or not show some types of buildings, works in the same way as `roadWidth`
-    fig: matplotlib object, optional, defaut None
-        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
-    ax: matplotlib object, optional, default None
-        See `fig`
-    figSize: 2-tuple, optional, default as (None, 5)
-        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
-    boundingBox: 4-tuple, optional, default as (None, None, None, None)
-        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
-    saveFigPath: string, optional, default as None
-        The path for exporting image if provided
-    showFig: bool, optional, default as True
-        True if show the figure in Juypter Notebook environment
-    """
-
     # FIXME: In future, we might want to distinguish roads by max speed or show the names of roads
     # If no based matplotlib figure, define boundary ==========================
     if (fig == None or ax == None):
@@ -1300,42 +1221,6 @@ def plotBuildings(
     saveFigPath: str|None = None,
     showFig: bool = True
     ): 
-
-    """Plot road network (and buildings) using given OSM transformed dictionary
-
-    Parameters
-    ----------
-
-    roads: dict, required
-        The road network dictionary, including the geometry shape. In the following format::
-            >>> roads = {
-            ...     'road': {roadID: {'class': class, 'shape': shape}}
-            ...     'building': {buildingID: {'type': type, 'shape': shape}}
-            ... }
-    roadWidth: dict[str, float]|float, optional
-        The width of roads. If a dictionary is given, will use the width in the dictionary, otherwise will be default as 1. If a float is given will use the float value.
-    roadColor: dict[str, str]|str, optional
-        The color of roads, works in the same way as `roadWidth`
-    roadShowFlags: dict[str, bool]|str|bool, optional, 'All'
-        Whether or not show some types of roads, works in the same way as `roadWidth`
-    bldColor: dict[str, str]|str, optional
-        The color of buildings, works in the same way as `roadWidth`
-    buildingShowFlags: dict[str, bool]|str|bool, optional
-        Whether or not show some types of buildings, works in the same way as `roadWidth`
-    fig: matplotlib object, optional, defaut None
-        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
-    ax: matplotlib object, optional, default None
-        See `fig`
-    figSize: 2-tuple, optional, default as (None, 5)
-        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
-    boundingBox: 4-tuple, optional, default as (None, None, None, None)
-        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
-    saveFigPath: string, optional, default as None
-        The path for exporting image if provided
-    showFig: bool, optional, default as True
-        True if show the figure in Juypter Notebook environment
-    """
-
     # FIXME: In future, we might want to distinguish roads by max speed or show the names of roads
     # If no based matplotlib figure, define boundary ==========================
     if (fig == None or ax == None):
@@ -1677,7 +1562,6 @@ def plotGantt(
 
 def aniRouting(
     timeRange: tuple[int, int],
-    # Nodes -------------------------------------------------------------------
     nodes: dict|None=None,
     locFieldName: str = 'loc',
     timedSeqFieldName: str = 'timedSeq',
@@ -1685,7 +1569,6 @@ def aniRouting(
     nodeColor: str = 'black',
     nodeMarker: str = 'o',
     nodeMarkersize: float = 2,
-    # Vehicles ----------------------------------------------------------------
     vehicles: dict|None = None,
     vehTimedSeqFieldName: str = 'timedSeq',
     vehLabelFieldName: str = 'label',
@@ -1701,7 +1584,6 @@ def aniRouting(
     vehSpdShowArrowFlag: bool = True,
     vehSpdArrowLength: float = 5,
     vehShowNoteFlag: bool = True,
-    # Polygons ----------------------------------------------------------------
     polygons: dict|None = None,
     polyFieldName = 'poly',    
     polyEdgeColor: str = 'black',
@@ -1709,7 +1591,6 @@ def aniRouting(
     polyFillColor: str|None = 'gray',
     polyFillStyle: str|None = '///',
     polyOpacity: float = 0.5,
-    # Configs -----------------------------------------------------------------
     speed: int = 1,
     fps: int = 1,
     repeatFlag: bool = True,
@@ -1733,7 +1614,7 @@ def aniRouting(
             ...     'direction': direction, # Moving direction
             ...     'speed': speed, # Moving speed
             ...     'marker': 'r',    # Optional, default as 'o'
-            ...     'markersize': 2,  # Optional, default as None
+            ...     'markerSize': 2,  # Optional, default as None
             ...     'color': 'red',   # Optional, default as 'Random'
             ...     'size': 3,        # Optional, default as 3
             ...     'fontsize': 3,    # Optional, default as 3
@@ -1888,8 +1769,8 @@ def aniRouting(
 
             if (vehMarkersize != None):
                 vehicleStyle[vID]['vehMarkersize'] = vehMarkersize
-            elif ('markersize' in vehicles[vID]):
-                vehicleStyle[vID]['vehMarkersize'] = vehicles[vID]['markersize']
+            elif ('markerSize' in vehicles[vID]):
+                vehicleStyle[vID]['vehMarkersize'] = vehicles[vID]['markerSize']
 
             if (vehPathColor == 'Random'):
                 vehicleStyle[vID]['pathColor'] = colorRandom()
@@ -2014,7 +1895,7 @@ def aniRouting(
                     ax.plot(x, y, 
                         color = nodeStyle[nID]['nodeColor'], 
                         marker = nodeStyle[nID]['nodeMarker'], 
-                        markersize = nodeStyle[nID]['nodeMarkersize'])
+                        markerSize = nodeStyle[nID]['nodeMarkersize'])
                     if ('label' not in nodes[nID]):
                         lbl = nID
                     else:
@@ -2068,7 +1949,7 @@ def aniRouting(
                 ax.plot(curLoc[0], curLoc[1], 
                     color = vehicleStyle[vID]['vehColor'], 
                     marker = vehicleStyle[vID]['vehMarker'], 
-                    markersize = vehicleStyle[vID]['vehMarkersize'])
+                    markerSize = vehicleStyle[vID]['vehMarkersize'])
 
                 if (vehLabelFieldName not in vehicles[vID]):
                     lbl = str(vID)
