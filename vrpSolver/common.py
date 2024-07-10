@@ -88,6 +88,23 @@ def loadDictionary(name: str) -> None:
         return pickle.load(f)
  
 def rndPick(coefficients: list[int|float]) -> int:
+    """
+    Given a list of coefficients, randomly returns an index of the list by coefficient
+
+    Parameters
+    ----------
+
+    coefficient: list, required
+        A list of probabilities.
+
+    Returns
+    -------
+
+    int
+        An index randomly selected
+
+    """
+
     totalSum = sum(coefficients)
     tmpSum = 0
     rnd = random.uniform(0, totalSum)
@@ -114,16 +131,17 @@ def list2Tuple(l):
     tp = tuple(sortedList)
     return tp
 
-def hyphenStr(s, length=75, sym='-'):
-    lenMidS = len(s)
+def hyphenStr(s="", length=75, sym='-'):
     if (s == ""):
         return length * sym
-    elif (lenMidS + 2 < length):
+    lenMidS = len(s)
+    if (lenMidS + 2 < length):
         lenLeftS = (int)((length - lenMidS - 2) / 2)
         lenRightS = length - lenMidS - lenLeftS - 2
         return (lenLeftS * sym) + " " + s + " " + (lenRightS * sym)
     else:
         return s
+
 
 def splitList(inputList, binNum):
     listLength = len(inputList)

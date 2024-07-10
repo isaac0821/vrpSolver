@@ -2,6 +2,7 @@ import geopy.distance
 import heapq
 import math
 import tripy
+import warnings
 
 import shapely
 from shapely.geometry import mapping
@@ -3061,12 +3062,44 @@ def calPolyPerimeterXY(poly: poly) -> float:
 
 # Location of points ==========================================================
 def headingXY(pt1: pt, pt2: pt) -> float:
+    """
+    Given two points, returns the direction from the first point to the second point
+
+    Parameters
+    ----------
+    pt1: pt, required
+        The first point
+    pt2: pt, required
+        The second point
+
+    Return
+    ------
+    float
+        The direction from pt1 to pt2, north as 0, clock-wise
+
+    """
     vec = (pt2[0] - pt1[0], pt2[1] - pt1[1])
     (_, vDeg) = vecXY2Polar(vec)
     return vDeg
 
 def headingLatLon(pt1: pt, pt2: pt) -> float:
-    """Given current location and a goal location, calculate the heading. North is 0-degrees, clock-wise"""
+    """
+    Given current location and a goal location, calculate the heading. North is 0-degrees, clock-wise
+
+    Parameters
+    ----------
+    pt1: pt, required
+        The first point
+    pt2: pt, required
+        The second point
+
+    Return
+    ------
+    float
+        The direction from pt1 to pt2, north as 0, clock-wise
+
+    """
+
     # Ref: https://github.com/manuelbieh/Geolib/issues/28
     (lat1, lon1) = pt1
     (lat2, lon2) = pt2
@@ -3087,18 +3120,68 @@ def headingLatLon(pt1: pt, pt2: pt) -> float:
     return deg
 
 def ptInDistXY(pt: pt, direction: int|float, dist: int|float) -> pt:
-    """A location in distance with given direction, in [lat, lon] form."""
+    """
+    A location in distance with given direction.
+
+    Parameters
+    ----------
+    pt: pt, required
+        The origin point
+    direction: float, required
+        The direction from origin point
+    dist: float, required
+
+    Returns
+    -------
+    pt
+        The new location
+
+    """
     x = pt[0] + dist * math.sin(math.radians(direction))
     y = pt[1] + dist * math.cos(math.radians(direction))
     return (x, y)
 
 def ptInDistLatLon(pt: pt, direction: int|float, distMeters: int|float) -> pt:
-    """A location in distance with given direction, in [lat, lon] form."""
+    """
+    A location in distance with given direction in lat/lon.
+
+    Parameters
+    ----------
+    pt: pt, required
+        The origin point
+    direction: float, required
+        The direction from origin point
+    dist: float, required
+
+    Returns
+    -------
+    pt
+        The new location
+
+    """
     # Bearing in degrees: 0 – North, 90 – East, 180 – South, 270 or -90 – West.
     newLoc = list(geopy.distance.distance(meters=distMeters).destination(point=pt, bearing=direction))[:2]
     return newLoc
 
 def circleByCenterLatLon(center: pt, radius: int|float, lod: int = 30) -> poly:
+    """
+    Create a circle by the center and a radius. The circle is approximated by a x-gon, e.g., 30-gon polygon.
+
+    Parameters
+    ----------
+    center: pt, required
+        The center of the circle
+    radius: float, required
+        The radius of the circle
+    lod: int, optional, default as 30
+        Level of details. The circle is approximated as a x-gon. E.g. 30-gon
+
+    Return
+    ------
+    poly
+        A polygon that approximates the circle.
+
+    """
     circle = []
     for i in range(lod):
         deg = float(360 * i) / float(lod)
@@ -3107,6 +3190,24 @@ def circleByCenterLatLon(center: pt, radius: int|float, lod: int = 30) -> poly:
     return circle
 
 def circleByCenterXY(center: pt, radius: int|float, lod: int = 30) -> poly:
+    """
+    Create a circle by the center and a radius. The circle is approximated by a x-gon, e.g., 30-gon polygon.
+
+    Parameters
+    ----------
+    center: pt, required
+        The center of the circle
+    radius: float, required
+        The radius of the circle
+    lod: int, optional, default as 30
+        Level of details. The circle is approximated as a x-gon. E.g. 30-gon
+
+    Return
+    ------
+    poly
+        A polygon that approximates the circle.
+
+    """
     circle = []
     for i in range(lod):
         deg = float(360 * i) / float(lod)
@@ -4219,6 +4320,57 @@ def polyPath2Mileage(repSeq: list, path: list[pt], nodes: dict):
     return mileage
 
 def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
+    """
+    Given a sequence of points, returns a subset of points that only includes turning points of the sequence. If there are multiple points overlapped at the same location, keeps one of those points.
+
+    Parameters
+    ----------
+    seq: list[pt], required
+        The coordinates of a sequence of points.
+    error: float, optional, default as CONST_EPSILON
+        Error tolerance.
+
+    Returns
+    -------
+    dict
+        A new dictionary, in the format of 
+        
+        >>> {
+        ...     'newSeq': newSeq, 
+        ...     'aggNodeList': aggNodeList, 
+        ...     'removedFlag': removedFlag, 
+        ...     'locatedSeg': locatedSeg
+        ... }
+
+        - The 'newSeq' returns a new sequence which only has turn points of the origin sequence
+        - The 'aggNodeList' is a list of lists, if a point overlaps with its previous/next point, the index of both points will be aggregated into the same list.
+        - The 'removedFlag' indicates whether a point is removed as a non-turning point, true if the point is not included in the 'newSeq'
+        - The 'locatedSeq' returns a list of line segments, for each point removed, it returns the line segment it belongs to 
+
+    Examples
+    --------
+    For the following inputs
+        >>> seq = [[-1, 0], [0, 0], [0, 0], [1, 0], [2, 0], [2, 1], [1, 1], [1, 0], [1, -1]]
+        >>> res = locSeqRemoveDegen(seq)
+    The result is as follows
+        >>> res = {'newSeq': [[-1, 0], [2, 0], [2, 1], [1, 1], [1, -1]],
+        ...     'aggNodeList': [[0], [1, 2], [3], [4], [5], [6], [7], [8]],
+        ...     'removedFlag': [False, True, True, False, False, False, True, False],
+        ...     'locatedSeg': [None,
+        ...      [[-1, 0], [2, 0]],
+        ...      [[-1, 0], [2, 0]],
+        ...      None,
+        ...      None,
+        ...      None,
+        ...      [[1, 1], [1, -1]],
+        ...      None]
+        ... }
+    The result shows that, the new sequence is [[-1, 0], [2, 0], [2, 1], [1, 1], [1, -1]], in the new sequence, seq[1], seq[2], seq[6] are not included since they are not turn points.
+    seq[1] and seq[2] are aggregated due to overlaps. Although seq[3] and seq[6] are overlapped, they are not aggregated because they are not neighboring. 
+    For the removed points, 'locatedSeq' finds the segment they located.
+
+    """
+
     # Step 1: 先按是否重合对点进行聚合  
     curLoc = seq[0]
     curAgg = [0]
@@ -4302,9 +4454,9 @@ def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
     }
 
 # obj2ObjPath =================================================================
-def poly2PolyPath(startPt: pt, endPt: pt, polys: polys = None, algo: str = 'SOCP', **kwargs):
+def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, algo: str = 'SOCP', **kwargs):
     
-    """Find path between geometries, e.g., polys, circles, arcpolys, mixed.
+    """Given a starting point, a list of polys, and an ending point, returns a shortest route that starts from startPt, visits every polys in given order, and returns to the ending point.
 
     Parameters
     ----------
@@ -4312,53 +4464,37 @@ def poly2PolyPath(startPt: pt, endPt: pt, polys: polys = None, algo: str = 'SOCP
         The coordinate which starts the path.
     endPt: pt, required, default None
         The coordinate which ends the path.
-    polys: polys, required, default None
+    polys: polys, required
         A list of polys to be visited in given sequence
-    method: dict, required, default {'shape': 'Poly', 'barriers': None, 'errTol': CONST_EPSILON}
-        A dictionary to indicate the subroutine to be used. Options includes
-            1) Between polygons using heuristics
-                >>> method = {
-                ...     'barriers': None,
-                ...     'algo': 'AdaptIter',
-                ...     'errTol': CONST_EPSILON,
-                ... }
-            2) Between polygons using second order cone programing by Gurobi
-                >>> method = {
-                ...     'barriers': None,
-                ...     'algo': 'Gurobi',
-                ...     'errTol': CONST_EPSILON,
-                ... }
-            3) Between polygons using second order cone programing by COPT
-                >>> method = {
-                ...     'barriers': None,
-                ...     'algo': 'COPT',
-                ...     'errTol': CONST_EPSILON,
-                ... }
-            4) Between polygons considering a list of polygons as barriers
-                >>> method = {
-                ...     'barriers': barrierPolys,
-                ...     'algo': 'AdaptIter',
-                ...     'errTol': CONST_EPSILON,
-                ... }
+    algo: str, optional, default as 'SOCP'
+        Select the algorithm for calculating the shortest path. Options and required additional inputs are as follows:
+            
+        1) (default) 'SOCP', use Second-order Cone Programing method.
+            - solver: str, optional, now only supports 'Gurobi'
+            - timeLimit: int|float, additional stopping criteria
+            - gapTolerance: int|float, additional stopping criteria
+            - outputFlag: bool, True if turn on the log output from solver. Default to be False
+        2) 'AdaptIter', use adapt iteration algorithm
+            - errorTol: float, optional, error tolerance
+    **kwargs: optional
+        Provide additional inputs for different `edges` options and `algo` options
+
+    Returns
+    -------
+    dict
+        Two fields in the dictionary, 'dist' indicates the distance of the path, 'path' indicates the travel path.
     """
 
     # Sanity check ============================================================
     if (method == None):
         raise MissingParameterError("ERROR: Missing required field `method`.")
 
-    errTol = CONST_EPSILON
-    if ('errTol' in method):
-        errTol = method['errTol']
-    outputFlag = False
-    if ('outputFlag' in method):
-        outputFlag = method['outputFlag']
-
     if (algo == 'AdaptIter'):
         errTol = CONST_EPSILON
         if ('errTol' in kwargs):
             errTol = kwargs['errTol']
         res = _poly2PolyPathAdaptIter(startPt, endPt, polys, errTol)
-    elif (algo == 'SOCP' and 'solver' == 'Gurobi'):
+    elif (algo == 'SOCP'):
         outputFlag = False
         if ('outputFlag' in kwargs):
             outputFlag = kwargs['outputFlag']
@@ -4374,8 +4510,7 @@ def poly2PolyPath(startPt: pt, endPt: pt, polys: polys = None, algo: str = 'SOCP
 
     return {
         'path': res['path'],
-        'dist': res['dist'],
-        'runtime': None if 'runtime' not in res else res['runtime']
+        'dist': res['dist']
     }
 
 def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, errTol = CONST_EPSILON):
@@ -4676,56 +4811,55 @@ def _seg2SegPathGurobi(startPt: pt, endPt: pt, segs, closedFlag = False, outputF
         'runtime': runtime
     }
 
-def circle2CirclePath(startPt: pt, endPt: pt, circles: list[dict] = None, method: dict = {'algo': 'SOCP', 'solver': 'Gurobi'}):
+def circle2CirclePath(startPt: pt, endPt: pt, circles: list[dict], algo: str = 'SOCP', **kwargs):
     
-    """Find path between circles.
+    """Given a starting point, a list of circles, and an ending point, returns a shortest route that starts from startPt, visits every polys in given order, and returns to the ending point.
 
     Parameters
     ----------
-
     startPt: pt, required, default None
         The coordinate which starts the path.
     endPt: pt, required, default None
         The coordinate which ends the path.
-    circles: dict, required, default None
-        A list of circles to be visited in given sequence.
-    method: dict, required, default {'shape': 'Poly', 'barriers': None, 'errTol': CONST_EPSILON}
-        A dictionary to indicate the subroutine to be used. Options includes
-            1) Between circles using heuristics
-                >>> method = {
-                ...     'barriers': None,
-                ...     'algo': 'AdaptIter',
-                ...     'errTol': CONST_EPSILON,
-                ... }
-            2) Between circles using second order cone programing by Gurobi
-                >>> method = {
-                ...     'barriers': None,
-                ...     'algo': 'Gurobi',
-                ...     'errTol': CONST_EPSILON,
-                ... }
-            3) Between circles using second order cone programing by COPT
-                >>> method = {
-                ...     'barriers': None,
-                ...     'algo': 'COPT',
-                ...     'errTol': CONST_EPSILON,
-                ... }
+    circles: dict, required
+        A list of circles modeled by dictionaries to be visited in given sequence. Each circle is dictionary with two fields: 'radius' and 'center'.
+    algo: str, optional, default as 'SOCP'
+        Select the algorithm for calculating the shortest path. Options and required additional inputs are as follows:
+            
+        1) (default) 'SOCP', use Second-order Cone Programing method.
+            - solver: str, optional, now supports 'Gurobi' and 'COPT'
+            - timeLimit: int|float, additional stopping criteria
+            - gapTolerance: int|float, additional stopping criteria
+            - outputFlag: bool, True if turn on the log output from solver. Default to be False
+    **kwargs: optional
+        Provide additional inputs for different `edges` options and `algo` options
+
+    Returns
+    -------
+    dict
+        Two fields in the dictionary, 'dist' indicates the distance of the path, 'path' indicates the travel path.
     """
 
     # Sanity check ============================================================
-    if (method == None):
-        raise MissingParameterError("ERROR: Missing required field `method`.")
+    if (algo == None):
+        raise MissingParameterError("ERROR: Missing required field `algo`.")
 
     errTol = CONST_EPSILON
-    if ('errTol' in method):
-        errTol = method['errTol']
-    outputFlag = False
-    if ('outputFlag' in method):
-        outputFlag = method['outputFlag']
+    if ('errTol' in kwargs):
+        errTol = kwargs['errTol']
 
-    if (method['algo'] == 'SOCP' and method['solver'] == 'Gurobi'):
-        res = _circle2CirclePathGurobi(startPt, endPt, circles, {'outputFlag': outputFlag})
-    elif (method['algo'] == 'SOCP' and method['solver'] == 'COPT'):
-        res = _circle2CirclePathCOPT(startPt, endPt, circles, {'outputFlag': outputFlag})
+
+    if (algo == 'SOCP'):
+        if ('solver' not in kwargs or kwargs['solver'] == 'Gurobi'):
+            outputFlag = False
+            if ('outputFlag' in kwargs):
+                outputFlag = kwargs['outputFlag']
+            res = _circle2CirclePathGurobi(startPt, endPt, circles, outputFlag)
+        elif (kwargs['solver'] == 'COPT'):
+            outputFlag = False
+            if ('outputFlag' in kwargs):
+                outputFlag = kwargs['outputFlag']
+            res = _circle2CirclePathCOPT(startPt, endPt, circles, outputFlag)
     else:
         raise UnsupportedInputError("ERROR: Not support by vrpSolver for now.")
 
@@ -4734,7 +4868,7 @@ def circle2CirclePath(startPt: pt, endPt: pt, circles: list[dict] = None, method
         'dist': res['dist']
     }
 
-def _circle2CirclePathGurobi(startPt: pt, endPt: pt, circles: list[dict], config: dict = {'outputFlag': False}):
+def _circle2CirclePathGurobi(startPt: pt, endPt: pt, circles: list[dict], outputFlag: bool = False):
     try:
         import gurobipy as grb
     except(ImportError):
@@ -4742,10 +4876,7 @@ def _circle2CirclePathGurobi(startPt: pt, endPt: pt, circles: list[dict], config
         return
 
     model = grb.Model("SOCP")
-    if (config == None or 'outputFlag' not in config or config['outputFlag'] == False):
-        model.setParam('OutputFlag', 0)
-    else:
-        model.setParam('OutputFlag', 1)
+    model.setParam('OutputFlag', 1 if outputFlag else 0)
 
     # Parameters ==============================================================
     # anchor starts from startPt, in between are a list of circles, ends with endPt
@@ -4847,7 +4978,7 @@ def _circle2CirclePathGurobi(startPt: pt, endPt: pt, circles: list[dict], config
         'runtime': model.Runtime
     }
  
-def _circle2CirclePathCOPT(startPt: pt, endPt: pt, circles: dict, config: dict = {'outputFlag': False}):
+def _circle2CirclePathCOPT(startPt: pt, endPt: pt, circles: dict, outputFlag: bool = False):
     env = None
     try:
         import coptpy as cp
@@ -4861,9 +4992,8 @@ def _circle2CirclePathCOPT(startPt: pt, endPt: pt, circles: dict, config: dict =
         return
 
     model = env.createModel("SOCP")
-    if (config == None or 'outputFlag' not in config or config['outputFlag'] == False):
-        model.setParam(cp.COPT.Param.Logging, 0)
-        model.setParam(cp.COPT.Param.LogToConsole, 0)
+    model.setParam(cp.COPT.Param.Logging, 1 if outputFlag else 0)
+    model.setParam(cp.COPT.Param.LogToConsole, 1 if outputFlag else 0)
 
     # Decision variables ======================================================
     # anchor starts from startPt, in between are a list of circles, ends with endPt

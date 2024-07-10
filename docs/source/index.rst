@@ -14,6 +14,7 @@ Welcome to vrpSolver's documentation!
    geo_objs
 
 .. toctree::
+   :maxdepth: 4
    :caption: Modules:
 
    vrpSolver.common

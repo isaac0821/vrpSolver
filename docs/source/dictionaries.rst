@@ -66,22 +66,22 @@ Who uses it?
 The `polygon` dictionary defines the information of polygons. This dictionary is rarely used, in most scenarios, a :ref:`polys` is used instead. The `polys` data type is a list of :ref:`poly` s, which is a list of points (in (x, y) format, or [x, y] format) that defines a polygon.
 
 - 'anchor': A point within the polygon to "represent" the polygon. In some functions, the key of 'anchor' may be redirected using `anchorFieldName` argument.
-- 'poly': A poly
+- 'poly': A polygon surrounding 'anchor'.
 
 Who creates/modifies it?
 
-- :func:`~vrpSolver.instance:rndPolys()` creates `polygons` if returnAsListFlag is set to be False, otherwise, this function creates `polys`.
+- :func:`~vrpSolver.instance.rndPolys()` creates `polygons` if returnAsListFlag is set to be False, otherwise, this function creates `polys`.
 
 Who uses it?
 
 - :func:`~vrpSolver.plot.plotPolygons()` takes `polygons` as input, creates a matplotlib figure with polygons plotted.
 
-.. _vehicles:
+.. .. _vehicles:
 
-`vehicles`
-----------
+.. `vehicles`
+.. ----------
 
-The `vehicles` dictionary defines the routing information of different vehicles, which can be used for animation.
+.. The `vehicles` dictionary defines the information of different vehicles, which can be used for animation.
 
-- 'speed': The speed of the vehicle in [m/s]
-- 
+.. - 'speed': The speed of the vehicle in [m/s]
+.. - 

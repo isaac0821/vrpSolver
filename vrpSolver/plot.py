@@ -21,7 +21,7 @@ def plotLocs(
     locs: list[pt],
     locColor: str = 'Random',
     locMarker: str = 'o',
-    locMarkersize: float = 1,
+    locMarkerSize: float = 1,
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
@@ -36,11 +36,18 @@ def plotLocs(
 
     Parameters
     ----------
-    locs: list of pt, Required
+    locs: list of pt, required
         A list of locations to be plotted
-    locColor: str, Optional, Default as 'Random'
-        The color of locations to be plotted, 'Random' if the color is randomized
-    
+    locColor: str, optional, default as 'Random'
+        The color of locations to be plotted, 'Random' if the color is randomized.
+    locMarker: str, optional, default as 'o'
+        The shape of the marker
+    locMarkerSize: str, optional, default as 1
+        The size of the marker
+    xyReverseFlag: bool, optional, default as False
+        Reverse the x, y, (x, y) => (y, x). Used in plotting (lat, lon) coordinates.
+    fig: matplotlib object, optional, default as None
+        If fig and ax are provided, 
 
 
     """
@@ -115,10 +122,10 @@ def plotLocs(
         else:
             x = i[1]
             y = i[0]
-        if (locMarkersize == None):
+        if (locMarkerSize == None):
             ax.plot(x, y, color = color, marker = locMarker)
         else:
-            ax.plot(x, y, color = color, marker = locMarker, markerSize = locMarkersize)
+            ax.plot(x, y, color = color, marker = locMarker, markersize = locMarkerSize)
 
     # Axis on and off =========================================================
     if (not showAxis):
@@ -137,7 +144,7 @@ def plotNodes(
     locFieldName = 'loc',
     nodeColor: str = 'Random',
     nodeMarker: str = 'o',
-    nodeMarkersize: float = 1,
+    nodeMarkerSize: float = 1,
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
@@ -251,7 +258,7 @@ def plotNodes(
         if ('marker' in nodes[n]):
             nodeMarker = nodes[n]['marker']
         if ('markerSize' in nodes[n]):
-            nodeMarkersize = nodes[n]['markerSize']
+            nodeMarkerSize = nodes[n]['markerSize']
 
         # plot nodes ----------------------------------------------------------
         x = None
@@ -262,10 +269,10 @@ def plotNodes(
         else:
             x = nodes[n][locFieldName][1]
             y = nodes[n][locFieldName][0]
-        if (nodeMarkersize == None):
+        if (nodeMarkerSize == None):
             ax.plot(x, y, color = color, marker = nodeMarker)
         else:
-            ax.plot(x, y, color = color, marker = nodeMarker, markerSize = nodeMarkersize)
+            ax.plot(x, y, color = color, marker = nodeMarker, markersize = nodeMarkerSize)
         if ('label' not in nodes[n]):
             lbl = n
         else:
@@ -372,8 +379,8 @@ def plotArcs(
         if (xMin == None or xMax == None or yMin == None or yMax == None):
             allX = []
             allY = []
-            if (arcFieldName in arcs):
-                for i in arcs:
+            for i in arcs:
+                if (arcFieldName in arcs[i]):
                     if (not xyReverseFlag):
                         allX.append(arcs[i][arcFieldName][0][0])
                         allX.append(arcs[i][arcFieldName][1][0])
@@ -384,8 +391,7 @@ def plotArcs(
                         allX.append(arcs[i][arcFieldName][1][1])
                         allY.append(arcs[i][arcFieldName][0][0])
                         allY.append(arcs[i][arcFieldName][1][0])
-            else:
-                for i in arcs:
+                elif (arcStartLocFieldName in arcs[i] and arcEndLocFieldName in arcs[i]):
                     if (not xyReverseFlag):
                         allX.append(arcs[i][arcStartLocFieldName][0])
                         allY.append(arcs[i][arcStartLocFieldName][1])
@@ -396,7 +402,6 @@ def plotArcs(
                         allY.append(arcs[i][arcStartLocFieldName][0])
                         allX.append(arcs[i][arcEndLocFieldName][1])
                         allY.append(arcs[i][arcEndLocFieldName][0])
-                        
                                     
             if (xMin == None):
                 xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
@@ -483,8 +488,8 @@ def plotArcs(
                 pt2 = ptInDistXY(ptM, direction = deg - 90, dist = arrowHeadWidth / 2)
                 ax.fill([ptH[0], pt1[0], pt2[0]], [ptH[1], pt1[1], pt2[1]], facecolor=arcColor, edgecolor=arcColor, linewidth=0)
 
-        ax.plot(x1, y1, color = startColor, marker = 'o', markerSize = bothEndSize)
-        ax.plot(x2, y2, color = endColor, marker = 'o', markerSize = bothEndSize)
+        ax.plot(x1, y1, color = startColor, marker = 'o', markersize = bothEndSize)
+        ax.plot(x2, y2, color = endColor, marker = 'o', markersize = bothEndSize)
         if (arcLabel == None and 'label' not in arcs[i]):
             lbl = i
         elif (arcLabel == None):
@@ -518,7 +523,7 @@ def plotLocSeq(
     lineStyle: str = 'solid',
     lineDashes: tuple = (5, 2),
     nodeColor: str = 'black',
-    nodeMarkersize: float = 1,
+    nodeMarkerSize: float = 1,
     arrowFlag: bool = True,
     arrowPosition: float = 0.5,
     arrowHeadWidth: float = 0.1,
@@ -576,7 +581,8 @@ def plotLocSeq(
 
     arcs = {}
     for i in range(len(locSeq) - 1):
-        arcs[i] = {'arc': [locSeq[i], locSeq[i + 1]]}
+        if (not is2PtsSame(locSeq[i], locSeq[i + 1])):
+            arcs[i] = {'arc': [locSeq[i], locSeq[i + 1]]}
 
     # Color ===================================================================
     if (lineColor == 'Random'):
@@ -598,7 +604,7 @@ def plotLocSeq(
         arrowHeadLength = arrowHeadLength,
         startColor = nodeColor,
         endColor = nodeColor ,
-        bothEndSize = nodeMarkersize,
+        bothEndSize = nodeMarkerSize,
         xyReverseFlag = xyReverseFlag,
         figSize = figSize,
         boundingBox = boundingBox,
@@ -616,7 +622,7 @@ def plotNodeSeq(
     lineStyle: str = 'solid',
     lineDashes: tuple = (5, 2),
     nodeColor: str = 'black',
-    nodeMarkersize: float = 1,
+    nodeMarkerSize: float = 1,
     arrowFlag: bool = True,
     arrowPosition: float = 0.5,
     arrowHeadWidth: float = 0.1,
@@ -701,7 +707,7 @@ def plotNodeSeq(
         arrowHeadLength = arrowHeadLength,
         startColor = nodeColor,
         endColor = nodeColor ,
-        bothEndSize = nodeMarkersize,
+        bothEndSize = nodeMarkerSize,
         xyReverseFlag = xyReverseFlag,
         figSize = figSize,
         boundingBox = boundingBox,
@@ -1568,13 +1574,13 @@ def aniRouting(
     timeWindowFieldName: str = 'timeWindow',
     nodeColor: str = 'black',
     nodeMarker: str = 'o',
-    nodeMarkersize: float = 2,
+    nodeMarkerSize: float = 2,
     vehicles: dict|None = None,
     vehTimedSeqFieldName: str = 'timedSeq',
     vehLabelFieldName: str = 'label',
     vehColor: str = 'blue',
     vehMarker: str = '^',
-    vehMarkersize: float = 5,
+    vehMarkerSize: float = 5,
     vehPathColor: str|None = 'gray',
     vehPathWidth: float|int|None = 3,
     vehTraceColor: str|None = 'orange',
@@ -1712,10 +1718,10 @@ def aniRouting(
             elif ('nodeMarker' in nodes[nID]):
                 nodeStyle[nID]['nodeMarker'] = nodes[nID]['nodeMarker']
 
-            if (nodeMarkersize != None):
-                nodeStyle[nID]['nodeMarkersize'] = nodeMarkersize
-            elif ('nodeMarkersize' in nodes[nID]):
-                nodeStyle[nID]['nodeMarkersize'] = nodes[nID]['nodeMarkersize']
+            if (nodeMarkerSize != None):
+                nodeStyle[nID]['nodeMarkerSize'] = nodeMarkerSize
+            elif ('nodeMarkerSize' in nodes[nID]):
+                nodeStyle[nID]['nodeMarkerSize'] = nodes[nID]['nodeMarkerSize']
 
     polyStyle = {}
     if (polygons != None):
@@ -1767,10 +1773,10 @@ def aniRouting(
             elif ('marker' in vehicles[vID]):
                 vehicleStyle[vID]['vehMarker'] = vehicles[vID]['marker']
 
-            if (vehMarkersize != None):
-                vehicleStyle[vID]['vehMarkersize'] = vehMarkersize
+            if (vehMarkerSize != None):
+                vehicleStyle[vID]['vehMarkerSize'] = vehMarkerSize
             elif ('markerSize' in vehicles[vID]):
-                vehicleStyle[vID]['vehMarkersize'] = vehicles[vID]['markerSize']
+                vehicleStyle[vID]['vehMarkerSize'] = vehicles[vID]['markerSize']
 
             if (vehPathColor == 'Random'):
                 vehicleStyle[vID]['pathColor'] = colorRandom()
@@ -1895,7 +1901,7 @@ def aniRouting(
                     ax.plot(x, y, 
                         color = nodeStyle[nID]['nodeColor'], 
                         marker = nodeStyle[nID]['nodeMarker'], 
-                        markerSize = nodeStyle[nID]['nodeMarkersize'])
+                        markersize = nodeStyle[nID]['nodeMarkerSize'])
                     if ('label' not in nodes[nID]):
                         lbl = nID
                     else:
@@ -1949,7 +1955,7 @@ def aniRouting(
                 ax.plot(curLoc[0], curLoc[1], 
                     color = vehicleStyle[vID]['vehColor'], 
                     marker = vehicleStyle[vID]['vehMarker'], 
-                    markerSize = vehicleStyle[vID]['vehMarkersize'])
+                    markersize = vehicleStyle[vID]['vehMarkerSize'])
 
                 if (vehLabelFieldName not in vehicles[vID]):
                     lbl = str(vID)
