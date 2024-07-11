@@ -59,45 +59,11 @@ def plotLocs(
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
-        # Adjust bounding box
+        boundingBox = findBoundingBox(
+            boundingBox = boundingBox, 
+            pts = locs)
         (xMin, xMax, yMin, yMax) = boundingBox
-        if (xMin == None or xMax == None or yMin == None or yMax == None):
-            allX = []
-            allY = []
-            for i in locs:
-                if (not xyReverseFlag):
-                    allX.append(i[0])
-                    allY.append(i[1])
-                else:
-                    allX.append(i[1])
-                    allY.append(i[0])        
-            if (xMin == None):
-                xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
-            if (xMax == None):
-                xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
-            if (yMin == None):
-                yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
-            if (yMax == None):
-                yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
-        # Adjust width and height
-        width = 0
-        height = 0
-        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
-            if (xMax - xMin > yMax - yMin):
-                width = 5
-                height = 5 * ((yMax - yMin) / (xMax - xMin))
-            else:
-                width = 5 * ((xMax - xMin) / (yMax - yMin))
-                height = 5
-        elif (figSize != None and figSize[0] != None and figSize[1] == None):
-            width = figSize[0]
-            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
-        elif (figSize != None and figSize[0] == None and figSize[1] != None):
-            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
-            height = figSize[1]
-        else:
-            (width, height) = figSize
-
+        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1])
         if (isinstance(fig, plt.Figure)):
             fig.set_figwidth(width)
             fig.set_figheight(height)
@@ -198,45 +164,13 @@ def plotNodes(
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
-        # Adjust bounding box
+        boundingBox = findBoundingBox(
+            boundingBox = boundingBox, 
+            nodes = nodes, 
+            locFieldName = locFieldName, 
+            xyReverseFlag = xyReverseFlag)
         (xMin, xMax, yMin, yMax) = boundingBox
-        if (xMin == None or xMax == None or yMin == None or yMax == None):
-            allX = []
-            allY = []
-            for i in nodes:
-                if (not xyReverseFlag):
-                    allX.append(nodes[i][locFieldName][0])
-                    allY.append(nodes[i][locFieldName][1])
-                else:
-                    allX.append(nodes[i][locFieldName][1])
-                    allY.append(nodes[i][locFieldName][0])        
-            if (xMin == None):
-                xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
-            if (xMax == None):
-                xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
-            if (yMin == None):
-                yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
-            if (yMax == None):
-                yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
-        # Adjust width and height
-        width = 0
-        height = 0
-        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
-            if (xMax - xMin > yMax - yMin):
-                width = 5
-                height = 5 * ((yMax - yMin) / (xMax - xMin))
-            else:
-                width = 5 * ((xMax - xMin) / (yMax - yMin))
-                height = 5
-        elif (figSize != None and figSize[0] != None and figSize[1] == None):
-            width = figSize[0]
-            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
-        elif (figSize != None and figSize[0] == None and figSize[1] != None):
-            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
-            height = figSize[1]
-        else:
-            (width, height) = figSize
-
+        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1])
         if (isinstance(fig, plt.Figure)):
             fig.set_figwidth(width)
             fig.set_figheight(height)
@@ -374,62 +308,15 @@ def plotArcs(
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
-        # Adjust bounding box
+        boundingBox = findBoundingBox(
+            boundingBox = boundingBox, 
+            arcs = arcs, 
+            arcFieldName = arcFieldName,
+            arcStartLocFieldName = arcStartLocFieldName,
+            arcEndLocFieldName = arcEndLocFieldName, 
+            xyReverseFlag = xyReverseFlag)
         (xMin, xMax, yMin, yMax) = boundingBox
-        if (xMin == None or xMax == None or yMin == None or yMax == None):
-            allX = []
-            allY = []
-            for i in arcs:
-                if (arcFieldName in arcs[i]):
-                    if (not xyReverseFlag):
-                        allX.append(arcs[i][arcFieldName][0][0])
-                        allX.append(arcs[i][arcFieldName][1][0])
-                        allY.append(arcs[i][arcFieldName][0][1])
-                        allY.append(arcs[i][arcFieldName][1][1])
-                    else:
-                        allX.append(arcs[i][arcFieldName][0][1])
-                        allX.append(arcs[i][arcFieldName][1][1])
-                        allY.append(arcs[i][arcFieldName][0][0])
-                        allY.append(arcs[i][arcFieldName][1][0])
-                elif (arcStartLocFieldName in arcs[i] and arcEndLocFieldName in arcs[i]):
-                    if (not xyReverseFlag):
-                        allX.append(arcs[i][arcStartLocFieldName][0])
-                        allY.append(arcs[i][arcStartLocFieldName][1])
-                        allX.append(arcs[i][arcEndLocFieldName][0])
-                        allY.append(arcs[i][arcEndLocFieldName][1])
-                    else:
-                        allX.append(arcs[i][arcStartLocFieldName][1])
-                        allY.append(arcs[i][arcStartLocFieldName][0])
-                        allX.append(arcs[i][arcEndLocFieldName][1])
-                        allY.append(arcs[i][arcEndLocFieldName][0])
-                                    
-            if (xMin == None):
-                xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
-            if (xMax == None):
-                xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
-            if (yMin == None):
-                yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
-            if (yMax == None):
-                yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
-        # Adjust width and height
-        width = 0
-        height = 0
-        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
-            if (xMax - xMin > yMax - yMin):
-                width = 5
-                height = 5 * ((yMax - yMin) / (xMax - xMin))
-            else:
-                width = 5 * ((xMax - xMin) / (yMax - yMin))
-                height = 5
-        elif (figSize != None and figSize[0] != None and figSize[1] == None):
-            width = figSize[0]
-            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
-        elif (figSize != None and figSize[0] == None and figSize[1] != None):
-            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
-            height = figSize[1]
-        else:
-            (width, height) = figSize
-
+        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1])
         if (isinstance(fig, plt.Figure)):
             fig.set_figwidth(width)
             fig.set_figheight(height)
@@ -778,42 +665,11 @@ def plotPoly(
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
-        allX = []
-        allY = []
-        for pt in poly:
-            if (not xyReverseFlag):
-                allX.append(pt[0])
-                allY.append(pt[1])
-            else:
-                allX.append(pt[1])
-                allY.append(pt[0])
+        boundingBox = findBoundingBox(
+            boundingBox = boundingBox, 
+            poly = poly)
         (xMin, xMax, yMin, yMax) = boundingBox
-        if (xMin == None):
-            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
-        if (xMax == None):
-            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
-        if (yMin == None):
-            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
-        if (yMax == None):
-            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
-        width = 0
-        height = 0
-        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
-            if (xMax - xMin > yMax - yMin):
-                width = 5
-                height = 5 * ((yMax - yMin) / (xMax - xMin))
-            else:
-                width = 5 * ((xMax - xMin) / (yMax - yMin))
-                height = 5
-        elif (figSize != None and figSize[0] != None and figSize[1] == None):
-            width = figSize[0]
-            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
-        elif (figSize != None and figSize[0] == None and figSize[1] != None):
-            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
-            height = figSize[1]
-        else:
-            (width, height) = figSize
-
+        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1])
         if (isinstance(fig, plt.Figure)):
             fig.set_figwidth(width)
             fig.set_figheight(height)
@@ -933,43 +789,14 @@ def plotPolygons(
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
-        allX = []
-        allY = []
-        for p in polygons:
-            for i in polygons[p][polyFieldName]:
-                if (not xyReverseFlag):
-                    allX.append(i[0])
-                    allY.append(i[1])
-                else:
-                    allX.append(i[1])
-                    allY.append(i[0])
+        boundingBox = findBoundingBox(
+            boundingBox = boundingBox, 
+            polygons = polygons,
+            anchorFieldName = anchorFieldName,
+            polyFieldName = polyFieldName,
+            xyReverseFlag = xyReverseFlag)
         (xMin, xMax, yMin, yMax) = boundingBox
-        if (xMin == None):
-            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
-        if (xMax == None):
-            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
-        if (yMin == None):
-            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
-        if (yMax == None):
-            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
-        width = 0
-        height = 0
-        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
-            if (xMax - xMin > yMax - yMin):
-                width = 5
-                height = 5 * ((yMax - yMin) / (xMax - xMin))
-            else:
-                width = 5 * ((xMax - xMin) / (yMax - yMin))
-                height = 5
-        elif (figSize != None and figSize[0] != None and figSize[1] == None):
-            width = figSize[0]
-            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
-        elif (figSize != None and figSize[0] == None and figSize[1] != None):
-            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
-            height = figSize[1]
-        else:
-            (width, height) = figSize
-
+        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1])
         if (isinstance(fig, plt.Figure)):
             fig.set_figwidth(width)
             fig.set_figheight(height)

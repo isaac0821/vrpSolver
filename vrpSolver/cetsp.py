@@ -157,7 +157,7 @@ def solveCETSP(
     startLoc: pt,
     endLoc: pt,
     nodes: dict,
-    radius: float|str, 
+    radius: float | str, 
     cutSetting: dict,
     timeLimit: int | None = None,
     ) -> dict | None:

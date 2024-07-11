@@ -183,7 +183,8 @@ def solveTSP(
             nodeObj = nodeObj, 
             tau = tau, 
             depotID = depotID, 
-            nodes = nodeIDs, 
+            nodes = nodes,
+            nodeIDs = nodeIDs, 
             asymFlag = asymFlag, 
             **kwargs)
     else:

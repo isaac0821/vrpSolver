@@ -2252,8 +2252,8 @@ def polysIntersect(polys: polys=None, polysShapely:list[shapely.Polygon]=None, r
 def polysSteinerZone(polys: dict, order: int|None = None) -> list[dict]:
     """Given a node dictionary, returns a list of Steiner zones
 
-    Warning!!!
-    ----------
+    Warning
+    -------
     This function needs to be rewritten. It's not traceable now.
 
     Parameters
@@ -2382,24 +2382,6 @@ def polysSteinerZone(polys: dict, order: int|None = None) -> list[dict]:
             })    
 
     return lstSteinerZone
- 
-def polysBoundingBox(polys:polys=None, polysShapely:list[shapely.Polygon]=None):
-    if (polys == None and polysShapely == None):
-        raise MissingParameterError("ERROR: Missing required field 'polys' or 'polysShapely'.")
-    if (polys == None):
-        polys = []
-        for p in polyShapely:
-            polys.append([i for i in mapping(p)['coordinates'][0]])
-    polysBox = []
-    for p in polys:
-        x = []
-        y = []
-        for pt in p:
-            x.append(pt[0])
-            y.append(pt[1])
-        polysBox.append([min(x), max(x), min(y), max(y)])
-
-    return polysBox
 
 def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
      # First, for each leg in the seq, find the individual polygons intersect with the leg
@@ -4809,6 +4791,12 @@ def _seg2SegPathGurobi(startPt: pt, endPt: pt, segs, closedFlag = False, outputF
         'path': path,
         'dist': ofv,
         'runtime': runtime
+    }
+
+def circleTW2CircleTWPath(startPt, endPt, circleTW):
+    return {
+        'ofv': ofv,
+        'path': path
     }
 
 def circle2CirclePath(startPt: pt, endPt: pt, circles: list[dict], algo: str = 'SOCP', **kwargs):
