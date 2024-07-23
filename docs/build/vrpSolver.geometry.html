@@ -148,6 +148,11 @@
 </dd></dl>
 
 <dl class="py function">
+<dt class="sig sig-object py" id="vrpSolver.geometry.circleTW2CircleTWPath">
+<span class="sig-prename descclassname"><span class="pre">vrpSolver.geometry.</span></span><span class="sig-name descname"><span class="pre">circleTW2CircleTWPath</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">startPt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">endPt</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">circleTW</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/vrpSolver/geometry.html#circleTW2CircleTWPath"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vrpSolver.geometry.circleTW2CircleTWPath" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
 <dt class="sig sig-object py" id="vrpSolver.geometry.distBtwPolysXY">
 <span class="sig-prename descclassname"><span class="pre">vrpSolver.geometry.</span></span><span class="sig-name descname"><span class="pre">distBtwPolysXY</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pt1</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pt2</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polys</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polyVG</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/vrpSolver/geometry.html#distBtwPolysXY"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vrpSolver.geometry.distBtwPolysXY" title="Link to this definition">¶</a></dt>
 <dd><p>Gives a Manhatten distance based on two coords.</p>
@@ -1494,11 +1499,6 @@ For the removed points, ‘locatedSeq’ finds the segment they located.</p>
 <dd></dd></dl>
 
 <dl class="py function">
-<dt class="sig sig-object py" id="vrpSolver.geometry.polysBoundingBox">
-<span class="sig-prename descclassname"><span class="pre">vrpSolver.geometry.</span></span><span class="sig-name descname"><span class="pre">polysBoundingBox</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">polys</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polysShapely</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">Polygon</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/vrpSolver/geometry.html#polysBoundingBox"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vrpSolver.geometry.polysBoundingBox" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py function">
 <dt class="sig sig-object py" id="vrpSolver.geometry.polysIntersect">
 <span class="sig-prename descclassname"><span class="pre">vrpSolver.geometry.</span></span><span class="sig-name descname"><span class="pre">polysIntersect</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">polys</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">float</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">float</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polysShapely</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">Polygon</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">returnShaplelyObj</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span></span></span><a class="reference internal" href="_modules/vrpSolver/geometry.html#polysIntersect"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vrpSolver.geometry.polysIntersect" title="Link to this definition">¶</a></dt>
 <dd><p>Given a list of polygons which could be intersecting to each other, return the intersecting polygons</p>
@@ -1523,24 +1523,19 @@ For the removed points, ‘locatedSeq’ finds the segment they located.</p>
 <dt class="sig sig-object py" id="vrpSolver.geometry.polysSteinerZone">
 <span class="sig-prename descclassname"><span class="pre">vrpSolver.geometry.</span></span><span class="sig-name descname"><span class="pre">polysSteinerZone</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">polys</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">dict</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/vrpSolver/geometry.html#polysSteinerZone"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vrpSolver.geometry.polysSteinerZone" title="Link to this definition">¶</a></dt>
 <dd><p>Given a node dictionary, returns a list of Steiner zones</p>
-<section id="warning">
-<h2>Warning!!!<a class="headerlink" href="#warning" title="Link to this heading">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
 <p>This function needs to be rewritten. It’s not traceable now.</p>
-<dl class="field-list">
-<dt class="field-odd">param polys<span class="colon">:</span></dt>
-<dd class="field-odd"><p>The polys dictionary with neighborhood.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>polys</strong> (<em>dictionary</em><em>, </em><em>required</em>) – The polys dictionary with neighborhood.</p></li>
+<li><p><strong>order</strong> (<em>int</em><em>, </em><em>optional</em><em>, </em><em>default None</em>) – Maximum order of Steiner zone</p></li>
+</ul>
 </dd>
-<dt class="field-even">type polys<span class="colon">:</span></dt>
-<dd class="field-even"><p>dictionary, required</p>
-</dd>
-<dt class="field-odd">param order<span class="colon">:</span></dt>
-<dd class="field-odd"><p>Maximum order of Steiner zone</p>
-</dd>
-<dt class="field-even">type order<span class="colon">:</span></dt>
-<dd class="field-even"><p>int, optional, default None</p>
-</dd>
-<dt class="field-odd">returns<span class="colon">:</span></dt>
-<dd class="field-odd"><dl>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl>
 <dt>A list of Steiner zone dictionaries, each in the following format::</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">SteinerZone</span> <span class="o">=</span> <span class="p">{</span>
 <span class="gp">... </span>    <span class="s1">&#39;poly&#39;</span><span class="p">:</span> <span class="n">poly</span><span class="p">,</span>
 <span class="gp">... </span>    <span class="s1">&#39;repPt&#39;</span><span class="p">:</span> <span class="n">centroid</span><span class="p">,</span>
@@ -1550,12 +1545,12 @@ For the removed points, ‘locatedSeq’ finds the segment they located.</p>
 </div>
 </dd>
 </dl>
+</p>
 </dd>
-<dt class="field-even">rtype<span class="colon">:</span></dt>
-<dd class="field-even"><p>list[dict]</p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list[dict]</p>
 </dd>
 </dl>
-</section>
 </dd></dl>
 
 <dl class="py function">
@@ -1904,6 +1899,7 @@ For the removed points, ‘locatedSeq’ finds the segment they located.</p>
 <li><a class="reference internal" href="#vrpSolver.geometry.circle2CirclePath"><code class="docutils literal notranslate"><span class="pre">circle2CirclePath()</span></code></a></li>
 <li><a class="reference internal" href="#vrpSolver.geometry.circleByCenterLatLon"><code class="docutils literal notranslate"><span class="pre">circleByCenterLatLon()</span></code></a></li>
 <li><a class="reference internal" href="#vrpSolver.geometry.circleByCenterXY"><code class="docutils literal notranslate"><span class="pre">circleByCenterXY()</span></code></a></li>
+<li><a class="reference internal" href="#vrpSolver.geometry.circleTW2CircleTWPath"><code class="docutils literal notranslate"><span class="pre">circleTW2CircleTWPath()</span></code></a></li>
 <li><a class="reference internal" href="#vrpSolver.geometry.distBtwPolysXY"><code class="docutils literal notranslate"><span class="pre">distBtwPolysXY()</span></code></a></li>
 <li><a class="reference internal" href="#vrpSolver.geometry.distEuclideanXY"><code class="docutils literal notranslate"><span class="pre">distEuclideanXY()</span></code></a></li>
 <li><a class="reference internal" href="#vrpSolver.geometry.distLatLon"><code class="docutils literal notranslate"><span class="pre">distLatLon()</span></code></a></li>
@@ -1963,7 +1959,6 @@ For the removed points, ‘locatedSeq’ finds the segment they located.</p>
 <li><a class="reference internal" href="#vrpSolver.geometry.poly2PolyPath"><code class="docutils literal notranslate"><span class="pre">poly2PolyPath()</span></code></a></li>
 <li><a class="reference internal" href="#vrpSolver.geometry.polyPath2Mileage"><code class="docutils literal notranslate"><span class="pre">polyPath2Mileage()</span></code></a></li>
 <li><a class="reference internal" href="#vrpSolver.geometry.polygonsAlongLocSeq"><code class="docutils literal notranslate"><span class="pre">polygonsAlongLocSeq()</span></code></a></li>
-<li><a class="reference internal" href="#vrpSolver.geometry.polysBoundingBox"><code class="docutils literal notranslate"><span class="pre">polysBoundingBox()</span></code></a></li>
 <li><a class="reference internal" href="#vrpSolver.geometry.polysIntersect"><code class="docutils literal notranslate"><span class="pre">polysIntersect()</span></code></a></li>
 <li><a class="reference internal" href="#vrpSolver.geometry.polysSteinerZone"><code class="docutils literal notranslate"><span class="pre">polysSteinerZone()</span></code></a></li>
 <li><a class="reference internal" href="#vrpSolver.geometry.polysSubtract"><code class="docutils literal notranslate"><span class="pre">polysSubtract()</span></code></a></li>

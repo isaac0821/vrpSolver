@@ -4793,12 +4793,6 @@ def _seg2SegPathGurobi(startPt: pt, endPt: pt, segs, closedFlag = False, outputF
         'runtime': runtime
     }
 
-def circleTW2CircleTWPath(startPt, endPt, circleTW):
-    return {
-        'ofv': ofv,
-        'path': path
-    }
-
 def circle2CirclePath(startPt: pt, endPt: pt, circles: list[dict], algo: str = 'SOCP', **kwargs):
     
     """Given a starting point, a list of circles, and an ending point, returns a shortest route that starts from startPt, visits every polys in given order, and returns to the ending point.
@@ -4930,7 +4924,7 @@ def _circle2CirclePathGurobi(startPt: pt, endPt: pt, circles: list[dict], output
     # Distance btw visits
     for i in range(len(circles) + 1):
         model.addQConstr(d[i] ** 2 >= dx[i] ** 2 + dy[i] ** 2)
-        # model.addQConstr(dx[i] ** 2 + dy[i] ** 2 >= CONST_EPSILON)
+        # model.addQConstr(dx[i] ** 2 + dy[i] ** 2 >= 0.1)
 
     for i in range(1, len(circles) + 1):
         model.addQConstr(rx[i] ** 2 + ry[i] ** 2 <= circles[i - 1]['radius'] ** 2)

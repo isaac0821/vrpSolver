@@ -38,6 +38,7 @@
 <span class="kn">import</span> <span class="nn">heapq</span>
 <span class="kn">import</span> <span class="nn">math</span>
 <span class="kn">import</span> <span class="nn">tripy</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
 
 <span class="kn">import</span> <span class="nn">shapely</span>
 <span class="kn">from</span> <span class="nn">shapely.geometry</span> <span class="kn">import</span> <span class="n">mapping</span>
@@ -2439,8 +2440,8 @@
 <span class="k">def</span> <span class="nf">polysSteinerZone</span><span class="p">(</span><span class="n">polys</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span><span class="o">|</span><span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Given a node dictionary, returns a list of Steiner zones</span>
 
-<span class="sd">    Warning!!!</span>
-<span class="sd">    ----------</span>
+<span class="sd">    Warning</span>
+<span class="sd">    -------</span>
 <span class="sd">    This function needs to be rewritten. It&#39;s not traceable now.</span>
 
 <span class="sd">    Parameters</span>
@@ -2569,27 +2570,6 @@
             <span class="p">})</span>    
 
     <span class="k">return</span> <span class="n">lstSteinerZone</span></div>
-
- 
-<div class="viewcode-block" id="polysBoundingBox">
-<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.polysBoundingBox">[docs]</a>
-<span class="k">def</span> <span class="nf">polysBoundingBox</span><span class="p">(</span><span class="n">polys</span><span class="p">:</span><span class="n">polys</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">polysShapely</span><span class="p">:</span><span class="nb">list</span><span class="p">[</span><span class="n">shapely</span><span class="o">.</span><span class="n">Polygon</span><span class="p">]</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">polys</span> <span class="o">==</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">polysShapely</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required field &#39;polys&#39; or &#39;polysShapely&#39;.&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">polys</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
-        <span class="n">polys</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">polyShapely</span><span class="p">:</span>
-            <span class="n">polys</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">mapping</span><span class="p">(</span><span class="n">p</span><span class="p">)[</span><span class="s1">&#39;coordinates&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]])</span>
-    <span class="n">polysBox</span> <span class="o">=</span> <span class="p">[]</span>
-    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">polys</span><span class="p">:</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="n">y</span> <span class="o">=</span> <span class="p">[]</span>
-        <span class="k">for</span> <span class="n">pt</span> <span class="ow">in</span> <span class="n">p</span><span class="p">:</span>
-            <span class="n">x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
-            <span class="n">y</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-        <span class="n">polysBox</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="nb">min</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nb">min</span><span class="p">(</span><span class="n">y</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">y</span><span class="p">)])</span>
-
-    <span class="k">return</span> <span class="n">polysBox</span></div>
 
 
 <div class="viewcode-block" id="polygonsAlongLocSeq">
@@ -5101,6 +5081,15 @@
         <span class="s1">&#39;runtime&#39;</span><span class="p">:</span> <span class="n">runtime</span>
     <span class="p">}</span>
 
+<div class="viewcode-block" id="circleTW2CircleTWPath">
+<a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.circleTW2CircleTWPath">[docs]</a>
+<span class="k">def</span> <span class="nf">circleTW2CircleTWPath</span><span class="p">(</span><span class="n">startPt</span><span class="p">,</span> <span class="n">endPt</span><span class="p">,</span> <span class="n">circleTW</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s1">&#39;ofv&#39;</span><span class="p">:</span> <span class="n">ofv</span><span class="p">,</span>
+        <span class="s1">&#39;path&#39;</span><span class="p">:</span> <span class="n">path</span>
+    <span class="p">}</span></div>
+
+
 <div class="viewcode-block" id="circle2CirclePath">
 <a class="viewcode-back" href="../../vrpSolver.geometry.html#vrpSolver.geometry.circle2CirclePath">[docs]</a>
 <span class="k">def</span> <span class="nf">circle2CirclePath</span><span class="p">(</span><span class="n">startPt</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">endPt</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">circles</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="n">algo</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;SOCP&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
@@ -5133,24 +5122,24 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="c1"># Sanity check ============================================================</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">method</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
-        <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required field `method`.&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">algo</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required field `algo`.&quot;</span><span class="p">)</span>
 
     <span class="n">errTol</span> <span class="o">=</span> <span class="n">CONST_EPSILON</span>
-    <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;errTol&#39;</span> <span class="ow">in</span> <span class="n">method</span><span class="p">):</span>
-        <span class="n">errTol</span> <span class="o">=</span> <span class="n">method</span><span class="p">[</span><span class="s1">&#39;errTol&#39;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;errTol&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+        <span class="n">errTol</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;errTol&#39;</span><span class="p">]</span>
 
 
     <span class="k">if</span> <span class="p">(</span><span class="n">algo</span> <span class="o">==</span> <span class="s1">&#39;SOCP&#39;</span><span class="p">):</span>
         <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;solver&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;solver&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;Gurobi&#39;</span><span class="p">):</span>
             <span class="n">outputFlag</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;outputFlag&#39;</span> <span class="ow">in</span> <span class="n">method</span><span class="p">):</span>
-                <span class="n">outputFlag</span> <span class="o">=</span> <span class="n">method</span><span class="p">[</span><span class="s1">&#39;outputFlag&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;outputFlag&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+                <span class="n">outputFlag</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;outputFlag&#39;</span><span class="p">]</span>
             <span class="n">res</span> <span class="o">=</span> <span class="n">_circle2CirclePathGurobi</span><span class="p">(</span><span class="n">startPt</span><span class="p">,</span> <span class="n">endPt</span><span class="p">,</span> <span class="n">circles</span><span class="p">,</span> <span class="n">outputFlag</span><span class="p">)</span>
         <span class="k">elif</span> <span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;solver&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;COPT&#39;</span><span class="p">):</span>
             <span class="n">outputFlag</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;outputFlag&#39;</span> <span class="ow">in</span> <span class="n">method</span><span class="p">):</span>
-                <span class="n">outputFlag</span> <span class="o">=</span> <span class="n">method</span><span class="p">[</span><span class="s1">&#39;outputFlag&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;outputFlag&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+                <span class="n">outputFlag</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;outputFlag&#39;</span><span class="p">]</span>
             <span class="n">res</span> <span class="o">=</span> <span class="n">_circle2CirclePathCOPT</span><span class="p">(</span><span class="n">startPt</span><span class="p">,</span> <span class="n">endPt</span><span class="p">,</span> <span class="n">circles</span><span class="p">,</span> <span class="n">outputFlag</span><span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
         <span class="k">raise</span> <span class="n">UnsupportedInputError</span><span class="p">(</span><span class="s2">&quot;ERROR: Not support by vrpSolver for now.&quot;</span><span class="p">)</span>
