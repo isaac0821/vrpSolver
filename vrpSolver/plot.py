@@ -1,49 +1,133 @@
 import matplotlib.pyplot as plt
 
+from matplotlib import rcParams
+# rcParams['font.family'] = 'SimSun'
+from matplotlib.animation import FuncAnimation
+from matplotlib.animation import PillowWriter
+
 from .common import *
 from .color import *
 from .msg import *
 from .province import *
-from .error import *
 from .geometry import *
 
 # History =====================================================================
 # 20230518 - `plotNodes()` now will plot the neighborhood of nodes
 # 20230624 - Rename functions `plotArcs()`, `plotLocSeq()`, `plotNodeSeq()`
+# 20231022 - Refine `aniRouting()`
 # =============================================================================
 
-def plotNodes(
-    nodes: dict, 
-    locFieldName = 'loc',
-    nodeColor: str = 'Random',
-    nodeMarker: str = 'o',
-    nodeMarkersize: float = 1,
+def plotLocs(
+    locs: list[pt],
+    locColor: str = 'Random',
+    locMarker: str = 'o',
+    locMarkerSize: float = 1,
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
     showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
     ):
 
-    """Draw nodes
+    """Plot locations on a figure
+
+    Parameters
+    ----------
+    locs: list of pt, required
+        A list of locations to be plotted
+    locColor: str, optional, default as 'Random'
+        The color of locations to be plotted, 'Random' if the color is randomized.
+    locMarker: str, optional, default as 'o'
+        The shape of the marker
+    locMarkerSize: str, optional, default as 1
+        The size of the marker
+    xyReverseFlag: bool, optional, default as False
+        Reverse the x, y, (x, y) => (y, x). Used in plotting (lat, lon) coordinates.
+    fig: matplotlib object, optional, default as None
+        If fig and ax are provided, 
+
+
+    """
+
+    # Check for required fields ===============================================
+    if (locs == None):
+        raise MissingParameterError("ERROR: Missing required field `locs`.")
+
+    # If no based matplotlib figure provided, define boundary =================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        boundingBox = findBoundingBox(
+            boundingBox = boundingBox, 
+            pts = locs)
+        (xMin, xMax, yMin, yMax) = boundingBox
+        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1])
+        if (isinstance(fig, plt.Figure)):
+            fig.set_figwidth(width)
+            fig.set_figheight(height)
+            ax.set_xlim(xMin, xMax)
+            ax.set_ylim(yMin, yMax)
+
+    # Draw locs ==============================================================
+    for i in locs:
+        # Define color --------------------------------------------------------
+        color = None
+        if (locColor == 'Random'):
+            color = colorRandom()
+        else:
+            color = locColor
+
+        # plot nodes ----------------------------------------------------------
+        x = None
+        y = None
+        if (not xyReverseFlag):
+            x = i[0]
+            y = i[1]
+        else:
+            x = i[1]
+            y = i[0]
+        if (locMarkerSize == None):
+            ax.plot(x, y, color = color, marker = locMarker)
+        else:
+            ax.plot(x, y, color = color, marker = locMarker, markersize = locMarkerSize)
+
+    # Axis on and off =========================================================
+    if (not showAxis):
+        plt.axis('off')
+
+    # Save figure =============================================================
+    if (saveFigPath != None and isinstance(fig, plt.Figure)):
+        fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
+
+    return fig, ax
+    
+def plotNodes(
+    nodes: dict, 
+    locFieldName = 'loc',
+    nodeColor: str = 'Random',
+    nodeMarker: str = 'o',
+    nodeMarkerSize: float = 1,
+    xyReverseFlag: bool = False,
+    fig = None,
+    ax = None,
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
+    showAxis: bool = True,
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ):
+
+    """
+    Draw nodes
 
     Parameters
     ----------
     nodes: dictionary, required
-        The coordinates and other attributions of the nodes to be plotted, in the following format::
-            >>> nodes = {
-            ...     nodeID1: {
-            ...         'loc': (x, y),
-            ...         'marker': 'r',    # Optional, default as 'o'
-            ...         'markersize': 2,  # Optional, default as None
-            ...         'color': 'red',   # Optional, default as 'Random'
-            ...         'size': 3,        # Optional, default as 3
-            ...         'fontsize': 3,    # Optional, default as 3
-            ...     }, # ...
-            ... }
+        A `nodes` dictionary. See :ref:`nodes` for reference.
     nodeColor: str, optional, default 'Random'
         Alternative option. If 'color' is provided in `node`, this will be ignored.
     neighborColor: str, optional, default 'gray'
@@ -69,7 +153,8 @@ def plotNodes(
 
     Returns
     -------
-    fig, ax: matplotlib.pyplot object
+    fig, ax
+        matplotlib.pyplot object
     """
 
     # Check for required fields ===============================================
@@ -79,45 +164,13 @@ def plotNodes(
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
-        # Adjust bounding box
+        boundingBox = findBoundingBox(
+            boundingBox = boundingBox, 
+            nodes = nodes, 
+            locFieldName = locFieldName, 
+            xyReverseFlag = xyReverseFlag)
         (xMin, xMax, yMin, yMax) = boundingBox
-        if (xMin == None or xMax == None or yMin == None or yMax == None):
-            allX = []
-            allY = []
-            for i in nodes:
-                if (not xyReverseFlag):
-                    allX.append(nodes[i][locFieldName][0])
-                    allY.append(nodes[i][locFieldName][1])
-                else:
-                    allX.append(nodes[i][locFieldName][1])
-                    allY.append(nodes[i][locFieldName][0])        
-            if (xMin == None):
-                xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
-            if (xMax == None):
-                xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
-            if (yMin == None):
-                yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
-            if (yMax == None):
-                yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
-        # Adjust width and height
-        width = 0
-        height = 0
-        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
-            if (xMax - xMin > yMax - yMin):
-                width = 5
-                height = 5 * ((yMax - yMin) / (xMax - xMin))
-            else:
-                width = 5 * ((xMax - xMin) / (yMax - yMin))
-                height = 5
-        elif (figSize != None and figSize[0] != None and figSize[1] == None):
-            width = figSize[0]
-            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
-        elif (figSize != None and figSize[0] == None and figSize[1] != None):
-            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
-            height = figSize[1]
-        else:
-            (width, height) = figSize
-
+        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1])
         if (isinstance(fig, plt.Figure)):
             fig.set_figwidth(width)
             fig.set_figheight(height)
@@ -138,8 +191,8 @@ def plotNodes(
         # Define marker and marker size ---------------------------------------
         if ('marker' in nodes[n]):
             nodeMarker = nodes[n]['marker']
-        if ('markersize' in nodes[n]):
-            nodeMarkersize = nodes[n]['markersize']
+        if ('markerSize' in nodes[n]):
+            nodeMarkerSize = nodes[n]['markerSize']
 
         # plot nodes ----------------------------------------------------------
         x = None
@@ -150,10 +203,10 @@ def plotNodes(
         else:
             x = nodes[n][locFieldName][1]
             y = nodes[n][locFieldName][0]
-        if (nodeMarkersize == None):
+        if (nodeMarkerSize == None):
             ax.plot(x, y, color = color, marker = nodeMarker)
         else:
-            ax.plot(x, y, color = color, marker = nodeMarker, markersize = nodeMarkersize)
+            ax.plot(x, y, color = color, marker = nodeMarker, markersize = nodeMarkerSize)
         if ('label' not in nodes[n]):
             lbl = n
         else:
@@ -182,9 +235,15 @@ def plotNodes(
 def plotArcs(
     arcs: dict,
     arcFieldName = 'arc',
+    arcStartLocFieldName = 'startLoc',
+    arcEndLocFieldName = 'endLoc',
     arcColor: str = 'Random',
     arcWidth: float = 1.0,
+    arcLabel: str = None,
+    arcStyle: str = 'solid',
+    arcDashes: tuple = (5, 2),
     arrowFlag: bool = True,
+    arrowPosition: float = 0.5,
     arrowHeadWidth: float = 2.0,
     arrowHeadLength: float = 3.0,
     startColor: str = 'black',
@@ -193,20 +252,21 @@ def plotArcs(
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
     showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
     ):
     
-    """Draw arcs
+    """
+    Draw arcs
 
     Parameters
     ----------
 
     arcs: dict, required
-        A set of arcs, each arc is defined by two points
+        An `arcs` dictionary, each arc is defined by two points. See :ref:`arcs` for reference.
     arcColor: string, optional, default 'Random'
         Color of arcs
     arcWidth: float, optional, default 1
@@ -234,60 +294,29 @@ def plotArcs(
 
     Returns
     -------
-    fig, ax: matplotlib.pyplot object
+    fig, ax
+        matplotlib.pyplot object
     """
 
     # Check for required fields ===============================================
     if (arcs == None):
         raise MissingParameterError("ERROR: Missing required field `arcs`.")
+    for i in arcs:
+        if (arcFieldName not in arcs[i] and arcStartLocFieldName not in arcs[i] and arcEndLocFieldName not in arcs[i]):
+            raise MissingParameterError("ERROR: Cannot find arc field in given `arcs` - %s" % i)
 
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
-        # Adjust bounding box
+        boundingBox = findBoundingBox(
+            boundingBox = boundingBox, 
+            arcs = arcs, 
+            arcFieldName = arcFieldName,
+            arcStartLocFieldName = arcStartLocFieldName,
+            arcEndLocFieldName = arcEndLocFieldName, 
+            xyReverseFlag = xyReverseFlag)
         (xMin, xMax, yMin, yMax) = boundingBox
-        if (xMin == None or xMax == None or yMin == None or yMax == None):
-            allX = []
-            allY = []
-            for i in arcs:
-                if (not xyReverseFlag):
-                    allX.append(arcs[i][arcFieldName][0][0])
-                    allX.append(arcs[i][arcFieldName][1][0])
-                    allY.append(arcs[i][arcFieldName][0][1])
-                    allY.append(arcs[i][arcFieldName][1][1])
-                else:
-                    allX.append(arcs[i][arcFieldName][0][1])
-                    allX.append(arcs[i][arcFieldName][1][1])
-                    allY.append(arcs[i][arcFieldName][0][0])
-                    allY.append(arcs[i][arcFieldName][1][0])
-            
-            if (xMin == None):
-                xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
-            if (xMax == None):
-                xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
-            if (yMin == None):
-                yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
-            if (yMax == None):
-                yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
-        # Adjust width and height
-        width = 0
-        height = 0
-        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
-            if (xMax - xMin > yMax - yMin):
-                width = 5
-                height = 5 * ((yMax - yMin) / (xMax - xMin))
-            else:
-                width = 5 * ((xMax - xMin) / (yMax - yMin))
-                height = 5
-        elif (figSize != None and figSize[0] != None and figSize[1] == None):
-            width = figSize[0]
-            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
-        elif (figSize != None and figSize[0] == None and figSize[1] != None):
-            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
-            height = figSize[1]
-        else:
-            (width, height) = figSize
-
+        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1])
         if (isinstance(fig, plt.Figure)):
             fig.set_figwidth(width)
             fig.set_figheight(height)
@@ -297,34 +326,63 @@ def plotArcs(
     # Draw arcs ===============================================================
     for i in arcs:
         x1, y1, x2, y2 = 0, 0, 0, 0
-        if (not xyReverseFlag):
-            x1 = arcs[i][arcFieldName][0][0]
-            x2 = arcs[i][arcFieldName][1][0]
-            y1 = arcs[i][arcFieldName][0][1]
-            y2 = arcs[i][arcFieldName][1][1]
+        if (arcFieldName in arcs[i]):        
+            if (not xyReverseFlag):
+                x1 = arcs[i][arcFieldName][0][0]
+                x2 = arcs[i][arcFieldName][1][0]
+                y1 = arcs[i][arcFieldName][0][1]
+                y2 = arcs[i][arcFieldName][1][1]
+            else:
+                x1 = arcs[i][arcFieldName][0][1]
+                x2 = arcs[i][arcFieldName][1][1]
+                y1 = arcs[i][arcFieldName][0][0]
+                y2 = arcs[i][arcFieldName][1][0]
+        elif (arcStartLocFieldName in arcs[i] and arcEndLocFieldName in arcs[i]):
+            if (not xyReverseFlag):
+                x1 = arcs[i][arcStartLocFieldName][0]
+                y1 = arcs[i][arcStartLocFieldName][1]
+                x2 = arcs[i][arcEndLocFieldName][0]
+                y2 = arcs[i][arcEndLocFieldName][1]
+            else:
+                x1 = arcs[i][arcStartLocFieldName][1]
+                y1 = arcs[i][arcStartLocFieldName][0]
+                x2 = arcs[i][arcEndLocFieldName][1]
+                y2 = arcs[i][arcEndLocFieldName][0]
         else:
-            x1 = arcs[i][arcFieldName][0][1]
-            x2 = arcs[i][arcFieldName][1][1]
-            y1 = arcs[i][arcFieldName][0][0]
-            y2 = arcs[i][arcFieldName][1][0]
+            raise MissingParameterError("ERROR: Cannot find corresponded `arcFieldName` or (`arcStartLocFieldName` and `arcEndLocFieldName`) in given `arcs` structure.")
         dx = x2 - x1
         dy = y2 - y1
         if (arcColor == 'Random'):
             rndColor = colorRandom()
-            ax.plot([x1, x2], [y1, y2], color = rndColor)
+            ax.plot([x1, x2], [y1, y2], color = rndColor, linewidth=arcWidth, linestyle = arcStyle, dashes = arcDashes)
             if (arrowFlag):
-                ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=rndColor)
+                deg = headingXY([x1, y1], [x2, y2])
+                ptC = [x1 + (x2 - x1) * arrowPosition, y1 + (y2 - y1) * arrowPosition]
+                ptM = ptInDistXY(ptC, direction = deg + 180, dist = arrowHeadLength / 2)
+                ptH = ptInDistXY(ptC, direction = deg, dist = arrowHeadLength / 2)
+                pt1 = ptInDistXY(ptM, direction = deg + 90, dist = arrowHeadWidth / 2)
+                pt2 = ptInDistXY(ptM, direction = deg - 90, dist = arrowHeadWidth / 2)
+                ax.fill([ptH[0], pt1[0], pt2[0]], [ptH[1], pt1[1], pt2[1]], facecolor=rndColor, edgecolor=rndColor, linewidth=0)
+                # ax.arrow(x=x1, y=y1, dx=dx * arrowPosition, dy=dy * arrowPosition, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=rndColor)
         else:
-            ax.plot([x1, x2], [y1, y2], color = arcColor)
+            ax.plot([x1, x2], [y1, y2], color = arcColor, linewidth=arcWidth, linestyle = arcStyle, dashes = arcDashes)
             if (arrowFlag):
-                ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=arcColor)
+                deg = headingXY([x1, y1], [x2, y2])
+                ptC = [x1 + (x2 - x1) * arrowPosition, y1 + (y2 - y1) * arrowPosition]
+                ptM = ptInDistXY(ptC, direction = deg + 180, dist = arrowHeadLength / 2)
+                ptH = ptInDistXY(ptC, direction = deg, dist = arrowHeadLength / 2)
+                pt1 = ptInDistXY(ptM, direction = deg + 90, dist = arrowHeadWidth / 2)
+                pt2 = ptInDistXY(ptM, direction = deg - 90, dist = arrowHeadWidth / 2)
+                ax.fill([ptH[0], pt1[0], pt2[0]], [ptH[1], pt1[1], pt2[1]], facecolor=arcColor, edgecolor=arcColor, linewidth=0)
 
         ax.plot(x1, y1, color = startColor, marker = 'o', markersize = bothEndSize)
         ax.plot(x2, y2, color = endColor, marker = 'o', markersize = bothEndSize)
-        if ('label' not in arcs[i]):
+        if (arcLabel == None and 'label' not in arcs[i]):
             lbl = i
-        else:
+        elif (arcLabel == None):
             lbl = arcs[i]['label']
+        else:
+            lbl = arcLabel
         ha = 'left'
         if ('ha' in arcs[i]):
             ha = arcs[i]['ha']
@@ -349,14 +407,19 @@ def plotLocSeq(
     locSeq: list[pt],
     lineColor: str = 'Random',
     lineWidth: float = 1.0,
+    lineStyle: str = 'solid',
+    lineDashes: tuple = (5, 2),
+    nodeColor: str = 'black',
+    nodeMarkerSize: float = 1,
     arrowFlag: bool = True,
+    arrowPosition: float = 0.5,
     arrowHeadWidth: float = 0.1,
     arrowHeadLength: float = 0.2,
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
     showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
@@ -403,82 +466,38 @@ def plotLocSeq(
     if (locSeq == None):
         raise MissingParameterError("ERROR: Missing required field `locSeq`.")
 
-    # If no based matplotlib figure provided, define boundary =================
-    if (fig == None or ax == None):
-        fig, ax = plt.subplots()
-        allX = []
-        allY = []
-        for i in locSeq:
-            if (not xyReverseFlag):
-                allX.append(i[0])
-                allY.append(i[1])
-            else:
-                allX.append(i[1])
-                allY.append(i[0])
-        (xMin, xMax, yMin, yMax) = boundingBox
-        if (xMin == None):
-            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
-        if (xMax == None):
-            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
-        if (yMin == None):
-            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
-        if (yMax == None):
-            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
-        width = 0
-        height = 0
-        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
-            if (xMax - xMin > yMax - yMin):
-                width = 5
-                height = 5 * ((yMax - yMin) / (xMax - xMin))
-            else:
-                width = 5 * ((xMax - xMin) / (yMax - yMin))
-                height = 5
-        elif (figSize != None and figSize[0] != None and figSize[1] == None):
-            width = figSize[0]
-            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
-        elif (figSize != None and figSize[0] == None and figSize[1] != None):
-            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
-            height = figSize[1]
-        else:
-            (width, height) = figSize
-
-        if (isinstance(fig, plt.Figure)):
-            fig.set_figwidth(width)
-            fig.set_figheight(height)
-            ax.set_xlim(xMin, xMax)
-            ax.set_ylim(yMin, yMax)
-
-    # Draw lines ===============================================================
-    if (lineColor == 'Random'):
-        lineColor = colorRandom() 
+    arcs = {}
     for i in range(len(locSeq) - 1):
-        line = [locSeq[i], locSeq[i + 1]]
-        if (not xyReverseFlag):
-            x1 = line[0][0]
-            y1 = line[0][1]
-            x2 = line[1][0]
-            y2 = line[1][1]
-        else:
-            x1 = line[0][1]
-            y1 = line[0][0]
-            x2 = line[1][1]
-            y2 = line[1][0]
-        dx = x2 - x1
-        dy = y2 - y1
-        ax.plot([x1, x2], [y1, y2], color = lineColor, linewidth=lineWidth)
-        if (arrowFlag):
-            ax.arrow(x=x1, y=y1, dx=dx / 2, dy=dy / 2, linewidth=lineWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=lineColor)
+        if (not is2PtsSame(locSeq[i], locSeq[i + 1])):
+            arcs[i] = {'arc': [locSeq[i], locSeq[i + 1]]}
 
-    # Axis on and off =========================================================
-    if (not showAxis):
-        plt.axis('off')
+    # Color ===================================================================
+    if (lineColor == 'Random'):
+        lineColor = colorRandom()
 
-    # Save figure =============================================================
-    if (saveFigPath != None and isinstance(fig, plt.Figure)):
-        fig.savefig(saveFigPath)
-    if (not showFig):
-        plt.close(fig)
-
+    fig, ax = plotArcs(
+        fig = fig,
+        ax = ax,
+        arcs = arcs,
+        arcFieldName = 'arc',
+        arcColor = lineColor,
+        arcWidth = lineWidth,
+        arcStyle = lineStyle,
+        arcDashes = lineDashes if lineStyle == 'dashed' else (None, None),
+        arcLabel = "",
+        arrowFlag = arrowFlag,
+        arrowPosition = arrowPosition,
+        arrowHeadWidth = arrowHeadWidth,
+        arrowHeadLength = arrowHeadLength,
+        startColor = nodeColor,
+        endColor = nodeColor ,
+        bothEndSize = nodeMarkerSize,
+        xyReverseFlag = xyReverseFlag,
+        figSize = figSize,
+        boundingBox = boundingBox,
+        showAxis = showAxis,
+        saveFigPath = saveFigPath,
+        showFig = showFig)
     return fig, ax
 
 def plotNodeSeq(
@@ -487,14 +506,19 @@ def plotNodeSeq(
     locFieldName: str = 'loc',
     lineColor: str = 'Random',
     lineWidth: float = 1,
+    lineStyle: str = 'solid',
+    lineDashes: tuple = (5, 2),
+    nodeColor: str = 'black',
+    nodeMarkerSize: float = 1,
     arrowFlag: bool = True,
+    arrowPosition: float = 0.5,
     arrowHeadWidth: float = 0.1,
     arrowHeadLength: float = 0.2,
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
     showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
@@ -504,20 +528,8 @@ def plotNodeSeq(
 
     Parameters
     ----------
-
-    nodes: dictionary, required
-        The coordinates and other attributions of the nodes to be plotted, in the following format::
-            >>> nodes = {
-            ...     nodeID1: {
-            ...         'loc': (x, y),
-            ...         'marker': 'r',    # Optional, default as 'o'
-            ...         'markersize': 2,  # Optional, default as None
-            ...         'color': 'red',   # Optional, default as 'Random'
-            ...         'size': 3,        # Optional, default as 3
-            ...         'fontsize': 3,    # Optional, default as 3
-            ...         'neighbor': poly, # Optional, indicate if need to display the neighborhood
-            ...     }, # ...
-            ... }
+    nodes: dict, required
+        A `node` dictionary. See :ref:`nodes` for reference.
     nodeSeq: list[int|str], required
         A list of nodeIDs which will form a visiting sequence
     arcColor: string, optional, default 'Random'
@@ -553,31 +565,36 @@ def plotNodeSeq(
     # Create arcs =============================================================
     if (nodeSeq == None):
         raise MissingParameterError("ERROR: Missing required field `nodeSeq`.")
-    arcs = []
+    # Call plotArcs ===========================================================
+    for n in nodeSeq:
+        if (n not in nodes):
+            raise UnsupportedInputError("ERROR: Cannot find %s in nodes" % n)
+
+    arcs = {}
     for i in range(len(nodeSeq) - 1):
-        arcs.append([nodeSeq[i], nodeSeq[i + 1]])
+        arcs[i] = {'arc': [nodes[nodeSeq[i]][locFieldName], nodes[nodeSeq[i + 1]][locFieldName]]}
 
     # Color ===================================================================
     if (lineColor == 'Random'):
         lineColor = colorRandom()
 
-    # Call plotArcs ===========================================================
-
-    locSeq = []
-    for n in nodeSeq:
-        if (n not in nodes):
-            raise UnsupportedInputError("ERROR: Cannot find %s in nodes" % n)
-        locSeq.append(nodes[n][locFieldName])
-
-    fig, ax = plotLocSeq(
+    fig, ax = plotArcs(
         fig = fig,
         ax = ax,
-        locSeq = locSeq,
-        lineColor = lineColor,
-        lineWidth = lineWidth,
+        arcs = arcs,
+        arcFieldName = 'arc',
+        arcColor = lineColor,
+        arcWidth = lineWidth,
+        arcStyle = lineStyle,
+        arcDashes = lineDashes if lineStyle == 'dashed' else (None, None),
+        arcLabel = "",
         arrowFlag = arrowFlag,
+        arrowPosition = arrowPosition,
         arrowHeadWidth = arrowHeadWidth,
         arrowHeadLength = arrowHeadLength,
+        startColor = nodeColor,
+        endColor = nodeColor ,
+        bothEndSize = nodeMarkerSize,
         xyReverseFlag = xyReverseFlag,
         figSize = figSize,
         boundingBox = boundingBox,
@@ -597,8 +614,8 @@ def plotPoly(
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
     showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
@@ -648,42 +665,11 @@ def plotPoly(
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
-        allX = []
-        allY = []
-        for pt in poly:
-            if (not xyReverseFlag):
-                allX.append(pt[0])
-                allY.append(pt[1])
-            else:
-                allX.append(pt[1])
-                allY.append(pt[0])
+        boundingBox = findBoundingBox(
+            boundingBox = boundingBox, 
+            poly = poly)
         (xMin, xMax, yMin, yMax) = boundingBox
-        if (xMin == None):
-            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
-        if (xMax == None):
-            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
-        if (yMin == None):
-            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
-        if (yMax == None):
-            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
-        width = 0
-        height = 0
-        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
-            if (xMax - xMin > yMax - yMin):
-                width = 5
-                height = 5 * ((yMax - yMin) / (xMax - xMin))
-            else:
-                width = 5 * ((xMax - xMin) / (yMax - yMin))
-                height = 5
-        elif (figSize != None and figSize[0] != None and figSize[1] == None):
-            width = figSize[0]
-            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
-        elif (figSize != None and figSize[0] == None and figSize[1] != None):
-            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
-            height = figSize[1]
-        else:
-            (width, height) = figSize
-
+        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1])
         if (isinstance(fig, plt.Figure)):
             fig.set_figwidth(width)
             fig.set_figheight(height)
@@ -734,8 +720,50 @@ def plotPoly(
 
     return fig, ax
 
-def plotPolys(
-    polys: dict,
+def plotCircle(
+    center: pt, 
+    radius: float,
+    lod: int = 30,
+    edgeWidth: float = 0.5,
+    edgeColor: str|None = 'Random',
+    fillColor: str|None = None,
+    fillStyle: str = "///",
+    opacity: float = 0.5,
+    xyReverseFlag: bool = False,
+    fig = None,
+    ax = None,
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
+    showAxis: bool = True,
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ):
+
+    polyCircle = [[
+        center[0] + radius * math.sin(2 * d * math.pi / lod),
+        center[1] + radius * math.cos(2 * d * math.pi / lod),
+    ] for d in range(lod + 1)]
+
+    fig, ax = plotPoly(
+        poly = polyCircle,
+        edgeWidth = edgeWidth,
+        edgeColor = edgeColor,
+        fillColor = fillColor,
+        fillStyle = fillStyle,
+        opacity = opacity,
+        xyReverseFlag = xyReverseFlag,
+        fig = fig,
+        ax = ax,
+        figSize = figSize,
+        boundingBox = boundingBox,
+        showAxis = showAxis,
+        saveFigPath = saveFigPath,
+        showFig = showFig,
+    )
+    return fig, ax
+
+def plotPolygons(
+    polygons: dict,
     polyFieldName: str = 'poly',
     showAnchorFlag: bool = True,
     anchorFieldName: str = 'anchor',
@@ -747,57 +775,28 @@ def plotPolys(
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
     showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
     ):
 
     # Sanity check ============================================================
-    if (type(polys) != dict):
-        raise UnsupportedInputError("ERROR: `polys` is a dictionary, to plot an individual polygon, please use plotPoly() instead.")
+    if (type(polygons) != dict):
+        raise UnsupportedInputError("ERROR: `polygons` is a dictionary, to plot an individual polygon, please use plotPoly() instead.")
 
     # If no based matplotlib figure provided, define boundary =================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
-        allX = []
-        allY = []
-        for p in polys:
-            for i in polys[p][polyFieldName]:
-                if (not xyReverseFlag):
-                    allX.append(i[0])
-                    allY.append(i[1])
-                else:
-                    allX.append(i[1])
-                    allY.append(i[0])
+        boundingBox = findBoundingBox(
+            boundingBox = boundingBox, 
+            polygons = polygons,
+            anchorFieldName = anchorFieldName,
+            polyFieldName = polyFieldName,
+            xyReverseFlag = xyReverseFlag)
         (xMin, xMax, yMin, yMax) = boundingBox
-        if (xMin == None):
-            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
-        if (xMax == None):
-            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
-        if (yMin == None):
-            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
-        if (yMax == None):
-            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
-        width = 0
-        height = 0
-        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
-            if (xMax - xMin > yMax - yMin):
-                width = 5
-                height = 5 * ((yMax - yMin) / (xMax - xMin))
-            else:
-                width = 5 * ((xMax - xMin) / (yMax - yMin))
-                height = 5
-        elif (figSize != None and figSize[0] != None and figSize[1] == None):
-            width = figSize[0]
-            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
-        elif (figSize != None and figSize[0] == None and figSize[1] != None):
-            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
-            height = figSize[1]
-        else:
-            (width, height) = figSize
-
+        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1])
         if (isinstance(fig, plt.Figure)):
             fig.set_figwidth(width)
             fig.set_figheight(height)
@@ -805,11 +804,11 @@ def plotPolys(
             ax.set_ylim(yMin, yMax)
 
     # First, plot polygons ====================================================
-    for p in polys:
+    for p in polygons:
         fig, ax = plotPoly(
             fig = fig,
             ax = ax,
-            poly = polys[p][polyFieldName],
+            poly = polygons[p][polyFieldName],
             edgeWidth = edgeWidth,
             edgeColor = edgeColor,
             fillColor = fillColor,
@@ -820,14 +819,14 @@ def plotPolys(
 
     # Next, plot anchors ======================================================
     if (showAnchorFlag):
-        for p in polys:
-            if ('label' not in polys[p]):
+        for p in polygons:
+            if ('label' not in polygons[p]):
                 lbl = p
             else:
-                lbl = polys[p]['label']
+                lbl = polygons[p]['label']
             ha = 'center'
             va = 'center'
-            ct = polys[p]['anchor']
+            ct = polygons[p]['anchor']
             if (xyReverseFlag):
                 ct = [ct[1], ct[0]]
             ax.annotate(lbl, ct, ha=ha, va=va)
@@ -859,44 +858,6 @@ def plotProvinceMap(
     saveFigPath: str|None = None,
     showFig: bool = True
     ):
-
-    """Draw arcs
-
-    Parameters
-    ----------
-
-    country: string, required, default 'U.S.'
-        Country of the province
-    province: string | list[string], required, default ['New York']
-        A province or a list of provinces to be plotted.
-    edgeWidth: float, optional, default 0.5
-        Width of the edge
-    edgeColor: string, optional, default 'Random'
-        Color of the edge
-    fillColor: string, optional, default None
-        Color filled in the polygon
-    fillStyle: string, optional, default "///"
-        Style filled in the polygon
-    opacity: float, optional, default 0.5
-        Opacity of the polygon
-    xyReverseFlag: bool, optional, default False
-        True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
-    fig: matplotlib object, optional, defaut None
-        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
-    ax: matplotlib object, optional, default None
-        See `fig`
-    figSize: 2-tuple, optional, default as (None, 5)
-        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.    
-    saveFigPath: string, optional, default as None
-        The path for exporting image if provided
-    showFig: bool, optional, default as True
-        True if show the figure in Juypter Notebook environment
-
-    Returns
-    -------
-    fig, ax: matplotlib.pyplot object
-    """
-
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
     
@@ -919,10 +880,10 @@ def plotProvinceMap(
                 }
         else:
             raise VrpSolverNotAvailableError("Error: %s is not included yet, please stay tune." % country) 
-    fig, ax = plotPolys(
+    fig, ax = plotPolygons(
         fig = fig,
         ax = ax,
-        polys = prvPoly,
+        polygons = prvPoly,
         showAnchorFlag = True,
         edgeWidth = edgeWidth,
         edgeColor = edgeColor,
@@ -937,8 +898,9 @@ def plotProvinceMap(
 
     return fig, ax
 
-def plotRoadNetwork(
+def plotRoads(
     roads: dict,
+    roadBoundary: poly|polys = None,
     roadWidth: dict[str,float]|float = {
             'motorway': 2,
             'motorway_link': 2,
@@ -968,69 +930,36 @@ def plotRoadNetwork(
             'others': 'gray'
         },
     roadShowFlags: list[str, bool]|str|bool = 'All',
-    bldColors: dict[str,str]|str = {
-            'building': 'yellow',
-            'commercial': 'yellow',
-            'residential': 'green',
-            'house': 'green',
-            'static_caravan': 'green',
-            'industrial': 'orange',
-            'manufacture': 'orange'
-        },
-    bldShowFlags: list[str, bool]|str|bool = False,
     fig = None,
     ax = None,
-    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
-    boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
     showAxis: bool = True,
     saveFigPath: str|None = None,
     showFig: bool = True
     ): 
-
-    """Plot road network (and buildings) using given OSM transformed dictionary
-
-    Parameters
-    ----------
-
-    roads: dict, required
-        The road network dictionary, including the geometry shape. In the following format::
-            >>> roads = {
-            ...     'road': {roadID: {'class': class, 'shape': shape}}
-            ...     'building': {buildingID: {'type': type, 'shape': shape}}
-            ... }
-    roadWidth: dict[str, float]|float, optional
-        The width of roads. If a dictionary is given, will use the width in the dictionary, otherwise will be default as 1. If a float is given will use the float value.
-    roadColor: dict[str, str]|str, optional
-        The color of roads, works in the same way as `roadWidth`
-    roadShowFlags: dict[str, bool]|str|bool, optional, 'All'
-        Whether or not show some types of roads, works in the same way as `roadWidth`
-    bldColor: dict[str, str]|str, optional
-        The color of buildings, works in the same way as `roadWidth`
-    bldShowFlags: dict[str, bool]|str|bool, optional
-        Whether or not show some types of buildings, works in the same way as `roadWidth`
-    fig: matplotlib object, optional, defaut None
-        `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
-    ax: matplotlib object, optional, default None
-        See `fig`
-    figSize: 2-tuple, optional, default as (None, 5)
-        Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
-    boundingBox: 4-tuple, optional, default as (None, None, None, None)
-        (xMin, xMax, yMin, yMax), defines four boundaries of the figure
-    saveFigPath: string, optional, default as None
-        The path for exporting image if provided
-    showFig: bool, optional, default as True
-        True if show the figure in Juypter Notebook environment
-    """
-
     # FIXME: In future, we might want to distinguish roads by max speed or show the names of roads
     # If no based matplotlib figure, define boundary ==========================
     if (fig == None or ax == None):
         fig, ax = plt.subplots()
         allX = []
         allY = []
-        for pt in roads['boundary']:
-            allX.append(pt[1])
-            allY.append(pt[0])
+        if (roadBoundary != None):
+            try:    
+                for poly in roadBoundary:
+                    for pt in poly:
+                        allX.append(float(pt[1]))
+                        allY.append(float(pt[0]))
+            except:
+                for pt in roadBoundary:
+                    allX.append(float(pt[1]))
+                    allY.append(float(pt[0]))
+        else:
+            for road in roads:
+                for pt in roads[road]['shape']:
+                    allX.append(pt[1])
+                    allY.append(pt[0])
+
         (xMin, xMax, yMin, yMax) = boundingBox
         if (xMin == None):
             xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
@@ -1065,13 +994,13 @@ def plotRoadNetwork(
             ax.set_ylim(yMin, yMax)
 
     # Plot roads ==============================================================
-    for road in roads['road']:
+    for road in roads:
         if (roadShowFlags == 'All' or roadShowFlags == True 
             or (type(roadShowFlags) == list 
-                and roads['road'][road]['class'] in roadShowFlags)):
+                and roads[road]['class'] in roadShowFlags)):
             x = []
             y = []
-            for pt in roads['road'][road]['shape']:
+            for pt in roads[road]['shape']:
                 x.append(pt[1])
                 y.append(pt[0])
             color = None
@@ -1080,36 +1009,119 @@ def plotRoadNetwork(
             elif (type(roadColors) == str):
                 color = roadColors
             elif (type(roadColors) == dict):
-                if (roads['road'][road]['class'] in roadColors):
-                    color = roadColors[roads['road'][road]['class']]
+                if (roads[road]['class'] in roadColors):
+                    color = roadColors[roads[road]['class']]
                 else:
                     color = 'gray'
             rw = 1
             if (type(roadWidth) == dict):
-                if (roads['road'][road]['class'] in roadWidth):
-                    rw = roadWidth[roads['road'][road]['class']]
+                if (roads[road]['class'] in roadWidth):
+                    rw = roadWidth[roads[road]['class']]
             else:
                 rw = roadWidth
             ax.plot(x, y, color = color, linewidth = rw)
 
+    # Axis on and off =========================================================
+    if (not showAxis):
+        plt.axis('off')
+
+    # Save figure =============================================================
+    if (saveFigPath != None):
+        fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
+
+    return fig, ax
+
+def plotBuildings(
+    buildings: dict,
+    buildingBoundary: poly|polys = None,
+    buildingColors: dict[str,str]|str = {
+            'building': 'yellow',
+            'commercial': 'yellow',
+            'residential': 'green',
+            'house': 'green',
+            'static_caravan': 'green',
+            'industrial': 'orange',
+            'manufacture': 'orange'
+        },
+    buildingShowFlags: list[str, bool]|str|bool = False,
+    fig = None,
+    ax = None,
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
+    showAxis: bool = True,
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ): 
+    # FIXME: In future, we might want to distinguish roads by max speed or show the names of roads
+    # If no based matplotlib figure, define boundary ==========================
+    if (fig == None or ax == None):
+        fig, ax = plt.subplots()
+        allX = []
+        allY = []
+        if (buildingBoundary != None):
+            try:    
+                for poly in buildingBoundary:
+                    for pt in poly:
+                        allX.append(float(pt[1]))
+                        allY.append(float(pt[0]))
+            except:
+                for pt in buildingBoundary:
+                    allX.append(float(pt[1]))
+                    allY.append(float(pt[0]))
+
+        (xMin, xMax, yMin, yMax) = boundingBox
+        if (xMin == None):
+            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
+        if (xMax == None):
+            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
+        if (yMin == None):
+            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
+        if (yMax == None):
+            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
+        width = 0
+        height = 0
+        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
+            if (xMax - xMin > yMax - yMin):
+                width = 5
+                height = 5 * ((yMax - yMin) / (xMax - xMin))
+            else:
+                width = 5 * ((xMax - xMin) / (yMax - yMin))
+                height = 5
+        elif (figSize != None and figSize[0] != None and figSize[1] == None):
+            width = figSize[0]
+            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
+        elif (figSize != None and figSize[0] == None and figSize[1] != None):
+            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
+            height = figSize[1]
+        else:
+            (width, height) = figSize
+
+        if (isinstance(fig, plt.Figure)):
+            fig.set_figwidth(width)
+            fig.set_figheight(height)
+            ax.set_xlim(xMin, xMax)
+            ax.set_ylim(yMin, yMax)
+
     # Plot buildings ==========================================================
-    for building in roads['building']:
-        if (bldShowFlags == 'All' or bldShowFlags == True
-            or (type(bldShowFlags) == list
-                and roads['building'][building]['type'] in bldShowFlags)):
+    for building in buildings:
+        if (buildingShowFlags == 'All' or buildingShowFlags == True
+            or (type(buildingShowFlags) == list
+                and buildings[building]['type'] in buildingShowFlags)):
             x = []
             y = []
             color = None
-            for pt in roads['building'][building]['shape']:
+            for pt in buildings[building]['shape']:
                 x.append(pt[1])
                 y.append(pt[0])
-            if (bldColors == 'Random'):
+            if (buildingColors == 'Random'):
                 color = colorRandom()
-            elif (type(bldColors) == str):
-                color = bldColors
-            elif (type(bldColors) == dict):
-                if (roads['building'][building]['type'] in bldColors):
-                    color = bldColors[roads['building'][building]['type']]
+            elif (type(buildingColors) == str):
+                color = buildingColors
+            elif (type(buildingColors) == dict):
+                if (buildings[building]['type'] in buildingColors):
+                    color = buildingColors[buildings[building]['type']]
                 else:
                     color = 'gray'
             ax.fill(x, y, facecolor=color)
@@ -1385,20 +1397,28 @@ def aniRouting(
     timeRange: tuple[int, int],
     nodes: dict|None=None,
     locFieldName: str = 'loc',
-    vehicles: dict|None = None,
-    polys: dict|None = None,
-    polyFieldName = 'poly',
+    timedSeqFieldName: str = 'timedSeq',
+    timeWindowFieldName: str = 'timeWindow',
     nodeColor: str = 'black',
     nodeMarker: str = 'o',
-    nodeMarkersize: float = 2,
-    nodeNeighborColor: str|None = 'gray',
-    nodeNeighborOpacity: float = 0.5,
+    nodeMarkerSize: float = 2,
+    vehicles: dict|None = None,
+    vehTimedSeqFieldName: str = 'timedSeq',
+    vehLabelFieldName: str = 'label',
     vehColor: str = 'blue',
+    vehMarker: str = '^',
+    vehMarkerSize: float = 5,
     vehPathColor: str|None = 'gray',
+    vehPathWidth: float|int|None = 3,
     vehTraceColor: str|None = 'orange',
-    vehTraceTime: float|None = None,
-    vehShowSpeedFlag: bool = True,
+    vehTraceWidth: float|int|None = 3,
+    vehTraceShadowTime: float|None = None,
+    vehSpdShowLabelFlag: bool = True,
+    vehSpdShowArrowFlag: bool = True,
+    vehSpdArrowLength: float = 5,
     vehShowNoteFlag: bool = True,
+    polygons: dict|None = None,
+    polyFieldName = 'poly',    
     polyEdgeColor: str = 'black',
     polyEdgeWidth: float = 1,
     polyFillColor: str|None = 'gray',
@@ -1427,7 +1447,7 @@ def aniRouting(
             ...     'direction': direction, # Moving direction
             ...     'speed': speed, # Moving speed
             ...     'marker': 'r',    # Optional, default as 'o'
-            ...     'markersize': 2,  # Optional, default as None
+            ...     'markerSize': 2,  # Optional, default as None
             ...     'color': 'red',   # Optional, default as 'Random'
             ...     'size': 3,        # Optional, default as 3
             ...     'fontsize': 3,    # Optional, default as 3
@@ -1442,11 +1462,11 @@ def aniRouting(
             ...     'color': vehColor,
             ...     'pathColor': pathColor,
             ...     'traceColor': traceColor,
-            ...     'traceTime': traceTime
+            ...     'traceShadowTime': traceShadowTime
             ... }
-    polys: dictionary, optional, default None
+    polygons: dictionary, optional, default None
         A dictionary indicating polygons that are dynamic/static in the animation
-            >>> polys[pID] = {
+            >>> polygons[pID] = {
             ...     'anchor': [x, y], # The anchor of the polygon
             ...     'poly': [pt1, pt2], # A sequence of extreme points, coordinates are relative to 'anchor'
             ...     'direction': direction, # Moving direction
@@ -1463,7 +1483,7 @@ def aniRouting(
     """
 
     # Check for required fields ===============================================
-    if (nodes == None and vehicles == None and polys == None):
+    if (nodes == None and vehicles == None and polygons == None):
         raise MissingParameterError("ERROR: Need to provide entities for animation.")
 
     # If no based matplotlib figure provided, define boundary =================
@@ -1505,17 +1525,16 @@ def aniRouting(
     else:
         (width, height) = figSize
 
-    if (isinstance(fig, plt.Figure)):
-        fig.set_figwidth(width) 
-        fig.set_figheight(height)
+    fig.set_figwidth(width) 
+    fig.set_figheight(height)
 
-    # Styling
+    # Styling =================================================================
     nodeStyle = {}
     if (nodes != None):
         for nID in nodes:
             nodeStyle[nID] = {}
-            if (nodeColor == 'Random'):
-                nodeStyle[nID]['nodeColor'] = vrpSolver.colorRandom()
+            if (nodeColor == None or nodeColor == 'Random'):
+                nodeStyle[nID]['nodeColor'] = colorRandom()
             elif (nodeColor != None):
                 nodeStyle[nID]['nodeColor'] = nodeColor
             elif ('nodeColor' in nodes[nID]):
@@ -1526,82 +1545,96 @@ def aniRouting(
             elif ('nodeMarker' in nodes[nID]):
                 nodeStyle[nID]['nodeMarker'] = nodes[nID]['nodeMarker']
 
-            if (nodeMarkersize != None):
-                nodeStyle[nID]['nodeMarkersize'] = nodeMarkersize
-            elif ('nodeMarkersize' in nodes[nID]):
-                nodeStyle[nID]['nodeMarkersize'] = nodes[nID]['nodeMarkersize']
-
-            if (nodeNeighborColor == 'Random'):
-                nodeStyle[nID]['nodeNeighborColor'] = vrpSolver.colorRandom()
-            elif (nodeNeighborColor != None):
-                nodeStyle[nID]['nodeNeighborColor'] = nodeNeighborColor
-            elif ('nodeNeighborColor' in nodes[nID]):
-                nodeStyle[nID]['nodeNeighborColor'] = nodes[nID]['nodeNeighborColor']
+            if (nodeMarkerSize != None):
+                nodeStyle[nID]['nodeMarkerSize'] = nodeMarkerSize
+            elif ('nodeMarkerSize' in nodes[nID]):
+                nodeStyle[nID]['nodeMarkerSize'] = nodes[nID]['nodeMarkerSize']
 
     polyStyle = {}
-    if (polys != None):
-        for pID in polys:
+    if (polygons != None):
+        for pID in polygons:
             polyStyle[pID] = {}
-            if (polyEdgeColor == 'Random'):
-                polyStyle[pID]['edgeColor'] = vrpSolver.colorRandom()
+            if (polyEdgeColor == None or polyEdgeColor == 'Random'):
+                polyStyle[pID]['edgeColor'] = colorRandom()
             elif (polyEdgeColor != None):
                 polyStyle[pID]['edgeColor'] = polyEdgeColor
-            elif ('edgeColor' in polys[pID]):
-                polyStyle[pID]['edgeColor'] = polys[pID]['edgeColor']
+            elif ('edgeColor' in polygons[pID]):
+                polyStyle[pID]['edgeColor'] = polygons[pID]['edgeColor']
 
             if (polyEdgeWidth != None):
                 polyStyle[pID]['edgeWidth'] = polyEdgeWidth
-            elif ('edgeWidth' in polys[pID]):
-                polyStyle[pID]['edgeWidth'] = polys[pID]['edgeWidth']
+            elif ('edgeWidth' in polygons[pID]):
+                polyStyle[pID]['edgeWidth'] = polygons[pID]['edgeWidth']
 
             if (polyFillColor == 'Random'):
-                polyStyle[pID]['fillColor'] = vrpSolver.colorRandom()
+                polyStyle[pID]['fillColor'] = colorRandom()
             elif (polyFillColor != None):
                 polyStyle[pID]['fillColor'] = polyFillColor
-            elif ('fillColor' in polys[pID]):
-                polyStyle[pID]['fillColor'] = polys[pID]['fillColor']
+            elif ('fillColor' in polygons[pID]):
+                polyStyle[pID]['fillColor'] = polygons[pID]['fillColor']
 
             if (polyFillStyle != None):
                 polyStyle[pID]['fillStyle'] = polyFillStyle
-            elif ('fillStyle' in polys[pID]):
-                polyStyle[pID]['fillStyle'] = polys[pID]['fillStyle']
+            elif ('fillStyle' in polygons[pID]):
+                polyStyle[pID]['fillStyle'] = polygons[pID]['fillStyle']
 
             if (polyOpacity != None):
                 polyStyle[pID]['opacity'] = polyOpacity
-            elif ('opacity' in polys[pID]):
-                polyStyle[pID]['opacity'] = polys[pID]['opacity']
+            elif ('opacity' in polygons[pID]):
+                polyStyle[pID]['opacity'] = polygons[pID]['opacity']
 
     vehicleStyle = {}
     if (vehicles != None):
         for vID in vehicles:
             vehicleStyle[vID] = {}
+
             if (vehColor == 'Random'):
-                vehicleStyle[vID]['vehColor'] = vrpSolver.colorRandom()
+                vehicleStyle[vID]['vehColor'] = colorRandom()
             elif (vehColor != None):
                 vehicleStyle[vID]['vehColor'] = vehColor
             elif ('color' in vehicles[vID]):
                 vehicleStyle[vID]['vehColor'] = vehicles[vID]['color']
 
+            if (vehMarker != None):
+                vehicleStyle[vID]['vehMarker'] = vehMarker
+            elif ('marker' in vehicles[vID]):
+                vehicleStyle[vID]['vehMarker'] = vehicles[vID]['marker']
+
+            if (vehMarkerSize != None):
+                vehicleStyle[vID]['vehMarkerSize'] = vehMarkerSize
+            elif ('markerSize' in vehicles[vID]):
+                vehicleStyle[vID]['vehMarkerSize'] = vehicles[vID]['markerSize']
+
             if (vehPathColor == 'Random'):
-                vehicleStyle[vID]['pathColor'] = vrpSolver.colorRandom()
+                vehicleStyle[vID]['pathColor'] = colorRandom()
             elif (vehPathColor != None):
                 vehicleStyle[vID]['pathColor'] = vehPathColor
             elif ('pathColor' in vehicles[vID]):
                 vehicleStyle[vID]['pathColor'] = vehicles[vID]['pathColor']
 
+            if (vehPathWidth != None):
+                vehicleStyle[vID]['pathWidth'] = vehPathWidth
+            elif ('pathWidth' in polygons[pID]):
+                vehicleStyle[vID]['pathWidth'] = vehicles[vID]['pathWidth']
+
             if (vehTraceColor == 'Random'):
-                vehicleStyle[vID]['traceColor'] = vrpSolver.colorRandom()
+                vehicleStyle[vID]['traceColor'] = colorRandom()
             elif (vehTraceColor != None):
                 vehicleStyle[vID]['traceColor'] = vehTraceColor
             elif ('traceColor' in vehicles[vID]):
                 vehicleStyle[vID]['traceColor'] = vehicles[vID]['traceColor']
 
-            if (vehTraceTime != None):
-                vehicleStyle[vID]['traceTime'] = vehTraceTime
-            elif ('traceTime' in vehicles[vID]):
-                vehicleStyle[vID]['traceTime'] = vehicles[vID]['traceTime']
+            if (vehTraceWidth != None):
+                vehicleStyle[vID]['traceWidth'] = vehTraceWidth
+            elif ('traceWidth' in polygons[pID]):
+                vehicleStyle[vID]['traceWidth'] = vehicles[vID]['traceWidth']
+
+            if (vehTraceShadowTime != None):
+                vehicleStyle[vID]['traceShadowTime'] = vehTraceShadowTime
+            elif ('traceShadowTime' in vehicles[vID]):
+                vehicleStyle[vID]['traceShadowTime'] = vehicles[vID]['traceShadowTime']
             else:
-                vehicleStyle[vID]['traceTime'] = None
+                vehicleStyle[vID]['traceShadowTime'] = None
 
     def animate(t):
         ax.clear()
@@ -1613,101 +1646,89 @@ def aniRouting(
         ax.set_title("Clock: %s[s]" % round(clock, 2))
 
         # Plot static/dynamic polygons
-        if (polys != None):
+        if (polygons != None):
             # Plot each polygon -----------------------------------------------
-            for pID in polys:
+            for pID in polygons:
+                # 判定此时刻是否需要绘制poly
+                plotPolyFlag = False
+                if (timeWindowFieldName not in polygons[pID] or polygons[pID][timeWindowFieldName][0] <= clock <= polygons[pID][timeWindowFieldName][1]):
+                    plotPolyFlag = True
+
+                # 每个Poly的坐标轮廓
                 pX = []
                 pY = []
-                for p in polys[pID][polyFieldName]:
-                    pt = None
-                    if ('direction' in polys[pID] and 'speed' in polys[pID]):
-                        if (clock < polys[pID]['timeRange'][0]):
-                            pt = p
-                        elif (clock < polys[pID]['timeRange'][1]):
-                            pt = vrpSolver.ptInDistXY(p, polys[pID]['direction'], polys[pID]['speed'] * clock)
+                if (plotPolyFlag):
+                    for p in polygons[pID][polyFieldName]:
+                        pt = None
+                        if ('direction' in polygons[pID] and 'speed' in polygons[pID]):
+                            if (clock < polygons[pID][timeWindowFieldName][0]):
+                                pt = p
+                            elif (clock < polygons[pID][timeWindowFieldName][1]):
+                                pt = ptInDistXY(p, polygons[pID]['direction'], polygons[pID]['speed'] * clock)
+                            else:
+                                pt = ptInDistXY(p, polygons[pID]['direction'], polygons[pID]['speed'] * (polygons[pID]['timeRange'][1] - polygons[pID]['timeRange'][0]))
                         else:
-                            pt = vrpSolver.ptInDistXY(p, polys[pID]['direction'], polys[pID]['speed'] * (polys[pID]['timeRange'][1] - polys[pID]['timeRange'][0]))
-                    else:
-                        pt = p
-                    if (not xyReverseFlag):
-                        pX.append(pt[0])
-                        pY.append(pt[1])
-                    else:
-                        pX.append(pt[1])
-                        pY.append(pt[0])
+                            pt = p
 
-                if ('fillColor' not in polyStyle[pID]):
-                    ax.plot(pX, pY, color=polyStyle[pID]['edgeColor'], linewidth=polyStyle[pID]['edgeWidth'])
-                elif ('fillStyle' not in polyStyle[pID]):
-                    ax.fill(pX, pY, facecolor=polyStyle[pID]['fillColor'], edgecolor=polyStyle[pID]['edgeColor'], 
-                        linewidth=polyStyle[pID]['edgeWidth'], alpha=polyStyle[pID]['opacity'])
-                else:
-                    ax.fill(pX, pY, facecolor=polyStyle[pID]['fillColor'], edgecolor=polyStyle[pID]['edgeColor'], 
-                        hatch=polyStyle[pID]['fillStyle'], linewidth=polyStyle[pID]['edgeWidth'], alpha=polyStyle[pID]['opacity'])
+                        if (not xyReverseFlag):
+                            pX.append(pt[0])
+                            pY.append(pt[1])
+                        else:
+                            pX.append(pt[1])
+                            pY.append(pt[0])
+
+                # Plot polygons with styling
+                if (plotPolyFlag):
+                    if ('fillColor' not in polyStyle[pID]):
+                        ax.plot(pX, pY, 
+                            color=polyStyle[pID]['edgeColor'], 
+                            linewidth=polyStyle[pID]['edgeWidth'])
+                    elif ('fillStyle' not in polyStyle[pID]):
+                        ax.fill(pX, pY, 
+                            facecolor=polyStyle[pID]['fillColor'], 
+                            edgecolor=polyStyle[pID]['edgeColor'], 
+                            linewidth=polyStyle[pID]['edgeWidth'], 
+                            alpha=polyStyle[pID]['opacity'])
+                    else:
+                        ax.fill(pX, pY, 
+                            facecolor=polyStyle[pID]['fillColor'], 
+                            edgecolor=polyStyle[pID]['edgeColor'], 
+                            hatch=polyStyle[pID]['fillStyle'], 
+                            linewidth=polyStyle[pID]['edgeWidth'], 
+                            alpha=polyStyle[pID]['opacity'])
 
         # Plot nodes
         if (nodes != None):
-            # Plot neighborhood of each node ----------------------------------
-            for nID in nodes:
-                plotNodeFlag = False
-                if ('timeWindow' in nodes[nID]):
-                    if (nodes[nID]['timeWindow'][0] <= clock <= nodes[nID]['timeWindow'][1]):
-                        plotNodeFlag = True
-                else:
-                    plotNodeFlag = True
-                if (plotNodeFlag and 'neighbor' in nodes[nID] and nodeNeighborColor != None):
-                    curNeighbor = [i for i in nodes[nID]['neighbor']]
-                    neiX = []
-                    neiY = []
-                    for i in range(len(curNeighbor)):
-                        neiPt = None
-                        if ('direction' in nodes[nID] and 'speed' in nodes[nID]):
-                            if (clock < nodes[nID]['timeRange'][0]):
-                                neiPt = nodes[nID]['neighbor'][i]
-                            elif (clock < nodes[nID]['timeRange'][1]):
-                                neiPt = vrpSolver.ptInDistXY(nodes[nID]['neighbor'][i], nodes[nID]['direction'], nodes[nID]['speed'] * clock)
-                            else:
-                                neiPt = vrpSolver.ptInDistXY(nodes[nID]['neighbor'][i], nodes[nID]['direction'], nodes[nID]['speed'] * (nodes[nID]['timeRange'][1] - nodes[nID]['timeRange'][0]))
-                        else:
-                            neiPt = nodes[nID]['neighbor'][i]
-                        if (not xyReverseFlag):
-                            neiX.append(neiPt[0])
-                            neiY.append(neiPt[1])
-                        else:
-                            neiX.append(neiPt[1])
-                            neiY.append(neiPt[0])
-                    ax.plot(neiX, neiY, color = 'black', linewidth = 1)
-                    if ('nodeNeighborColor' in nodeStyle[nID]):
-                        ax.fill(neiX, neiY, facecolor = nodeStyle[nID]['nodeNeighborColor'], edgecolor = 'black', hatch = '///', linewidth = 1, alpha = nodeNeighborOpacity)
-                
             # Plot the location of nodes --------------------------------------
             for nID in nodes:
                 plotNodeFlag = False
-                if ('timeWindow' in nodes[nID]):
-                    if (nodes[nID]['timeWindow'][0] <= clock <= nodes[nID]['timeWindow'][1]):
-                        plotNodeFlag = True
-                else:
+                if (timeWindowFieldName not in nodes[nID] or nodes[nID][timeWindowFieldName][0] <= clock <= nodes[nID][timeWindowFieldName][1]):
                     plotNodeFlag = True
+
+                x = None
+                y = None       
+                curLoc = None         
                 if (plotNodeFlag):
-                    curLoc = None
-                    if ('direction' in nodes[nID] and 'speed' in nodes[nID]):
-                        if (clock < nodes[nID]['timeRange'][0]):
-                            curLoc = nodes[nID][locFieldName]
-                        elif (clock < nodes[nID]['timeRange'][1]):
-                            curLoc = vrpSolver.ptInDistXY(nodes[nID][locFieldName], nodes[nID]['direction'], nodes[nID]['speed'] * clock)
-                        else:
-                            curLoc = vrpSolver.ptInDistXY(nodes[nID][locFieldName], nodes[nID]['direction'], nodes[nID]['speed'] * (nodes[nID]['timeRange'][1] - nodes[nID]['timeRange'][0]))
-                    else:
+                    if (timedSeqFieldName not in nodes[nID]):
                         curLoc = nodes[nID][locFieldName]
-                    x = None
-                    y = None
-                    if (not xyReverseFlag):
-                        x = curLoc[0]
-                        y = curLoc[1]
                     else:
-                        x = curLoc[1]
-                        y = curLoc[0]
-                    ax.plot(x, y, color = nodeStyle[nID]['nodeColor'], marker = nodeStyle[nID]['nodeMarker'], markersize = nodeStyle[nID]['nodeMarkersize'])
+                        curSnap = snapInTimedSeq(
+                            timedSeq = nodes[nID][timedSeqFieldName],
+                            t = clock)
+                        curLoc = curSnap['loc']
+
+                if (not xyReverseFlag):
+                    x = curLoc[0]
+                    y = curLoc[1]
+                else:
+                    x = curLoc[1]
+                    y = curLoc[0]
+                # Styling of each node
+                if (plotNodeFlag):
+                    ax.plot(x, y, 
+                        color = nodeStyle[nID]['nodeColor'], 
+                        marker = nodeStyle[nID]['nodeMarker'], 
+                        markersize = nodeStyle[nID]['nodeMarkerSize'])
                     if ('label' not in nodes[nID]):
                         lbl = nID
                     else:
@@ -1716,33 +1737,32 @@ def aniRouting(
 
         # Plot vehicle
         if (vehicles != None):
+            # Plot each vehicle -----------------------------------------------
             for vID in vehicles:
-                # Plot path ---------------------------------------------------
+                # Plot path
                 if ('pathColor' in vehicleStyle[vID]):
                     pathX = []
                     pathY = []
                     if (not xyReverseFlag):
-                        pathX = [i[0] for i in vehicles[vID]['seq']]
-                        pathY = [i[1] for i in vehicles[vID]['seq']]
+                        pathX = [vehicles[vID][vehTimedSeqFieldName][i][0][0] for i in range(len(vehicles[vID][vehTimedSeqFieldName]))]
+                        pathY = [vehicles[vID][vehTimedSeqFieldName][i][0][1] for i in range(len(vehicles[vID][vehTimedSeqFieldName]))]
                     else:
-                        pathX = [i[1] for i in vehicles[vID]['seq']]
-                        pathY = [i[0] for i in vehicles[vID]['seq']]
+                        pathX = [vehicles[vID][vehTimedSeqFieldName][i][0][1] for i in range(len(vehicles[vID][vehTimedSeqFieldName]))]
+                        pathY = [vehicles[vID][vehTimedSeqFieldName][i][0][0] for i in range(len(vehicles[vID][vehTimedSeqFieldName]))]
                     ax.plot(pathX, pathY, color=vehicleStyle[vID]['pathColor'], linewidth = 1)
 
-                # Plot trace --------------------------------------------------
+                # Plot trace
                 if ('traceColor' in vehicleStyle[vID]):
                     ts = timeRange[0]
                     te = clock
-                    if (vehicleStyle[vID]['traceTime'] != None):
-                        ts = max(te - vehicleStyle[vID]['traceTime'], timeRange[0])
+                    if (vehicleStyle[vID]['traceShadowTime'] != None):
+                        ts = max(te - vehicleStyle[vID]['traceShadowTime'], timeRange[0])
 
                     if (ts < te):
-                        trace = vrpSolver.traceInTimedSeq(
-                            seq = vehicles[vID]['seq'],
-                            timeStamp = vehicles[vID]['timeStamp'],
+                        trace = traceInTimedSeq(
+                            timedSeq = vehicles[vID][vehTimedSeqFieldName],
                             ts = ts,
                             te = te)
-
                         if (len(trace) > 0 and 'traceColor' in vehicleStyle[vID]):
                             traceX = []
                             traceY = []
@@ -1754,31 +1774,36 @@ def aniRouting(
                                 traceY = [i[0] for i in trace]
                             ax.plot(traceX, traceY, color=vehicleStyle[vID]['traceColor'], linewidth = 1)
 
-                # Plot vehicle ------------------------------------------------
-                curLoc = vrpSolver.locInTimedSeq(
-                    seq = vehicles[vID]['seq'],
-                    timeStamp = vehicles[vID]['timeStamp'],
+                # Plot vehicle
+                curSnap = snapInTimedSeq(
+                    timedSeq = vehicles[vID][vehTimedSeqFieldName],
                     t = clock)
-                ax.plot(curLoc[0], curLoc[1], color = vehicleStyle[vID]['vehColor'], marker = 'o', markersize = 4)
-                if ('vehicle' not in vehicles[vID]):
-                    lbl = vID
-                else:
-                    lbl = vehicles[vID]['vehicle']
+                curLoc = curSnap['loc']
+                ax.plot(curLoc[0], curLoc[1], 
+                    color = vehicleStyle[vID]['vehColor'], 
+                    marker = vehicleStyle[vID]['vehMarker'], 
+                    markersize = vehicleStyle[vID]['vehMarkerSize'])
 
-                if (vehShowSpeedFlag):
-                    curSpd = vrpSolver.speedInTimedSeq(seq = vehicles[vID]['seq'], timeStamp = vehicles[vID]['timeStamp'], t = clock)
+                if (vehLabelFieldName not in vehicles[vID]):
+                    lbl = str(vID)
+                else:
+                    lbl = vehicles[vID][vehLabelFieldName]
+
+                if (vehSpdShowLabelFlag):
+                    curSpd = curSnap['speed']
                     lbl += " %s[m/s]" % (round(curSpd, 2))
                 
                 if (vehShowNoteFlag and 'note' in vehicles[vID]):
                     note = ""
-                    if (clock <= vehicles[vID]['timeStamp'][0]):
+                    if (clock <= vehicles[vID]['timedSeq'][0][1]):
                         note = vehicles[vID]['note'][0]
-                    elif (clock >= vehicles[vID]['timeStamp'][-1]):
+                    elif (clock >= vehicles[vID]['timedSeq'][-1][1]):
                         note = vehicles[vID]['note'][-1]
                     else:
-                        for i in range(len(vehicles[vID]['timeStamp']) - 1):
-                            if (vehicles[vID]['timeStamp'][i] <= clock < vehicles[vID]['timeStamp'][i + 1]):
+                        for i in range(len(vehicles[vID]['timedSeq']) - 1):
+                            if (vehicles[vID]['timedSeq'][i][1] <= clock < vehicles[vID]['timedSeq'][i + 1][1]):
                                 note = vehicles[vID]['note'][i]
+                                break
                     ax.annotate(lbl + "\n" + note, (curLoc[0], curLoc[1]))
                 else:
                     ax.annotate(lbl, (curLoc[0], curLoc[1]))
@@ -1790,7 +1815,6 @@ def aniRouting(
         repeat = repeatFlag)
 
     if (aniSavePath):
-        ani.save("%s.gif" % aniSavePath, dpi=aniSaveDPI,
-         writer=PillowWriter(fps=fps))
+        ani.save("%s.gif" % aniSavePath, dpi=aniSaveDPI, writer=PillowWriter(fps=fps))
 
     return ani

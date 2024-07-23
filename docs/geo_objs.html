@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Geometry Objects &#8212; vrpSolver 0.0.56 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b849a4e9" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinxdoc.css?v=87629129" />
+    <script src="_static/documentation_options.js?v=8f83b1af"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="vrpSolver.common module" href="vrpSolver.common.html" />
+    <link rel="prev" title="Formatted Dictionaries" href="dictionaries.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="vrpSolver.common.html" title="vrpSolver.common module"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="dictionaries.html" title="Formatted Dictionaries"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">vrpSolver 0.0.56 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Geometry Objects</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="geometry-objects">
+<span id="geo-objs"></span><h1>Geometry Objects<a class="headerlink" href="#geometry-objects" title="Link to this heading">¶</a></h1>
+<p><em>vrpSolver</em> uses lists and tuples to represent simple geometry objects such as points, lines, line segments, rays, line segment sequence, polygons and etc.</p>
+<section id="pt">
+<span id="id1"></span><h2><cite>pt</cite><a class="headerlink" href="#pt" title="Link to this heading">¶</a></h2>
+<p>A <cite>pt</cite> data type defines a point/location in Euclidean space or in lat/lon. It can be defined as a 2-tuple, such as (10, 10), or a 2-list, such as [10, 10]. In most cases, these two formats are interchangeable.</p>
+</section>
+<section id="line">
+<span id="id2"></span><h2><cite>line</cite><a class="headerlink" href="#line" title="Link to this heading">¶</a></h2>
+<dl>
+<dt>A <cite>line</cite> data type is a list of two <a class="reference internal" href="#pt"><span class="std std-ref">pt</span></a> s, the format is [<a class="reference internal" href="#pt"><span class="std std-ref">pt</span></a>, <a class="reference internal" href="#pt"><span class="std std-ref">pt</span></a>]. It can define lines, line segments, or rays. It will be considered differently when it is used in different functions. For example, for</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">s</span> <span class="o">=</span> <span class="p">[(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">)]</span>
+</pre></div>
+</div>
+</dd>
+<dt>s is considered as a line in the function <a class="reference internal" href="vrpSolver.geometry.html#vrpSolver.geometry.isPtOnLine" title="vrpSolver.geometry.isPtOnLine"><code class="xref py py-func docutils literal notranslate"><span class="pre">isPtOnLine()</span></code></a></dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">res</span> <span class="o">=</span> <span class="n">vrpSolver</span><span class="o">.</span><span class="n">isPtOnLine</span><span class="p">(</span><span class="n">pt</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">line</span> <span class="o">=</span> <span class="n">s</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+<dt>s is considered as a line segment in the function <a class="reference internal" href="vrpSolver.geometry.html#vrpSolver.geometry.isPtOnSeg" title="vrpSolver.geometry.isPtOnSeg"><code class="xref py py-func docutils literal notranslate"><span class="pre">isPtOnSeg()</span></code></a></dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">res</span> <span class="o">=</span> <span class="n">vrpSolver</span><span class="o">.</span><span class="n">isPtOnSeg</span><span class="p">(</span><span class="n">pt</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">seg</span> <span class="o">=</span> <span class="n">s</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+<dt>s is considered as a ray in the function <a class="reference internal" href="vrpSolver.geometry.html#vrpSolver.geometry.isPtOnRay" title="vrpSolver.geometry.isPtOnRay"><code class="xref py py-func docutils literal notranslate"><span class="pre">isPtOnRay()</span></code></a></dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">res</span> <span class="o">=</span> <span class="n">vrpSolver</span><span class="o">.</span><span class="n">isPtOnRay</span><span class="p">(</span><span class="n">pt</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">ray</span> <span class="o">=</span> <span class="n">s</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+</dl>
+</section>
+<section id="poly">
+<span id="id3"></span><h2><cite>poly</cite><a class="headerlink" href="#poly" title="Link to this heading">¶</a></h2>
+<p>A <cite>poly</cite> data type is a list of <a class="reference internal" href="#pt"><span class="std std-ref">pt</span></a> s, the format is [<a class="reference internal" href="#pt"><span class="std std-ref">pt</span></a>, <a class="reference internal" href="#pt"><span class="std std-ref">pt</span></a>, …, <a class="reference internal" href="#pt"><span class="std std-ref">pt</span></a>]. It can define line segment sequences and polygons. It is more often used as representing polygons that does not have holes.</p>
+</section>
+<section id="polys">
+<span id="id4"></span><h2><cite>polys</cite><a class="headerlink" href="#polys" title="Link to this heading">¶</a></h2>
+<p>A <cite>polys</cite> data type is a list of polys, which can define a list of polygons. The <cite>polys</cite> only contains the coordinate information of polygons, and neglect all other information such as the identifier, colors, styles, etc. If a function requires an input as ‘polys’, a <cite>polys</cite> will need to be provided, otherwise, if the function asks for ‘polygons’, a <a class="reference internal" href="dictionaries.html#polygons"><span class="std std-ref">polygons</span></a> will be needed as it may need those additional information. The <cite>polys</cite> are more often used in this package then <a class="reference internal" href="dictionaries.html#polygons"><span class="std std-ref">polygons</span></a>.</p>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">Geometry Objects</a><ul>
+<li><a class="reference internal" href="#pt"><cite>pt</cite></a></li>
+<li><a class="reference internal" href="#line"><cite>line</cite></a></li>
+<li><a class="reference internal" href="#poly"><cite>poly</cite></a></li>
+<li><a class="reference internal" href="#polys"><cite>polys</cite></a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="dictionaries.html"
+                          title="previous chapter">Formatted Dictionaries</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="vrpSolver.common.html"
+                          title="next chapter">vrpSolver.common module</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/geo_objs.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="vrpSolver.common.html" title="vrpSolver.common module"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="dictionaries.html" title="Formatted Dictionaries"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">vrpSolver 0.0.56 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">Geometry Objects</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2024, Lan Peng.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.7.
+    </div>
+  </body>
+</html>

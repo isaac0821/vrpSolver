@@ -3,45 +3,40 @@ import math
 import shapely
 import networkx as nx
 
-from .const import *
 from .geometry import *
 
 def createRoadNetworkFromGeoJSON(
     geoJSONPath: str,
     boundaryLatLon: poly|None = None,
-    exportType: str = 'LatLon',
+    projType: str = 'LatLon',
     buildingIncludedFlag: bool = False
     ) -> dict:
 
-    """Given a geoJSON file, returns a road network dictionaries which only includes road info
-
-    Note
-    ----
-    This function is incomplete, for the roads that partitially inside boundary, need to be truncated
+    """Given a path to geoJSON file, returns a road network dictionary with roads (and buildings)
 
 
     Parameters
     ----------
     
     geoJSONPath: string, required
-        The path to a geoJSON file
+        The path to a geoJSON file (".geojson")
     boundaryLatLon: list[pt], optionan, default as None
         Filter out the area that are not within the boundary, if given
-    exportType: string, optional, default as 'LatLon'
-        Determine the axises of exported data, options are: 'LatLon' and 'Mercator'
+    projType: string, optional, default as 'LatLon'
+        Determine the axises of exported data, options are ['LatLon', 'Mercator']
     buildingIncludedFlag: bool, optional, default as False
         True if buildings are included
 
     Returns
     -------
 
-    dictionary
-        A road network dictionary, in the following formatt::
-        >>> road = {
-        ...     'boundary': boundary,
-        ...     'road': road,
-        ...     'building': building
-        ... }
+    dict
+        A road network dictionary, in the following formatt:
+            >>> road = {
+            ...     'boundary': boundary,
+            ...     'road': road,
+            ...     'building': building
+            ... }
     """
 
     # Open the geojson file ===================================================
@@ -72,9 +67,9 @@ def createRoadNetworkFromGeoJSON(
             for p in gj["features"][i]["geometry"]["coordinates"]:
                 if (boundaryLatLon == None or isPtOnPoly([p[1], p[0]], boundaryLatLon)):
                     roadEntireIncludedFlag = True
-                if (exportType == 'Mercator'):
+                if (projType == 'Mercator'):
                     line.append(list(ptLatLon2XYMercator([p[1], p[0]])))
-                elif (exportType == 'LatLon'):
+                elif (projType == 'LatLon'):
                     line.append([p[1], p[0]])
 
             if (roadEntireIncludedFlag):
@@ -109,10 +104,10 @@ def createRoadNetworkFromGeoJSON(
 
                 # The shape of the road is projected using Mercator projection
                 poly = []
-                if (exportType == 'Mercator'):
+                if (projType == 'Mercator'):
                     for p in gj["features"][i]["geometry"]["coordinates"][0][0]:
                         poly.append(list(ptLatLon2XYMercator([p[1], p[0]])))
-                elif (exportType == 'LatLon'):
+                elif (projType == 'LatLon'):
                     for p in gj["features"][i]["geometry"]["coordinates"][0][0]:
                         poly.append([p[1], p[0]])
                 building[buildingID] = {}
@@ -141,7 +136,7 @@ def createRoadNetworkFromGeoJSON(
                 minY = p[1]
             if (maxY == None or p[1] > maxY):
                 maxY = p[1]
-    if (exportType == 'Mercator'):
+    if (projType == 'Mercator'):
         for r in road:
             for p in road[r]['shape']:
                 p[0] -= minX
@@ -149,21 +144,80 @@ def createRoadNetworkFromGeoJSON(
 
     # Define boundary =========================================================
     boundary = []
-    if (exportType == 'Mercator'):
+    if (projType == 'Mercator'):
         boundary = [(0, 0), (maxX - minX, 0), (maxX - minX, maxY - minY), (0, maxY - minY)]
-    elif (exportType == 'LatLon'):
+    elif (projType == 'LatLon'):
         boundary = [(minX, minY), (maxX, minY), (maxX, maxY), (minX, maxY)]
 
     return {
         'boundary': boundary,
+        'projType': projType,
         'road': road,
         'building': building
     }
 
-def createGraphFromRoadNetwork(
-    roadnetwork: dict,
-    boundaryLatLon: poly|None = None):
+def clipRoadsByPoly(
+    roads: dict,
+    poly: poly) -> dict:
 
-    rg = nx.Graph()    
+    # FIXME: Currently using a stupid method, since it is a one-time function    
+    # Roads ===================================================================
+    clip = {}
+    maxRoadID = max(roads.keys()) + 1
+    for r in roads:
+        # 最笨的办法，一条一条路处理
+        seqInt = intSeq2Poly(roads[r]['shape'], poly)
 
-    return rg
+        # 如果是完整的路径
+        if (type(seqInt) != list):
+            if (seqInt['status'] == 'Cross' and seqInt['intersectType'] == 'Segment'):
+                clip[r] = {}
+                for k in roads[r]:
+                    clip[r][k] = roads[r][k]
+                clip[r]['shape'] = seqInt['intersect']
+
+        # 如果路径被切割开
+        else:
+            for parti in seqInt:
+                if (parti['status'] == 'Cross' and parti['intersectType'] == 'Segment'):
+                    clip[maxRoadID] = {}
+                    for k in roads[r]:
+                        clip[maxRoadID][k] = roads[r][k]
+                    clip[maxRoadID]['shape'] = parti['intersect']
+                    maxRoadID += 1
+
+    return clip
+
+def clipRoadsByPolys(
+    roads: dict,
+    polys: polys) -> dict:
+
+    # FIXME: Currently using a stupid method, since it is a one-time function    
+    # Roads ===================================================================
+    clip = {}
+    roadID = 0
+    for poly in polys:
+        for r in roads:
+            # 最笨的办法，一条一条路处理
+            seqInt = intSeq2Poly(roads[r]['shape'], poly)
+
+            # 如果是完整的路径
+            if (type(seqInt) != list):
+                if (seqInt['status'] == 'Cross' and seqInt['intersectType'] == 'Segment'):
+                    clip[roadID] = {}
+                    for k in roads[r]:
+                        clip[roadID][k] = roads[r][k]
+                    clip[roadID]['shape'] = seqInt['intersect']
+                    roadID += 1
+
+            # 如果路径被切割开
+            else:
+                for parti in seqInt:
+                    if (parti['status'] == 'Cross' and parti['intersectType'] == 'Segment'):
+                        clip[roadID] = {}
+                        for k in roads[r]:
+                            clip[roadID][k] = roads[r][k]
+                        clip[roadID]['shape'] = parti['intersect']
+                        roadID += 1
+
+    return clip

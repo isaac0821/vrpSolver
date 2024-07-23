@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>vrpSolver.instance &#8212; vrpSolver 0.0.56 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b849a4e9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinxdoc.css?v=87629129" />
+    <script src="../../_static/documentation_options.js?v=8f83b1af"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">vrpSolver 0.0.56 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">vrpSolver.instance</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for vrpSolver.instance</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">tripy</span>
+<span class="kn">import</span> <span class="nn">warnings</span>
+
+<span class="kn">from</span> <span class="nn">.common</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.geometry</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.msg</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.road</span> <span class="kn">import</span> <span class="o">*</span>
+
+<div class="viewcode-block" id="rndLocs">
+<a class="viewcode-back" href="../../vrpSolver.instance.html#vrpSolver.instance.rndLocs">[docs]</a>
+<span class="k">def</span> <span class="nf">rndLocs</span><span class="p">(</span>
+    <span class="n">N</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> 
+    <span class="n">distr</span> <span class="o">=</span> <span class="s1">&#39;UniformSquareXY&#39;</span><span class="p">,</span> 
+    <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Randomly create a list of N locations</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    N: integer, required</span>
+<span class="sd">        Number of locations/vertices/customers to be randomly created</span>
+<span class="sd">    distr: string, optional, default as &#39;UniformSquareXY&#39;</span>
+<span class="sd">        Spatial distribution of locations, options and required addtional inputs are as follows:</span>
+
+<span class="sd">        1) (default) &#39;UniformSquareXY&#39;, uniformly sample from a square on the Euclidean space</span>
+<span class="sd">            - xRange: 2-tuple, with minimum/maximum range of x, default as (0, 100)</span>
+<span class="sd">            - yRange: 2-tuple, with minimum/maximum range of y, default as (0, 100)</span>
+<span class="sd">        2) &#39;UniformPolyXY&#39;, uniformly sample from a given polygon</span>
+<span class="sd">            - polyXY: poly, the polygon of the area, (no holes)</span>
+<span class="sd">            - polyXYs: list of polys, alternative option for `polyXY`</span>
+<span class="sd">        3) &#39;UniformAvoidPolyXY&#39;, uniformly sample from a squre avoiding some polygons</span>
+<span class="sd">            - xRange: 2-tuple, with minimum/maximum range of x, default as (0, 100)</span>
+<span class="sd">            - yRange: 2-tuple, with minimum/maximum range of y, default as (0, 100)</span>
+<span class="sd">            - polyXY: poly, the polygon of the area, (no holes)</span>
+<span class="sd">            - polyXYs: list of polys, alternative option for `polyXY`</span>
+<span class="sd">        4) &#39;UniformCircleXY&#39;, uniformly sample from a circle on the Euclidean space</span>
+<span class="sd">            - centerXY: 2-tuple, the center of circle</span>
+<span class="sd">            - radius: float, the radius of the circle</span>
+<span class="sd">        5) &#39;UniformPolyLatLon&#39;, uniformly sample from a polygon by lat/lon</span>
+<span class="sd">            - polyLatLon: poly, the polygon of the area, (no holes)</span>
+<span class="sd">            - polyLatLons: list of polys, alternative option for `polyLatLon`</span>
+<span class="sd">        6) &#39;UniformCircleLatLon&#39;, uniformly sample from a circle by lat/lon</span>
+<span class="sd">            - centerLatLon: 2-tuple, the (lat, lon) for the center</span>
+<span class="sd">            - radiusInMeters: float, the radius of the circle in meters</span>
+<span class="sd">        7) &#39;RoadNetworkPolyLatLon&#39;, uniformly generate within a given polygon on a road network</span>
+<span class="sd">            - roads: dict, the road network dictionary</span>
+<span class="sd">            - polyLatLon: poly, optional, the polygon on the map to sample from</span>
+<span class="sd">            - polyLatLons: list of polys, optional, alternative for `polyLatLon`</span>
+<span class="sd">            - roadClass: list[str], the road classes that allows to sample from</span>
+<span class="sd">        8) &#39;RoadNetworkCircleLatLon&#39;, uniformly generate within a circle on a road network</span>
+<span class="sd">            - roads: dict, the road network dictionary</span>
+<span class="sd">            - centerLatLon: 2-tuple, the (lat, lon) for the center</span>
+<span class="sd">            - radiusInMeters: float, the radius of the circle in meters</span>
+<span class="sd">            - roadClass: list[str], the road classes that allows to sample from</span>
+<span class="sd">    **kwargs: optional</span>
+<span class="sd">        Provide additional inputs for different `distr` options</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list</span>
+<span class="sd">        A list of randomly created locations</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    MissingParameterError</span>
+<span class="sd">        Missing required inputs in `**kwargs`.</span>
+<span class="sd">    UnsupportedInputError</span>
+<span class="sd">        Option is not supported for `distr`</span>
+<span class="sd">    NotAvailableError</span>
+<span class="sd">        Functions/options that are not ready yet.</span>
+<span class="sd">    EmptyError</span>
+<span class="sd">        The sample area is empty.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">nodeLocs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1"># Uniformly sample from a square on the Euclidean space</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">distr</span> <span class="o">==</span> <span class="s1">&#39;UniformSquareXY&#39;</span><span class="p">):</span>
+        <span class="n">xRange</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">yRange</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;xRange&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="s1">&#39;yRange&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="n">xRange</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">]</span>
+            <span class="n">yRange</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">]</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;WARNING: Set sampled area to be default as a (0, 100) x (0, 100) square&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">xRange</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;xRange&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;xRange&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">])]</span>
+            <span class="n">yRange</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;yRange&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;yRange&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">])]</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+            <span class="n">nodeLocs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_rndPtUniformSquareXY</span><span class="p">(</span><span class="n">xRange</span><span class="p">,</span> <span class="n">yRange</span><span class="p">))</span>
+
+    <span class="c1"># Uniformly sample from a polygon/a list of polygons on the Euclidean space</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">distr</span> <span class="o">==</span> <span class="s1">&#39;UniformPolyXY&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;polyXY&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">and</span> <span class="s1">&#39;polyXYs&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required args &#39;polyXY&#39; or &#39;polyXYs&#39;, which indicates a polygon / a list of polygons in the Euclidean space&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;polyXY&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+                <span class="n">nodeLocs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_rndPtUniformPolyXY</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;polyXY&#39;</span><span class="p">]))</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="s1">&#39;polyXYs&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+                <span class="n">nodeLocs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_rndPtUniformPolyXYs</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;polyXY&#39;</span><span class="p">]))</span>
+
+    <span class="c1"># Uniformly sample from the Euclidean space avoiding polygons</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">distr</span> <span class="o">==</span> <span class="s1">&#39;UniformAvoidPolyXY&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;polyXY&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">and</span> <span class="s1">&#39;polyXYs&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required args &#39;polyXY&#39; or &#39;polyXYs&#39;, which indicates a polygon / a list of polygons in the Euclidean space&quot;</span><span class="p">)</span>
+        <span class="n">xRange</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">yRange</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;xRange&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="s1">&#39;yRange&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="n">xRange</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">]</span>
+            <span class="n">yRange</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">]</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;WARNING: Set sampled area to be default as a (0, 100) x (0, 100) square&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">xRange</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;xRange&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;xRange&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">])]</span>
+            <span class="n">yRange</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;yRange&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;yRange&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">])]</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;polyXY&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+                <span class="n">nodeLocs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_rndPtUniformAvoidPolyXY</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;polyXY&#39;</span><span class="p">],</span> <span class="n">xRange</span><span class="p">,</span> <span class="n">yRange</span><span class="p">))</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="s1">&#39;polyXYs&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+                <span class="n">nodeLocs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_rndPtUniformAvoidPolyXYs</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;polyXYs&#39;</span><span class="p">],</span> <span class="n">xRange</span><span class="p">,</span> <span class="n">yRange</span><span class="p">))</span>
+
+    <span class="c1"># Uniformly sample from a circle on the Euclidean space</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">distr</span> <span class="o">==</span> <span class="s1">&#39;UniformCircleXY&#39;</span><span class="p">):</span>
+        <span class="n">centerXY</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">radius</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;centerXY&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="s1">&#39;radius&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="n">centerXY</span> <span class="o">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">radius</span> <span class="o">=</span> <span class="mi">100</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;WARNING: Set sample area to be default as a circle with radius of 100 centering at (0, 0)&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">centerXY</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;centerXY&#39;</span><span class="p">]</span>
+            <span class="n">radius</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;radius&#39;</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+            <span class="n">nodeLocs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_rndPtUniformCircleXY</span><span class="p">(</span><span class="n">radius</span><span class="p">,</span> <span class="n">centerXY</span><span class="p">))</span>
+
+    <span class="c1"># Uniformly sample from a polygon by lat/lon</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">distr</span> <span class="o">==</span> <span class="s1">&#39;UniformPolyLatLon&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;polyLatLon&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">and</span> <span class="s1">&#39;polyLatLons&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required args &#39;polyXY&#39; or &#39;polyXYs&#39;, which indicates a polygon / a list of polygons in the Euclidean space&quot;</span><span class="p">)</span>
+        <span class="c1"># TODO: Mercator projection</span>
+        <span class="k">raise</span> <span class="n">VrpSolverNotAvailableError</span><span class="p">(</span><span class="s2">&quot;ERROR: &#39;UniformPolyLatLon&#39; is not available yet, please stay tune.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Uniformly sample from a circle by lat/lon</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">distr</span> <span class="o">==</span> <span class="s1">&#39;UniformCircleLatLon&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;centerLatLon&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="s1">&#39;radiusInMeters&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required args &#39;centerLatLon&#39; or &#39;radiusInMeters&#39;.&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+            <span class="n">nodeLocs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">_rndPtUniformCircleLatLon</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;radiusInMeters&#39;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;centerLatLon&#39;</span><span class="p">]))</span>
+
+    <span class="c1"># Uniformly sample from the roads/streets within a polygon/a list of polygons from given road networks</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">distr</span> <span class="o">==</span> <span class="s1">&#39;RoadNetworkPolyLatLon&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;polyLatLon&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">and</span> <span class="s1">&#39;polyLatLons&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required args &#39;polyLatLon&#39; or &#39;polyLatLons&#39;, which indicates a polygon / a list of polygons in the Euclidean space&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="s1">&#39;roads&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required args &#39;RoadNetwork&#39;. Need to provide the road network where the nodes are generated.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="s1">&#39;roadClass&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;WARNING: Set &#39;roadClass&#39; to be default as [&#39;residential&#39;]&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;polyLatLon&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="n">nodeLocs</span> <span class="o">=</span> <span class="n">_rndPtRoadNetworkPolyLatLon</span><span class="p">(</span>
+                <span class="n">N</span> <span class="k">if</span> <span class="n">N</span> <span class="o">!=</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">nodeIDs</span><span class="p">),</span>
+                <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;roads&#39;</span><span class="p">],</span> 
+                <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;polyLatLon&#39;</span><span class="p">],</span>
+                <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;roadClass&#39;</span><span class="p">]</span> <span class="k">if</span> <span class="s1">&#39;roadClass&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="k">else</span> <span class="p">[</span><span class="s1">&#39;residential&#39;</span><span class="p">])</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="s1">&#39;polyLatLons&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="n">nodeLocs</span> <span class="o">=</span> <span class="n">_rndPtRoadNetworkPolyLatLons</span><span class="p">(</span>
+                <span class="n">N</span> <span class="k">if</span> <span class="n">N</span> <span class="o">!=</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">nodeIDs</span><span class="p">),</span>
+                <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;roads&#39;</span><span class="p">],</span> 
+                <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;polyLatLons&#39;</span><span class="p">],</span>
+                <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;roadClass&#39;</span><span class="p">]</span> <span class="k">if</span> <span class="s1">&#39;roadClass&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="k">else</span> <span class="p">[</span><span class="s1">&#39;residential&#39;</span><span class="p">])</span>
+
+    <span class="c1"># Uniformly sample from the roads/streets within a circle from given road network</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">distr</span> <span class="o">==</span> <span class="s1">&#39;RoadNetworkCircleLatLon&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;centerLatLon&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="s1">&#39;radiusInMeters&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required args &#39;centerLatLon&#39; or &#39;radiusInMeters&#39;.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="s1">&#39;roads&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required args &#39;RoadNetwork&#39;. Need to provide the road network where the nodes are generated.&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="s1">&#39;roadClass&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;WARNING: Set &#39;roadClass&#39; to be default as [&#39;residential&#39;]&quot;</span><span class="p">)</span>
+        <span class="n">nodeLocs</span> <span class="o">=</span> <span class="n">_rndPtRoadNetworkCircleLatLon</span><span class="p">(</span>
+            <span class="n">N</span> <span class="k">if</span> <span class="n">N</span> <span class="o">!=</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">len</span><span class="p">(</span><span class="n">nodeIDs</span><span class="p">),</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;roads&#39;</span><span class="p">],</span> 
+            <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;radiusInMeters&#39;</span><span class="p">],</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;centerLatLon&#39;</span><span class="p">],</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;roadClass&#39;</span><span class="p">]</span> <span class="k">if</span> <span class="s1">&#39;roadClass&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="k">else</span> <span class="p">[</span><span class="s1">&#39;residential&#39;</span><span class="p">])</span>
+    
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">UnsupportedInputError</span><span class="p">(</span><span class="n">ERROR_MISSING_NODES_DISTR</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">nodeLocs</span></div>
+
+
+<div class="viewcode-block" id="rndNodes">
+<a class="viewcode-back" href="../../vrpSolver.instance.html#vrpSolver.instance.rndNodes">[docs]</a>
+<span class="k">def</span> <span class="nf">rndNodes</span><span class="p">(</span>
+    <span class="n">N</span><span class="p">:</span> <span class="nb">int</span><span class="o">|</span><span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+    <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="o">|</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span> 
+    <span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="o">|</span><span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">distr</span> <span class="o">=</span> <span class="s1">&#39;UniformSquareXY&#39;</span><span class="p">,</span>
+    <span class="n">locFieldName</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Randomly create a nodes dictionary</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    N: integer, optional</span>
+<span class="sd">        Number of locations/vertices/customers to be randomly created</span>
+<span class="sd">    nodeIDs: list of int|str, optional</span>
+<span class="sd">        A list of ids for the locations to be created, an alternative option for `N`</span>
+<span class="sd">    nodes: dict, optional</span>
+<span class="sd">        A nodes dictionary, if given, new locations will be append into this dictionary</span>
+<span class="sd">    distr: string, optional, default as &#39;UniformSquareXY&#39;</span>
+<span class="sd">        See `distr` docstring in :func:`~vrpSolver.instance.rndLocs()`</span>
+<span class="sd">    locFieldName: str, optional, default as &#39;loc&#39;</span>
+<span class="sd">        The key in nodes dictionary to indicate the locations</span>
+<span class="sd">    **kwargs: optional</span>
+<span class="sd">        Provide additional inputs for different `distr` options</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    list</span>
+<span class="sd">        A list of randomly created locations</span>
+
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    MissingParameterError</span>
+<span class="sd">        Missing required inputs in **kwargs.</span>
+<span class="sd">    UnsupportedInputError</span>
+<span class="sd">        Option is not supported for `distr`</span>
+<span class="sd">    NotAvailableError</span>
+<span class="sd">        Functions/options that are not ready yet.</span>
+<span class="sd">    EmptyError</span>
+<span class="sd">        The sample area is empty.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Sanity checks ===========================================================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">nodes</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">nodes</span> <span class="o">=</span> <span class="p">{}</span>
+    
+    <span class="k">if</span> <span class="p">(</span><span class="n">nodeIDs</span> <span class="o">==</span> <span class="p">[]</span> <span class="ow">and</span> <span class="n">N</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="n">ERROR_MISSING_N</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">nodeIDs</span> <span class="o">==</span> <span class="p">[]</span> <span class="ow">and</span> <span class="n">N</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">nodeIDs</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">)]</span>
+
+    <span class="c1"># Generate instance =======================================================</span>
+    <span class="n">nodeLocs</span> <span class="o">=</span> <span class="n">rndLocs</span><span class="p">(</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">nodeIDs</span><span class="p">),</span> 
+        <span class="n">distr</span> <span class="o">=</span> <span class="n">distr</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span>
+        <span class="p">)</span>
+    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">nodeIDs</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">nodeIDs</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">):</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;WARNING: </span><span class="si">%s</span><span class="s2"> already exists, will be replaced&quot;</span> <span class="o">%</span> <span class="n">n</span><span class="p">)</span>
+        <span class="n">nodes</span><span class="p">[</span><span class="n">nodeIDs</span><span class="p">[</span><span class="n">n</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="n">locFieldName</span><span class="p">:</span> <span class="n">nodeLocs</span><span class="p">[</span><span class="n">n</span><span class="p">]</span>
+        <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">nodes</span></div>
+
+
+<span class="k">def</span> <span class="nf">_rndPtUniformSquareXY</span><span class="p">(</span><span class="n">xRange</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span><span class="o">|</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">yRange</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span><span class="o">|</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pt</span><span class="p">:</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">xRange</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xRange</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">yRange</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">yRange</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_rndPtUniformTriangleXY</span><span class="p">(</span><span class="n">triangle</span><span class="p">:</span> <span class="n">poly</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pt</span><span class="p">:</span>
+    
+    <span class="c1"># Get three extreme points ================================================</span>
+    <span class="p">[</span><span class="n">x1</span><span class="p">,</span> <span class="n">y1</span><span class="p">]</span> <span class="o">=</span> <span class="n">triangle</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="p">[</span><span class="n">x2</span><span class="p">,</span> <span class="n">y2</span><span class="p">]</span> <span class="o">=</span> <span class="n">triangle</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="p">[</span><span class="n">x3</span><span class="p">,</span> <span class="n">y3</span><span class="p">]</span> <span class="o">=</span> <span class="n">triangle</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+
+    <span class="c1"># Generate random points ==================================================</span>
+    <span class="n">rndR1</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">rndR2</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">rndR1</span><span class="p">))</span> <span class="o">*</span> <span class="n">x1</span> <span class="o">+</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">rndR1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">rndR2</span><span class="p">)</span> <span class="o">*</span> <span class="n">x2</span> <span class="o">+</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">rndR1</span><span class="p">)</span> <span class="o">*</span> <span class="n">rndR2</span> <span class="o">*</span> <span class="n">x3</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">rndR1</span><span class="p">))</span> <span class="o">*</span> <span class="n">y1</span> <span class="o">+</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">rndR1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">rndR2</span><span class="p">)</span> <span class="o">*</span> <span class="n">y2</span> <span class="o">+</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">rndR1</span><span class="p">)</span> <span class="o">*</span> <span class="n">rndR2</span> <span class="o">*</span> <span class="n">y3</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_rndPtUniformPolyXY</span><span class="p">(</span><span class="n">poly</span><span class="p">:</span> <span class="n">poly</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pt</span><span class="p">:</span>
+    <span class="c1"># Get list of triangles ===================================================</span>
+    <span class="c1"># TODO: tripy.earclip() to be replaced</span>
+    <span class="n">lstTriangle</span> <span class="o">=</span> <span class="n">tripy</span><span class="o">.</span><span class="n">earclip</span><span class="p">(</span><span class="n">poly</span><span class="p">)</span>
+
+    <span class="c1"># Weight them and make draws ==============================================</span>
+    <span class="n">lstWeight</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">lstTriangle</span><span class="p">)):</span>
+        <span class="n">lstWeight</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">calTriangleAreaXY</span><span class="p">(</span><span class="n">lstTriangle</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">lstTriangle</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="n">lstTriangle</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">2</span><span class="p">]))</span>
+
+    <span class="c1"># Select a triangle and randomize a point in the triangle =================</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">rndPick</span><span class="p">(</span><span class="n">lstWeight</span><span class="p">)</span>
+    <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">=</span> <span class="n">_rndPtUniformTriangleXY</span><span class="p">(</span><span class="n">lstTriangle</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_rndPtUniformPolyXYs</span><span class="p">(</span><span class="n">polys</span><span class="p">:</span> <span class="n">polys</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pt</span><span class="p">:</span>
+    <span class="c1"># Get all triangulated triangles ==========================================</span>
+    <span class="c1"># TODO: tripy.earclip() to be replaced</span>
+    <span class="n">lstTriangle</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">polys</span><span class="p">:</span>
+        <span class="n">lstTriangle</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">tripy</span><span class="o">.</span><span class="n">earclip</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+
+    <span class="c1"># Weight them and make draws ==============================================</span>
+    <span class="n">lstWeight</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">lstTriangle</span><span class="p">)):</span>
+        <span class="n">lstWeight</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">calTriangleAreaXY</span><span class="p">(</span><span class="n">lstTriangle</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">lstTriangle</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span> <span class="n">lstTriangle</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="mi">2</span><span class="p">]))</span>
+
+    <span class="c1"># Select a triangle and randomize a point in the triangle =================</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">rndPick</span><span class="p">(</span><span class="n">lstWeight</span><span class="p">)</span>
+    <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="o">=</span> <span class="n">_rndPtUniformTriangleXY</span><span class="p">(</span><span class="n">lstTriangle</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_rndPtUniformAvoidPolyXY</span><span class="p">(</span><span class="n">poly</span><span class="p">:</span> <span class="n">poly</span><span class="p">,</span> <span class="n">xRange</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span><span class="o">|</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">yRange</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span><span class="o">|</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pt</span><span class="p">:</span>
+    <span class="c1"># Use the low efficient accept-denial approach</span>
+    <span class="k">while</span> <span class="p">(</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">xRange</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xRange</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">yRange</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">yRange</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">isPtInPoly</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">),</span> <span class="n">poly</span><span class="p">)):</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_rndPtUniformAvoidPolyXYs</span><span class="p">(</span><span class="n">polys</span><span class="p">:</span> <span class="n">polys</span><span class="p">,</span> <span class="n">xRange</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span><span class="o">|</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">yRange</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span><span class="o">|</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pt</span><span class="p">:</span>
+    <span class="k">while</span> <span class="p">(</span><span class="kc">True</span><span class="p">):</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">xRange</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xRange</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">yRange</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">yRange</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">notInPolys</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">polys</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">isPtInPoly</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">),</span> <span class="n">p</span><span class="p">)):</span>
+                <span class="n">notInPolys</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">break</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">notInPolys</span><span class="p">):</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_rndPtUniformCircleXY</span><span class="p">(</span><span class="n">radius</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">center</span><span class="p">:</span> <span class="n">pt</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pt</span><span class="p">:</span>
+    <span class="n">theta</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">radius</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">center</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">r</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">center</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">r</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_rndPtUniformCircleLatLon</span><span class="p">(</span><span class="n">radius</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">center</span><span class="p">:</span> <span class="n">pt</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pt</span><span class="p">:</span>
+    <span class="n">theta</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">radius</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">)</span> <span class="o">=</span> <span class="n">ptInDistLatLon</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_rndPtRoadNetworkPolyLatLon</span><span class="p">(</span><span class="n">N</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">roads</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">poly</span><span class="p">:</span> <span class="n">poly</span><span class="p">,</span> <span class="n">roadClass</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pt</span><span class="p">]:</span>
+    <span class="c1"># If poly is given, clip road networks by poly ============================</span>
+    <span class="n">clipRoad</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">poly</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">clipRoad</span> <span class="o">=</span> <span class="n">clipRoadsByPoly</span><span class="p">(</span><span class="n">roads</span><span class="p">,</span> <span class="n">poly</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">clipRoad</span> <span class="o">=</span> <span class="n">roads</span>
+
+    <span class="c1"># Calculate the length of each edge =======================================</span>
+    <span class="n">lengths</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">roadIDs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">rID</span> <span class="ow">in</span> <span class="n">clipRoad</span><span class="p">:</span>
+        <span class="n">roadLength</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">includedFlag</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;class&#39;</span> <span class="ow">in</span> <span class="n">clipRoad</span><span class="p">[</span><span class="n">rID</span><span class="p">]</span> <span class="ow">and</span> <span class="n">clipRoad</span><span class="p">[</span><span class="n">rID</span><span class="p">][</span><span class="s1">&#39;class&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">roadClass</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">clipRoad</span><span class="p">[</span><span class="n">rID</span><span class="p">][</span><span class="s1">&#39;shape&#39;</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">roadLength</span> <span class="o">+=</span> <span class="n">distLatLon</span><span class="p">(</span><span class="n">clipRoad</span><span class="p">[</span><span class="n">rID</span><span class="p">][</span><span class="s1">&#39;shape&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">],</span> <span class="n">clipRoad</span><span class="p">[</span><span class="n">rID</span><span class="p">][</span><span class="s1">&#39;shape&#39;</span><span class="p">][</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+            <span class="n">lengths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">roadLength</span><span class="p">)</span>
+            <span class="n">roadIDs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rID</span><span class="p">)</span>
+
+    <span class="c1"># Check if there are roads included =======================================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">lengths</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">EmptyError</span><span class="p">(</span><span class="s2">&quot;ERROR: No road is found.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Use accept-denial to test if the node is within poly ====================</span>
+    <span class="c1"># FIXME: Inefficient approach, will need to be rewritten</span>
+    <span class="c1"># TODO: Truncate the roads that partially inside polygon</span>
+    <span class="n">nodeLocs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+        <span class="n">lat</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">lon</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">rndPick</span><span class="p">(</span><span class="n">lengths</span><span class="p">)</span>
+        <span class="n">edgeLength</span> <span class="o">=</span> <span class="n">lengths</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="n">edgeDist</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">edgeLength</span>
+        <span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">)</span> <span class="o">=</span> <span class="n">locSeqMileage</span><span class="p">(</span><span class="n">clipRoad</span><span class="p">[</span><span class="n">roadIDs</span><span class="p">[</span><span class="n">idx</span><span class="p">]][</span><span class="s1">&#39;shape&#39;</span><span class="p">],</span> <span class="n">edgeDist</span><span class="p">,</span> <span class="s1">&#39;LatLon&#39;</span><span class="p">)</span>
+        <span class="n">nodeLocs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">nodeLocs</span>
+
+<span class="k">def</span> <span class="nf">_rndPtRoadNetworkPolyLatLons</span><span class="p">(</span><span class="n">N</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">roads</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">polys</span><span class="p">:</span> <span class="n">polys</span><span class="p">,</span> <span class="n">roadClass</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pt</span><span class="p">]:</span>
+    <span class="c1"># If poly is given, clip road networks by poly ============================</span>
+    <span class="n">clipRoad</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">poly</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">clipRoad</span> <span class="o">=</span> <span class="n">clipRoadsByPolys</span><span class="p">(</span><span class="n">roads</span><span class="p">,</span> <span class="n">polys</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">clipRoad</span> <span class="o">=</span> <span class="n">roads</span>
+
+    <span class="c1"># Calculate the length of each edge =======================================</span>
+    <span class="n">lengths</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">roadIDs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">rID</span> <span class="ow">in</span> <span class="n">clipRoad</span><span class="p">:</span>
+        <span class="n">roadLength</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">includedFlag</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;class&#39;</span> <span class="ow">in</span> <span class="n">clipRoad</span><span class="p">[</span><span class="n">rID</span><span class="p">]</span> <span class="ow">and</span> <span class="n">clipRoad</span><span class="p">[</span><span class="n">rID</span><span class="p">][</span><span class="s1">&#39;class&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">roadClass</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">clipRoad</span><span class="p">[</span><span class="n">rID</span><span class="p">][</span><span class="s1">&#39;shape&#39;</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">roadLength</span> <span class="o">+=</span> <span class="n">distLatLon</span><span class="p">(</span><span class="n">clipRoad</span><span class="p">[</span><span class="n">rID</span><span class="p">][</span><span class="s1">&#39;shape&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">],</span> <span class="n">clipRoad</span><span class="p">[</span><span class="n">rID</span><span class="p">][</span><span class="s1">&#39;shape&#39;</span><span class="p">][</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+            <span class="n">lengths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">roadLength</span><span class="p">)</span>
+            <span class="n">roadIDs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rID</span><span class="p">)</span>
+
+    <span class="c1"># Check if there are roads included =======================================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">lengths</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">EmptyError</span><span class="p">(</span><span class="s2">&quot;ERROR: No road is found.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Use accept-denial to test if the node is within poly ====================</span>
+    <span class="c1"># FIXME: Inefficient approach, will need to be rewritten</span>
+    <span class="c1"># TODO: Truncate the roads that partially inside polygon</span>
+    <span class="n">nodeLocs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+        <span class="n">lat</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">lon</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">rndPick</span><span class="p">(</span><span class="n">lengths</span><span class="p">)</span>
+        <span class="n">edgeLength</span> <span class="o">=</span> <span class="n">lengths</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="n">edgeDist</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">edgeLength</span>
+        <span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">)</span> <span class="o">=</span> <span class="n">locSeqMileage</span><span class="p">(</span><span class="n">clipRoad</span><span class="p">[</span><span class="n">roadIDs</span><span class="p">[</span><span class="n">idx</span><span class="p">]][</span><span class="s1">&#39;shape&#39;</span><span class="p">],</span> <span class="n">edgeDist</span><span class="p">,</span> <span class="s1">&#39;LatLon&#39;</span><span class="p">)</span>
+        <span class="n">nodeLocs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">nodeLocs</span>
+
+<span class="k">def</span> <span class="nf">_rndPtRoadNetworkCircleLatLon</span><span class="p">(</span><span class="n">N</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">roads</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">radius</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">center</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">roadClass</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">pt</span><span class="p">]:</span>
+    <span class="c1"># Calculate the length of each edge =======================================</span>
+    <span class="n">lengths</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">roadIDs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">rID</span> <span class="ow">in</span> <span class="n">roads</span><span class="p">:</span>
+        <span class="n">roadLength</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">includedFlag</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">roads</span><span class="p">[</span><span class="n">rID</span><span class="p">][</span><span class="s1">&#39;shape&#39;</span><span class="p">])):</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;class&#39;</span> <span class="ow">in</span> <span class="n">roads</span><span class="p">[</span><span class="n">rID</span><span class="p">]</span> <span class="ow">and</span> <span class="n">roads</span><span class="p">[</span><span class="n">rID</span><span class="p">][</span><span class="s1">&#39;class&#39;</span><span class="p">]</span> <span class="ow">in</span> <span class="n">roadClass</span> <span class="ow">and</span> <span class="n">distLatLon</span><span class="p">(</span><span class="n">roads</span><span class="p">[</span><span class="n">rID</span><span class="p">][</span><span class="s1">&#39;shape&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">],</span> <span class="n">center</span><span class="p">)[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">radius</span><span class="p">):</span>
+                <span class="n">includedFlag</span> <span class="o">=</span> <span class="kc">True</span>
+                <span class="k">break</span>
+
+        <span class="c1"># Check if this road is inside polygon</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">includedFlag</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">roads</span><span class="p">[</span><span class="n">rID</span><span class="p">][</span><span class="s1">&#39;shape&#39;</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">roadLength</span> <span class="o">+=</span> <span class="n">distLatLon</span><span class="p">(</span><span class="n">roads</span><span class="p">[</span><span class="n">rID</span><span class="p">][</span><span class="s1">&#39;shape&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">],</span> <span class="n">roads</span><span class="p">[</span><span class="n">rID</span><span class="p">][</span><span class="s1">&#39;shape&#39;</span><span class="p">][</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">])[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+            <span class="n">lengths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">roadLength</span><span class="p">)</span>            
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">lengths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+        <span class="n">roadIDs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">rID</span><span class="p">)</span>
+
+
+    <span class="c1"># Check if there are roads included =======================================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">lengths</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">EmptyError</span><span class="p">(</span><span class="s2">&quot;ERROR: No road is found.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Use accept-denial to test if the node is within poly ====================</span>
+    <span class="c1"># FIXME: Inefficient approach, will need to be rewritten</span>
+    <span class="n">nodeLocs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+        <span class="n">lat</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">lon</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">insideFlag</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">while</span> <span class="p">(</span><span class="ow">not</span> <span class="n">insideFlag</span><span class="p">):</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">rndPick</span><span class="p">(</span><span class="n">lengths</span><span class="p">)</span>
+            <span class="n">edgeLength</span> <span class="o">=</span> <span class="n">lengths</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+            <span class="n">edgeDist</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">edgeLength</span>
+            <span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">)</span> <span class="o">=</span> <span class="n">locSeqMileage</span><span class="p">(</span><span class="n">roads</span><span class="p">[</span><span class="n">roadIDs</span><span class="p">[</span><span class="n">idx</span><span class="p">]][</span><span class="s1">&#39;shape&#39;</span><span class="p">],</span> <span class="n">edgeDist</span><span class="p">,</span> <span class="s1">&#39;LatLon&#39;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">distLatLon</span><span class="p">([</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">],</span> <span class="n">center</span><span class="p">)[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">radius</span><span class="p">):</span>
+                <span class="n">insideFlag</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">nodeLocs</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">nodeLocs</span>
+
+<div class="viewcode-block" id="rndNodeNeighbors">
+<a class="viewcode-back" href="../../vrpSolver.instance.html#vrpSolver.instance.rndNodeNeighbors">[docs]</a>
+<span class="k">def</span> <span class="nf">rndNodeNeighbors</span><span class="p">(</span>
+    <span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="o">|</span><span class="nb">str</span><span class="p">]</span><span class="o">|</span><span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;All&#39;</span><span class="p">,</span> 
+    <span class="n">shape</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Circle&#39;</span><span class="p">,</span>
+    <span class="n">locFieldName</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">,</span>
+    <span class="n">neighborFieldName</span> <span class="o">=</span> <span class="s1">&#39;neighbor&#39;</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Given a node dictionary, create neighborhood to selected nodes</span>
+
+<span class="sd">    WARNING</span>
+<span class="sd">    -------    </span>
+<span class="sd">    This function will modify the input dictionary `nodes`</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    nodes: dictionary, required</span>
+<span class="sd">        A plain nodes dictionary to add neighborhoods.</span>
+<span class="sd">    nodeIDs: string|list[int|str], optional, default &#39;All&#39;</span>
+<span class="sd">        A list of node IDs to add neighborhood, leave it as &#39;All&#39; to indicate adding such information to all nodes.</span>
+<span class="sd">    shape: str, optional, default as &#39;Circle&#39;</span>
+<span class="sd">        The shape of neighborhoods, options and required addtional inputs are as follows:</span>
+
+<span class="sd">        1) (default) &#39;Cirlce&#39;, add circle surrounding nodes</span>
+<span class="sd">            - &#39;radius&#39;: The radius, default as 1</span>
+<span class="sd">            - &#39;lod&#39;: The level of details, circle will be approximated as a x-gon polygon, default as 30</span>
+<span class="sd">        2) &#39;Poly&#39;, add polygon surrounding nodes</span>
+<span class="sd">            - &#39;poly&#39;: In relative axis where node locates in [0, 0]</span>
+<span class="sd">        3) &#39;Egg&#39;, add egg shape to nodes. The curve function: :math:`\\frac{x^2}{(a - b)x + ab} + \\frac{y^2}{c^2} = 1`</span>
+<span class="sd">            - &#39;a&#39;: required</span>
+<span class="sd">            - &#39;b&#39;: required</span>
+<span class="sd">            - &#39;c&#39;: required</span>
+<span class="sd">            - &#39;direction&#39;: default as 0</span>
+<span class="sd">            - &#39;lod&#39;: default as 30</span>
+<span class="sd">        4) &#39;RndSquare&#39;, add random size squares around nodes</span>
+<span class="sd">            - &#39;minLen&#39;: required, minimum length</span>
+<span class="sd">            - &#39;maxLen&#39;: required, maximum length</span>
+<span class="sd">        4) &#39;RndCurvy&#39;, add random curvy shapes around nodes</span>
+<span class="sd">            - &#39;maxRadius&#39;: default as 1.2</span>
+<span class="sd">            - &#39;minRadius&#39;: default as 0.8</span>
+<span class="sd">            - &#39;N&#39;: default as 5</span>
+<span class="sd">            - &#39;w&#39;: default as 3</span>
+<span class="sd">            - &#39;lod&#39;: default as 30</span>
+<span class="sd">        5) &#39;RndConvexPoly&#39;, add convex polygons with random size arond nodes</span>
+<span class="sd">            - &#39;maxNumSide&#39;: maximum number of sides</span>
+<span class="sd">            - &#39;maxDiag&#39;: maximum length of the diagonal</span>
+<span class="sd">            - &#39;minDiag&#39;: minimum length of the diagonal</span>
+<span class="sd">    **kwargs: optional</span>
+<span class="sd">        Provide additional inputs for different `distr` options</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Changes will apply to the original `nodes` dictionary</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Sanity check ============================================================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">nodeIDs</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">nodeIDs</span> <span class="o">==</span> <span class="s1">&#39;All&#39;</span><span class="p">):</span>
+            <span class="n">nodeIDs</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">):</span>
+                    <span class="k">raise</span> <span class="n">OutOfRangeError</span><span class="p">(</span><span class="s2">&quot;ERROR: Node </span><span class="si">%s</span><span class="s2"> is not in `nodes`.&quot;</span> <span class="o">%</span> <span class="n">i</span><span class="p">)</span>
+    
+    <span class="c1"># Add neighborhood by &#39;shape&#39; =============================================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">shape</span> <span class="o">==</span> <span class="s1">&#39;Poly&#39;</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;poly&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required args &#39;poly&#39;&quot;</span><span class="p">)</span>
+            <span class="n">poly</span> <span class="o">=</span> <span class="p">[[</span><span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">][</span><span class="mi">1</span><span class="p">]]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;poly&#39;</span><span class="p">]]</span>
+            <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">neighborFieldName</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">poly</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">poly</span><span class="p">))</span> <span class="k">if</span> <span class="n">distEuclideanXY</span><span class="p">(</span><span class="n">poly</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">poly</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">CONST_EPSILON</span><span class="p">]</span>
+            
+    <span class="k">elif</span> <span class="p">(</span><span class="n">shape</span> <span class="o">==</span> <span class="s1">&#39;Circle&#39;</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;radius&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required args &#39;radius&#39;&quot;</span><span class="p">)</span>
+            <span class="c1"># By default, a circle is plotted by a 30-gon</span>
+            <span class="n">lod</span> <span class="o">=</span> <span class="mi">30</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;lod&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;lod&#39;</span><span class="p">])</span> <span class="o">==</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="n">lod</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;lod&#39;</span><span class="p">]</span>
+            <span class="n">poly</span> <span class="o">=</span> <span class="p">[[</span>
+                <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;radius&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">d</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">lod</span><span class="p">),</span>
+                <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;radius&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">d</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">lod</span><span class="p">),</span>
+            <span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">lod</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+            <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">neighborFieldName</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">poly</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">poly</span><span class="p">))</span> <span class="k">if</span> <span class="n">distEuclideanXY</span><span class="p">(</span><span class="n">poly</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">poly</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">CONST_EPSILON</span><span class="p">]</span>
+        
+    <span class="k">elif</span> <span class="p">(</span><span class="n">shape</span> <span class="o">==</span> <span class="s1">&#39;Egg&#39;</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;a&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="s1">&#39;b&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="s1">&#39;c&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required args &#39;a&#39;, &#39;b&#39;, and/or &#39;c&#39;.&quot;</span><span class="p">)</span>
+            <span class="n">direction</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;direction&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+                <span class="n">direction</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;direction&#39;</span><span class="p">]</span>
+            <span class="n">lod</span> <span class="o">=</span> <span class="mi">30</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;lod&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;lod&#39;</span><span class="p">])</span> <span class="o">==</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="n">lod</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;lod&#39;</span><span class="p">]</span>
+            <span class="c1"># Formulation:</span>
+            <span class="c1"># \frac{x^2}{(a - b)x + ab} + \frac{y^2}{c^2} = 1</span>
+            <span class="n">a</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;a&#39;</span><span class="p">]</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;b&#39;</span><span class="p">]</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;c&#39;</span><span class="p">]</span>
+            
+            <span class="n">vHLod</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">lod</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">/</span> <span class="mi">9</span><span class="p">)</span>
+            <span class="n">vTLod</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">lod</span> <span class="o">/</span> <span class="mi">9</span><span class="p">)</span>
+            <span class="n">hLod</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">lod</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span>
+
+            <span class="n">polyL</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">polyM</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">polyR</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">vHLod</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">y</span> <span class="o">=</span> <span class="n">c</span> <span class="o">*</span> <span class="mf">0.75</span> <span class="o">*</span> <span class="n">d</span> <span class="o">/</span> <span class="n">vHLod</span>
+                <span class="n">A</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="n">B</span> <span class="o">=</span> <span class="p">(</span><span class="n">y</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="n">c</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">a</span> <span class="o">-</span> <span class="n">b</span><span class="p">)</span>
+                <span class="n">C</span> <span class="o">=</span> <span class="p">(</span><span class="n">y</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="n">c</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span>
+                <span class="n">X</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="n">B</span> <span class="o">-</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">B</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">A</span> <span class="o">*</span> <span class="n">C</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">A</span><span class="p">)</span>
+                <span class="n">polyL</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+                <span class="n">xStart</span> <span class="o">=</span> <span class="n">X</span>
+            <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">vTLod</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">y</span> <span class="o">=</span> <span class="n">c</span> <span class="o">*</span> <span class="mf">0.4</span> <span class="o">*</span> <span class="n">d</span> <span class="o">/</span> <span class="n">vHLod</span>
+                <span class="n">A</span> <span class="o">=</span> <span class="mi">1</span>
+                <span class="n">B</span> <span class="o">=</span> <span class="p">(</span><span class="n">y</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="n">c</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">a</span> <span class="o">-</span> <span class="n">b</span><span class="p">)</span>
+                <span class="n">C</span> <span class="o">=</span> <span class="p">(</span><span class="n">y</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="n">c</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span>
+                <span class="n">X</span> <span class="o">=</span> <span class="p">(</span><span class="o">-</span><span class="n">B</span> <span class="o">+</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">B</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">-</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">A</span> <span class="o">*</span> <span class="n">C</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">A</span><span class="p">)</span>
+                <span class="n">polyR</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">))</span>
+                <span class="n">xEnd</span> <span class="o">=</span> <span class="n">X</span>
+            <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">hLod</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">x</span> <span class="o">=</span> <span class="n">xStart</span> <span class="o">+</span> <span class="p">(</span><span class="n">xEnd</span> <span class="o">-</span> <span class="n">xStart</span><span class="p">)</span> <span class="o">*</span> <span class="n">d</span> <span class="o">/</span> <span class="n">hLod</span>
+                <span class="n">Y</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">c</span> <span class="o">*</span> <span class="n">c</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">)</span> <span class="o">/</span> <span class="p">((</span><span class="n">a</span> <span class="o">-</span> <span class="n">b</span><span class="p">)</span> <span class="o">*</span> <span class="n">x</span> <span class="o">+</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span><span class="p">)))</span>
+                <span class="n">polyM</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">x</span><span class="p">,</span> <span class="n">Y</span><span class="p">))</span>
+            <span class="n">polyHf</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">polyHf</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">polyL</span><span class="p">)</span>
+            <span class="n">polyHf</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">polyM</span><span class="p">)</span>
+            <span class="n">polyHf</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">polyR</span><span class="p">)</span>
+
+            <span class="n">polyB4Rot</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">polyHf</span><span class="p">]</span>
+            <span class="n">polyB4Rot</span><span class="o">.</span><span class="n">extend</span><span class="p">([(</span><span class="n">polyHf</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">polyHf</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">k</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span> <span class="o">-</span> <span class="n">polyHf</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">polyHf</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">k</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">polyHf</span><span class="p">))])</span>
+            
+            <span class="n">poly</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">polyB4Rot</span><span class="p">)):</span>
+                <span class="n">di</span> <span class="o">=</span> <span class="n">headingXY</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">polyB4Rot</span><span class="p">[</span><span class="n">d</span><span class="p">])</span>
+                <span class="n">r</span> <span class="o">=</span> <span class="n">distEuclideanXY</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">polyB4Rot</span><span class="p">[</span><span class="n">d</span><span class="p">])[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+                <span class="n">pt</span> <span class="o">=</span> <span class="n">ptInDistXY</span><span class="p">(</span><span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">di</span> <span class="o">+</span> <span class="n">direction</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
+                <span class="n">poly</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">)</span>
+
+            <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">neighborFieldName</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">poly</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">poly</span><span class="p">))</span> <span class="k">if</span> <span class="n">distEuclideanXY</span><span class="p">(</span><span class="n">poly</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">poly</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">CONST_EPSILON</span><span class="p">]</span>
+            
+    <span class="k">elif</span> <span class="p">(</span><span class="n">shape</span> <span class="o">==</span> <span class="s1">&#39;RndSquare&#39;</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;maxLen&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required args &#39;maxLen&#39;&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;minLen&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required args &#39;minLen&#39;&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;minLen&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;maxLen&#39;</span><span class="p">]):</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;WARNING: &#39;minLen&#39; is greater than &#39;maxLen&#39;, will be swapped&quot;</span><span class="p">)</span>
+                <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;maxLen&#39;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;minLen&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;minLen&#39;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;maxLen&#39;</span><span class="p">]</span>
+            
+            <span class="n">width</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;minLen&#39;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;maxLen&#39;</span><span class="p">])</span>
+            <span class="n">height</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;minLen&#39;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;maxLen&#39;</span><span class="p">])</span>
+
+            <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">neighborFieldName</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="p">[</span><span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">loc</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">width</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">loc</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">height</span> <span class="o">/</span> <span class="mi">2</span><span class="p">],</span> 
+                <span class="p">[</span><span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">loc</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">width</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">loc</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">height</span> <span class="o">/</span> <span class="mi">2</span><span class="p">],</span> 
+                <span class="p">[</span><span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">loc</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">width</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">loc</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">height</span> <span class="o">/</span> <span class="mi">2</span><span class="p">],</span> 
+                <span class="p">[</span><span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">loc</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">width</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">loc</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">height</span> <span class="o">/</span> <span class="mi">2</span><span class="p">]</span>
+            <span class="p">]</span>
+
+    <span class="k">elif</span> <span class="p">(</span><span class="n">shape</span> <span class="o">==</span> <span class="s1">&#39;RndCurvy&#39;</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;maxRadius&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="s1">&#39;minRadius&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required args &#39;maxRadius&#39; or &#39;minRadius&#39;&quot;</span><span class="p">)</span>
+            <span class="n">lod</span> <span class="o">=</span> <span class="mi">30</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;lod&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;lod&#39;</span><span class="p">])</span> <span class="o">==</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="n">lod</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;lod&#39;</span><span class="p">]</span>
+
+            <span class="n">r</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">lod</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                <span class="n">r</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;minRadius&#39;</span><span class="p">])</span>
+            <span class="n">N</span> <span class="o">=</span> <span class="mi">4</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;N&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;N&#39;</span><span class="p">])</span> <span class="o">==</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="n">N</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;N&#39;</span><span class="p">]</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="mi">3</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;w&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">and</span> <span class="nb">type</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;w&#39;</span><span class="p">])</span> <span class="o">==</span> <span class="nb">int</span><span class="p">):</span>
+                <span class="n">w</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;w&#39;</span><span class="p">]</span>
+
+            <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">N</span><span class="p">):</span>
+                <span class="n">a</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+                <span class="n">b</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span>
+                <span class="n">c</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">lod</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+                    <span class="n">r</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">b</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">i</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">lod</span> <span class="o">+</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">c</span><span class="p">)</span>
+
+            <span class="n">maxRI</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">r</span><span class="p">)):</span>
+                <span class="n">r</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;maxRadius&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;minRadius&#39;</span><span class="p">])</span> <span class="o">/</span> <span class="n">maxRI</span>
+
+            <span class="n">poly</span> <span class="o">=</span> <span class="p">[[</span>
+                <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">+</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;minRadius&#39;</span><span class="p">])</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">d</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">lod</span><span class="p">),</span>
+                <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="n">d</span><span class="p">]</span> <span class="o">+</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;minRadius&#39;</span><span class="p">])</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">d</span> <span class="o">*</span> <span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">/</span> <span class="n">lod</span><span class="p">),</span>
+            <span class="p">]</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">lod</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)]</span>
+            <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">neighborFieldName</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">poly</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">poly</span><span class="p">))</span> <span class="k">if</span> <span class="n">distEuclideanXY</span><span class="p">(</span><span class="n">poly</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">poly</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">CONST_EPSILON</span><span class="p">]</span>
+    
+    <span class="k">elif</span> <span class="p">(</span><span class="n">shape</span> <span class="o">==</span> <span class="s1">&#39;RndConvexPoly&#39;</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;maxNumSide&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required args &#39;maxNumSide&#39;&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;maxDiag&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required args &#39;maxDiag&#39;&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;minDiag&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required args &#39;minDiag&#39;&quot;</span><span class="p">)</span>
+            <span class="n">polyPts</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;maxNumSide&#39;</span><span class="p">]):</span>
+                <span class="n">deg</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="mi">360</span>
+                <span class="n">r</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;minDiag&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;maxDiag&#39;</span><span class="p">]</span> <span class="o">-</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;minDiag&#39;</span><span class="p">])</span> <span class="o">/</span> <span class="mi">2</span>
+                <span class="n">polyPts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ptInDistXY</span><span class="p">(</span>
+                    <span class="n">pt</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">direction</span> <span class="o">=</span> <span class="n">deg</span><span class="p">,</span> <span class="n">dist</span> <span class="o">=</span> <span class="n">r</span><span class="p">))</span>
+                <span class="n">poly</span> <span class="o">=</span> <span class="n">shapely</span><span class="o">.</span><span class="n">convex_hull</span><span class="p">(</span><span class="n">shapely</span><span class="o">.</span><span class="n">MultiPoint</span><span class="p">(</span><span class="n">points</span> <span class="o">=</span> <span class="n">polyPts</span><span class="p">))</span>
+                <span class="n">nodes</span><span class="p">[</span><span class="n">n</span><span class="p">][</span><span class="n">neighborFieldName</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">poly</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">poly</span><span class="p">))</span> <span class="k">if</span> <span class="n">distEuclideanXY</span><span class="p">(</span><span class="n">poly</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">poly</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">])[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">CONST_EPSILON</span><span class="p">]</span>
+        
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">UnsupportedInputError</span><span class="p">(</span><span class="s2">&quot;ERROR: Unsupported option for `kwargs`. Supported &#39;shape&#39; includes: &#39;Poly&#39;, &#39;Circle&#39;, &#39;Egg&#39;, &#39;RndSquare&#39;, &#39;RndConvexPoly&#39; and &#39;RndCurvy&#39;.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">nodes</span></div>
+
+
+<div class="viewcode-block" id="rndArcs">
+<a class="viewcode-back" href="../../vrpSolver.instance.html#vrpSolver.instance.rndArcs">[docs]</a>
+<span class="k">def</span> <span class="nf">rndArcs</span><span class="p">(</span>
+    <span class="n">A</span><span class="p">:</span> <span class="nb">int</span><span class="o">|</span><span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">arcIDs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="o">|</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+    <span class="n">distr</span> <span class="o">=</span> <span class="s1">&#39;UniformLengthInSquareXY&#39;</span><span class="p">,</span>
+    <span class="n">arcFieldName</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;arc&#39;</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Randomly create a set of arcs </span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    A: integer, optional, default as None</span>
+<span class="sd">        Number of arcs to be visited</span>
+<span class="sd">    arcIDs: list, optional, default as None</span>
+<span class="sd">        Alternative input parameter of `A`. A list of arc IDs, `A` will be overwritten if `arcIDs` is given</span>
+<span class="sd">    distr: str, optional, default as &#39;UniformLengthInSquareXY&#39;</span>
+<span class="sd">        The distribution of arcs. Options and required additional inputs are as follows:</span>
+
+<span class="sd">        1) (default) &#39;UniformLengthInSquareXY&#39;, uniformly sample from a square on the Euclidean space, with uniformly selected length</span>
+<span class="sd">            - xRange: 2-tuple, with minimum/maximum range of x, default as (0, 100)</span>
+<span class="sd">            - yRange: 2-tuple, with minimum/maximum range of y, default as (0, 100)</span>
+<span class="sd">            - minLen: float, minimum length of the arcs</span>
+<span class="sd">            - maxLen: float, maximum length of the arcs</span>
+<span class="sd">    **kwargs: optional</span>
+<span class="sd">        Provide additional inputs for different `distr` options</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        A dictionary of randomly created arcs.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Sanity check ============================================================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">kwargs</span> <span class="o">==</span> <span class="kc">None</span> <span class="ow">or</span> <span class="s1">&#39;distr&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="n">ERROR_MISSING_ARCS_DISTR</span><span class="p">)</span>
+
+    <span class="n">arcs</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">arcIDs</span> <span class="o">==</span> <span class="p">[]</span> <span class="ow">and</span> <span class="n">A</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="n">ERROR_MISSING_N</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">arcIDs</span> <span class="o">==</span> <span class="p">[]</span> <span class="ow">and</span> <span class="n">A</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">arcIDs</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">A</span><span class="p">)]</span>
+
+    <span class="c1"># Generate instance =======================================================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">distr</span> <span class="o">==</span> <span class="s1">&#39;UniformLengthInSquareXY&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;minLen&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="s1">&#39;maxLen&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required field &#39;minLen&#39; and/or &#39;maxLen&#39;&quot;</span><span class="p">)</span>
+        <span class="n">xRange</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">yRange</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;xRange&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="s1">&#39;yRange&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">):</span>
+            <span class="n">xRange</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">]</span>
+            <span class="n">yRange</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">]</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;WARNING: Set sample area to be default as a (0, 100) x (0, 100) square&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">xRange</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;xRange&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;xRange&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">])]</span>
+            <span class="n">yRange</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;yRange&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]),</span> <span class="nb">float</span><span class="p">(</span><span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;yRange&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">])]</span>
+        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">arcIDs</span><span class="p">:</span>
+            <span class="n">arcs</span><span class="p">[</span><span class="n">n</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">arcFieldName</span> <span class="p">:</span> <span class="n">_rndArcUniformSquareXY</span><span class="p">(</span><span class="n">xRange</span><span class="p">,</span> <span class="n">yRange</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;minLen&#39;</span><span class="p">],</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;maxLen&#39;</span><span class="p">])</span>
+            <span class="p">}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">UnsupportedInputError</span><span class="p">(</span><span class="n">ERROR_MISSING_ARCS_DISTR</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">arcs</span></div>
+
+
+<span class="k">def</span> <span class="nf">_rndArcUniformSquareXY</span><span class="p">(</span><span class="n">xRange</span><span class="p">,</span> <span class="n">yRange</span><span class="p">,</span> <span class="n">minLen</span><span class="p">,</span> <span class="n">maxLen</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pt</span><span class="p">,</span> <span class="n">pt</span><span class="p">]:</span>
+    <span class="n">length</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">minLen</span><span class="p">,</span> <span class="n">maxLen</span><span class="p">)</span>
+    <span class="n">direction</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">360</span><span class="p">)</span>
+    <span class="n">xStart</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">xRange</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xRange</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">yStart</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="n">yRange</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">yRange</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="p">(</span><span class="n">xEnd</span><span class="p">,</span> <span class="n">yEnd</span><span class="p">)</span> <span class="o">=</span> <span class="n">ptInDistXY</span><span class="p">((</span><span class="n">xStart</span><span class="p">,</span> <span class="n">yStart</span><span class="p">),</span> <span class="n">direction</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">((</span><span class="n">xStart</span><span class="p">,</span> <span class="n">yStart</span><span class="p">),</span> <span class="p">(</span><span class="n">xEnd</span><span class="p">,</span> <span class="n">yEnd</span><span class="p">))</span>
+
+<div class="viewcode-block" id="rndPolys">
+<a class="viewcode-back" href="../../vrpSolver.instance.html#vrpSolver.instance.rndPolys">[docs]</a>
+<span class="k">def</span> <span class="nf">rndPolys</span><span class="p">(</span>
+    <span class="n">P</span><span class="p">:</span> <span class="nb">int</span><span class="o">|</span><span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">polyIDs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="o">|</span><span class="nb">str</span><span class="p">]</span><span class="o">|</span><span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">distr</span> <span class="o">=</span> <span class="s1">&#39;UniformSquareXY&#39;</span><span class="p">,</span>
+    <span class="n">shape</span> <span class="o">=</span> <span class="s1">&#39;Circle&#39;</span><span class="p">,</span>
+    <span class="n">anchorFieldName</span> <span class="o">=</span> <span class="s1">&#39;anchor&#39;</span><span class="p">,</span>
+    <span class="n">polyFieldName</span> <span class="o">=</span> <span class="s1">&#39;poly&#39;</span><span class="p">,</span>    
+    <span class="n">allowOverlapFlag</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">returnAsListFlag</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="o">**</span><span class="n">kwargs</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Randomly create polygons</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    P: int|str, optional, default as None</span>
+<span class="sd">        Number of polygons to create</span>
+<span class="sd">    polyIDs: list[int|str]|None, optional, default as None</span>
+<span class="sd">        A list of ids for the polygons to be created, an alternative option for `P`</span>
+<span class="sd">    distr: str, optional, default as &#39;UniformSquareXY&#39;</span>
+<span class="sd">        Anchor locations of each polygon. Options and required additional information are referred to :func:`~vrpSolver.instance.rndLocs()`.</span>
+<span class="sd">    shape: str, optional, default as &#39;Circle&#39;,</span>
+<span class="sd">        Shape of the polygons. Options and required additional information are referred to :func:`~vrpSolver.instance.rndNodeNeighbors()`.</span>
+<span class="sd">    anchorFieldName: str, optional, default as &#39;anchor&#39;</span>
+<span class="sd">        The key value of the anchor location</span>
+<span class="sd">    polyFieldName: str, optional, default as &#39;poly&#39;,</span>
+<span class="sd">        The key value of the polygons</span>
+<span class="sd">    allowOverlapFlag: bool, optional, default as True</span>
+<span class="sd">        True if allows the polygons to overlap</span>
+<span class="sd">    returnAsListFlag: bool, optional, default as True</span>
+<span class="sd">        True if returns a list of polygons instead of a dictionary</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        A dictionary with polygon information</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Sanity check ============================================================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">polyIDs</span> <span class="o">==</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">P</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required field `P` and `polyIDs`.&quot;</span><span class="p">)</span>
+    
+    <span class="k">elif</span> <span class="p">(</span><span class="n">polyIDs</span> <span class="o">==</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">P</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">polyIDs</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">P</span><span class="p">)]</span>
+
+    <span class="c1"># If overlapping is allowed ===============================================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">allowOverlapFlag</span><span class="p">):</span>
+        <span class="n">polygons</span> <span class="o">=</span> <span class="n">rndNodes</span><span class="p">(</span>
+            <span class="n">N</span> <span class="o">=</span> <span class="n">P</span><span class="p">,</span>
+            <span class="n">nodeIDs</span> <span class="o">=</span> <span class="n">polyIDs</span><span class="p">,</span>
+            <span class="n">distr</span> <span class="o">=</span> <span class="n">distr</span><span class="p">,</span>
+            <span class="n">locFieldName</span> <span class="o">=</span> <span class="n">anchorFieldName</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="c1"># Next, create P polygons relative to anchor points ===================</span>
+        <span class="n">polygons</span> <span class="o">=</span> <span class="n">rndNodeNeighbors</span><span class="p">(</span>
+            <span class="n">nodes</span> <span class="o">=</span> <span class="n">polygons</span><span class="p">,</span>
+            <span class="n">shape</span> <span class="o">=</span> <span class="n">shape</span><span class="p">,</span>
+            <span class="n">locFieldName</span> <span class="o">=</span> <span class="n">anchorFieldName</span><span class="p">,</span>
+            <span class="n">neighborFieldName</span> <span class="o">=</span> <span class="n">polyFieldName</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">returnAsListFlag</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">polygons</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">polygons</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">polyFieldName</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">polygons</span><span class="p">]</span>
+    
+    <span class="c1"># If overlapping is not allowed ===========================================</span>
+    <span class="n">maxNumOfFailedTrial</span> <span class="o">=</span> <span class="mi">20</span>
+    <span class="n">anchor</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">polys</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="n">numOfFailedTrial</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">while</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">polys</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">polyIDs</span><span class="p">)):</span>
+        <span class="n">addedFlag</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">rndNodes</span><span class="p">(</span>
+            <span class="n">N</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="n">distr</span> <span class="o">=</span> <span class="n">distr</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">p</span> <span class="o">=</span> <span class="n">rndNodeNeighbors</span><span class="p">(</span>
+            <span class="n">nodes</span> <span class="o">=</span> <span class="n">p</span><span class="p">,</span>
+            <span class="n">shape</span> <span class="o">=</span> <span class="n">shape</span><span class="p">,</span>
+            <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="n">newPoly</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;neighbor&#39;</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">poly</span> <span class="ow">in</span> <span class="n">polys</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">isPolyIntPoly</span><span class="p">(</span><span class="n">poly</span><span class="p">,</span> <span class="n">newPoly</span><span class="p">)</span> <span class="o">==</span> <span class="kc">True</span><span class="p">):</span>
+                <span class="n">numOfFailedTrial</span> <span class="o">+=</span> <span class="mi">1</span>
+                <span class="n">addedFlag</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="k">break</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">addedFlag</span> <span class="o">==</span> <span class="kc">True</span><span class="p">):</span>
+            <span class="n">polys</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">newPoly</span><span class="p">)</span>
+            <span class="n">anchor</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;loc&#39;</span><span class="p">])</span>
+            <span class="n">numOfFailedTrial</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">numOfFailedTrial</span> <span class="o">&gt;=</span> <span class="n">maxNumOfFailedTrial</span><span class="p">):</span>
+                <span class="k">break</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">polys</span><span class="p">)</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">polyIDs</span><span class="p">)):</span>
+        <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="s2">&quot;WARNING: Space is too limited, only </span><span class="si">%s</span><span class="s2"> of polygons are created.&quot;</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">polys</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">returnAsListFlag</span><span class="p">):</span>        
+        <span class="k">return</span> <span class="n">polys</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">polygons</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">polys</span><span class="p">)):</span>
+            <span class="n">polygons</span><span class="p">[</span><span class="n">polyIDs</span><span class="p">[</span><span class="n">p</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="n">anchorFieldName</span><span class="p">:</span> <span class="n">anchor</span><span class="p">[</span><span class="n">p</span><span class="p">],</span>
+                <span class="n">polyFieldName</span><span class="p">:</span> <span class="n">polys</span><span class="p">[</span><span class="n">p</span><span class="p">]</span>
+            <span class="p">}</span>
+        <span class="k">return</span> <span class="n">polygons</span></div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">vrpSolver 0.0.56 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">vrpSolver.instance</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2024, Lan Peng.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.7.
+    </div>
+  </body>
+</html>

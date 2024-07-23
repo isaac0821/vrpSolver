@@ -1,6 +1,5 @@
 import math
-from .error import *
-from .const import *
+from .common import *
 
 class RingNode(object):
     def __init__(self, key, value=None, prev: 'RingNode' = None, next: 'RingNode' = None):
@@ -434,7 +433,7 @@ class Route(Ring):
                 if (canImpvFlag):
                     break
 
-                # 3. Recover to intial status
+                # 3. Recover to initial status
                 nJXNext = nINext.next
                 self.swapNext(nJXNext)
                 self.reverse()
@@ -442,6 +441,116 @@ class Route(Ring):
                 
                 nI = nI.next
         return improvedFlag
+
+class TreeNode(object):
+    def __init__(self, key, value, parent: 'TreeNode' = None, treeNodes: list['TreeNode'] = None):
+        self.key = key
+        self.value = value
+        self.parent = parent if parent != None else TreeNilNode()
+        self.treeNodes = treeNodes if treeNodes != None else [TreeNilNode()]
+
+    @property
+    def isNil(self):
+        return False
+
+    @property
+    def isChildren(self):
+        if (len(self.treeNodes) == 1 and self.treeNodes[0].isNil):
+            return True
+        else:
+            return False
+
+class TreeNilNode(TreeNode):
+    def __init__(self):
+        return
+
+    @property
+    def isNil(self):
+        return True
+
+class Tree(object):
+    def __init__(self):
+        self.nil = TreeNilNode()
+        self.root = self.nil
+
+    def __repr__(self):
+        tr = self.traverse()
+        return str(tr)
+
+    @property
+    def isEmpty(self):
+        return self.root.isNil
+
+    def traverse(self):
+        if (self.root.isNil):
+            return []
+        else:
+            tra = [self.root]
+        tra.extend(self._traverseBreath(self.root))
+        return tra
+
+    def _traverseBreath(self, n):
+        tra = []
+        for treeNode in n.treeNodes:
+            if (not treeNode.isNil):
+                tra.append(treeNode)
+        for treeNode in n.treeNodes:
+            if (not treeNode.isNil):
+                tra.extend(self._traverseBreath(treeNode))
+        return tra
+
+    # Query using key
+    def query(self, key):
+        searched = self._search(self.root, key)
+        if (searched != None):
+            return searched
+        else:
+            raise KeyNotExistError("ERROR: %s does not exist." % key)
+    
+    def _search(self, n, key):
+        if (n.isNil):
+            return None
+        else:
+            if (n.key == key):
+                return n
+            for treeNode in n.treeNodes:
+                searched = self._search(treeNode, key)
+                if (searched != None and not searched.isNil):
+                    return searched
+        
+    def insert(self, n, treeNode = None):
+        if (treeNode == None):
+            if (self.root.isNil):
+                self.root = n
+                return
+            else:
+                raise KeyExistError("ERROR: Root exists.")
+
+        if (n.isChildren):
+            n.treeNodes = [treeNode]
+        else:
+            n.treeNodes.append(treeNode)
+        treeNode.parent = n
+        return
+
+    def traverseChildren(self):
+        if (self.root.isNil):
+            return []
+        else:
+            if (self.root.isChildren):
+                return [self.root]
+        children = self._traverseChildren(self.root)
+        return children
+
+    def _traverseChildren(self, n):
+        tra = []
+        for treeNode in n.treeNodes:
+            if (treeNode.isChildren):
+                tra.append(treeNode)
+        for treeNode in n.treeNodes:
+            if (not treeNode.isChildren):
+                tra.extend(self._traverseChildren(treeNode))
+        return tra
 
 class BSTreeNode(object):
     def __init__(self, key:int, value, parent:'BSTreeNode'=None, left:'BSTreeNode'=None, right:'BSTreeNode'=None):
@@ -483,7 +592,7 @@ class BSTree(object):
 
     @property
     def isEmpty(self):
-        return self.root == self.nil
+        return self.root.isNil
 
     @property
     def count(self):

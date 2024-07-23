@@ -1,7 +1,6 @@
 __version__ = "0.0.56"
 __author__ = "Lan Peng"
 
-'''
 # History =====================================================================
 # v0.0.1  - 04202021 - Initial upload
 # v0.0.2  - 04282021 - Add `plotGantt()` function to plot Gantt chart
@@ -73,8 +72,8 @@ __author__ = "Lan Peng"
 #                    - Redo a lot of stuff with networkX
 # v0.0.56 - 07122023 - CVRP functions
 #                    - Integrate CETSP
+#                    - Rolling horizon for Dynamic TSP
 # =============================================================================
-
 
 # A few SE tips/notes =========================================================
 # 1. Avoid nested if/for for more than three levels
@@ -82,12 +81,10 @@ __author__ = "Lan Peng"
 # 3. Variables start with lower-case, classes names start with upper-case
 # 4. NEVER use variable start with `my-` or `tmp-`, that is lame
 # =============================================================================
-'''
+
 
 # Constants, messages, and basic modules
-from .const import *
 from .msg import *
-from .error import *
 from .common import *
 from .color import *
 
@@ -104,6 +101,13 @@ from .instance import *
 from .geometry import *
 
 # TSP/VRP
-from .ipTSP import *
-from .heuTSP import *
-from .heuMTSP import *
+from .tsp import *
+from .satsp import *
+from .mtsp import *
+
+from .vrptw import *
+
+from .op import *
+from .top import *
+
+from .cetsp import *
