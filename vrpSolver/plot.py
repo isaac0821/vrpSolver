@@ -128,14 +128,14 @@ def plotNodes(
     ----------
     nodes: dictionary, required
         A `nodes` dictionary. See :ref:`nodes` for reference.
+    locFieldName: str, optional, default as 'loc'
+        The key value in `nodes` indicating the location of each node.
     nodeColor: str, optional, default 'Random'
-        Alternative option. If 'color' is provided in `node`, this will be ignored.
-    neighborColor: str, optional, default 'gray'
-        If nodes have 'neighbor' label, will plot the neighbor area in this color
-    neighborOpacity: float, optional, default 0.5
-        The opacity of neighborhood.
-    neighborEntranceColor: str, optional, default 'black', 
-        The color of neighbor entrance
+        Alternative option. If 'color' is provided in `nodes`, this field will be ignored.
+    nodeMarker: str, optional, default 'o'
+        Alternative option for node marker. If 'marker' is provided in `nodes`, this field will be ignored.
+    nodeMarker: str, optional, default 'o'
+        Alternative option for node marker size. If 'markerSize' is provided in `nodes`, this field will be ignored.
     xyReverseFlag: bool, optional, default False
         True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
     fig: matplotlib object, optional, defaut None
