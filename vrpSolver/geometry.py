@@ -4335,17 +4335,18 @@ def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
         >>> seq = [[-1, 0], [0, 0], [0, 0], [1, 0], [2, 0], [2, 1], [1, 1], [1, 0], [1, -1]]
         >>> res = locSeqRemoveDegen(seq)
     The result is as follows
-        >>> res = {'newSeq': [[-1, 0], [2, 0], [2, 1], [1, 1], [1, -1]],
+        >>> res = {
+        ...     'newSeq': [[-1, 0], [2, 0], [2, 1], [1, 1], [1, -1]],
         ...     'aggNodeList': [[0], [1, 2], [3], [4], [5], [6], [7], [8]],
         ...     'removedFlag': [False, True, True, False, False, False, True, False],
         ...     'locatedSeg': [None,
-        ...      [[-1, 0], [2, 0]],
-        ...      [[-1, 0], [2, 0]],
-        ...      None,
-        ...      None,
-        ...      None,
-        ...      [[1, 1], [1, -1]],
-        ...      None]
+        ...         [[-1, 0], [2, 0]],
+        ...         [[-1, 0], [2, 0]],
+        ...         None,
+        ...         None,
+        ...         None,
+        ...         [[1, 1], [1, -1]],
+        ...         None]
         ... }
     The result shows that, the new sequence is [[-1, 0], [2, 0], [2, 1], [1, 1], [1, -1]], in the new sequence, seq[1], seq[2], seq[6] are not included since they are not turn points.
     seq[1] and seq[2] are aggregated due to overlaps. Although seq[3] and seq[6] are overlapped, they are not aggregated because they are not neighboring. 
@@ -4400,12 +4401,12 @@ def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
     seqSuc = []
     # 查找移除点之前和之后一个removeFlag为False的对应aggNode，得到对应线段
     for i in range(len(removedFlag)):
-        # Log the prev unremoved
+        # Log the prev that is not removed
         if (removedFlag[i] == False):
             seqPre.append(i)
         else:
             seqPre.append(seqPre[-1])
-        # Log the next unremoved
+        # Log the next that is not removed
         if (removedFlag[len(removedFlag) - 1 - i] == False):
             seqSuc.insert(0, len(removedFlag) - 1 - i)
         else:
