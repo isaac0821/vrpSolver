@@ -730,9 +730,6 @@ def rndArcs(
     """
 
     # Sanity check ============================================================
-    if (kwargs == None or 'distr' not in kwargs):
-        raise MissingParameterError(ERROR_MISSING_ARCS_DISTR)
-
     arcs = {}
     if (arcIDs == [] and A == None):
         raise MissingParameterError(ERROR_MISSING_N)
@@ -743,7 +740,12 @@ def rndArcs(
     if (distr == 'UniformLengthInSquareXY'):
         if ('minLen' not in kwargs or 'maxLen' not in kwargs):
             raise MissingParameterError("ERROR: Missing required field 'minLen' and/or 'maxLen'")
+        if ('minDeg' not in kwargs):
+            kwargs['minDeg'] = 0
+        if ('maxDeg' not in kwargs):
+            kwargs['maxDeg'] = 360
         xRange = None
+
         yRange = None
         if ('xRange' not in kwargs or 'yRange' not in kwargs):
             xRange = [0, 100]
@@ -754,16 +756,16 @@ def rndArcs(
             yRange = [float(kwargs['yRange'][0]), float(kwargs['yRange'][1])]
         for n in arcIDs:
             arcs[n] = {
-                arcFieldName : _rndArcUniformSquareXY(xRange, yRange, kwargs['minLen'], kwargs['maxLen'])
+                arcFieldName : _rndArcUniformSquareXY(xRange, yRange, kwargs['minLen'], kwargs['maxLen'], kwargs['minDeg'], kwargs['maxDeg'])
             }
     else:
         raise UnsupportedInputError(ERROR_MISSING_ARCS_DISTR)
 
     return arcs
 
-def _rndArcUniformSquareXY(xRange, yRange, minLen, maxLen) -> tuple[pt, pt]:
+def _rndArcUniformSquareXY(xRange, yRange, minLen, maxLen, minDeg, maxDeg) -> tuple[pt, pt]:
     length = random.uniform(minLen, maxLen)
-    direction = random.uniform(0, 360)
+    direction = random.uniform(minDeg, maxDeg)
     xStart = random.uniform(xRange[0], xRange[1])
     yStart = random.uniform(yRange[0], yRange[1])
     (xEnd, yEnd) = ptInDistXY((xStart, yStart), direction, length)

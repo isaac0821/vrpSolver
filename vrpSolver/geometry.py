@@ -4355,19 +4355,26 @@ def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
     """
 
     # Step 1: 先按是否重合对点进行聚合  
-    curLoc = seq[0]
+    curLocList = [seq[0]]
     curAgg = [0]
     aggNodeList = []
     # 挤香肠算法
     for i in range(1, len(seq)):
-        # 如果当前点重复，则计入
-        if (is2PtsSame(curLoc, seq[i], error)):
-            curAgg.append(i)
+        # 如果当前点和任意一个挤出来的点足够近，则计入
+        samePtFlag = False
+        for pt in curLocList:
+            if (is2PtsSame(pt, seq[i], error)):
+                curAgg.append(i)
+                curLocList.append(seq[i])
+                samePtFlag = True
+                break
+
         # 若不重复，了结
-        else:
+        if (not samePtFlag):
             aggNodeList.append([k for k in curAgg])
             curAgg = [i]
-            curLoc = seq[i]
+            curLocList = [seq[i]]
+
     aggNodeList.append([k for k in curAgg])
 
     # Step 2: 对聚合后的点，判断是否为转折点

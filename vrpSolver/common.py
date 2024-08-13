@@ -142,7 +142,6 @@ def hyphenStr(s="", length=75, sym='-'):
     else:
         return s
 
-
 def splitList(inputList, binNum):
     listLength = len(inputList)
     perFloor = math.floor(listLength / binNum)
