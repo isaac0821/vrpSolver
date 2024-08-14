@@ -1884,7 +1884,7 @@ def distPt2Ray(pt: pt, ray: line) -> float:
     else:
         return distEuclideanXY(pt, ray[0])
 
-def distPt2Seq(pt: pt, seq: list[pt]) -> float:
+def distPt2Seq(pt: pt, seq: list[pt], closedFlag = False) -> float:
     """
     The distance between a point and a sequence of points
 
@@ -1894,6 +1894,8 @@ def distPt2Seq(pt: pt, seq: list[pt]) -> float:
         The point
     seq: list of pt, required
         A sequence of points
+    closedFlag: bool, optional, default False
+        True if the sequence is closed
 
     Return
     ------
@@ -1908,15 +1910,23 @@ def distPt2Seq(pt: pt, seq: list[pt]) -> float:
 
     dist2Seg = []
     for p in seq:
-        dist2Seg.append(distEuclideanXY(pt, p))
+        dist2Seg.append(distEuclideanXY(pt, p)['dist'])
     minIndex = dist2Seg.index(min(dist2Seg))
     if (minIndex == 0):
-        return distPt2Seg(pt, [seq[0], seq[1]])
+        if (closedFlag == False):
+            return distPt2Seg(pt, [seq[0], seq[1]])
+        else:
+            return min(distPt2Seg(pt, [seq[0], seq[1]]),
+                       distPt2Seg(pt, [seq[0], seq[-1]]))
     elif (minIndex == len(dist2Seg) - 1):
-        return distPt2Seg(pt, [seq[-2], seq[-1]])
+        if (closedFlag == False):
+            return distPt2Seg(pt, [seq[-2], seq[-1]])
+        else:
+            return min(distPt2Seg(pt, [seq[-2], seq[-1]]),
+                       distPt2Seg(pt, [seq[0], seq[-1]]))
     else:
         return min(distPt2Seg(pt, [seq[minIndex], seq[minIndex + 1]]),
-                   dist2Seg(pt, [seq[minIndex], seq[minIndex - 1]]))
+                   distPt2Seg(pt, [seq[minIndex], seq[minIndex - 1]]))
 
 def distPt2Poly(pt: pt, poly: poly=None, polyShapely: shapely.Polygon=None) -> float:
     """
@@ -4078,7 +4088,7 @@ def _distOnGridAStar(column, row, barriers, pt1, pt2, distMeasure):
     }
 
 # Path touring through polygons ===============================================
-def polyPath2Mileage(repSeq: list, path: list[pt], nodes: dict):
+def polyPath2MileageDepre(repSeq: list, path: list[pt], nodes: dict):
 
     # NOTE: 根据p2pPath，得到足够多的子问题信息以生成cut
     # Step 1: 先把转折点找出来
@@ -4362,6 +4372,7 @@ def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
     for i in range(1, len(seq)):
         # 如果当前点和任意一个挤出来的点足够近，则计入
         samePtFlag = False
+
         for pt in curLocList:
             if (is2PtsSame(pt, seq[i], error)):
                 curAgg.append(i)
@@ -4833,11 +4844,6 @@ def circle2CirclePath(startPt: pt, endPt: pt, circles: list[dict], algo: str = '
     # Sanity check ============================================================
     if (algo == None):
         raise MissingParameterError("ERROR: Missing required field `algo`.")
-
-    errTol = CONST_EPSILON
-    if ('errTol' in kwargs):
-        errTol = kwargs['errTol']
-
 
     if (algo == 'SOCP'):
         if ('solver' not in kwargs or kwargs['solver'] == 'Gurobi'):
