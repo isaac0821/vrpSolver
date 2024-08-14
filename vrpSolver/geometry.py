@@ -1956,6 +1956,39 @@ def distPt2Poly(pt: pt, poly: poly=None, polyShapely: shapely.Polygon=None) -> f
     ptShapely = shapely.Point(pt)
     return shapely.distance(ptShapely, polyShapely)
 
+def distPoly2Poly(poly1: poly=None, poly2: poly=None, poly1Shapely: shapely.Polygon=None, poly2Shapely: shapely.Polygon=None) -> float:
+    """
+    The distance between two polys
+
+    Parameters
+    ----------
+    poly1: poly, optional, default as None
+        The first polygon
+    poly1Shapely: shapely.Polygon, optional, default as None
+        The correspond shapely object for the first polygon. Need to provide one of the following fields: [`poly1`, `poly1Shapely`]
+    poly2: poly, optional, default as None
+        The second polygon
+    poly2Shapely: shapely.Polygon, optional, default as None
+        The correspond shapely object for the second polygon. Need to provide one of the following fields: [`poly2`, `poly2Shapely`]
+
+    Return
+    ------
+    float
+        The distance between two objects
+
+    """
+
+    if (poly1 == None and poly1Shapely == None):
+        raise MissingParameterError("ERROR: Missing required field `poly1` or `poly1Shapely`")
+    if (poly2 == None and poly2Shapely == None):
+        raise MissingParameterError("ERROR: Missing required field `poly2` or `poly2Shapely`")
+
+    if (poly1Shapely == None):
+        poly1Shapely = shapely.Polygon([p for p in poly1])
+    if (poly2Shapely == None):
+        poly2Shapely = shapely.Polygon([p for p in poly2])
+    return shapely.distance(poly1Shapely, poly2Shapely)
+
 def nearestPtLine2Poly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None) -> dict:
     """
     Find the nearest point between a line and a polygon
