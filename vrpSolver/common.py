@@ -14,6 +14,7 @@ CONST_EARTH_RADIUS_METERS = 6378137.0
 
 # Type alias
 pt = list[float] | tuple[float, float]
+pt3D = list[float] | tuple[float, float, float]
 poly = list[list[float]] | list[tuple[float, float]]
 polys = list[list[list[float]]] | list[list[tuple[float, float]]]
 circle = tuple[pt, float]
@@ -297,6 +298,81 @@ def findBoundingBox(
         xMin, xMax, yMin, yMax = yMin, yMax, xMin, xMax
 
     return (xMin, xMax, yMin, yMax)
+ 
+def findBoundingBox3D(
+    boundingBox3D = (None, None, None, None, None, None),
+    pts3D: list[pt] = None,
+    cone: dict = None,
+    arcs: dict = None,
+    arcFieldName = 'arc',
+    arcStartLocFieldName = 'startLoc',
+    arcEndLocFieldName = 'endLoc',
+    xyReverseFlag: bool = False,
+    edgeWidth: float = 0.1):
+
+    (xMin, xMax, yMin, yMax, zMin, zMax) = boundingBox3D
+    allX = []
+    allY = []
+    allZ = []
+    if (xMin != None):
+        allX.append(xMin)
+    if (xMax != None):
+        allX.append(xMax)
+    if (yMin != None):
+        allY.append(yMin)
+    if (yMax != None):
+        allY.append(yMax)
+    if (zMin != None):
+        allZ.append(zMin)
+    if (zMax != None):
+        allZ.append(zMax)
+
+    if (pts3D != None):
+        for pt in pts3D:
+            allX.append(pt[0])
+            allY.append(pt[1])
+            allZ.append(pt[2])
+    if (arcs != None):
+        for i in arcs:
+            if (arcFieldName in arcs[i]):
+                allX.append(arcs[i][arcFieldName][0][0])
+                allX.append(arcs[i][arcFieldName][1][0])
+                allY.append(arcs[i][arcFieldName][0][1])
+                allY.append(arcs[i][arcFieldName][1][1])
+                allZ.append(arcs[i][arcFieldName][0][2])
+                allZ.append(arcs[i][arcFieldName][1][2])
+            elif (arcStartLocFieldName in arcs[i] and arcEndLocFieldName in arcs[i]):
+                allX.append(arcs[i][arcStartLocFieldName][0])
+                allY.append(arcs[i][arcStartLocFieldName][1])
+                allZ.append(arcs[i][arcStartLocFieldName][2])
+                allX.append(arcs[i][arcEndLocFieldName][0])
+                allY.append(arcs[i][arcEndLocFieldName][1])
+                allZ.append(arcs[i][arcEndLocFieldName][2])
+    if (cone != None):
+        # 顶点
+        allX.append(cone['center'][0])
+        allY.append(cone['center'][1])
+        allZ.append(cone['center'][2] if len(cone['center']) >= 3 else 0)
+        # 上边缘四个点
+        rMax = cone['maxHeight'] * cone['tanAlpha']
+        allX.append(cone['center'][0] + rMax)
+        allX.append(cone['center'][0] - rMax)
+        allY.append(cone['center'][1] + rMax)
+        allY.append(cone['center'][1] - rMax)
+        allZ.append(cone['center'][2] if len(cone['center']) >= 3 else 0 + cone['maxHeight'])
+
+    xMin = min(allX) - edgeWidth * abs(max(allX) - min(allX))
+    xMax = max(allX) + edgeWidth * abs(max(allX) - min(allX))
+    yMin = min(allY) - edgeWidth * abs(max(allY) - min(allY))
+    yMax = max(allY) + edgeWidth * abs(max(allY) - min(allY))
+    zMin = min(allZ) - edgeWidth * abs(max(allZ) - min(allZ))
+    zMax = max(allZ) + edgeWidth * abs(max(allZ) - min(allZ))
+
+    if (xyReverseFlag):
+        xMin, xMax, yMin, yMax = yMin, yMax, xMin, xMax
+
+    return (xMin, xMax, yMin, yMax, zMin, zMax)
+
 
 def findFigSize(boundingBox, width = None, height = None):
     """

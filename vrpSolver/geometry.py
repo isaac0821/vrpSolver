@@ -1348,7 +1348,7 @@ def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, r
                     'interiorFlag': False
                 }
             # Case 2: 相切的情形
-            for pt in polys:
+            for pt in poly:
                 ptDist = distPt2Seg(pt, seg)
                 if (ptDist <= CONST_EPSILON):
                     return {
@@ -5122,4 +5122,125 @@ def _circle2CirclePathCOPT(startPt: pt, endPt: pt, circles: dict, outputFlag: bo
     return {
         'path': path,
         'dist': ofv
+    }
+
+def cone2ConeSeqPath(startPt: pt, endPt: pt, cones: dict, repSeq: list, tanAlpha: float, config = None):
+    try:
+        import gurobipy as grb
+    except(ImportError):
+        print("ERROR: Cannot find Gurobi")
+        return
+
+    model = grb.Model("SOCP")
+    if (config == None or 'outputFlag' not in config or config['outputFlag'] == False):
+        model.setParam('OutputFlag', 0)
+    else:
+        model.setParam('OutputFlag', 1)
+    model.setParam('NonConvex', 2)
+
+    # Parameters ==============================================================
+    # anchor starts from startPt, in between are a list of cones, ends with endPt
+    anchor = [startPt]
+    for i in range(len(cones)):
+        anchor.append(cones[i]['center'])
+    anchor.append(endPt)
+
+    allX = [startPt[0], endPt[0]]
+    allY = [startPt[1], endPt[1]]
+    for i in range(len(cones)):
+        allX.append(cones[i]['center'][0] - cones[i]['maxHeight'] * tanAlpha)
+        allX.append(cones[i]['center'][0] + cones[i]['maxHeight'] * tanAlpha)
+        allY.append(cones[i]['center'][1] - cones[i]['maxHeight'] * tanAlpha)
+        allY.append(cones[i]['center'][1] + cones[i]['maxHeight'] * tanAlpha)
+    lbX = min(allX) - 1
+    lbY = min(allY) - 1
+    ubX = max(allX) + 1
+    ubY = max(allY) + 1
+
+    # Decision variables ======================================================
+    # NOTE: x, y index starts by 1
+    x = {}
+    y = {}
+    z = {}
+    for i in range(1, len(cones) + 1):
+        x[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "x_%s" % i, lb = lbX, ub = ubX)
+        y[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "y_%s" % i, lb = lbY, ub = ubY)
+        z[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "z_%s" % i, lb = 0, ub = cones[repSeq[i - 1]]['maxHeight'])
+    # Distance from ((xi, yi)) to (x[i + 1], y[i + 1]), 
+    # where startPt = (x[0], y[0]) and endPt = (x[len(cones) + 1], y[len(cones) + 1])
+    d = {}
+    for i in range(len(cones) + 1):
+        d[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'd_%s' % i)
+    model.setObjective(grb.quicksum(d[i] for i in range(len(cones) + 1)), grb.GRB.MINIMIZE)
+
+    # Aux vars - distance between (x, y)
+    dx = {}
+    dy = {}
+    dz = {}
+    for i in range(len(cones) + 1):
+        dx[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'dx_%s' % i, lb = -float('inf'), ub = float('inf'))
+        dy[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'dy_%s' % i, lb = -float('inf'), ub = float('inf'))
+        dz[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'dz_%s' % i, lb = -float('inf'), ub = float('inf'))
+    # Aux vars - distance from (x, y) to the center
+    rx = {}
+    ry = {}
+    for i in range(1, len(cones) + 1):
+        rx[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'rx_%s' % i, lb = -float('inf'), ub = float('inf'))
+        ry[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'ry_%s' % i, lb = -float('inf'), ub = float('inf'))
+
+    # Constraints =============================================================
+    # Aux constr - dx dy
+    model.addConstr(dx[0] == x[1] - anchor[0][0])
+    model.addConstr(dy[0] == y[1] - anchor[0][1])
+    model.addConstr(dz[0] == z[1] - anchor[0][2])
+    for i in range(1, len(cones)):
+        model.addConstr(dx[i] == x[i + 1] - x[i])
+        model.addConstr(dy[i] == y[i + 1] - y[i])
+        model.addConstr(dz[i] == z[i + 1] - z[i])
+    model.addConstr(dx[len(cones)] == anchor[-1][0] - x[len(cones)])
+    model.addConstr(dy[len(cones)] == anchor[-1][1] - y[len(cones)])
+    model.addConstr(dz[len(cones)] == anchor[-1][2] - z[len(cones)])
+
+    # Aux constr - rx ry
+    for i in range(1, len(cones) + 1):
+        model.addConstr(rx[i] == x[i] - anchor[i][0])
+        model.addConstr(ry[i] == y[i] - anchor[i][1])
+
+    # Distance btw visits
+    for i in range(len(cones) + 1):
+        model.addQConstr(d[i] ** 2 >= dx[i] ** 2 + dy[i] ** 2 + dz[i] ** 2)
+        # model.addQConstr(dx[i] ** 2 + dy[i] ** 2 >= CONST_EPSILON)
+
+    for i in range(1, len(cones) + 1):
+        model.addQConstr(rx[i] ** 2 + ry[i] ** 2 <= (tanAlpha * z[i]) ** 2)
+
+    model.modelSense = grb.GRB.MINIMIZE
+    # model.write("SOCP.lp")
+    model.optimize()
+
+    # Post-processing =========================================================
+    ofv = None
+    path = [startPt]
+    if (model.status == grb.GRB.status.OPTIMAL):
+        solType = 'IP_Optimal'
+        ofv = model.getObjective().getValue()
+        for i in x:
+            path.append((x[i].x, y[i].x, z[i].x))
+        path.append(endPt)
+        gap = 0
+        lb = ofv
+        ub = ofv
+    elif (model.status == grb.GRB.status.TIME_LIMIT):
+        solType = 'IP_TimeLimit'
+        ofv = model.ObjVal
+        for i in x:
+            path.append((x[i].x, y[i].x, z[i].x))
+        path.append(endPt)
+        gap = model.MIPGap
+        lb = model.ObjBoundC
+        ub = model.ObjVal
+    return {
+        'path': path,
+        'dist': ofv,
+        'runtime': model.Runtime
     }

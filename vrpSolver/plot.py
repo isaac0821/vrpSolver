@@ -4,6 +4,8 @@ from matplotlib import rcParams
 # rcParams['font.family'] = 'SimSun'
 from matplotlib.animation import FuncAnimation
 from matplotlib.animation import PillowWriter
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
 
 from .common import *
 from .color import *
@@ -104,7 +106,78 @@ def plotLocs(
         plt.close(fig)
 
     return fig, ax
-    
+
+def plotLocs3D(
+    locs3D: list[pt3D],
+    locColor: str = 'Random',
+    locMarker: str = 'o',
+    locMarkerSize: float = 1,
+    xyReverseFlag: bool = False,
+    fig = None,
+    ax = None,
+    figSize = (None, 5), 
+    boundingBox3D = (None, None, None, None, None, None),
+    showAxis: bool = True,
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ):
+
+    # Check for required fields ===============================================
+    if (locs3D == None):
+        raise MissingParameterError("ERROR: Missing required field `locs3D`.")
+
+    # If no based matplotlib figure provided, define boundary =================
+    if (fig == None or ax == None):
+        fig = plt.figure()
+        ax = plt.axes(projection = '3d')
+        boundingBox3D = findBoundingBox3D(
+            boundingBox3D = boundingBox3D, 
+            pts3D = locs3D)
+        (xMin, xMax, yMin, yMax, zMin, zMax) = boundingBox3D
+        # (width, height) = findFigSize(boundingBox3D, figSize[0], figSize[1])
+        # fig.set_figwidth(width)
+        # fig.set_figheight(height)
+        ax.set_xlim(xMin, xMax)
+        ax.set_ylim(yMin, yMax)
+        ax.set_zlim(zMin, zMax)
+
+    # Draw locs ==============================================================
+    for i in locs3D:
+        # Define color --------------------------------------------------------
+        color = None
+        if (locColor == 'Random'):
+            color = colorRandom()
+        else:
+            color = locColor
+
+        # plot nodes ----------------------------------------------------------        
+        x = None
+        y = None
+        z = i[2]
+        if (not xyReverseFlag):
+            x = i[0]
+            y = i[1]
+        else:
+            x = i[1]
+            y = i[0]
+
+        if (locMarkerSize == None):
+            ax.scatter3D(x, y, z, c = color, marker = locMarker)
+        else:
+            ax.scatter3D(x, y, z, c = color, marker = locMarker, s = locMarkerSize)
+
+    # Axis on and off =========================================================
+    if (not showAxis):
+        plt.axis('off')
+
+    # Save figure =============================================================
+    if (saveFigPath != None and isinstance(fig, plt.Figure)):
+        fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
+
+    return fig, ax
+
 def plotNodes(
     nodes: dict, 
     locFieldName = 'loc',
@@ -500,6 +573,78 @@ def plotLocSeq(
         showFig = showFig)
     return fig, ax
 
+def plotLocSeq3D(
+    locSeq3D: list[pt3D],
+    lineColor: str = 'Random',
+    lineWidth: float = 1.0,
+    lineStyle: str = 'solid',
+    lineDashes: tuple = (5, 2),
+    nodeColor: str = 'black',
+    nodeMarkerSize: float = 1,
+    xyReverseFlag: bool = False,
+    fig = None,
+    ax = None,
+    figSize = (None, 5), 
+    boundingBox3D = (None, None, None, None, None, None),
+    showAxis: bool = True,
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ):
+
+    # Check for required fields ===============================================
+    if (locSeq3D == None):
+        raise MissingParameterError("ERROR: Missing required field `locSeq3D`.")
+
+    # If no based matplotlib figure provided, define boundary =================
+    if (fig == None or ax == None):
+        fig = plt.figure()
+        ax = plt.axes(projection = '3d')
+        boundingBox3D = findBoundingBox3D(
+            boundingBox3D = boundingBox3D, 
+            pts3D = locSeq3D)
+        (xMin, xMax, yMin, yMax, zMin, zMax) = boundingBox3D
+        # (width, height) = findFigSize(boundingBox3D, figSize[0], figSize[1])
+        # fig.set_figwidth(width)
+        # fig.set_figheight(height)
+        ax.set_xlim(xMin, xMax)
+        ax.set_ylim(yMin, yMax)
+        ax.set_zlim(zMin, zMax)
+
+    x = []
+    y = []
+    z = []
+    for loc in locSeq3D:
+        if (not xyReverseFlag):
+            x.append(loc[0])
+            y.append(loc[1])
+        else:
+            x.append(loc[1])
+            y.append(loc[0])
+        z.append(loc[2])
+
+    color = None
+    if (lineColor == 'Random'):
+        color = colorRandom()
+    else:
+        color = lineColor
+
+    if (lineStyle == 'dashed'):
+        ax.plot(x, y, z, c = color, linewidth=lineWidth, linestyle = 'dashed', dashes = lineDashes)
+    else:
+        ax.plot(x, y, z, c = color, linewidth=lineWidth, linestyle = lineStyle)
+            
+    # Axis on and off =========================================================
+    if (not showAxis):
+        plt.axis('off')
+
+    # Save figure =============================================================
+    if (saveFigPath != None and isinstance(fig, plt.Figure)):
+        fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
+
+    return fig, ax
+
 def plotNodeSeq(
     nodes: dict, 
     nodeSeq: list[int|str],
@@ -720,6 +865,25 @@ def plotPoly(
 
     return fig, ax
 
+def plotPolyhedron3D(
+    polyhedron: poly, 
+    edgeWidth: float = 0.5,
+    edgeColor: str|None = 'Random',
+    fillColor: str|None = None,
+    fillStyle: str = "///",
+    opacity: float = 0.5,
+    xyReverseFlag: bool = False,
+    fig = None,
+    ax = None,
+    figSize = (None, 5), 
+    boundingBox = (None, None, None, None),
+    showAxis: bool = True,
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ):
+
+    return fig, ax
+
 def plotCircle(
     center: pt, 
     radius: float,
@@ -760,6 +924,65 @@ def plotCircle(
         saveFigPath = saveFigPath,
         showFig = showFig,
     )
+    return fig, ax
+
+def plotCone3D(
+    cone: dict,
+    lod: int = 30,
+    tanAlpha: float|None = None,    
+    fig = None,
+    ax = None,
+    boundingBox3D = (None, None, None, None, None, None),
+    showAxis: bool = True,
+    saveFigPath: str|None = None,
+    showFig: bool = True):
+
+    if (fig == None or ax == None):
+        fig = plt.figure()
+        ax = plt.axes(projection = '3d')
+        boundingBox3D = findBoundingBox3D(
+            boundingBox3D = boundingBox3D, 
+            cone = cone)
+        (xMin, xMax, yMin, yMax, zMin, zMax) = boundingBox3D
+        # (width, height) = findFigSize(boundingBox3D, figSize[0], figSize[1])
+        # fig.set_figwidth(width)
+        # fig.set_figheight(height)
+        ax.set_xlim(xMin, xMax)
+        ax.set_ylim(yMin, yMax)
+        ax.set_zlim(zMin, zMax)
+
+    x0 = cone['center'][0]
+    y0 = cone['center'][1]
+    z0 = cone['center'][2] if len(cone['center']) >= 3 else 0
+    zMax = cone['maxHeight']
+    if ('tanAlpha' in cone):
+        tanAlpha = cone['tanAlpha']
+    rMax = zMax * tanAlpha
+
+    r = np.linspace(0, rMax, lod)
+    theta = np.linspace(0, 2 * np.pi, lod)
+    r, theta = np.meshgrid(r, theta)
+
+    X = r * np.sin(theta) + x0
+    Y = r * np.cos(theta) + y0
+
+    def f(x, y):
+        return np.sqrt((x - x0)**2 + (y - y0)**2) / tanAlpha + z0
+
+    Z = f(X, Y)
+    ax.plot_surface(X, Y, Z, rstride=1, cstride=1, cmap = cm.jet, alpha = 0.1,
+                edgecolor='black');
+    
+    # Axis on and off =========================================================
+    if (not showAxis):
+        plt.axis('off')
+
+    # Save figure =============================================================
+    if (saveFigPath != None and isinstance(fig, plt.Figure)):
+        fig.savefig(saveFigPath)
+    if (not showFig):
+        plt.close(fig)
+
     return fig, ax
 
 def plotPolygons(

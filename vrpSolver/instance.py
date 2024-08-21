@@ -88,6 +88,22 @@ def rndLocs(
         for n in range(N):
             nodeLocs.append(_rndPtUniformSquareXY(xRange, yRange))
 
+    elif (distr == 'UniformCubeXYZ'):
+        xRange = None
+        yRange = None
+        zRange = None
+        if ('xRange' not in kwargs or 'yRange' not in kwargs or 'zRange' not in kwargs):
+            xRange = [0, 100]
+            yRange = [0, 100]
+            zRange = [0, 100]
+            warnings.warn("WARNING: Set sampled area to be default as a (0, 100) x (0, 100) x (0, 100) cube")
+        else:
+            xRange = [float(kwargs['xRange'][0]), float(kwargs['xRange'][1])]
+            yRange = [float(kwargs['yRange'][0]), float(kwargs['yRange'][1])]
+            zRange = [float(kwargs['zRange'][0]), float(kwargs['zRange'][1])]
+        for n in range(N):
+            nodeLocs.append(_rndPtUniformCubeXYZ(xRange, yRange, zRange))
+
     # Uniformly sample from a polygon/a list of polygons on the Euclidean space
     elif (distr == 'UniformPolyXY'):
         if ('polyXY' not in kwargs and 'polyXYs' not in kwargs):
@@ -260,6 +276,12 @@ def _rndPtUniformSquareXY(xRange: list[int]|list[float], yRange: list[int]|list[
     x = random.uniform(xRange[0], xRange[1])
     y = random.uniform(yRange[0], yRange[1])
     return (x, y)
+
+def _rndPtUniformCubeXYZ(xRange: list[int]|list[float], yRange: list[int]|list[float], zRange: list[int]|list[float]) -> pt3D:
+    x = random.uniform(xRange[0], xRange[1])
+    y = random.uniform(yRange[0], yRange[1])
+    z = random.uniform(zRange[0], zRange[1])
+    return (x, y, z)
 
 def _rndPtUniformTriangleXY(triangle: poly) -> pt:
     
