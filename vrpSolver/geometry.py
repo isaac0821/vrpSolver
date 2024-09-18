@@ -4120,6 +4120,43 @@ def _distOnGridAStar(column, row, barriers, pt1, pt2, distMeasure):
         'path': path
     }
 
+# Segment int moving poly =====================================================
+def segIntTimedCircle(seg: line, timedCircle: dict, ts: float = 0, te = None, tlod: float = 0.1, rlod: int = 30):
+    timedIntSeg = []
+
+    radius = timedCircle['radius']
+    timedSeq = timedCircle['centerTimedSeq']
+    length = distEuclideanXY(seg[0], seg[1])['dist']
+
+    t = ts
+    while t < te:
+        snapAnchor = snapInTimedSeq(timedSeq, t)['loc']
+        snapCircle = circleByCenterXY(snapAnchor, radius, rlod)
+
+        # 如果距离足够近，可以相交的情况下，计算相交
+        if (distPt2Seg(pt = snapAnchor, seg = seg) < radius):
+            intSeg = intSeg2Poly(seg = seg, poly = snapCircle)
+            if (intSeg['intersectType'] == 'Segment'):
+                s = (distEuclideanXY(intSeg['intersect'][0], seg[0])['dist']) / length
+                e = (distEuclideanXY(intSeg['intersect'][1], seg[0])['dist']) / length
+                timedIntSeg.append({
+                    'intSeg': intSeg['intersect'], 
+                    'mileage': [s, e],
+                    't': t
+                })
+        t += tlod
+
+    return timedIntSeg
+
+def timedIntSegUnion(timedIntSeg1, timedIntSeg2):
+    return unionTimedIntSeg
+
+def timedIntSegIntersect(timedIntSeg1, timedIntSeg2):
+    return intTimedIntSeg
+
+def timedIntSeq2TimeWindow(timedIntSeq, ts, te, speed):
+    return timeWindows
+
 # Path touring through polygons ===============================================
 def polyPath2MileageDepre(repSeq: list, path: list[pt], nodes: dict):
 

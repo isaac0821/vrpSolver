@@ -767,7 +767,6 @@ def rndArcs(
         if ('maxDeg' not in kwargs):
             kwargs['maxDeg'] = 360
         xRange = None
-
         yRange = None
         if ('xRange' not in kwargs or 'yRange' not in kwargs):
             xRange = [0, 100]
