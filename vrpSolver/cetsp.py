@@ -13,6 +13,7 @@ except:
 
 from .common import *
 from .geometry import *
+from .travel import *
 
 def mileage2BothEndCut(repSeq, mileage: list[dict]):
     # An example ==============================================================
