@@ -250,7 +250,7 @@ def isPtInPoly(pt: pt, poly: poly, interiorOnly: bool=False, error: float = CONS
     else:
         return inPoly
 
-# Point to line-shape =========================================================
+# Object to line-shape ========================================================
 def rayPerp2Line(pt: pt, line: line) -> line:
     """
     Given a point and a line, return a ray from that point and perpendicular to the given line
@@ -286,29 +286,6 @@ def rayPerp2Line(pt: pt, line: line) -> line:
     ray = [pt, intPt['intersect']]
 
     return ray
-
-def ptFoot2Line(pt: pt, line: line) -> pt:
-    """
-    Given a point and a line, return the foot of that point on the line
-
-    Parameters
-    ----------
-    pt: pt, required
-        The point where the foot will go through
-    line: line Required
-        The line which the foot is perpendicular to
-
-    Return
-    ------
-    pt
-        The foot of that point on the line
-
-    """
-    if (isPtOnLine(pt, line)):
-        return tuple(pt)
-    else:
-        ray = rayPerp2Line(pt, line)
-        return ray[1]
 
 # Line-shape intersection =====================================================
 def intLine2Line(line1: line, line2: line) -> dict:
@@ -2153,6 +2130,93 @@ def ptLatLon2XYMercator(ptLatLon: pt) -> pt:
     ptXY = (x, y)
     return ptXY
 
+# Get pt ======================================================================
+def ptFoot2Line(pt: pt, line: line) -> pt:
+    """
+    Given a point and a line, return the foot of that point on the line
+
+    Parameters
+    ----------
+    pt: pt, required
+        The point where the foot will go through
+    line: line Required
+        The line which the foot is perpendicular to
+
+    Return
+    ------
+    pt
+        The foot of that point on the line
+
+    """
+    if (isPtOnLine(pt, line)):
+        return tuple(pt)
+    else:
+        ray = rayPerp2Line(pt, line)
+        return ray[1]
+
+def ptInSeqMileage(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
+    """Given a list of lat/lon coordinates, and a traveling mileage, returns the coordinate"""
+    # Initialize ==============================================================
+    inPathFlag = False
+    accDist = 0
+    preLoc = []
+    nextLoc = []
+    # Find segment ============================================================
+    for i in range(0, len(seq) - 1):
+        if (dimension == 'LatLon'):
+            accDist += distLatLon(seq[i], seq[i + 1])['dist']
+        elif (dimension == 'XY'):
+            accDist += distEuclideanXY(seq[i], seq[i + 1])['dist']
+        if (accDist > dist):
+            preLoc = seq[i]
+            nextLoc = seq[i + 1]
+            inPathFlag = True
+            break
+    if (inPathFlag == False):
+        raise UnsupportedInputError("ERROR: `dist` is longer than the length of `seq`")
+    # Find location on the segment ============================================
+    remainDist = accDist - dist
+    segDist = 0
+    if (dimension == 'LatLon'):
+        segDist = distLatLon(preLoc, nextLoc)['dist']
+    elif (dimension == 'XY'):
+        segDist = distEuclideanXY(preLoc, nextLoc)['dist']
+    if (segDist <= CONST_EPSILON):
+        raise ZeroDivisionError
+    x = nextLoc[0] + (remainDist / segDist) * (preLoc[0] - nextLoc[0])
+    y = nextLoc[1] + (remainDist / segDist) * (preLoc[1] - nextLoc[1])
+    return (x, y)
+
+def ptPolyCenter(poly: poly=None, polyShapely: shapely.Polygon=None) -> pt:
+    """
+    Given a poly, returns the centroid of the poly
+
+    Parameters
+    ----------
+    poly: poly, optional, default as None
+        The polygon
+    polyShapely: shapely.Polygon, optional, default as None
+        The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
+
+    Returns
+    -------
+    pt
+        The centroid
+
+    """
+
+    if (poly == None and polyShapely == None):
+        raise MissingParameterError("ERROR: Missing required field 'poly' or 'polyShapely'.")
+    if (polyShapely == None):
+        polyShapely = shapely.Polygon(poly)
+
+    ptShapely = shapely.centroid(polyShapely)
+    center = (ptShapely.x, ptShapely.y)
+    return center
+
+# Mileage =====================================================================
+def mileagePtInSeq(pt: pt, seq: seq)
+
 # Polys =======================================================================
 def polysUnion(polys:polys=None, polysShapely:list[shapely.Polygon]=None, returnShaplelyObj:bool=False) -> list:
     """
@@ -2552,33 +2616,6 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
 
     return sortedActions
 
-def ptPolyCenter(poly: poly=None, polyShapely: shapely.Polygon=None) -> pt:
-    """
-    Given a poly, returns the centroid of the poly
-
-    Parameters
-    ----------
-    poly: poly, optional, default as None
-        The polygon
-    polyShapely: shapely.Polygon, optional, default as None
-        The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
-
-    Returns
-    -------
-    pt
-        The centroid
-
-    """
-
-    if (poly == None and polyShapely == None):
-        raise MissingParameterError("ERROR: Missing required field 'poly' or 'polyShapely'.")
-    if (polyShapely == None):
-        polyShapely = shapely.Polygon(poly)
-
-    ptShapely = shapely.centroid(polyShapely)
-    center = (ptShapely.x, ptShapely.y)
-    return center
-
 # Visibility check ============================================================
 def polysVisibleGraph(polys:polys) -> dict:
     """
@@ -2934,6 +2971,18 @@ def traceInTimedSeq(timedSeq: list[tuple[pt, float]], ts: float, te: float) -> l
 
     return trace
 
+def locSeq2TimedSeq(seq: list[pt], vehSpd: float, timeEachStop: float = 0, startTime: float = 0):
+    timedSeq = []
+    accTime = startTime
+    for i in range(len(seq) - 1):
+        timedSeq.append((seq[i], accTime))
+        if (timeEachStop > 0):
+            accTime += timeEachStop
+            timedSeq.append((seq[i], accTime))
+        accTime += (distEuclideanXY(seq[i], seq[i + 1])['dist']) / vehSpd
+    timedSeq.append((seq[-1], accTime))
+    return timedSeq
+
 # Loc seq related =============================================================
 def locSeqSortPts(seq: list[pt], pts: list[pt], allowNotIncludeFlag = True) -> list:
     # First, calculate accumulated dist since start for each turning point of locSeq
@@ -3002,39 +3051,6 @@ def locSeqSortNodes(seq: list[pt], nodes: dict, locFieldName: str = 'loc', allow
         'sortedNodeIDs': sortedNodeIDs,
         'notIncludedNodeIDs': notIncludedNodeIDs
     }
-
-def locSeqMileage(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
-    """Given a list of lat/lon coordinates, and a traveling mileage, returns the coordinate"""
-    # Initialize ==============================================================
-    inPathFlag = False
-    accDist = 0
-    preLoc = []
-    nextLoc = []
-    # Find segment ============================================================
-    for i in range(0, len(seq) - 1):
-        if (dimension == 'LatLon'):
-            accDist += distLatLon(seq[i], seq[i + 1])['dist']
-        elif (dimension == 'XY'):
-            accDist += distEuclideanXY(seq[i], seq[i + 1])['dist']
-        if (accDist > dist):
-            preLoc = seq[i]
-            nextLoc = seq[i + 1]
-            inPathFlag = True
-            break
-    if (inPathFlag == False):
-        raise UnsupportedInputError("ERROR: `dist` is longer than the length of `seq`")
-    # Find location on the segment ============================================
-    remainDist = accDist - dist
-    segDist = 0
-    if (dimension == 'LatLon'):
-        segDist = distLatLon(preLoc, nextLoc)['dist']
-    elif (dimension == 'XY'):
-        segDist = distEuclideanXY(preLoc, nextLoc)['dist']
-    if (segDist <= CONST_EPSILON):
-        raise ZeroDivisionError
-    x = nextLoc[0] + (remainDist / segDist) * (preLoc[0] - nextLoc[0])
-    y = nextLoc[1] + (remainDist / segDist) * (preLoc[1] - nextLoc[1])
-    return (x, y)
 
 # Area calculation ============================================================
 def calTriangleAreaEdge(a: float, b: float, c: float) -> float:
@@ -3689,267 +3705,7 @@ def _distOnGridAStar(column, row, barriers, pt1, pt2, distMeasure):
         'path': path
     }
 
-# Segment int moving poly =====================================================
-def segIntTimedCircle(seg: line, timedCircle: dict, ts: float = 0, te = None, tlod: float = 0.1, rlod: int = 30):
-    timedIntSeg = []
-
-    radius = timedCircle['radius']
-    timedSeq = timedCircle['centerTimedSeq']
-    length = distEuclideanXY(seg[0], seg[1])['dist']
-
-    t = ts
-    while t < te:
-        snapAnchor = snapInTimedSeq(timedSeq, t)['loc']
-        snapCircle = circleByCenterXY(snapAnchor, radius, rlod)
-
-        # 如果距离足够近，可以相交的情况下，计算相交
-        if (distPt2Seg(pt = snapAnchor, seg = seg) < radius):
-            intSeg = intSeg2Poly(seg = seg, poly = snapCircle)
-            if (intSeg['intersectType'] == 'Segment'):
-                s = (distEuclideanXY(intSeg['intersect'][0], seg[0])['dist']) / length
-                e = (distEuclideanXY(intSeg['intersect'][1], seg[0])['dist']) / length
-                timedIntSeg.append({
-                    'intSeg': intSeg['intersect'], 
-                    'mileage': [s, e],
-                    't': t
-                })
-        t += tlod
-
-    return timedIntSeg
-
-def timedIntSegUnion(timedIntSeg1, timedIntSeg2):
-    return unionTimedIntSeg
-
-def timedIntSegIntersect(timedIntSeg1, timedIntSeg2):
-    return intTimedIntSeg
-
-def timedIntSeq2TimeWindow(timedIntSeq, ts, te, speed):
-    return timeWindows
-
 # Path touring through polygons ===============================================
-def polyPath2MileageDepre(repSeq: list, path: list[pt], nodes: dict):
-
-    # NOTE: 根据p2pPath，得到足够多的子问题信息以生成cut
-    # Step 1: 先把转折点找出来
-    # NOTE: error取值不能太小，因为用的是30边形拟合的圆 + poly2Poly，导致误差其实还蛮大的
-    degenPath = locSeqRemoveDegen(path, error = 0.01)
-
-    # Step 2: 按照转折点，找到路径与每个poly的合法相交部分
-    mileage = []
-    lastTurnPt = path[0]
-    turnPtMileageAcc = 0
-    for i in range(len(degenPath['removedFlag'])):
-        # 接下来分情况讨论：
-        # NOTE: 单独/重合 => 在该坐标上有一个解还是多个解
-        # NOTE: 转折/穿透 => path访问该poly的时候是相切还是相交
-        # Case 1: 单独转折点
-        # Case 2: 重合转折点
-        # Case 3: 单独穿透点
-        # Case 4: 重合穿透点
-        aggNode = degenPath['aggNodeList'][i]
-
-        # 转折点的情形
-        if (degenPath['removedFlag'][i] == False):
-            # 先得到当前转折点的坐标
-            curLoc = None
-            distAdd2Acc = None
-            
-            # Case 1: 单独转折点
-            # NOTE: 生成一个Touch的Single点，该点的mileage为lastTurnPt到该点的距离
-            if (len(aggNode) == 1):
-                turnNode = aggNode[0]
-                curLoc = path[turnNode]
-                distAdd2Acc = distEuclideanXY(lastTurnPt, curLoc)['dist']
-                mileage.append({
-                    'polyID': repSeq[turnNode],
-                    'type': 'Touch',
-                    'intersect': curLoc,
-                    'mileage': turnPtMileageAcc + distAdd2Acc
-                })
-            
-            # Case 2: 重合转折点
-            # NOTE: 这种情况下，要区分每个重合在此处的转折点与neighborhood是相交还是相切
-            # NOTE: 对于相交的，返回mileage的范围，对于相切的，则视作转折点
-            # NOTE: 注意，至少一个是转折点
-            else:
-                curLoc = path[aggNode[0]]
-                distAdd2Acc = distEuclideanXY(lastTurnPt, curLoc)['dist']
-                # 重合转折点中的相切的点的集合
-                tangNodes = []
-                for k in aggNode:
-                    # 来判断是相交还是相切
-                    inclNode = k
-                    neiIntSeg = intSeg2Poly(
-                        [lastTurnPt, curLoc], 
-                        nodes[repSeq[inclNode]]['neighbor'])
-                    # 如果是相交，则处理成穿透点
-                    if (neiIntSeg['intersectType'] == 'Segment'):
-                        intSeg = neiIntSeg['intersect']
-                        loc1 = intSeg[0]
-                        loc2 = intSeg[1]
-                        dist1 = distEuclideanXY(loc1, lastTurnPt)['dist']
-                        dist2 = distEuclideanXY(loc2, lastTurnPt)['dist']
-                        # 相交实际上是相切的数值问题
-                        if (abs(dist1 - dist2) < 0.001):
-                            tangNodes.append(k)
-                        elif (dist1 < dist2):
-                            mileage.append({
-                                'polyID': repSeq[inclNode],
-                                'type': 'Intersect',
-                                'intersect': [loc1, loc2],
-                                'mileage': [turnPtMileageAcc + dist1, turnPtMileageAcc + dist2]
-                            })
-                        else:
-                            mileage.append({
-                                'polyID': repSeq[inclNode],
-                                'type': 'Intersect',
-                                'intersect': [loc2, loc1],
-                                'mileage': [turnPtMileageAcc + dist2, turnPtMileageAcc + dist1]
-                            })
-                    else:
-                        tangNodes.append(k)
-
-                if (len(tangNodes) == 1):
-                    mileage.append({
-                        'polyID': repSeq[tangNodes[0]],
-                        'type': 'Touch',
-                        'intersect': curLoc,
-                        'mileage': turnPtMileageAcc + distAdd2Acc
-                    })
-                else:
-                    mileage.append({
-                        'polyID': [repSeq[k] for k in tangNodes],
-                        'type': 'Touch',
-                        'intersect': curLoc,
-                        'mileage': turnPtMileageAcc + distAdd2Acc
-                    })
-
-            # 转折点的话更新一下lastTurnPt，因为现在是最后一个转折点了
-            # NOTE: 不是转折点就不用更新
-            lastTurnPt = curLoc
-            turnPtMileageAcc += distAdd2Acc
-        
-        # 穿透点的情形
-        else:
-            # Case 3: 单独穿透点
-            if (len(aggNode) == 1):
-                # 穿透点所在的线段
-                inclNode = aggNode[0]
-                neiIntSeg = intSeg2Poly(
-                    degenPath['locatedSeg'][i], 
-                    nodes[repSeq[inclNode]]['neighbor'])
-                
-                # Case 3.1: 最正常的情况，path穿过poly，相交为一个线段
-                if (neiIntSeg['intersectType'] == 'Segment'):
-                    intSeg = neiIntSeg['intersect']
-                    loc1 = intSeg[0]
-                    loc2 = intSeg[1]
-                    dist1 = distEuclideanXY(loc1, lastTurnPt)['dist']
-                    dist2 = distEuclideanXY(loc2, lastTurnPt)['dist']
-                    if (dist1 < dist2):
-                        mileage.append({
-                            'polyID': repSeq[inclNode],
-                            'type': 'Intersect',
-                            'intersect': [loc1, loc2],
-                            'mileage': [turnPtMileageAcc + dist1, turnPtMileageAcc + dist2]
-                        })
-                    else:
-                        mileage.append({
-                            'polyID': repSeq[inclNode],
-                            'type': 'Intersect',
-                            'intersect': [loc2, loc1],
-                            'mileage': [turnPtMileageAcc + dist2, turnPtMileageAcc + dist1]
-                        })
-
-                # Case 3.2: 特殊情况下，如果穿透点+单独点为neighbor的切点，此时把穿透点处理成转折点
-                elif (neiIntSeg['intersectType'] == 'Point'):
-                    tangLoc = neiIntSeg['intersect']
-                    dist = distEuclideanXY(tangLoc, lastTurnPt)['dist']
-                    mileage.append({
-                        'polyID': repSeq[inclNode],
-                        'type': 'Touch',
-                        'intersect': tangLoc,
-                        'mileage': turnPtMileageAcc + dist,
-                        'info': 'Tangent'
-                    })
-                    lastTurnPt = tangLoc
-                    turnPtMileageAcc += dist
-                
-                # Case 3.No: 正常情况下这个分支不应该存在，但是实际上因为精度的问题就是会出现
-                # NOTE: 处理成相切点，相切处为线段上离poly最近点
-                else:
-                    tangLoc = nearestPtLine2Poly(
-                        degenPath['locatedSeg'][i], 
-                        nodes[repSeq[inclNode]]['neighbor'])['ptOnLine']
-                    dist = distEuclideanXY(tangLoc, lastTurnPt)['dist']
-                    mileage.append({
-                        'polyID': repSeq[inclNode],
-                        'type': 'Touch',
-                        'intersect': tangLoc,
-                        'mileage': turnPtMileageAcc + dist,
-                        'info': 'TangentError'
-                    })
-                    lastTurnPt = tangLoc
-                    turnPtMileageAcc += dist
-                    warnings.warn("WARNING: Numerical issue when calculating mileage.")
-            
-            # Case 4: 重合穿透点
-            # FIXME: 这部分代码要好好走查一下
-            # NOTE: 这个情况很复杂，如果存在至少一个相切的情况，那么该点实际上是转折点，且是多重转折点
-            # NOTE: 需要挨个确认是否是相切点，如果是相切点，按相切点处理（聚合在一起），如果不是相切点，依次计算mileage
-            else:
-                tangFlag = False
-                tangLoc = None
-                neiIntSet = []
-
-                for k in degenPath['aggNodeList'][i]:
-                    # 穿透点所在的线段
-                    neiInt = intSeg2Poly(
-                        degenPath['locatedSeg'][i], 
-                        nodes[repSeq[k]]['neighbor'])
-                    neiIntSet.append((repSeq[k], neiInt))
-                    if (neiInt['intersectType'] == 'Point'):
-                        tangFlag = True
-                        # 虽然一直在更新，但是理论上应该是同一个点
-                        tangLoc = neiInt['intersect']
-
-                if (tangFlag == False):
-                    for intSeg in neiIntSet:
-                        loc1 = intSeg[1]['intersect'][0]
-                        loc2 = intSeg[1]['intersect'][1]
-                        dist1 = distEuclideanXY(loc1, lastTurnPt)['dist']
-                        dist2 = distEuclideanXY(loc2, lastTurnPt)['dist']
-                        if (dist1 < dist2):
-                            mileage.append({
-                                'polyID': intSeg[0],
-                                'type': 'Intersect',
-                                'intersect': [loc1, loc2],
-                                'mileage': [turnPtMileageAcc + dist1, turnPtMileageAcc + dist2]
-                            })
-                        else:
-                            mileage.append({
-                                'polyID': intSeg[0],
-                                'type': 'Intersect',
-                                'intersect': [loc2, loc1],
-                                'mileage': [turnPtMileageAcc + dist2, turnPtMileageAcc + dist1]
-                            })
-
-                # Case 4.1: 特殊情况下，如果穿透点+重合点为neighbor的切点，此时把穿透点处理成转折点
-                # NOTE: 这个目前很罕见，但是应该也可以生成对应的算例
-                else:
-                    dist = distEuclideanXY(tangLoc, lastTurnPt)['dist']
-                    mileage.append({
-                        'polyID': [repSeq[k] for k in degenPath['aggNodeList'][i]],
-                        'type': 'Touch',
-                        'intersect': tangLoc,
-                        'mileage': turnPtMileageAcc + dist,
-                        'info': 'Tangent'
-                    })
-                    lastTurnPt = tangLoc
-                    turnPtMileageAcc += dist
-    
-    return mileage
-
 def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
     """
     Given a sequence of points, returns a subset of points that only includes turning points of the sequence. If there are multiple points overlapped at the same location, keeps one of those points.
@@ -4093,760 +3849,3 @@ def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
         'locatedSeg': locatedSeg
     }
 
-# obj2ObjPath =================================================================
-def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, algo: str = 'SOCP', **kwargs):
-    
-    """Given a starting point, a list of polys, and an ending point, returns a shortest route that starts from startPt, visits every polys in given order, and returns to the ending point.
-
-    Parameters
-    ----------
-    startPt: pt, required, default None
-        The coordinate which starts the path.
-    endPt: pt, required, default None
-        The coordinate which ends the path.
-    polys: polys, required
-        A list of polys to be visited in given sequence
-    algo: str, optional, default as 'SOCP'
-        Select the algorithm for calculating the shortest path. Options and required additional inputs are as follows:
-            
-        1) (default) 'SOCP', use Second-order Cone Programing method.
-            - solver: str, optional, now only supports 'Gurobi'
-            - timeLimit: int|float, additional stopping criteria
-            - gapTolerance: int|float, additional stopping criteria
-            - outputFlag: bool, True if turn on the log output from solver. Default to be False
-        2) 'AdaptIter', use adapt iteration algorithm
-            - errorTol: float, optional, error tolerance
-    **kwargs: optional
-        Provide additional inputs for different `edges` options and `algo` options
-
-    Returns
-    -------
-    dict
-        Two fields in the dictionary, 'dist' indicates the distance of the path, 'path' indicates the travel path.
-    """
-
-    # Sanity check ============================================================
-    if (method == None):
-        raise MissingParameterError("ERROR: Missing required field `method`.")
-
-    if (algo == 'AdaptIter'):
-        errTol = CONST_EPSILON
-        if ('errTol' in kwargs):
-            errTol = kwargs['errTol']
-        res = _poly2PolyPathAdaptIter(startPt, endPt, polys, errTol)
-    elif (algo == 'SOCP'):
-        outputFlag = False
-        if ('outputFlag' in kwargs):
-            outputFlag = kwargs['outputFlag']
-        gapTol = None
-        if ('gapTol' in kwargs):
-            gapTol = kwargs['gapTol']
-        timeLimit = None
-        if ('timeLimit' in kwargs):
-            timeLimit = kwargs['timeLimit']
-        res = _poly2PolyPathGurobi(startPt, endPt, polys, outputFlag, gapTol, timeLimit)
-    else:
-        raise UnsupportedInputError("ERROR: Not support by vrpSolver for now.")
-
-    return {
-        'path': res['path'],
-        'dist': res['dist']
-    }
-
-def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, errTol = CONST_EPSILON):
-
-    """Given a list of points, each belongs to a neighborhood of a node, find the shortest path between each steps
-
-    Parameters
-    ----------
-
-    polys: list of polygons, required
-        A list of polygons to be visited
-    solver: string, optional, default AVAIL_SOLVER
-        The commercial solver used to solve the minimum cost flow problem
-
-    """
-
-    # First, create a ring, to help keying each extreme points of polygons
-    tau = {}
-
-    # Initialize
-    G = nx.Graph()
-    polyRings = []
-
-    for poly in polys:
-        polyRing = Ring()
-        for i in range(len(poly)):
-            polyRing.append(RingNode(i, poly[i]))
-        polyRings.append(polyRing)
-
-    # startPt to the first polygon
-    cur = polyRings[0].head
-    while (True):
-        d = distEuclideanXY(startPt, cur.value)['dist']
-        tau['s', (0, cur.key)] = d
-        G.add_edge('s', (0, cur.key), weight = d)
-        cur = cur.next
-        if (cur.key == polyRings[0].head.key):
-            break
-
-    # If more than one polygon btw startPt and endPt
-    for i in range(len(polys) - 1):
-        curI = polyRings[i].head
-        while (True):
-            curJ = polyRings[i + 1].head
-            while (True):
-                d = distEuclideanXY(curI.value, curJ.value)['dist']
-                tau[(i, curI.key), (i + 1, curJ.key)] = d
-                G.add_edge((i, curI.key), (i + 1, curJ.key), weight = d)
-                curJ = curJ.next
-                if (curJ.key == polyRings[i + 1].head.key):
-                    break
-            curI = curI.next
-            if (curI.key == polyRings[i].head.key):
-                break
-
-    # last polygon to endPt
-    cur = polyRings[-1].head
-    while (True):
-        d = distEuclideanXY(cur.value, endPt)['dist']
-        tau[(len(polys) - 1, cur.key), 'e'] = d
-        G.add_edge((len(polys) - 1, cur.key), 'e', weight = d)
-        cur = cur.next
-        if (cur.key == polyRings[len(polys) - 1].head.key):
-            break
-
-    sp = nx.dijkstra_path(G, 's', 'e')
-
-    dist = distEuclideanXY(startPt, polyRings[sp[1][0]].query(sp[1][1]).value)['dist']
-    for i in range(1, len(sp) - 2):
-        dist += tau[(sp[i][0], sp[i][1]), (sp[i + 1][0], sp[i + 1][1])]
-    dist += distEuclideanXY(polyRings[sp[-2][0]].query(sp[-2][1]).value, endPt)['dist']
-    
-    # Find detailed location
-    refineFlag = True
-    iterNum = 0
-    while (refineFlag):
-        for i in range(1, len(sp) - 1):
-            # Find current shortest intersecting point
-            polyIdx = sp[i][0]
-            exPtIdx = sp[i][1]
-
-            # Insert two new points before and after this point
-            p = polyRings[polyIdx].query(exPtIdx)
-            pPrev = p.prev
-            pNext = p.next
-
-            pPrevMidLoc = [(pPrev.value[0] + (p.value[0] - pPrev.value[0]) / 2), (pPrev.value[1] + (p.value[1] - pPrev.value[1]) / 2)]
-            pPrevMid = RingNode(polyRings[polyIdx].count, pPrevMidLoc)
-            pNextMidLoc = [(p.value[0] + (pNext.value[0] - p.value[0]) / 2), (p.value[1] + (pNext.value[1] - p.value[1]) / 2)]
-            pNextMid = RingNode(polyRings[polyIdx].count + 1, pNextMidLoc)
-
-            polyRings[polyIdx].insert(p, pNextMid)
-            polyRings[polyIdx].insert(pPrev, pPrevMid)
-
-        # Simplify the graph
-        G = nx.Graph()
-
-        # New start
-        startPolyPt = polyRings[sp[1][0]].query(sp[1][1])
-        startNearPt = [startPolyPt.prev.prev, startPolyPt.prev, startPolyPt, startPolyPt.next, startPolyPt.next.next]
-        for p in startNearPt:
-            d = distEuclideanXY(startPt, p.value)['dist']
-            G.add_edge('s', (0, p.key), weight = d)
-
-        # In between
-        for i in range(1, len(sp) - 2):
-            polyIdx = sp[i][0]
-            polyNextIdx = sp[i + 1][0]
-            exPtIdx = sp[i][1]
-            exPtNextIdx = sp[i + 1][1]
-
-            ptI = polyRings[polyIdx].query(exPtIdx)
-            ptNearI = [ptI.prev.prev, ptI.prev, ptI, ptI.next, ptI.next.next]
-            ptJ = polyRings[polyNextIdx].query(exPtNextIdx)
-            ptNearJ = [ptJ.prev.prev, ptJ.prev, ptJ, ptJ.next, ptJ.next.next]
-            for kI in ptNearI:
-                for kJ in ptNearJ:
-                    d = None
-                    if (((polyIdx, kI.key), (polyNextIdx, kJ.key)) in tau):
-                        d = tau[((polyIdx, kI.key), (polyNextIdx, kJ.key))]
-                    else:
-                        d = distEuclideanXY(kI.value, kJ.value)['dist']
-                        tau[((polyIdx, kI.key), (polyNextIdx, kJ.key))] = d
-                    G.add_edge((polyIdx, kI.key), (polyNextIdx, kJ.key), weight = d)
-
-        # New end
-        endPolyPt = polyRings[sp[-2][0]].query(sp[-2][1])
-        endNearPt = [endPolyPt.prev.prev, endPolyPt.prev, endPolyPt, endPolyPt.next, endPolyPt.next.next]
-        for p in endNearPt:
-            d = distEuclideanXY(p.value, endPt)['dist']
-            G.add_edge((len(polys) - 1, p.key), 'e', weight = d)
-
-        sp = nx.dijkstra_path(G, 's', 'e')
-
-        newDist = distEuclideanXY(startPt, polyRings[sp[1][0]].query(sp[1][1]).value)['dist']
-        for i in range(1, len(sp) - 2):
-            newDist += tau[(sp[i][0], sp[i][1]), (sp[i + 1][0], sp[i + 1][1])]
-        newDist += distEuclideanXY(polyRings[sp[-2][0]].query(sp[-2][1]).value, endPt)['dist']
-
-        if (abs(newDist - dist) <= errTol):
-            refineFlag = False
-
-        dist = newDist
-
-    path = [startPt]
-    for p in sp:
-        if (p != 's' and p != 'e'):
-            path.append(polyRings[p[0]].query(p[1]).value)
-    path.append(endPt)
-
-    return {
-        'path': path,
-        'dist': dist
-    }
-
-def _poly2PolyPathGurobi(startPt: pt, endPt: pt, polys: polys,  outputFlag = False, gapTol = None, timeLimit = None):
-    return _seg2SegPathGurobi(
-        startPt = startPt, 
-        endPt = endPt, 
-        segs = polys, 
-        closedFlag = True, 
-        outputFlag = outputFlag, 
-        gapTol = gapTol, 
-        timeLimit = timeLimit)
-
-def _seg2SegPathGurobi(startPt: pt, endPt: pt, segs, closedFlag = False, outputFlag = False, gapTol = None, timeLimit = None):
-    try:
-        import gurobipy as grb
-    except(ImportError):
-        raise ImportError("ERROR: Cannot find Gurobi")
-        return
-
-    model = grb.Model("SOCP")
-    model.setParam('OutputFlag', 0 if outputFlag == False else 1)
-
-    if (gapTol != None):
-        model.setParam('MIPGap', gapTol)
-    if (timeLimit != None):
-        model.setParam(grb.GRB.Param.TimeLimit, timeLimit)
-
-    # Parameters ==============================================================
-    if (lbX == None or lbY == None or ubX == None or ubY == None):
-        allX = [startPt[0], endPt[0]]
-        allY = [startPt[1], endPt[1]]
-        for i in range(len(segs)):
-            for j in range(len(segs[i])):
-                allX.append(segs[i][j][0])
-                allY.append(segs[i][j][1])
-        lbX = min(allX) - 1
-        lbY = min(allY) - 1
-        ubX = max(allX) + 1
-        ubY = max(allY) + 1
-
-    # close seg flag ==========================================================
-    if (closedFlag):
-        for seg in segs:
-            seg.append(seg[0])
-
-    # Decision variables ======================================================
-    # (xi, yi) 为第i个seg上的坐标
-    # index = 1, 2, ..., len(segs)
-    x = {}
-    y = {}
-    for i in range(1, len(segs) + 1):
-        x[i] = model.addVar(vtype=grb.GRB.CONTINUOUS, name = "x_%s" % i, lb=lbX, ub=ubX)
-        y[i] = model.addVar(vtype=grb.GRB.CONTINUOUS, name = "y_%s" % i, lb=lbY, ub=ubY)
-
-    # e[i, j] 为binary，表示(xi, yi)处于第i个seg上的第j段
-    # index i = 1, 2, ..., len(segs)
-    # index j = 1, ..., len(segs[i]) - 1
-    # lam[i, j] 为[0, 1]之间的值，表示第i段是处于对应e[i, j]上的位置，若e[i, j] = 0，则lam[i, j] = 0
-    e = {}
-    lam = {}    
-    for i in range(1, len(segs) + 1):
-        for j in range(1, len(segs[i - 1])):
-            e[i, j] = model.addVar(vtype=grb.GRB.BINARY, name="e_%s_%s" % (i, j))
-            lam[i, j] = model.addVar(vtype=grb.GRB.CONTINUOUS, name="lam_%s_%s" % (i, j))
-
-    # d[i] 为第i个到第i+1个坐标的距离, dx[i], dy[i] 为对应辅助变量
-    # Distance from ((xi, yi)) to (x[i + 1], y[i + 1]), 
-    # where startPt = (x[0], y[0]) and endPt = (x[len(circles) + 1], y[len(circles) + 1])
-    d = {}
-    for i in range(len(segs) + 1):
-        d[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'd_%s' % i)
-    model.setObjective(grb.quicksum(d[i] for i in range(len(segs) + 1)), grb.GRB.MINIMIZE)
-
-    # Aux vars - distance between (x, y)
-    dx = {}
-    dy = {}
-    for i in range(len(segs) + 1):
-        dx[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'dx_%s' % i, lb = -float('inf'), ub = float('inf'))
-        dy[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'dy_%s' % i, lb = -float('inf'), ub = float('inf'))
-
-    # Constraints =============================================================
-    # (xi, yi)必须在其中一段上
-    for i in range(1, len(segs) + 1):
-        model.addConstr(grb.quicksum(e[i, j] for j in range(1, len(segs[i - 1]))) == 1)
-
-    # 具体(xi, yi)的位置，lam[i, j]在e[i, j] = 0的段上不激活
-    for i in range(1, len(segs) + 1):
-        model.addConstr(x[i] == grb.quicksum(
-            e[i, j] * segs[i - 1][j - 1][0] + lam[i, j] * (segs[i - 1][j][0] - segs[i - 1][j - 1][0])
-            for j in range(1, len(segs[i - 1]))))
-        model.addConstr(y[i] == grb.quicksum(
-            e[i, j] * segs[i - 1][j - 1][1] + lam[i, j] * (segs[i - 1][j][1] - segs[i - 1][j - 1][1])
-            for j in range(1, len(segs[i - 1]))))
-    for i in range(1, len(segs) + 1):
-        for j in range(1, len(segs[i - 1])):
-            model.addConstr(lam[i, j] <= e[i, j])
-
-    # Aux constr - dx dy
-    model.addConstr(dx[0] == x[1] - startPt[0])
-    model.addConstr(dy[0] == y[1] - startPt[1])
-    for i in range(1, len(segs)):
-        model.addConstr(dx[i] == x[i] - x[i + 1])
-        model.addConstr(dy[i] == y[i] - y[i + 1])
-    model.addConstr(dx[len(segs)] == endPt[0] - x[len(segs)])
-    model.addConstr(dy[len(segs)] == endPt[1] - y[len(segs)])
-
-    # Distance btw visits
-    for i in range(len(segs) + 1):
-        model.addQConstr(d[i] ** 2 >= dx[i] ** 2 + dy[i] ** 2)
-
-    # model.write("SOCP.lp")
-    model.optimize()
-
-    # close seg flag ==========================================================
-    if (closedFlag):
-        for seg in segs:
-            del seg[-1]
-
-    # Post-processing =========================================================
-    ofv = None
-    path = [startPt]
-    if (model.status == grb.GRB.status.OPTIMAL):
-        solType = 'IP_Optimal'
-        ofv = model.getObjective().getValue()
-        for i in x:
-            path.append((x[i].x, y[i].x))
-        path.append(endPt)
-        gap = 0
-        lb = ofv
-        ub = ofv
-        runtime = model.Runtime
-    elif (model.status == grb.GRB.status.TIME_LIMIT):
-        solType = 'IP_TimeLimit'
-        ofv = model.ObjVal
-        for i in x:
-            path.append((x[i].x, y[i].x))
-        path.append(endPt)
-        gap = model.MIPGap
-        lb = model.ObjBoundC
-        ub = model.ObjVal
-        runtime = model.Runtime
-    return {
-        'path': path,
-        'dist': ofv,
-        'runtime': runtime
-    }
-
-def circle2CirclePath(startPt: pt, endPt: pt, circles: list[dict], algo: str = 'SOCP', **kwargs):
-    
-    """Given a starting point, a list of circles, and an ending point, returns a shortest route that starts from startPt, visits every polys in given order, and returns to the ending point.
-
-    Parameters
-    ----------
-    startPt: pt, required, default None
-        The coordinate which starts the path.
-    endPt: pt, required, default None
-        The coordinate which ends the path.
-    circles: dict, required
-        A list of circles modeled by dictionaries to be visited in given sequence. Each circle is dictionary with two fields: 'radius' and 'center'.
-    algo: str, optional, default as 'SOCP'
-        Select the algorithm for calculating the shortest path. Options and required additional inputs are as follows:
-            
-        1) (default) 'SOCP', use Second-order Cone Programing method.
-            - solver: str, optional, now supports 'Gurobi' and 'COPT'
-            - timeLimit: int|float, additional stopping criteria
-            - gapTolerance: int|float, additional stopping criteria
-            - outputFlag: bool, True if turn on the log output from solver. Default to be False
-    **kwargs: optional
-        Provide additional inputs for different `edges` options and `algo` options
-
-    Returns
-    -------
-    dict
-        Two fields in the dictionary, 'dist' indicates the distance of the path, 'path' indicates the travel path.
-    """
-
-    # Sanity check ============================================================
-    if (algo == None):
-        raise MissingParameterError("ERROR: Missing required field `algo`.")
-
-    if (algo == 'SOCP'):
-        if ('solver' not in kwargs or kwargs['solver'] == 'Gurobi'):
-            outputFlag = False
-            if ('outputFlag' in kwargs):
-                outputFlag = kwargs['outputFlag']
-            res = _circle2CirclePathGurobi(startPt, endPt, circles, outputFlag)
-        elif (kwargs['solver'] == 'COPT'):
-            outputFlag = False
-            if ('outputFlag' in kwargs):
-                outputFlag = kwargs['outputFlag']
-            res = _circle2CirclePathCOPT(startPt, endPt, circles, outputFlag)
-    else:
-        raise UnsupportedInputError("ERROR: Not support by vrpSolver for now.")
-
-    return {
-        'path': res['path'],
-        'dist': res['dist']
-    }
-
-def _circle2CirclePathGurobi(startPt: pt, endPt: pt, circles: list[dict], outputFlag: bool = False):
-    try:
-        import gurobipy as grb
-    except(ImportError):
-        print("ERROR: Cannot find Gurobi")
-        return
-
-    model = grb.Model("SOCP")
-    model.setParam('OutputFlag', 1 if outputFlag else 0)
-
-    # Parameters ==============================================================
-    # anchor starts from startPt, in between are a list of circles, ends with endPt
-    anchor = [startPt]
-    for i in range(len(circles)):
-        anchor.append(circles[i]['center'])
-    anchor.append(endPt)
-
-    allX = [startPt[0], endPt[0]]
-    allY = [startPt[1], endPt[1]]
-    for i in range(len(circles)):
-        allX.append(circles[i]['center'][0] - circles[i]['radius'])
-        allX.append(circles[i]['center'][0] + circles[i]['radius'])
-        allY.append(circles[i]['center'][1] - circles[i]['radius'])
-        allY.append(circles[i]['center'][1] + circles[i]['radius'])
-    lbX = min(allX) - 1
-    lbY = min(allY) - 1
-    ubX = max(allX) + 1
-    ubY = max(allY) + 1
-
-    # Decision variables ======================================================
-    # NOTE: x, y index starts by 1
-    x = {}
-    y = {}
-    for i in range(1, len(circles) + 1):
-        x[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "x_%s" % i, lb = lbX, ub = ubX)
-        y[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "y_%s" % i, lb = lbY, ub = ubY)
-    # Distance from ((xi, yi)) to (x[i + 1], y[i + 1]), 
-    # where startPt = (x[0], y[0]) and endPt = (x[len(circles) + 1], y[len(circles) + 1])
-    d = {}
-    for i in range(len(circles) + 1):
-        d[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'd_%s' % i)
-    model.setObjective(grb.quicksum(d[i] for i in range(len(circles) + 1)), grb.GRB.MINIMIZE)
-
-    # Aux vars - distance between (x, y)
-    dx = {}
-    dy = {}
-    for i in range(len(circles) + 1):
-        dx[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'dx_%s' % i, lb = -float('inf'), ub = float('inf'))
-        dy[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'dy_%s' % i, lb = -float('inf'), ub = float('inf'))
-    # Aux vars - distance from (x, y) to the center
-    rx = {}
-    ry = {}
-    for i in range(1, len(circles) + 1):
-        rx[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'rx_%s' % i, lb = -float('inf'), ub = float('inf'))
-        ry[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'ry_%s' % i, lb = -float('inf'), ub = float('inf'))
-
-    # Constraints =============================================================
-    # Aux constr - dx dy
-    model.addConstr(dx[0] == x[1] - anchor[0][0])
-    model.addConstr(dy[0] == y[1] - anchor[0][1])
-    for i in range(1, len(circles)):
-        model.addConstr(dx[i] == x[i + 1] - x[i])
-        model.addConstr(dy[i] == y[i + 1] - y[i])
-    model.addConstr(dx[len(circles)] == anchor[-1][0] - x[len(circles)])
-    model.addConstr(dy[len(circles)] == anchor[-1][1] - y[len(circles)])
-
-    # Aux constr - rx ry
-    for i in range(1, len(circles) + 1):
-        model.addConstr(rx[i] == x[i] - anchor[i][0])
-        model.addConstr(ry[i] == y[i] - anchor[i][1])
-
-    # Distance btw visits
-    for i in range(len(circles) + 1):
-        model.addQConstr(d[i] ** 2 >= dx[i] ** 2 + dy[i] ** 2)
-        # model.addQConstr(dx[i] ** 2 + dy[i] ** 2 >= 0.1)
-
-    for i in range(1, len(circles) + 1):
-        model.addQConstr(rx[i] ** 2 + ry[i] ** 2 <= circles[i - 1]['radius'] ** 2)
-
-    model.modelSense = grb.GRB.MINIMIZE
-    # model.write("SOCP.lp")
-    model.optimize()
-
-    # Post-processing =========================================================
-    ofv = None
-    path = [startPt]
-    if (model.status == grb.GRB.status.OPTIMAL):
-        solType = 'IP_Optimal'
-        ofv = model.getObjective().getValue()
-        for i in x:
-            path.append((x[i].x, y[i].x))
-        path.append(endPt)
-        gap = 0
-        lb = ofv
-        ub = ofv
-    elif (model.status == grb.GRB.status.TIME_LIMIT):
-        solType = 'IP_TimeLimit'
-        ofv = model.ObjVal
-        for i in x:
-            path.append((x[i].x, y[i].x))
-        path.append(endPt)
-        gap = model.MIPGap
-        lb = model.ObjBoundC
-        ub = model.ObjVal
-    return {
-        'path': path,
-        'dist': ofv,
-        'runtime': model.Runtime
-    }
- 
-def _circle2CirclePathCOPT(startPt: pt, endPt: pt, circles: dict, outputFlag: bool = False):
-    env = None
-    try:
-        import coptpy as cp
-        envconfig = cp.EnvrConfig()
-        envconfig.set('nobanner', '1')
-        AVAIL_SOLVER = 'COPT'
-        if (env == None):
-            env = cp.Envr(envconfig)
-    except(ImportError):
-        print("ERROR: Cannot find COPT")
-        return
-
-    model = env.createModel("SOCP")
-    model.setParam(cp.COPT.Param.Logging, 1 if outputFlag else 0)
-    model.setParam(cp.COPT.Param.LogToConsole, 1 if outputFlag else 0)
-
-    # Decision variables ======================================================
-    # anchor starts from startPt, in between are a list of circles, ends with endPt
-    anchor = [startPt]
-    for i in range(len(circles)):
-        anchor.append(circles[i]['center'])
-    anchor.append(endPt)
-
-    allX = [startPt[0], endPt[0]]
-    allY = [startPt[1], endPt[1]]
-    for i in range(len(circles)):
-        allX.append(circles[i]['center'][0] - circles[i]['radius'])
-        allX.append(circles[i]['center'][0] + circles[i]['radius'])
-        allY.append(circles[i]['center'][1] - circles[i]['radius'])
-        allY.append(circles[i]['center'][1] + circles[i]['radius'])
-    lbX = min(allX) - 1
-    lbY = min(allY) - 1
-    ubX = max(allX) + 1
-    ubY = max(allY) + 1
-
-    # Decision variables ======================================================
-    # NOTE: x, y index starts by 1
-    x = {}
-    y = {}
-    for i in range(1, len(circles) + 1):
-        x[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = "x_%s" % i, lb = lbX, ub = ubX)
-        y[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = "y_%s" % i, lb = lbY, ub = ubY)
-    # Distance from ((xi, yi)) to (x[i + 1], y[i + 1]), 
-    # where startPt = (x[0], y[0]) and endPt = (x[len(circles) + 1], y[len(circles) + 1])
-    d = {}
-    for i in range(len(circles) + 1):
-        d[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'd_%s' % i)
-    # Aux vars - distance between (x, y)
-    dx = {}
-    dy = {}
-    for i in range(len(circles) + 1):
-        dx[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'dx_%s' % i, lb = -float('inf'), ub = float('inf'))
-        dy[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'dy_%s' % i, lb = -float('inf'), ub = float('inf'))
-    # Aux vars - distance from (x, y) to the center
-    rx = {}
-    ry = {}
-    for i in range(1, len(circles) + 1):
-        rx[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'rx_%s' % i, lb = -float('inf'), ub = float('inf'))
-        ry[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'ry_%s' % i, lb = -float('inf'), ub = float('inf'))
-
-    model.setObjective(cp.quicksum(d[i] for i in range(len(circles) + 1)), cp.COPT.MINIMIZE)
-
-    # Distance constraints ====================================================
-    # Aux constr - dx dy
-    model.addConstr(dx[0] == x[1] - anchor[0][0])
-    model.addConstr(dy[0] == y[1] - anchor[0][1])
-    for i in range(1, len(circles)):
-        model.addConstr(dx[i] == x[i] - x[i + 1])
-        model.addConstr(dy[i] == y[i] - y[i + 1])
-    model.addConstr(dx[len(circles)] == anchor[-1][0] - x[len(circles)])
-    model.addConstr(dy[len(circles)] == anchor[-1][1] - y[len(circles)])
-    # Aux constr - rx ry
-    for i in range(1, len(circles) + 1):
-        model.addConstr(rx[i] == x[i] - anchor[i][0])
-        model.addConstr(ry[i] == y[i] - anchor[i][1])
-
-    # Distance btw visits
-    for i in range(len(circles) + 1):
-        model.addQConstr(d[i] ** 2 >= dx[i] ** 2 + dy[i] ** 2)
-
-    for i in range(1, len(circles) + 1):
-        model.addQConstr(rx[i] ** 2 + ry[i] ** 2 <= circles[i - 1]['radius'] ** 2)
-
-    # model.write("SOCP.lp")
-    model.solve()
-
-    # Post-processing =========================================================
-    ofv = None
-    path = [startPt]
-    if (model.status == cp.COPT.OPTIMAL):
-        solType = 'IP_Optimal'
-        ofv = model.getObjective().getValue()
-        for i in x:
-            path.append((x[i].x, y[i].x))
-        path.append(endPt)
-        gap = 0
-        lb = ofv
-        ub = ofv
-        runtime = model.SolvingTime
-    elif (model.status == cp.COPT.TIMEOUT):
-        solType = 'IP_TimeLimit'
-        ofv = model.ObjVal
-        for i in x:
-            path.append((x[i].x, y[i].x))
-        path.append(endPt)
-        gap = model.BestGap
-        lb = model.BestBnd
-        ub = model.BestObj
-        runtime = model.SolvingTime
-    realDist = 0
-
-    return {
-        'path': path,
-        'dist': ofv
-    }
-
-def cone2ConeSeqPath(startPt: pt, endPt: pt, cones: dict, repSeq: list, tanAlpha: float, config = None):
-    try:
-        import gurobipy as grb
-    except(ImportError):
-        print("ERROR: Cannot find Gurobi")
-        return
-
-    model = grb.Model("SOCP")
-    if (config == None or 'outputFlag' not in config or config['outputFlag'] == False):
-        model.setParam('OutputFlag', 0)
-    else:
-        model.setParam('OutputFlag', 1)
-    model.setParam('NonConvex', 2)
-
-    # Parameters ==============================================================
-    # anchor starts from startPt, in between are a list of cones, ends with endPt
-    anchor = [startPt]
-    for i in range(len(cones)):
-        anchor.append(cones[i]['center'])
-    anchor.append(endPt)
-
-    allX = [startPt[0], endPt[0]]
-    allY = [startPt[1], endPt[1]]
-    for i in range(len(cones)):
-        allX.append(cones[i]['center'][0] - cones[i]['maxHeight'] * tanAlpha)
-        allX.append(cones[i]['center'][0] + cones[i]['maxHeight'] * tanAlpha)
-        allY.append(cones[i]['center'][1] - cones[i]['maxHeight'] * tanAlpha)
-        allY.append(cones[i]['center'][1] + cones[i]['maxHeight'] * tanAlpha)
-    lbX = min(allX) - 1
-    lbY = min(allY) - 1
-    ubX = max(allX) + 1
-    ubY = max(allY) + 1
-
-    # Decision variables ======================================================
-    # NOTE: x, y index starts by 1
-    x = {}
-    y = {}
-    z = {}
-    for i in range(1, len(cones) + 1):
-        x[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "x_%s" % i, lb = lbX, ub = ubX)
-        y[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "y_%s" % i, lb = lbY, ub = ubY)
-        z[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "z_%s" % i, lb = 0, ub = cones[repSeq[i - 1]]['maxHeight'])
-    # Distance from ((xi, yi)) to (x[i + 1], y[i + 1]), 
-    # where startPt = (x[0], y[0]) and endPt = (x[len(cones) + 1], y[len(cones) + 1])
-    d = {}
-    for i in range(len(cones) + 1):
-        d[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'd_%s' % i)
-    model.setObjective(grb.quicksum(d[i] for i in range(len(cones) + 1)), grb.GRB.MINIMIZE)
-
-    # Aux vars - distance between (x, y)
-    dx = {}
-    dy = {}
-    dz = {}
-    for i in range(len(cones) + 1):
-        dx[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'dx_%s' % i, lb = -float('inf'), ub = float('inf'))
-        dy[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'dy_%s' % i, lb = -float('inf'), ub = float('inf'))
-        dz[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'dz_%s' % i, lb = -float('inf'), ub = float('inf'))
-    # Aux vars - distance from (x, y) to the center
-    rx = {}
-    ry = {}
-    for i in range(1, len(cones) + 1):
-        rx[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'rx_%s' % i, lb = -float('inf'), ub = float('inf'))
-        ry[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'ry_%s' % i, lb = -float('inf'), ub = float('inf'))
-
-    # Constraints =============================================================
-    # Aux constr - dx dy
-    model.addConstr(dx[0] == x[1] - anchor[0][0])
-    model.addConstr(dy[0] == y[1] - anchor[0][1])
-    model.addConstr(dz[0] == z[1] - anchor[0][2])
-    for i in range(1, len(cones)):
-        model.addConstr(dx[i] == x[i + 1] - x[i])
-        model.addConstr(dy[i] == y[i + 1] - y[i])
-        model.addConstr(dz[i] == z[i + 1] - z[i])
-    model.addConstr(dx[len(cones)] == anchor[-1][0] - x[len(cones)])
-    model.addConstr(dy[len(cones)] == anchor[-1][1] - y[len(cones)])
-    model.addConstr(dz[len(cones)] == anchor[-1][2] - z[len(cones)])
-
-    # Aux constr - rx ry
-    for i in range(1, len(cones) + 1):
-        model.addConstr(rx[i] == x[i] - anchor[i][0])
-        model.addConstr(ry[i] == y[i] - anchor[i][1])
-
-    # Distance btw visits
-    for i in range(len(cones) + 1):
-        model.addQConstr(d[i] ** 2 >= dx[i] ** 2 + dy[i] ** 2 + dz[i] ** 2)
-        # model.addQConstr(dx[i] ** 2 + dy[i] ** 2 >= CONST_EPSILON)
-
-    for i in range(1, len(cones) + 1):
-        model.addQConstr(rx[i] ** 2 + ry[i] ** 2 <= (tanAlpha * z[i]) ** 2)
-
-    model.modelSense = grb.GRB.MINIMIZE
-    # model.write("SOCP.lp")
-    model.optimize()
-
-    # Post-processing =========================================================
-    ofv = None
-    path = [startPt]
-    if (model.status == grb.GRB.status.OPTIMAL):
-        solType = 'IP_Optimal'
-        ofv = model.getObjective().getValue()
-        for i in x:
-            path.append((x[i].x, y[i].x, z[i].x))
-        path.append(endPt)
-        gap = 0
-        lb = ofv
-        ub = ofv
-    elif (model.status == grb.GRB.status.TIME_LIMIT):
-        solType = 'IP_TimeLimit'
-        ofv = model.ObjVal
-        for i in x:
-            path.append((x[i].x, y[i].x, z[i].x))
-        path.append(endPt)
-        gap = model.MIPGap
-        lb = model.ObjBoundC
-        ub = model.ObjVal
-    return {
-        'path': path,
-        'dist': ofv,
-        'runtime': model.Runtime
-    }

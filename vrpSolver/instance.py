@@ -401,7 +401,7 @@ def _rndPtRoadNetworkPolyLatLon(N: int, roads: dict, poly: poly, roadClass: str 
         idx = rndPick(lengths)
         edgeLength = lengths[idx]
         edgeDist = random.uniform(0, 1) * edgeLength
-        (lat, lon) = locSeqMileage(clipRoad[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
+        (lat, lon) = ptInSeqMileage(clipRoad[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
         nodeLocs.append((lat, lon))
 
     return nodeLocs
@@ -440,7 +440,7 @@ def _rndPtRoadNetworkPolyLatLons(N: int, roads: dict, polys: polys, roadClass: s
         idx = rndPick(lengths)
         edgeLength = lengths[idx]
         edgeDist = random.uniform(0, 1) * edgeLength
-        (lat, lon) = locSeqMileage(clipRoad[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
+        (lat, lon) = ptInSeqMileage(clipRoad[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
         nodeLocs.append((lat, lon))
 
     return nodeLocs
@@ -483,7 +483,7 @@ def _rndPtRoadNetworkCircleLatLon(N: int, roads: dict, radius: float, center: pt
             idx = rndPick(lengths)
             edgeLength = lengths[idx]
             edgeDist = random.uniform(0, 1) * edgeLength
-            (lat, lon) = locSeqMileage(roads[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
+            (lat, lon) = ptInSeqMileage(roads[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
             if (distLatLon([lat, lon], center)['dist'] <= radius):
                 insideFlag = True
         nodeLocs.append((lat, lon))
