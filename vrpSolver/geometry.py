@@ -2215,7 +2215,7 @@ def ptPolyCenter(poly: poly=None, polyShapely: shapely.Polygon=None) -> pt:
     return center
 
 # Mileage =====================================================================
-def mileagePtInSeq(pt: pt, seq: seq)
+
 
 # Polys =======================================================================
 def polysUnion(polys:polys=None, polysShapely:list[shapely.Polygon]=None, returnShaplelyObj:bool=False) -> list:
@@ -2615,6 +2615,59 @@ def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
         or not is2PtsSame(sortedActions[i - 1]['loc'], sortedActions[i]['loc']))]
 
     return sortedActions
+
+def polyClockWise(poly) -> bool:
+    """
+    Given a poly, return True if the poly is clockwise, False otherwise
+
+    Parameters
+    ----------
+    poly: poly, required
+        The poly
+
+    Returns
+    -------
+    bool
+        True if clockwise, false otherwise
+
+    """
+    numCW = 0
+    numCCW = 0
+
+    for i in range(len(poly)):
+        pt1 = poly[i]
+        pt2 = None
+        pt3 = None
+        if (i == len(poly) - 1):
+            pt2 = poly[0]
+            pt3 = poly[1]
+        elif (i == len(poly) - 2):
+            pt2 = poly[i + 1]
+            pt3 = poly[0]
+        else:
+            pt2 = poly[i + 1]
+            pt3 = poly[i + 2]
+        cwFlag = is3PtsClockWise(pt1, pt2, pt3)
+        if (cwFlag == True):
+            numCW += 1
+        elif (cwFlag == False):
+            numCCW += 1
+    if (numCW > numCCW):
+        return True
+    else:
+        return False
+
+def poly2CW(poly) -> poly:
+    if (polyClockWise(poly)):
+        return poly
+    else:
+        return [poly[len(poly) - 1 - i] for i in range(len(poly))]
+
+def poly2CCW(poly) -> poly:
+    if (polyClockWise(poly)):
+        return [poly[len(poly) - 1 - i] for i in range(len(poly))]
+    else:
+        return poly
 
 # Visibility check ============================================================
 def polysVisibleGraph(polys:polys) -> dict:

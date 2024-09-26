@@ -20,8 +20,8 @@ polys = list[list[list[float]]] | list[list[tuple[float, float]]]
 circle = tuple[pt, float]
 line = list[pt]
 
-DEBUG_WRITE_LOG = False
-DEBUG_PRINT_LOG = True
+DEBUG_WRITE_LOG = True
+DEBUG_PRINT_LOG = False
 DEBUG_LOG_PATH = "log.log"
 
 class UnsupportedInputError(Exception):
