@@ -22,3 +22,5 @@ Welcome to vrpSolver's documentation!
    vrpSolver.geometry
    vrpSolver.tsp
    vrpSolver.plot
+   vrpSolver.obj2Obj
+   vrpSolver.travel
