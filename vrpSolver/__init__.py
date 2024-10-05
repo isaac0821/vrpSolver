@@ -2,7 +2,7 @@ __version__ = "0.0.56"
 __author__ = "Lan Peng"
 
 # History =====================================================================
-# v0.0.1  - 04202021 - Initial upload
+# v0[.0.1  - 04202021 - Initial upload
 # v0.0.2  - 04282021 - Add `plotGantt()` function to plot Gantt chart
 # v0.0.3  - 05022021 - `plotGantt()` add descriptions
 # v0.0.4  - 05042021 - Reorganize structure of package
@@ -72,7 +72,7 @@ __author__ = "Lan Peng"
 #                    - Redo a lot of stuff with networkX
 # v0.0.56 - 07122023 - CVRP functions
 #                    - Integrate CETSP
-#                    - Rolling horizon for Dynamic TSP
+#                    - Rolling horizon for Dynamic TSP]
 # =============================================================================
 
 # A few SE tips/notes =========================================================
@@ -95,6 +95,7 @@ from .road import *
 # Basic modules
 from .ds import *
 from .plot import *
+from .animation import *
 from .instance import *
 
 # Geometry
@@ -109,5 +110,3 @@ from .vrptw import *
 
 from .op import *
 from .top import *
-
-from .cetsp import *

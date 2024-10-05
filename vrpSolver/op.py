@@ -96,7 +96,7 @@ def solveOP(
                 tau, 
                 price,
                 maxBudget,
-                kwargs['outputFlag'] if 'outputFlag' in kwargs else None, 
+                kwargs['outputFlag'] if 'outputFlag' in kwargs else False, 
                 kwargs['timeLimit'] if 'timeLimit' in kwargs else None, 
                 kwargs['gapTolerance'] if 'gapTolerance' in kwargs else None)
         elif (kwargs['fml'] == 'DFJ_Lazy'):
@@ -107,7 +107,7 @@ def solveOP(
                 tau, 
                 price,
                 maxBudget,
-                kwargs['outputFlag'] if 'outputFlag' in kwargs else None, 
+                kwargs['outputFlag'] if 'outputFlag' in kwargs else False, 
                 kwargs['timeLimit'] if 'timeLimit' in kwargs else None, 
                 kwargs['gapTolerance'] if 'gapTolerance' in kwargs else None)
 
@@ -228,6 +228,10 @@ def _ipOPGurobiMTZ(nodeIDs, startID, endID, tau, price, maxBudget, outputFlag, t
     OP.modelSense = grb.GRB.MAXIMIZE
     OP.update()
 
+    # a = [1, 13, 17, 6, 18, 9, 14, 3, 2, 1]
+    # for i in range(len(a) - 1):
+    #     OP.addConstr(x[a[i], a[i + 1]] == 1)
+
     # Degree constraints ======================================================
     OP.addConstr(grb.quicksum(x[startID, j] for j in nodeIDs if j != startID) == 1, name = 'leave_%s' % str(i))
     OP.addConstr(grb.quicksum(x[j, endID] for j in nodeIDs if j != endID) == 1, name = 'enter_%s' % str(i))
@@ -256,7 +260,6 @@ def _ipOPGurobiMTZ(nodeIDs, startID, endID, tau, price, maxBudget, outputFlag, t
         OP.addConstr(u[i] <= n - 1)
 
     # OP =====================================================================
-    # OP.write("OP.lp")
     OP.optimize()
 
     arcs = []
@@ -344,8 +347,10 @@ def _ipOPGurobiLazyCuts(nodeIDs, startID, endID, tau, price, maxBudget, outputFl
 
     for i in nodeIDs:
         if (i != startID):
-            OP.addConstr(grb.quicksum(x[i, j] for j in nodeIDs if i != j) <= 1, name = 'edge_%s' % str(i))
-    
+            OP.addConstr(grb.quicksum(x[i, j] for j in nodeIDs if i != j) <= 1, name = 'edgeS_%s' % str(i))
+        if (j != endID):
+            OP.addConstr(grb.quicksum(x[i, j] for j in nodeIDs if i != j) <= 1, name = 'edgeE_%s' % str(i))
+ 
     # Flow balancing ==========================================================
     for i in nodeIDs:
         if (i != startID and i != endID):
@@ -368,6 +373,9 @@ def _ipOPGurobiLazyCuts(nodeIDs, startID, endID, tau, price, maxBudget, outputFl
             components = [list(c) for c in nx.connected_components(G)]
             for component in components:
                 if (startID not in component or endID not in component):
+                    model.cbLazy(grb.quicksum(x[i, j] for i in component for j in component if i != j) <= len(component) - 1)
+                # 如果成环
+                if (startID != endID and (startID in component or endID in component)):
                     model.cbLazy(grb.quicksum(x[i, j] for i in component for j in component if i != j) <= len(component) - 1)
 
     # OP with callback =======================================================
