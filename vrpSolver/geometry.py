@@ -41,6 +41,14 @@ def is2PtsSame(pt1: pt, pt2: pt, error: float = CONST_EPSILON) -> bool:
         return False
     return True
 
+def is2SegsSame(seg1: line, seg2: line, error: float = CONST_EPSILON) -> bool:
+    if (is2PtsSame(seg1[0], seg2[0]) and is2PtsSame(seg1[1], seg2[1])):
+        return True
+    elif (is2PtsSame(seg1[0], seg2[1]) and is2PtsSame(seg1[1], seg2[0])):
+        return True
+    else:
+        return False
+
 def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt, error: float = CONST_EPSILON) -> bool | None:
     """
     Are three given pts in a clock-wise order, None as they are collinear
@@ -1261,6 +1269,225 @@ def intLine2Poly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None,
 
     return intSeg2Poly(seg, poly, polyShapely, returnShaplelyObj)
 
+def intSeq2Poly(seq: list[pt], poly: poly):
+    # NOTE: 这个函数真的麻烦死了
+    # 存储所有的（连续）相交线段组
+    inte = []
+    # 存储之前连续相交的部分，由于poly可能nonconvex，这个可能有多段
+    candiCur = []
+    def appendCur2Inte(inte, candiCur, excludeIndex = None):
+        # print("inte: ", inte)
+        # print("candiCur: ", candiCur)
+        # print("\n")
+        inteUpdate = [i for i in inte]
+        candiCurUpdate = []
+        # 如果需要跳过某个不并入inte，就先存起来
+        if (excludeIndex != None):
+            candiCurUpdate = [candiCur[excludeIndex]]
+        for c in range(len(candiCur)):
+            if (excludeIndex == None or c != excludeIndex):
+                if (len(candiCur[c]) == 0):
+                    # 如果之前就没有累计相交过，跳过
+                    pass
+                elif (len(candiCur[c]) == 1):
+                    # 如果之前的那段只交了一个点，记录下来
+                    inteUpdate.append({
+                        'status': 'Cross',
+                        'intersect': candiCur[c][0],
+                        'intersectType': 'Point',
+                        'interiorFlag': False
+                    })
+                elif (len(candiCur[c]) > 1):
+                    # 如果之前相交的那段超过一个点，记录下来路径
+                    inteUpdate.append({
+                        'status': 'Cross',
+                        'intersect': [k for k in candiCur[c]],
+                        'intersectType': 'Segment',
+                        'interiorFlag': True
+                    })
+        return inteUpdate, candiCurUpdate
+
+    # 把seq一段一段拆开分别算相交
+    for i in range(len(seq) - 1):
+        # 当前的这段
+        seg = [seq[i], seq[i + 1]]
+        p = intSeg2Poly(seg, poly)
+
+        # Case 2: 如果当前的这段与poly有交集，交集只有一个部分，那么这个部分与已有的其中一个可能相邻接
+        if (type(p) != list and p['status'] == 'Cross'):
+            # Case 2.1: 如果交集是一个点，判断这个点和之前连续相交的部分的关系
+            if (p['intersectType'] == 'Point'):
+                # Case 2.1.1: 如果之前没有连续相交的部分，这个点存起来
+                if (len(candiCur) == 0):
+                    candiCur = [[p['intersect']]]
+                # Case 2.1.2: 如果之前有连续相交的部分，判断是否在之前的一个上延续
+                else:
+                    idInclude = None
+                    # 判断相交的这个点是不是和之前的部分重合，只能首或尾
+                    for c in range(len(candiCur)):
+                        if (is2PtsSame(candiCur[c][0], p['intersect']) or is2PtsSame(candiCur[c][-1], p['intersect'])):
+                            idInclude = c
+                            break
+                    # Case 2.1.2.1: 如果这个交点与之前的都不重合，则重头开始
+                    if (idInclude == None):
+                        inte, candiCur = appendCur2Inte(inte, candiCur)
+                        candiCur = [[p['intersect']]]
+                    # Case 2.1.2.2: 否则保留第c个可以继续拼接，其他存入inte
+                    else:
+                        inte, candiCur = appendCur2Inte(inte, candiCur, idInclude)
+
+            # Case 2.2: 如果交集是一个线段，判断这个线段和之前连续相交的部分的关系
+            elif (p['intersectType'] == 'Segment'):
+                # Case 2.2.1: 如果之前没有连续相交的部分
+                if (len(candiCur) == 0):
+                    candiCur = [[k for k in p['intersect']]]
+                # Case 2.2.2: 如果之前有连续相交的部分
+                else:
+                    idLink = None
+                    linked = None
+                    for c in range(len(candiCur)):
+                        linked = seqLinkSeq(candiCur[c], p['intersect'])
+                        if (linked != None):
+                            idLink = c
+                            break
+                    # Case 2.2.2.1: 如果这段线段和之前的都不重合，则重头开始
+                    if (idLink == None):
+                        inte, candiCur = appendCur2Inte(inte, candiCur)
+                        candiCur = [[k for k in p['intersect']]]
+                    # Case 2.2.2.2: 如果这段线段能接上之前的，则接上
+                    else:
+                        inte, candiCur = appendCur2Inte(inte, candiCur, idLink)
+                        candiCur = [[k for k in linked]]
+        
+        # Case 3: 如果poly非凸，那么可能有好几个相交部分，每个部分都有可能要和之前的连续相交
+        elif (type(p) == list):
+            # 先把交出来的点和线段都列出来
+            # NOTE: 这里的pts和segs两两不相交
+            pts = []
+            segs = []
+            for k in p:
+                if (k['intersectType'] == 'Point'):
+                    pts.append(k['intersect'])
+                elif (k['intersectType'] == 'Segment'):
+                    segs.append([v for v in k['intersect']])
+
+            # 这里的seg和pts要一个一个和cur里的试能不能连上
+            # 连不上的每一个都有可能被下一段连上，但是下一段至多只有一个可以连上
+            idPt = None
+            idInclude = None
+            for p in range(len(pts)):    
+                # 判断相交的这个点是不是和之前的部分重合，只能首或尾
+                for c in range(len(candiCur)):
+                    if (is2PtsSame(candiCur[c][0], pts[p]) or is2PtsSame(candiCur[c][-1], pts[p])):
+                        idInclude = c
+                        idPt = p
+                        break
+            idSeg = None
+            idLink = None
+            linked = None
+            for s in range(len(segs)):
+                for c in range(len(candiCur)):
+                    tryLink = seqLinkSeq(candiCur[c], segs[s])
+                    if (tryLink != None):
+                        idLink = c
+                        idSeg = s
+                        linked = tryLink
+                        break
+
+            # print(pts, idPt, idInclude, segs, idSeg, linked)
+            # Case 3.1: 如果点有可以归属于上一段的，但线段没有的
+            if (idInclude != None and idLink == None):
+                inte, candiCur = appendCur2Inte(inte, candiCur, idInclude)
+                # 除了归属于上一段的点，剩余的点和线段（若有）加入candiCur
+                if (len(pts) > 1):
+                    for p in range(len(pts)):
+                        if (p != idPt):
+                            candiCur.append([pts[p]])
+                if (len(seg) >= 1):
+                    for seg in segs:
+                        candiCur.append([v for v in seg])
+            # Case 3.2: 如果线段有可以连接到上一段的，但点没有的
+            elif (idInclude == None and idLink != None):
+                inte, candiCur = appendCur2Inte(inte, candiCur, idLink)
+                candiCur = [[k for k in linked]]
+                if (len(pts) >= 1):
+                    for pt in pts:
+                        candiCur.append([pt])
+                if (len(seg) > 1):
+                    for s in range(len(segs)):
+                        if (s != idSeg):
+                            candiCur.append([v for v in segs[s]])
+
+            # Case 3.3: 如果线段和点里都没有可以连接到上一段的
+            elif (idInclude == None and idLink == None):
+                inte, candiCur = appendCur2Inte(inte, candiCur)
+                if (len(pts) >= 1):
+                    for pt in pts:
+                        candiCur.append([pt])
+                if (len(seg) >= 1):
+                    for seg in segs:
+                        candiCur.append([v for v in seg])
+                        
+            # Case 3.4: 如果都可以连到上一段，说明有问题
+            else:
+                pass
+
+        # Case 1: 如果当前段与poly完全无交集，后续段也不会相交
+        elif (p == None or p['status'] == 'NoCross'):
+            inte, candiCur = appendCur2Inte(inte, candiCur)
+
+    inte, candiCur = appendCur2Inte(inte, candiCur)
+
+    if (len(inte) == 1):
+        return inte[0]
+    else:
+        return inte
+
+def seqLinkSeq(seq1: list[pt], seq2: list[pt]):
+    """
+    Given two seqs, link them together if possible, return None if they are separated
+
+    Parameters
+    ----------
+    seq1: list[pt], required
+        The first sequence
+    seq2: list[pt], required
+        The second sequence
+
+    Return
+    ------
+    list[pt]
+        The sequence connected both seq, or None if two seqs are separated
+
+    """
+
+    head1 = seq1[0]
+    tail1 = seq1[-1]
+    head2 = seq2[0]
+    tail2 = seq2[-1]
+    if (is2PtsSame(head1, head2)):
+        newSeq = [seq1[len(seq1) - 1 - i] for i in range(len(seq1) - 1)]
+        newSeq.extend([i for i in seq2])
+        return newSeq
+
+    elif (is2PtsSame(head1, tail2)):
+        newSeq = [seq1[len(seq1) - 1 - i] for i in range(len(seq1) - 1)]
+        newSeq.extend([seq2[len(seq2) - 1 - i] for i in range(len(seq2))])
+        return newSeq
+
+    elif (is2PtsSame(tail1, head2)):
+        newSeq = [seq1[i] for i in range(len(seq1) - 1)]
+        newSeq.extend([i for i in seq2])
+        return newSeq
+
+    elif (is2PtsSame(tail1, tail2)):
+        newSeq = [seq1[i] for i in range(len(seq1) - 1)]
+        newSeq.extend([seq2[len(seq2) - 1 - i] for i in range(len(seq2))])
+        return newSeq
+
+    else:
+        return None
+
 def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
     """
     The intersection of a line segment to a polygon
@@ -1464,7 +1691,7 @@ def intRay2Poly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, r
         seg = [ray[0], maxPt]
         return intSeg2Poly(seg, poly, polyShapely, returnShaplelyObj)
 
-def intSeq2Poly(seq: list[pt], poly: poly, seqShapely: shapely.LineString=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False):
+def intSeq2PolyDep(seq: list[pt], poly: poly, seqShapely: shapely.LineString=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False):
     """
     The intersection of a sequence to a polygon
 
@@ -2142,8 +2369,8 @@ def travelVec2Vec(pt1, vec1, pt2, vec2, speed, earliest:None|float = None, lates
     dy = model.addVar(vtype=grb.GRB.CONTINUOUS, lb = -float('inf'))
 
     # Constraints =============================================================
-    model.addConstr(dx == (x1 - x2) + t1 * (vx1 - vx2))
-    model.addConstr(dy == (y1 - y2) + t2 * (vy1 - vy2))
+    model.addConstr(dx == x1 - x2 + t1 * vx1 - t2 * vx2)
+    model.addConstr(dy == y1 - y2 + t1 * vy1 - t2 * vy2)
     model.addConstr(d ** 2 >= dx ** 2 + dy ** 2)
     model.addConstr(t2 == t1 + d * (1 / speed))
 
