@@ -37,9 +37,6 @@ def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, algo: str = 'SOCP', **kw
     """
 
     # Sanity check ============================================================
-    if (method == None):
-        raise MissingParameterError("ERROR: Missing required field `method`.")
-
     if (algo == 'AdaptIter'):
         errTol = CONST_EPSILON
         if ('errTol' in kwargs):
@@ -243,17 +240,16 @@ def _seg2SegPathGurobi(startPt: pt, endPt: pt, segs, closedFlag = False, outputF
         model.setParam(grb.GRB.Param.TimeLimit, timeLimit)
 
     # Parameters ==============================================================
-    if (lbX == None or lbY == None or ubX == None or ubY == None):
-        allX = [startPt[0], endPt[0]]
-        allY = [startPt[1], endPt[1]]
-        for i in range(len(segs)):
-            for j in range(len(segs[i])):
-                allX.append(segs[i][j][0])
-                allY.append(segs[i][j][1])
-        lbX = min(allX) - 1
-        lbY = min(allY) - 1
-        ubX = max(allX) + 1
-        ubY = max(allY) + 1
+    allX = [startPt[0], endPt[0]]
+    allY = [startPt[1], endPt[1]]
+    for i in range(len(segs)):
+        for j in range(len(segs[i])):
+            allX.append(segs[i][j][0])
+            allY.append(segs[i][j][1])
+    lbX = min(allX) - 1
+    lbY = min(allY) - 1
+    ubX = max(allX) + 1
+    ubY = max(allY) + 1
 
     # close seg flag ==========================================================
     if (closedFlag):

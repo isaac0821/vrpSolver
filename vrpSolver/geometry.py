@@ -1227,6 +1227,44 @@ def isRayIntRay(ray1: line, ray2: line, interiorOnly: bool=False) -> bool:
     else:
         return True
 
+def substractSegFromSeg(segToSub: line, segCover: line):
+    # 确认下所属情况
+    A = segToSub[0]
+    B = segToSub[1]
+    X = segCover[0]
+    Y = segCover[1]
+
+    AXB = isPtOnSeg(pt = X, seg = [A, B])
+    AYB = isPtOnSeg(pt = Y, seg = [A, B])
+    XAY = isPtOnSeg(pt = A, seg = [X, Y])
+    XBY = isPtOnSeg(pt = B, seg = [X, Y])
+    # Case 1: A - X - Y - B or Case 2: A - Y - X - B
+    if (AXB and AYB):
+        distAX = distEuclideanXY(A, X)['dist']
+        distAY = distEuclideanXY(A, Y)['dist']
+        if (distAX < distAY):
+            return ([A, X], [Y, B])
+        else:
+            return ([A, Y], [X, B])
+
+    # Case 3: A - X - B - Y
+    elif (AXB and XBY):
+        return [A, X]
+
+    # Case 4: A - Y - B - X
+    elif (AYB and XBY):
+        return [A, Y]
+
+    # Case 5: X - A - Y - B
+    elif (XAY and AYB):
+        return [Y, B]
+
+    # Case 6: Y - A - X - B
+    elif (XAY and AXB):
+        return [X, B]
+
+    return None
+
 # Line-shape intersect with polygon ===========================================
 def intLine2Poly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
     """
@@ -1313,9 +1351,9 @@ def intSeq2Poly(seq: list[pt], poly: poly):
         seg = [seq[i], seq[i + 1]]
         p = intSeg2Poly(seg, poly)
 
-        # Case 2: 如果当前的这段与poly有交集，交集只有一个部分，那么这个部分与已有的其中一个可能相邻接
+        # Case 1: 如果当前的这段与poly有交集，交集只有一个部分，那么这个部分与已有的其中一个可能相邻接
         if (type(p) != list and p['status'] == 'Cross'):
-            # Case 2.1: 如果交集是一个点，判断这个点和之前连续相交的部分的关系
+            # Case 1.1: 如果交集是一个点，判断这个点和之前连续相交的部分的关系
             if (p['intersectType'] == 'Point'):
                 # Case 2.1.1: 如果之前没有连续相交的部分，这个点存起来
                 if (len(candiCur) == 0):
@@ -1336,7 +1374,7 @@ def intSeq2Poly(seq: list[pt], poly: poly):
                     else:
                         inte, candiCur = appendCur2Inte(inte, candiCur, idInclude)
 
-            # Case 2.2: 如果交集是一个线段，判断这个线段和之前连续相交的部分的关系
+            # Case 1.2: 如果交集是一个线段，判断这个线段和之前连续相交的部分的关系
             elif (p['intersectType'] == 'Segment'):
                 # Case 2.2.1: 如果之前没有连续相交的部分
                 if (len(candiCur) == 0):
@@ -1359,7 +1397,7 @@ def intSeq2Poly(seq: list[pt], poly: poly):
                         inte, candiCur = appendCur2Inte(inte, candiCur, idLink)
                         candiCur = [[k for k in linked]]
         
-        # Case 3: 如果poly非凸，那么可能有好几个相交部分，每个部分都有可能要和之前的连续相交
+        # Case 2: 如果poly非凸，那么可能有好几个相交部分，每个部分都有可能要和之前的连续相交
         elif (type(p) == list):
             # 先把交出来的点和线段都列出来
             # NOTE: 这里的pts和segs两两不相交
@@ -1375,7 +1413,7 @@ def intSeq2Poly(seq: list[pt], poly: poly):
             # 连不上的每一个都有可能被下一段连上，但是下一段至多只有一个可以连上
             idPt = None
             idInclude = None
-            for p in range(len(pts)):    
+            for p in range(len(pts)):
                 # 判断相交的这个点是不是和之前的部分重合，只能首或尾
                 for c in range(len(candiCur)):
                     if (is2PtsSame(candiCur[c][0], pts[p]) or is2PtsSame(candiCur[c][-1], pts[p])):
@@ -1394,8 +1432,7 @@ def intSeq2Poly(seq: list[pt], poly: poly):
                         linked = tryLink
                         break
 
-            # print(pts, idPt, idInclude, segs, idSeg, linked)
-            # Case 3.1: 如果点有可以归属于上一段的，但线段没有的
+            # Case 2.1: 如果点有可以归属于上一段的，但线段没有的
             if (idInclude != None and idLink == None):
                 inte, candiCur = appendCur2Inte(inte, candiCur, idInclude)
                 # 除了归属于上一段的点，剩余的点和线段（若有）加入candiCur
@@ -1406,7 +1443,7 @@ def intSeq2Poly(seq: list[pt], poly: poly):
                 if (len(seg) >= 1):
                     for seg in segs:
                         candiCur.append([v for v in seg])
-            # Case 3.2: 如果线段有可以连接到上一段的，但点没有的
+            # Case 2.2: 如果线段有可以连接到上一段的，但点没有的
             elif (idInclude == None and idLink != None):
                 inte, candiCur = appendCur2Inte(inte, candiCur, idLink)
                 candiCur = [[k for k in linked]]
@@ -1418,7 +1455,7 @@ def intSeq2Poly(seq: list[pt], poly: poly):
                         if (s != idSeg):
                             candiCur.append([v for v in segs[s]])
 
-            # Case 3.3: 如果线段和点里都没有可以连接到上一段的
+            # Case 2.3: 如果线段和点里都没有可以连接到上一段的
             elif (idInclude == None and idLink == None):
                 inte, candiCur = appendCur2Inte(inte, candiCur)
                 if (len(pts) >= 1):
@@ -1428,11 +1465,11 @@ def intSeq2Poly(seq: list[pt], poly: poly):
                     for seg in segs:
                         candiCur.append([v for v in seg])
                         
-            # Case 3.4: 如果都可以连到上一段，说明有问题
+            # Case 2.4: 如果有可以都连到上一段的，说明有问题
             else:
                 pass
 
-        # Case 1: 如果当前段与poly完全无交集，后续段也不会相交
+        # Case 3: 如果当前段与poly完全无交集，后续段也不会相交
         elif (p == None or p['status'] == 'NoCross'):
             inte, candiCur = appendCur2Inte(inte, candiCur)
 
@@ -1627,6 +1664,7 @@ def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, r
                         'intersectType': 'Segment',
                         'interiorFlag': interiorFlag
                     })
+
         return intSp
 
 def intRay2Poly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
@@ -1690,92 +1728,6 @@ def intRay2Poly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, r
     else:
         seg = [ray[0], maxPt]
         return intSeg2Poly(seg, poly, polyShapely, returnShaplelyObj)
-
-def intSeq2PolyDep(seq: list[pt], poly: poly, seqShapely: shapely.LineString=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False):
-    """
-    The intersection of a sequence to a polygon
-
-    Parameters
-    ----------
-    seq: list of pt, required
-        The first sequence of points
-    poly: poly, optional, default as None
-        The second polygon
-    polyShapely: shapely.Polygon, optional, default as None
-        The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
-    returnShaplelyObj: bool, optional, default as False
-        True if alter the result to be a shapely object        
-
-    Return
-    ------
-    dict
-        >>> {
-        ...     'status': 'Cross', # Relations between two objects,
-        ...     'intersect': pt, # The intersection,
-        ...     'intersectType': 'Point', # Type of intersection
-        ...     'interiorFlag': False, # True if the intersection is at the boundary
-        ... }
-    """
-
-    # Sanity check
-    if (seq == None and seqShapely == None):
-        raise MissingParameterError("ERROR: `seq` and `seqShapely` cannot be None at the same time.")
-    if (poly == None and polyShapely == None):
-        raise MissingParameterError("ERROR: `poly` and `polyShapely` cannot be None at the same time.")
-
-    # get shapely objects
-    if (seqShapely == None):
-        seqShapely = shapely.LineString(seq)
-    if (polyShapely == None):
-        polyShapely = shapely.Polygon(poly)
-    intShape = shapely.intersection(seqShapely, polyShapely)
-
-    # If return shapely objects no processing needed
-    if (returnShaplelyObj):
-        return intShape 
-    # 若不相交，返回不相交
-    if (intShape.is_empty):
-        # FIXME: 误差的部分之后加，现在只考虑用在clipRoadNetworkByPoly()里
-        return {
-            'status': 'NoCross',
-            'intersect': None,
-            'intersectType': None,
-            'interiorFlag': None
-        }
-    elif (isinstance(intShape, shapely.Point)):
-        return {
-            'status': 'Cross',
-            'intersect': (intShape.x, intShape.y),
-            'intersectType': 'Point',
-            'interiorFlag': False
-        }
-    elif (isinstance(intShape, shapely.LineString)):
-        intSeq = [list(pt) for pt in intShape.coords]
-        return {
-            'status': 'Cross',
-            'intersect': intSeq,
-            'intersectType': 'Segment',
-            'interiorFlag': True
-        }
-    else:
-        intSp = []
-        for obj in intShape.geoms:
-            if (isinstance(obj, shapely.Point)):
-                intSp.append({
-                    'status': 'Cross',
-                    'intersect': (obj.x, obj.y),
-                    'intersectType': 'Point',
-                    'interiorFlag': False
-                })
-            elif (isinstance(obj, shapely.LineString)):
-                intSeq = [list(pt) for pt in obj.coords]
-                intSp.append({
-                    'status': 'Cross',
-                    'intersect': intSeq,
-                    'intersectType': 'Segment',
-                    'interiorFlag': True
-                })
-        return intSp
 
 # Line-shape versus polygon ===================================================
 def isLineIntPoly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None, interiorOnly: bool=False) -> bool:
@@ -2195,6 +2147,7 @@ def distPoly2Poly(poly1: poly=None, poly2: poly=None, poly1Shapely: shapely.Poly
         poly2Shapely = shapely.Polygon([p for p in poly2])
     return shapely.distance(poly1Shapely, poly2Shapely)
 
+# Nearest to object ===========================================================
 def nearestPtLine2Poly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None) -> dict:
     """
     Find the nearest point between a line and a polygon
@@ -2643,6 +2596,55 @@ def ptPolyCenter(poly: poly=None, polyShapely: shapely.Polygon=None) -> pt:
     center = (ptShapely.x, ptShapely.y)
     return center
 
+# Mileage of points on seq ====================================================
+def mileagePt(seq: list[pt], pt: pt) -> None | float | list[float]:
+    """
+    Given a sequence of locs, and a point, returns the mileage of point on the seq, None if not on the sequence
+
+    Parameters
+    ----------
+    seq: list[pt], Required
+        A sequence of locations
+    pt: pt, Required
+        A point
+
+    Return
+    ------
+    None | float | list[float]
+        None if pt is not on the sequence, float if only one mileage, list[float] if the pt appears multiple times
+
+    """
+
+    m = []
+
+    # 找到所有pt所处的线段
+    acc = 0
+    onSeg = []
+    for i in range(len(seq) - 1):
+        seg = [seq[i], seq[i + 1]]
+        leng = distEuclideanXY(seq[i], seq[i + 1])['dist']
+        if (isPtOnSeg(pt, seg)):
+            onSeg.append((acc, seg))
+        acc += leng
+
+    # 逐个计算mileage
+    for i in range(len(onSeg)):
+        dist2Ori = distEuclideanXY(pt, onSeg[i][1][0])['dist']
+        newMileage = dist2Ori + onSeg[i][0]
+        repeatedFlag = False
+        for exist in m:
+            if (abs(exist - newMileage) <= CONST_EPSILON):
+                repeatedFlag = True
+        if (not repeatedFlag):
+            m.append(newMileage)
+
+    if (len(m) == 0):
+        return None
+    elif (len(m) == 1):
+        return m[0]
+    else:
+        return m
+
 # Vectors =====================================================================
 def rndVec(norm: float = 1):
     deg = random.random() * 360
@@ -2921,132 +2923,6 @@ def polysSteinerZone(polys: dict, order: int|None = None) -> list[dict]:
             })    
 
     return lstSteinerZone
-
-def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
-     # First, for each leg in the seq, find the individual polygons intersect with the leg
-    actions = {}
-    actionIDOnLeg = 0
-    for i in range(len(seq) - 1):
-        seg = [seq[i], seq[i + 1]]
-
-        # NOTE: 准备用segment tree
-        # NOTE: For now use the naive way - checking the bounding box
-        for pID in polygons:
-            # 根据Seg和poly的相交情况做判断
-            segIntPoly = intSeg2Poly(seg = seg, poly = polygons[pID][polyFieldName])
-            # if (type(segIntPoly) == list or segIntPoly['status'] != 'NoCross'):
-                # print(segIntPoly, pID)
-            # 如果相交得到多个部分，则分别进行处理
-            if (type(segIntPoly) == list):
-                for intPart in segIntPoly:
-                    if (intPart['status'] == 'Cross' and intPart['intersectType'] == 'Point'):
-                        intPt = segIntPoly['intersect']
-                        actions[actionIDOnLeg] = {
-                            'loc': intPt,
-                            'action': 'touch',
-                            'polyID': pID,                       
-                        }
-                        actionIDOnLeg += 1
-                    elif (intPart['status'] == 'Cross' and intPart['intersectType'] == 'Segment'):
-                        intPt1 = segIntPoly['intersect'][0]
-                        intPt2 = segIntPoly['intersect'][1]
-                        intPt1InnerFlag = False
-                        intPt2InnerFlag = False
-                        if (isPtInPoly(intPt1, polygons[pID][polyFieldName], interiorOnly=True)):
-                            intPt1InnerFlag = True
-                        if (isPtInPoly(intPt2, polygons[pID][polyFieldName], interiorOnly=True)):
-                            intPt2InnerFlag = True
-                        if (distEuclideanXY(seq[i], intPt1)['dist'] <
-                            distEuclideanXY(seq[i], intPt2)['dist']):
-                            if (not intPt1InnerFlag):
-                                actions[actionIDOnLeg] = {
-                                    'loc': intPt1,
-                                    'action': 'enter',
-                                    'polyID': pID,
-                                }
-                                actionIDOnLeg += 1
-                            if (not intPt2InnerFlag):
-                                actions[actionIDOnLeg] = {
-                                    'loc': intPt2,
-                                    'action': 'leave',
-                                    'polyID': pID,
-                                }
-                                actionIDOnLeg += 1
-                        else:
-                            if (not intPt1InnerFlag):
-                                actions[actionIDOnLeg] = {
-                                    'loc': intPt1,
-                                    'action': 'leave',
-                                    'polyID': pID,
-                                }
-                                actionIDOnLeg += 1
-                            if (not intPt2InnerFlag):
-                                actions[actionIDOnLeg] = {
-                                    'loc': intPt2,
-                                    'action': 'enter',
-                                    'polyID': pID,
-                                }
-                                actionIDOnLeg += 1
-            else:
-                if (segIntPoly['status'] == 'NoCross'):
-                    # No intersection pass
-                    pass
-                elif (segIntPoly['status'] == 'Cross' and segIntPoly['intersectType'] == 'Point'):
-                    intPt = segIntPoly['intersect']
-                    actions[actionIDOnLeg] = {
-                        'loc': intPt,
-                        'action': 'touch',
-                        'polyID': pID,
-                    }
-                    actionIDOnLeg += 1
-                elif (segIntPoly['status'] == 'Cross' and segIntPoly['intersectType'] == 'Segment'):
-                    intPt1 = segIntPoly['intersect'][0]
-                    intPt2 = segIntPoly['intersect'][1]
-                    intPt1InnerFlag = False
-                    intPt2InnerFlag = False
-                    if (isPtInPoly(intPt1, polygons[pID][polyFieldName], interiorOnly=True)):
-                        intPt1InnerFlag = True
-                    if (isPtInPoly(intPt2, polygons[pID][polyFieldName], interiorOnly=True)):
-                        intPt2InnerFlag = True
-                    if (distEuclideanXY(seq[i], intPt1)['dist'] <
-                        distEuclideanXY(seq[i], intPt2)['dist']):
-                        if (not intPt1InnerFlag):
-                            actions[actionIDOnLeg] = {
-                                'loc': intPt1,
-                                'action': 'enter',
-                                'polyID': pID,
-                            }
-                            actionIDOnLeg += 1
-                        if (not intPt2InnerFlag):
-                            actions[actionIDOnLeg] = {
-                                'loc': intPt2,
-                                'action': 'leave',
-                                'polyID': pID,
-                            }
-                            actionIDOnLeg += 1
-                    else:
-                        if (not intPt1InnerFlag):
-                            actions[actionIDOnLeg] = {
-                                'loc': intPt1,
-                                'action': 'leave',
-                                'polyID': pID,
-                            }
-                            actionIDOnLeg += 1
-                        if (not intPt2InnerFlag):
-                            actions[actionIDOnLeg] = {
-                                'loc': intPt2,
-                                'action': 'enter',
-                                'polyID': pID,
-                            }
-                            actionIDOnLeg += 1
-    sortedIDOnLeg = locSeqSortNodes(seq, actions, allowNotIncludeFlag = False)['sortedNodeIDs']
-
-    sortedActions = [actions[i] for i in sortedIDOnLeg]
-    sortedActions = [sortedActions[i] for i in range(len(sortedActions)) if (
-        i == 0
-        or not is2PtsSame(sortedActions[i - 1]['loc'], sortedActions[i]['loc']))]
-
-    return sortedActions
 
 def polyClockWise(poly) -> bool:
     """

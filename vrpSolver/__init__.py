@@ -100,6 +100,7 @@ from .instance import *
 
 # Geometry
 from .geometry import *
+from .obj2Obj import *
 
 # TSP/VRP
 from .tsp import *
