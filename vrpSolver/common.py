@@ -185,7 +185,7 @@ def splitIntoSubSeq(inputList, selectFlag):
     if (len(sub) > 0):
         splitSub.append([k for k in sub])
     return splitSub
- 
+
 def findBoundingBox(
     boundingBox = (None, None, None, None),
     pts: list[pt] = None,
@@ -372,7 +372,6 @@ def findBoundingBox3D(
         xMin, xMax, yMin, yMax = yMin, yMax, xMin, xMax
 
     return (xMin, xMax, yMin, yMax, zMin, zMax)
-
 
 def findFigSize(boundingBox, width = None, height = None):
     """

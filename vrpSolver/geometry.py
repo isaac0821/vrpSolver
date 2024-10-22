@@ -15,7 +15,7 @@ from .common import *
 from .msg import *
 from .ds import *
 
-# Point versus Objects ========================================================
+# Relation between Pts ========================================================
 def is2PtsSame(pt1: pt, pt2: pt, error: float = CONST_EPSILON) -> bool:
     """
     Are two points at the 'same' location?
@@ -40,14 +40,6 @@ def is2PtsSame(pt1: pt, pt2: pt, error: float = CONST_EPSILON) -> bool:
     if (abs(pt1[1] - pt2[1]) >= error):
         return False
     return True
-
-def is2SegsSame(seg1: line, seg2: line, error: float = CONST_EPSILON) -> bool:
-    if (is2PtsSame(seg1[0], seg2[0]) and is2PtsSame(seg1[1], seg2[1])):
-        return True
-    elif (is2PtsSame(seg1[0], seg2[1]) and is2PtsSame(seg1[1], seg2[0])):
-        return True
-    else:
-        return False
 
 def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt, error: float = CONST_EPSILON) -> bool | None:
     """
@@ -86,6 +78,71 @@ def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt, error: float = CONST_EPSILON) -> 
     else:        
         return False
 
+# Relation between line segments ==============================================
+def is2SegsSame(seg1: line, seg2: line, error: float = CONST_EPSILON) -> bool:
+    if (is2PtsSame(seg1[0], seg2[0]) and is2PtsSame(seg1[1], seg2[1])):
+        return True
+    elif (is2PtsSame(seg1[0], seg2[1]) and is2PtsSame(seg1[1], seg2[0])):
+        return True
+    else:
+        return False
+
+def is2SegsParallel(seg1: line, seg2: line, error: float = CONST_EPSILON):
+    # 计算一堆 dy, dx
+    dy1 = seg1[1][1] - seg1[0][1]
+    dx1 = seg1[1][0] - seg1[0][0]
+    dy2 = seg2[1][1] - seg2[0][1]
+    dx2 = seg2[1][0] - seg2[0][0]
+
+    # 先判断是不是水平或者垂直
+    isHori1 = (dy1 == 0)
+    isHori2 = (dy2 == 0)
+    isVert1 = (dx1 == 0)
+    isVert2 = (dx2 == 0)
+
+    if (isHori1 and isVert1):
+        raise ZeroDivisionError("ERROR: seg1 is a singleton point")
+    if (isHori2 and isVert2):
+        raise ZeroDivisionError("ERROR: seg2 is a singleton point")
+
+    # 是不是都水平
+    if (isHori1 and isHori2):
+        return True
+    elif (isHori1 and not isHori2):
+        return False
+    elif (not isHori1 and isHori2):
+        return False
+
+    # 是不是都垂直
+    if (isVert1 and isVert2):
+        return True
+    elif (isVert1 and not isVert2):
+        return False
+    elif (not isVert1 and isVert2):
+        return False
+
+    # slope = (y2 - y1) / (x2 - x1)
+    slope1 = dy1 / dx1
+    slope2 = dy2 / dx2
+
+    if (abs(slop1 - slope2) <= CONST_EPSILON):
+        return True
+    else:
+        return False
+
+def is2SegsAffine(seg1: line, seg2: line, error: float = CONST_EPSILON):
+    if (is2SegsParallel(seg1, seg2) and isPtOnLine(seg1[0], seg2)):
+        return True
+    else:
+        return False
+
+def is2SegsOverlap(seg1: line, seg2: line, error: float = CONST_EPSILON):
+    if (is2SegsParallel(seg1, seg2) and (isPtOnSeg(seg1[0], seg2) or isPtOnSeg(seg1[1], seg2))):
+        return True
+    else:
+        return False
+
+# Relation between Pt and Objects =============================================
 def isPtOnLine(pt: pt, line: line, error: float = CONST_EPSILON) -> bool:
     """
     Is a pt on the line?
@@ -341,7 +398,7 @@ def intLine2Line(line1: line, line2: line) -> dict:
 
     # Check if parallel
     # 共线情形
-    if (D == 0 and is3PtsClockWise(line1[0], line1[1], line2[0]) == None):
+    if (abs(D) <= CONST_EPSILON and is3PtsClockWise(line1[0], line1[1], line2[0]) == None):
         return {
             'status': 'Collinear',
             'intersect': line1,
@@ -349,7 +406,7 @@ def intLine2Line(line1: line, line2: line) -> dict:
             'interiorFlag': True
         }
     # 平行情形
-    elif (D == 0):
+    elif (abs(D) <= CONST_EPSILON):
         return {
             'status': 'NoCross',
             'intersect': None,
@@ -657,8 +714,8 @@ def intSeg2Seg(seg1: line, seg2: line) -> dict:
                 'interiorFlag': None
             }
     # 若交点不在任何一个线段上，不相交
-    elif (not isPtOnSeg(intPt['intersect'], seg1, interiorOnly=False)
-            or not isPtOnSeg(intPt['intersect'], seg2, interiorOnly=False)):
+    elif (not isPtOnSeg(intPt['intersect'], seg1, interiorOnly=False) 
+        or not isPtOnSeg(intPt['intersect'], seg2, interiorOnly=False)):
         return {
             'status': 'NoCross',
             'intersect': None,
@@ -1226,44 +1283,6 @@ def isRayIntRay(ray1: line, ray2: line, interiorOnly: bool=False) -> bool:
     # 不需要交于interior或需要且交于interior
     else:
         return True
-
-def substractSegFromSeg(segToSub: line, segCover: line):
-    # 确认下所属情况
-    A = segToSub[0]
-    B = segToSub[1]
-    X = segCover[0]
-    Y = segCover[1]
-
-    AXB = isPtOnSeg(pt = X, seg = [A, B])
-    AYB = isPtOnSeg(pt = Y, seg = [A, B])
-    XAY = isPtOnSeg(pt = A, seg = [X, Y])
-    XBY = isPtOnSeg(pt = B, seg = [X, Y])
-    # Case 1: A - X - Y - B or Case 2: A - Y - X - B
-    if (AXB and AYB):
-        distAX = distEuclideanXY(A, X)['dist']
-        distAY = distEuclideanXY(A, Y)['dist']
-        if (distAX < distAY):
-            return ([A, X], [Y, B])
-        else:
-            return ([A, Y], [X, B])
-
-    # Case 3: A - X - B - Y
-    elif (AXB and XBY):
-        return [A, X]
-
-    # Case 4: A - Y - B - X
-    elif (AYB and XBY):
-        return [A, Y]
-
-    # Case 5: X - A - Y - B
-    elif (XAY and AYB):
-        return [Y, B]
-
-    # Case 6: Y - A - X - B
-    elif (XAY and AXB):
-        return [X, B]
-
-    return None
 
 # Line-shape intersect with polygon ===========================================
 def intLine2Poly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
@@ -1969,6 +1988,16 @@ def isPolyIntPoly(poly1: poly=None, poly2: poly=None, poly1Shapely: shapely.Poly
             if (trueWhen):
                 return True    
         return False
+
+def isPolyLegal(poly: poly):
+    for i in range(-1, len(poly)):
+        for j in range(-1, len(poly)):
+            if (i != j):
+                segI = [poly[i], poly[i + 1]]
+                segJ = [poly[j], poly[j + 1]]
+                if (isSegIntSeg(segI, segJ)):
+                    return False
+    return True
 
 # Distance from Point to Object ===============================================
 def distPt2Line(pt: pt, line: line) -> float:
