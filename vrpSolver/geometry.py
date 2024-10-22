@@ -2626,7 +2626,7 @@ def ptPolyCenter(poly: poly=None, polyShapely: shapely.Polygon=None) -> pt:
     return center
 
 # Mileage of points on seq ====================================================
-def mileagePt(seq: list[pt], pt: pt) -> None | float | list[float]:
+def mileagePt(seq: list[pt], pt: pt, error = CONST_EPSILON) -> None | float | list[float]:
     """
     Given a sequence of locs, and a point, returns the mileage of point on the seq, None if not on the sequence
 
@@ -2652,7 +2652,7 @@ def mileagePt(seq: list[pt], pt: pt) -> None | float | list[float]:
     for i in range(len(seq) - 1):
         seg = [seq[i], seq[i + 1]]
         leng = distEuclideanXY(seq[i], seq[i + 1])['dist']
-        if (isPtOnSeg(pt, seg)):
+        if (isPtOnSeg(pt, seg, interiorOnly=False, error=error)):
             onSeg.append((acc, seg))
         acc += leng
 
