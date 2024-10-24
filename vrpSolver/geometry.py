@@ -142,6 +142,58 @@ def is2SegsOverlap(seg1: line, seg2: line, error: float = CONST_EPSILON):
     else:
         return False
 
+def subSegFromPoly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False):
+    # Sanity check ============================================================
+    if (poly == None and polyShapely == None):
+        raise MissingParameterError("ERROR: `poly` and `polyShapely` cannot be None at the same time.")
+
+    # get shapely objects =====================================================
+    segShapely = shapely.LineString([seg[0], seg[1]])
+    if (polyShapely == None):
+        polyShapely = shapely.Polygon(poly)
+    intShape = shapely.difference(segShapely, polyShapely)
+
+    # If return shapely objects no processing needed ==========================
+    if (returnShaplelyObj):
+        return intShape
+
+    # 若不相交，返回不相交
+    # FIXME: 现在的精度可能有问题，需要计算两者间距离
+    if (intShape.is_empty): 
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None,
+            'interiorFlag': None
+        }
+    elif (isinstance(intShape, shapely.Point)):
+        # 都是闭集，不应该交出一个开集来
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None,
+            'interiorFlag': None
+        }
+    elif (isinstance(intShape, shapely.LineString)):
+        return {
+            'status': 'Cross',
+            'intersect': [tuple(intShape.coords[0]), tuple(intShape.coords[1])],
+            'intersectType': 'Segment',
+            'interiorFlag': True
+        }
+    else:
+        intSp = []
+        for obj in intShape.geoms:
+            if (isinstance(obj, shapely.LineString)):
+                intSp.append({
+                    'status': 'Cross',
+                    'intersect': [tuple(obj.coords[0]), tuple(obj.coords[1])],
+                    'intersectType': 'Segment',
+                    'interiorFlag': True
+                })
+
+        return intSp
+
 # Relation between Pt and Objects =============================================
 def isPtOnLine(pt: pt, line: line, error: float = CONST_EPSILON) -> bool:
     """
@@ -2649,12 +2701,26 @@ def mileagePt(seq: list[pt], pt: pt, error = CONST_EPSILON) -> None | float | li
     # 找到所有pt所处的线段
     acc = 0
     onSeg = []
+    closest2Snap = float('inf')
+    bestSnap = None
+    closestSeg = None
     for i in range(len(seq) - 1):
         seg = [seq[i], seq[i + 1]]
         leng = distEuclideanXY(seq[i], seq[i + 1])['dist']
         if (isPtOnSeg(pt, seg, interiorOnly=False, error=error)):
             onSeg.append((acc, seg))
-        acc += leng
+        elif (len(onSeg) == 0):
+            snapPt = ptFoot2Line(pt, seg)
+            dist2Snap = distEuclideanXY(pt, snapPt)['dist']
+            if (dist2Snap < closest2Snap):
+                closest2Snap = dist2Snap
+                closestSeg = seg
+                bestSnap = snapPt
+        acc += leng 
+    # 如果pt不在任何一段线段上,那么把pt给snap到最近的线段上
+    if (len(onSeg) == 0):
+        onSeg.append(closestSeg)
+        pt = bestSnap
 
     # 逐个计算mileage
     for i in range(len(onSeg)):
@@ -3827,7 +3893,7 @@ def distBtwPolysXY(pt1:pt, pt2:pt, polys:polys, polyVG: dict = None) -> dict:
     polys: polys, required
         The polygons as barriers.
     polyVG: dict, optional, default as None
-        The pre-calculated visual-graph using :func:`~vrpSolver.polysVisibleGraph()`. To avoid repeated calculation
+        The pre-calculated visual-graph using :func:`~polysVisibleGraph()`. To avoid repeated calculation
 
     Returns
     -------
@@ -4239,3 +4305,619 @@ def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
         'locatedSeg': locatedSeg
     }
 
+def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', polyInt: dict = None):
+    # 简化线段,去掉穿越点
+    seq = locSeqRemoveDegen(seq, error = 0.03)['newSeq']
+
+    # NOTE: 仅是加速用
+    if (polyInt == None):
+        polyInt = {}
+        for i in polygons:
+            for j in polygons:
+                if (i < j and isPolyIntPoly(
+                    poly1 = polygons[i][polyFieldName], 
+                    poly2 = polygons[j][polyFieldName])):
+                    polyInt[i, j] = True
+                    polyInt[j, i] = True
+
+    # Step 1: For each polygon, get intersections =============================
+    for p in polygons:
+        # 用来记录可以分配时间的经停点/经过线段
+        polygons[p]['intersect'] = []
+        # 由于计算精度的问题,加上简化线段时损失的精度,可能会导致path和polygon没有交点,属于提前需要把seq预设的represent point记录上来
+        polygons[p]['tmpPoint'] = [{
+            'status': 'Cross',
+            'intersectType': 'Point',
+            'intersect': polygons[p]['repPt'],
+            'interiorFlag':  True # 其实可能是在boundary上,但是不重要
+        }]
+        for i in range(len(seq) - 1):
+            segInt = intSeg2Poly([seq[i], seq[i + 1]], polygons[p][polyFieldName])
+            # 对于Nonconvex的poly，这部分不应该出现，但是实测下来Shapely还是不够可靠
+            if (type(segInt) == list):
+                for s in segInt:
+                    if (s['intersectType'] == 'Point'):
+                        polygons[p]['tmpPoint'].append(s)
+                    else:
+                        length = distEuclideanXY(s['intersect'][0], s['intersect'][1])['dist']
+                        if (length > 0.01):
+                            polygons[p]['intersect'].append(s)
+                        else:
+                            k = {
+                                'status': 'Cross',
+                                'intersectType': 'Point',
+                                'intersect': s['intersect'][0],
+                                'interiorFlag': False
+                            }
+                            polygons[p]['tmpPoint'].append(k)
+            # 对于相交的情形，先存起来，再判断相交情况，特别是点，对于所有的点，判断是不是已经存在
+            elif (segInt['status'] == 'Cross'):
+                if (segInt['intersectType'] == 'Point'):
+                    polygons[p]['tmpPoint'].append(segInt)
+                else:
+                    length = distEuclideanXY(segInt['intersect'][0], segInt['intersect'][1])['dist']
+                    if (length > 0.01):
+                        polygons[p]['intersect'].append(segInt)
+                    else:
+                        k = {
+                            'status': 'Cross',
+                            'intersectType': 'Point',
+                            'intersect': segInt['intersect'][0],
+                            'interiorFlag': False
+                        }
+                        polygons[p]['tmpPoint'].append(k)
+
+    for i in polygons:
+        # 对于所有的相交项，判断重合性，主要判断Point是不是重合了已经
+        for pt in polygons[i]['tmpPoint']:
+            existFlag = False
+            for obj in polygons[i]['intersect']:
+                if (obj['intersectType'] == 'Point'):
+                    if (is2PtsSame(pt1 = pt['intersect'], pt2 = obj['intersect'], error = 0.03)):
+                        existFlag = True
+                        break
+                else:
+                    if (isPtOnSeg(pt = pt['intersect'], seg = obj['intersect'], error = 0.03)):
+                        existFlag = True
+                        break
+            if (not existFlag):
+                polygons[i]['intersect'].append(pt)
+        polygons[i].pop('tmpPoint')
+
+    # Step 2: Initialize ======================================================
+    # 把所有polygon内的seg/pt原封不动的放进来
+    segSet = {}
+    segIDAcc = 0
+    for i in polygons:
+        for s in polygons[i]['intersect']:
+            segSet[segIDAcc] = {
+                'shape': s['intersect'],
+                'type': s['intersectType'],
+                'belong': [i],
+                'split': False
+            }
+            segIDAcc += 1
+
+    # 初始无覆盖线段集合
+    leg = []
+    for i in range(len(seq) - 1):
+        leg.append([seq[i], seq[i + 1]])
+
+    for i in polygons:
+        newSeg = []
+        inteID = []
+        for s in range(len(leg)):
+            if (isSegIntPoly(seg = leg[s], poly = polygons[i][polyFieldName])):
+                subSeg = subSegFromPoly(seg = leg[s], poly = polygons[i][polyFieldName])
+                # 如果交出来有剩下的，leg[s]会被替代
+                if (type(subSeg) != list and subSeg['status'] == 'Cross'):
+                    inteID.append(s)
+                    newSeg.append(subSeg['intersect'])
+                elif (type(subSeg) == list):
+                    inteID.append(s)
+                    for sub in subSeg:
+                        if (sub['status'] == 'Cross'):
+                            newSeg.append(sub['intersect'])
+
+        if (len(inteID) > 0):
+            leg = [leg[s] for s in range(len(leg)) if s not in inteID]
+            leg.extend(newSeg)
+    # print(leg)
+
+    # Step 3: Split the segments ==============================================
+    canSplitFlag = True
+    while (canSplitFlag):
+        canSplitFlag = False
+
+        newSegSet = []
+        for i in segSet:
+            canSplitBetweenIJFlag = False  
+            for j in segSet:
+                # 两个seg/pt看看能不能相交
+                if (i < j and segSet[i]['split'] == False and segSet[j]['split'] == False):
+                    # 分别看看i和j所属的poly有没有可能相交,如果有可能,才尝试,不可能相交就没必要了
+                    trySplitFlag = False
+                    for iBelong in segSet[i]['belong']:
+                        for jBelong in segSet[j]['belong']:
+                            if ((iBelong, jBelong) in polyInt and polyInt[iBelong, jBelong] == True):
+                                trySplitFlag = True
+
+                    if (trySplitFlag):
+                        # 如果i和j都是segment
+                        if (segSet[i]['type'] == 'Segment' and segSet[j]['type'] == 'Segment'):
+                            s2s = intSeg2Seg(segSet[i]['shape'], segSet[j]['shape'])
+                            if (s2s['status'] == 'Collinear' and s2s['interiorFlag'] == True and s2s['intersectType'] == 'Segment'):
+                                # print("Part ", i, segSet[i], "Part ", j, segSet[j], "S2S")
+                                # 取出seg1和seg2的端点
+                                A = segSet[i]['shape'][0]
+                                B = segSet[i]['shape'][1]
+                                X = segSet[j]['shape'][0]
+                                Y = segSet[j]['shape'][1]
+
+                                AXB = isPtOnSeg(pt = X, seg = [A, B], interiorOnly = True)
+                                AYB = isPtOnSeg(pt = Y, seg = [A, B], interiorOnly = True)
+                                XAY = isPtOnSeg(pt = A, seg = [X, Y], interiorOnly = True)
+                                XBY = isPtOnSeg(pt = B, seg = [X, Y], interiorOnly = True)
+
+                                sameAX = is2PtsSame(A, X)
+                                sameAY = is2PtsSame(A, Y)
+                                sameBX = is2PtsSame(B, X)
+                                sameBY = is2PtsSame(B, Y)
+
+                                distAX = distEuclideanXY(A, X)['dist']
+                                distBX = distEuclideanXY(B, X)['dist']
+                                distAY = distEuclideanXY(A, Y)['dist']
+                                distBY = distEuclideanXY(B, Y)['dist']
+
+                                jointBelong = [k for k in segSet[i]['belong']]
+                                jointBelong.extend([k for k in segSet[j]['belong'] if k not in segSet[i]['belong']])
+
+                                # NOTE: This is so stupid, but efficient
+                                # Case 1: A - X - Y - B
+                                if (AXB and AYB and distAX < distAY):
+                                    # print("# Case 1: A - X - Y - B")
+                                    newSegSet.append({
+                                        'shape': [A, X],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [X, Y],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [Y, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                # Case 2: A - Y - X - B
+                                elif (AXB and AYB and distAX > distAY):
+                                    # print("# Case 2: A - Y - X - B")
+                                    newSegSet.append({
+                                        'shape': [A, Y],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [Y, X],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [X, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                # Case 3: A - X - B - Y
+                                elif (AXB and XBY):
+                                    # print("# Case 3: A - X - B - Y")
+                                    newSegSet.append({
+                                        'shape': [A, X],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [X, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [B, Y],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                # Case 4: A - Y - B - X
+                                elif (AYB and XBY):
+                                    # print("# Case 4: A - Y - B - X")
+                                    newSegSet.append({
+                                        'shape': [A, Y],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [Y, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [B, X],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                # Case 5: X - A - Y - B
+                                elif (XAY and AYB):
+                                    # print("# Case 5: X - A - Y - B")
+                                    newSegSet.append({
+                                        'shape': [X, A],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [A, Y],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [Y, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                # Case 6: Y - A - X - B
+                                elif (XAY and AXB):
+                                    # print("# Case 6: Y - A - X - B")
+                                    newSegSet.append({
+                                        'shape': [Y, A],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [A, X],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [X, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                # Case 7: X - A - B - Y
+                                elif (XAY and XBY and distAX < distBX):
+                                    # print("# Case 7: X - A - B - Y")
+                                    newSegSet.append({
+                                        'shape': [X, A],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [A, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [B, Y],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                # Case 8: Y - A - B - X
+                                elif (XAY and XBY and distAX > distBX):
+                                    # print("# Case 8: Y - A - B - X")
+                                    newSegSet.append({
+                                        'shape': [Y, A],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [A, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [B, X],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                # Case 9: A - X - (BY)
+                                elif (AXB and sameBY):
+                                    # print("# Case 9: A - X - (BY)")
+                                    newSegSet.append({
+                                        'shape': [A, X],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [X, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                # Case 10: A - Y - (BX)
+                                elif (AYB and sameBX):
+                                    # print("# Case 10: A - Y - (BX)")
+                                    newSegSet.append({
+                                        'shape': [A, Y],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [Y, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                # Case 11: X - A - (BY)
+                                elif (XAY and sameBY):
+                                    # print("# Case 11: X - A - (BY)")
+                                    newSegSet.append({
+                                        'shape': [X, A],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [A, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                # Case 12: Y - A - (XB)
+                                elif (XAY and sameBX):
+                                    # print("# Case 12: Y - A - (XB)")
+                                    newSegSet.append({
+                                        'shape': [Y, A],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [A, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                # Case 13: (AX) - Y - B
+                                elif (AYB and sameAX):
+                                    # print("# Case 13: (AX) - Y - B")
+                                    newSegSet.append({
+                                        'shape': [A, Y],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [Y, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                # Case 14: (AX) - B - Y
+                                elif (XBY and sameAX):
+                                    # print("# Case 14: (AX) - B - Y")
+                                    newSegSet.append({
+                                        'shape': [A, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [B, Y],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                # Case 15: (AY) - X - B
+                                elif (AXB and sameAY):
+                                    # print("# Case 15: (AY) - X - B")
+                                    newSegSet.append({
+                                        'shape': [A, X],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [X, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                # Case 16: (AY) - B - X
+                                elif (XBY and sameAY):
+                                    # print("# Case 16: (AY) - B - X")
+                                    newSegSet.append({
+                                        'shape': [A, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [B, X],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                # Case 17: (AX) - (BY) or (AY) - (BX)
+                                elif (is2SegsSame([A, B], [X, Y])):
+                                    # print("# Case 17: (AX) - (BY) or (AY) - (BX)")
+                                    newSegSet.append({
+                                        'shape': [A, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                # Case 18: Should not happen
+                                else:
+                                    raise RuntimeError("Something else for S2S", i, segSet[i], j, segSet[j])
+                                segSet[i]['split'] = True
+                                segSet[j]['split'] = True
+                                canSplitBetweenIJFlag = True
+                                break
+
+                        # 如果i是segment, j是point
+                        elif (segSet[i]['type'] == 'Segment' and segSet[j]['type'] == 'Point'):
+                            if (isPtOnSeg(pt = segSet[j]['shape'], seg = segSet[i]['shape'], interiorOnly = True)):
+                                # print("Part ", i, segSet[i], "Part ", j, segSet[j], "S2P")
+                                newSegSet.append({
+                                    'shape': [segSet[i]['shape'][0], segSet[j]['shape']],
+                                    'type': 'Segment',
+                                    'belong': [k for k in segSet[i]['belong']],
+                                    'split': False
+                                })
+                                newSegSet.append({
+                                    'shape': segSet[j]['shape'],
+                                    'type': 'Point',
+                                    'belong': [k for k in segSet[j]['belong']],
+                                    'split': False
+                                })
+                                newSegSet.append({
+                                    'shape': [segSet[j]['shape'], segSet[i]['shape'][1]],
+                                    'type': 'Segment',
+                                    'belong': [k for k in segSet[i]['belong']],
+                                    'split': False
+                                })                                                                
+                                segSet[i]['split'] = True
+                                segSet[j]['split'] = True
+                                canSplitBetweenIJFlag = True
+                                break
+
+                        # 如果i是point, j是segment
+                        elif (segSet[i]['type'] == 'Point' and segSet[j]['type'] == 'Segment'):
+                            if (isPtOnSeg(pt = segSet[i]['shape'], seg = segSet[j]['shape'], interiorOnly = True)):
+                                # print("Part ", i, segSet[i], "Part ", j, segSet[j], "P2S")
+                                newSegSet.append({
+                                    'shape': [segSet[j]['shape'][0], segSet[i]['shape']],
+                                    'type': 'Segment',
+                                    'belong': [k for k in segSet[j]['belong']],
+                                    'split': False
+                                })
+                                newSegSet.append({
+                                    'shape': segSet[i]['shape'],
+                                    'type': 'Point',
+                                    'belong': [k for k in segSet[i]['belong']],
+                                    'split': False
+                                })
+                                newSegSet.append({
+                                    'shape': [segSet[i]['shape'], segSet[j]['shape'][1]],
+                                    'type': 'Segment',
+                                    'belong': [k for k in segSet[j]['belong']],
+                                    'split': False
+                                })                                
+                                segSet[i]['split'] = True
+                                segSet[j]['split'] = True
+                                canSplitBetweenIJFlag = True
+                                break
+
+                        # 如果i和j都是point
+                        elif (segSet[i]['type'] == 'Point' and segSet[j]['type'] == 'Point'):
+                            # 若两点重合, 则合并两者的belong, 否则不需要进行处理
+                            if (is2PtsSame(pt1 = segSet[i]['shape'], pt2 = segSet[j]['shape'])):
+                                # print("Part ", i, segSet[i], "Part ", j, segSet[j], "P2P")
+                                jointBelong = [k for k in segSet[i]['belong']]
+                                jointBelong.extend([k for k in segSet[j]['belong'] if k not in segSet[i]['belong']])
+                                newSegSet.append({
+                                    'shape': segSet[i]['shape'],
+                                    'type': 'Point',
+                                    'belong': jointBelong,
+                                    'split': False
+                                })                                
+                                segSet[i]['split'] = True
+                                segSet[j]['split'] = True
+                                canSplitBetweenIJFlag = True
+                                break
+
+            if (canSplitBetweenIJFlag):                
+                break
+
+        if (len(newSegSet) > 0):
+            canSplitFlag = True
+
+        for k in newSegSet:
+            segSet[segIDAcc] = k
+            segIDAcc += 1
+        
+        segSet = {k: v for k, v in segSet.items() if (v['split'] == False)}
+
+    # Step 4: Complete segSet with no-overlap segments ========================
+    for s in leg:
+        segSet[segIDAcc] = {
+            'shape': s,
+            'type': 'Segment',
+            'belong': [],
+            'split': False
+        }
+
+    # Step 4: Sort segSet by mileage ==========================================
+    # NOTE: 每个segSet内的元素应该是两两不相交
+    heapSegSet = []
+    sortedSegSet = {}
+    # NOTE: 先得到每个segSet内元素的mileage
+    for i in segSet:
+        if (segSet[i]['type'] == 'Point'):
+            mileage = mileagePt(seq, segSet[i]['shape'], error = 0.03)
+            # 找不到mileage是真没办法...
+            # NOTE: 最差的办法就是做投影然后求mileage
+            if (mileage == None):
+                raise RuntimeError("ERROR: Precision error")
+            # 这个好麻烦...
+            # NOTE: 如果仅仅是[0, end]的话还好说, 属于不应该出现在这里
+            elif (type(mileage) == list):
+                raise RuntimeError("ERROR: Depot is on the edge of one of polygons")
+            else:
+                pass
+            segSet[i]['mileage'] = mileage
+            heapq.heappush(heapSegSet, (mileage, segSet[i]))
+        else:
+            mileage1 = mileagePt(seq, segSet[i]['shape'][0], error = 0.03)
+            mileage2 = mileagePt(seq, segSet[i]['shape'][1], error = 0.03)
+            # NOTE: 真的好讨厌啊...
+            if (mileage1 == None):
+                raise RuntimeError("ERROR: Precision error")
+            elif (type(mileage1) == list):
+                # 这边专门针对[0, end]这种特殊情形处理
+                if (type(mileage2) != list and mileage2 < distEuclideanXY(seq[0], seq[1])['dist']):
+                    mileage1 = min(mileage1)
+                elif (type(mileage2) != list and mileage2 > distEuclideanXY(seq[0], seq[1])['dist']):
+                    mileage1 = max(mileage1)
+            else:
+                pass
+            if (mileage2 == None):
+                raise RuntimeError("ERROR: Precision error")
+            elif (type(mileage2) == list):
+                # 这边专门针对[0, end]这种特殊情形处理
+                if (type(mileage1) != list and mileage1 < distEuclideanXY(seq[0], seq[1])['dist']):
+                    mileage2 = min(mileage2)
+                elif (type(mileage1) != list and mileage1 > distEuclideanXY(seq[0], seq[1])['dist']):
+                    mileage2 = max(mileage2)
+            else:
+                pass
+            segSet[i]['mileage'] = [min(mileage1, mileage2), max(mileage1, mileage2)]
+            heapq.heappush(heapSegSet, ((mileage1 + mileage2) / 2, segSet[i]))
+    while(len(heapSegSet) > 0):
+        sortedSegSet[len(sortedSegSet)] = heapq.heappop(heapSegSet)[1]
+
+    return sortedSegSet
