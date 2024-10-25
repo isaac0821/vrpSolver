@@ -2636,7 +2636,7 @@ def ptInSeqMileage(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
             inPathFlag = True
             break
     if (inPathFlag == False):
-        raise UnsupportedInputError("ERROR: `dist` is longer than the length of `seq`")
+        raise RuntimeError("ERROR: `dist` is longer than the length of `seq`")
     # Find location on the segment ============================================
     remainDist = accDist - dist
     segDist = 0
@@ -4398,32 +4398,6 @@ def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', po
             }
             segIDAcc += 1
 
-    # 初始无覆盖线段集合
-    leg = []
-    for i in range(len(seq) - 1):
-        leg.append([seq[i], seq[i + 1]])
-
-    for i in polygons:
-        newSeg = []
-        inteID = []
-        for s in range(len(leg)):
-            if (isSegIntPoly(seg = leg[s], poly = polygons[i][polyFieldName])):
-                subSeg = subSegFromPoly(seg = leg[s], poly = polygons[i][polyFieldName])
-                # 如果交出来有剩下的，leg[s]会被替代
-                if (type(subSeg) != list and subSeg['status'] == 'Cross'):
-                    inteID.append(s)
-                    newSeg.append(subSeg['intersect'])
-                elif (type(subSeg) == list):
-                    inteID.append(s)
-                    for sub in subSeg:
-                        if (sub['status'] == 'Cross'):
-                            newSeg.append(sub['intersect'])
-
-        if (len(inteID) > 0):
-            leg = [leg[s] for s in range(len(leg)) if s not in inteID]
-            leg.extend(newSeg)
-    # print(leg)
-
     # Step 3: Split the segments ==============================================
     canSplitFlag = True
     while (canSplitFlag):
@@ -4849,11 +4823,12 @@ def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', po
                                 segSet[j]['split'] = True
                                 canSplitBetweenIJFlag = True
                                 break
-
             if (canSplitBetweenIJFlag):                
                 break
 
         if (len(newSegSet) > 0):
+            # print("newSegSet", newSegSet)
+            # print(hyphenStr())
             canSplitFlag = True
 
         for k in newSegSet:
@@ -4861,15 +4836,9 @@ def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', po
             segIDAcc += 1
         
         segSet = {k: v for k, v in segSet.items() if (v['split'] == False)}
-
-    # Step 4: Complete segSet with no-overlap segments ========================
-    for s in leg:
-        segSet[segIDAcc] = {
-            'shape': s,
-            'type': 'Segment',
-            'belong': [],
-            'split': False
-        }
+    
+    # NOTE: 到这里是对的
+    # return segSet
 
     # Step 4: Sort segSet by mileage ==========================================
     # NOTE: 每个segSet内的元素应该是两两不相交
@@ -4889,6 +4858,7 @@ def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', po
                 raise RuntimeError("ERROR: Depot is on the edge of one of polygons")
             else:
                 pass
+            # print(i,  mileage)
             segSet[i]['mileage'] = mileage
             heapq.heappush(heapSegSet, (mileage, segSet[i]))
         else:
@@ -4915,9 +4885,28 @@ def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', po
                     mileage2 = max(mileage2)
             else:
                 pass
+            # print(i, mileage1, mileage2)
             segSet[i]['mileage'] = [min(mileage1, mileage2), max(mileage1, mileage2)]
             heapq.heappush(heapSegSet, ((mileage1 + mileage2) / 2, segSet[i]))
+
+    curMileage = 0
     while(len(heapSegSet) > 0):
-        sortedSegSet[len(sortedSegSet)] = heapq.heappop(heapSegSet)[1]
+        nextSeg = heapq.heappop(heapSegSet)[1]
+        nextSegStart = nextSeg['mileage'] if type(nextSeg['mileage']) != list else nextSeg['mileage'][0]
+        nextSegEnd = nextSeg['mileage'] if type(nextSeg['mileage']) != list else nextSeg['mileage'][1]
+
+        if (abs(curMileage - nextSegStart) <= CONST_EPSILON):
+            sortedSegSet[len(sortedSegSet)] = nextSeg
+        else:
+            sortedSegSet[len(sortedSegSet)] = {
+                'shape': [ptInSeqMileage(seq, curMileage), ptInSeqMileage(seq, nextSegStart)],
+                'type': 'Segment',
+                'belong': [],
+                'mileage': [curMileage, nextSegStart],
+                'split': False
+            }
+            sortedSegSet[len(sortedSegSet)] = nextSeg
+        curMileage = nextSegEnd
 
     return sortedSegSet
+
