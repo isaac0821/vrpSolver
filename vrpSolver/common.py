@@ -170,6 +170,21 @@ def writeLog(string, logPath = None):
         print(string)
     return
 
+def is2IntervalOverlap(interval1, interval2):
+    i = [min(interval1), max(interval1)]
+    j = [min(interval2), max(interval2)]
+
+    iA = i[0]
+    iB = i[1]
+    jA = j[0]
+    jB = j[1]
+
+    if (iB < jA):
+        return False
+    if (jB < iA):
+        return False
+    return True
+
 def splitIntoSubSeq(inputList, selectFlag):
     if (len(inputList) != len(selectFlag)):
         raise UnsupportedInputError("ERROR: The length of `inputList` should be the same as the length of `selectFlag`")

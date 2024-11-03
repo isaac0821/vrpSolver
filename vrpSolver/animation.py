@@ -18,8 +18,8 @@ def aniRouting(
     # Nodes -------------------------------------------------------------------
     nodes: dict|None = None,
     locFieldName: str = 'loc',
-    timedSeqFieldName: str = 'timedSeq',
-    timeWindowFieldName: str = 'timeWindow',
+    nodeTimedSeqFieldName: str = 'timedSeq',
+    nodeTimeWindowFieldName: str = 'timeWindow',
     nodeColor: str = 'black',
     nodeMarker: str = 'o',
     nodeMarkerSize: float = 2,
@@ -41,6 +41,9 @@ def aniRouting(
     vehShowNoteFlag: bool = True,
     # Polygons ----------------------------------------------------------------
     polygons: dict|None = None,
+    polyAnchorFieldName: str = None,
+    polyTimedSeqFieldName: str = None,
+    polyTimeWindowFieldName: str = None,
     polyFieldName = 'poly',    
     polyEdgeColor: str = 'black',
     polyEdgeWidth: float = 1,
@@ -211,7 +214,6 @@ def aniRouting(
     if (vehicles != None):
         for vID in vehicles:
             vehicleStyle[vID] = {}
-
             if (vehColor == 'Random'):
                 vehicleStyle[vID]['vehColor'] = colorRandom()
             elif (vehColor != None):
@@ -275,7 +277,7 @@ def aniRouting(
             for pID in polygons:
                 # 判定此时刻是否需要绘制poly
                 plotPolyFlag = False
-                if (timeWindowFieldName not in polygons[pID] or polygons[pID][timeWindowFieldName][0] <= clock <= polygons[pID][timeWindowFieldName][1]):
+                if (polyTimeWindowFieldName not in polygons[pID] or polygons[pID][polyTimeWindowFieldName][0] <= clock <= polygons[pID][polyTimeWindowFieldName][1]):
                     plotPolyFlag = True
 
                 # 每个Poly的坐标轮廓
@@ -284,10 +286,26 @@ def aniRouting(
                 if (plotPolyFlag):
                     for p in polygons[pID][polyFieldName]:
                         pt = None
-                        if ('direction' in polygons[pID] and 'speed' in polygons[pID]):
-                            if (clock < polygons[pID][timeWindowFieldName][0]):
+                        if (polyAnchorFieldName in polygons[pID] and polyTimedSeqFieldName in polygons[pID]):
+                            # 如果还没开始动，在原点不动
+                            if (clock < polygons[pID][polyTimedSeqFieldName][0][1]):
                                 pt = p
-                            elif (clock < polygons[pID][timeWindowFieldName][1]):
+                            # 如果到达终点了，在终点不动
+                            elif (clock > polygons[pID][polyTimedSeqFieldName][-1][1]):
+                                dx = (polygons[pID][polyTimedSeqFieldName][-1][0][0] - polygons[pID][polyAnchorFieldName][0])
+                                dy = (polygons[pID][polyTimedSeqFieldName][-1][0][1] - polygons[pID][polyAnchorFieldName][1])
+                                pt = (p[0] + dx, p[1] + dy)
+                            else: 
+                                curSnap = snapInTimedSeq(
+                                    timedSeq = polygons[pID][polyTimedSeqFieldName],
+                                    t = clock)
+                                dx = (curSnap['loc'][0] - polygons[pID][polyAnchorFieldName][0])
+                                dy = (curSnap['loc'][1] - polygons[pID][polyAnchorFieldName][1])
+                                pt = (p[0] + dx, p[1] + dy)
+                        elif ('direction' in polygons[pID] and 'speed' in polygons[pID]):
+                            if (clock < polygons[pID][polyTimeWindowFieldName][0]):
+                                pt = p
+                            elif (clock < polygons[pID][polyTimeWindowFieldName][1]):
                                 pt = ptInDistXY(p, polygons[pID]['direction'], polygons[pID]['speed'] * clock)
                             else:
                                 pt = ptInDistXY(p, polygons[pID]['direction'], polygons[pID]['speed'] * (polygons[pID]['timeRange'][1] - polygons[pID]['timeRange'][0]))
@@ -326,18 +344,18 @@ def aniRouting(
             # Plot the location of nodes --------------------------------------
             for nID in nodes:
                 plotNodeFlag = False
-                if (timeWindowFieldName not in nodes[nID] or nodes[nID][timeWindowFieldName][0] <= clock <= nodes[nID][timeWindowFieldName][1]):
+                if (nodeTimeWindowFieldName not in nodes[nID] or nodes[nID][nodeTimeWindowFieldName][0] <= clock <= nodes[nID][nodeTimeWindowFieldName][1]):
                     plotNodeFlag = True
 
                 x = None
                 y = None       
                 curLoc = None         
                 if (plotNodeFlag):
-                    if (timedSeqFieldName not in nodes[nID]):
+                    if (nodeTimedSeqFieldName not in nodes[nID]):
                         curLoc = nodes[nID][locFieldName]
                     else:
                         curSnap = snapInTimedSeq(
-                            timedSeq = nodes[nID][timedSeqFieldName],
+                            timedSeq = nodes[nID][nodeTimedSeqFieldName],
                             t = clock)
                         curLoc = curSnap['loc']
 

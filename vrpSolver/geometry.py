@@ -1551,7 +1551,7 @@ def intSeq2Poly(seq: list[pt], poly: poly):
     else:
         return inte
 
-def seqLinkSeq(seq1: list[pt], seq2: list[pt]):
+def seqLinkSeq(seq1: list[pt], seq2: list[pt], error:float = CONST_EPSILON):
     """
     Given two seqs, link them together if possible, return None if they are separated
 
@@ -1573,22 +1573,22 @@ def seqLinkSeq(seq1: list[pt], seq2: list[pt]):
     tail1 = seq1[-1]
     head2 = seq2[0]
     tail2 = seq2[-1]
-    if (is2PtsSame(head1, head2)):
+    if (is2PtsSame(head1, head2, error)):
         newSeq = [seq1[len(seq1) - 1 - i] for i in range(len(seq1) - 1)]
         newSeq.extend([i for i in seq2])
         return newSeq
 
-    elif (is2PtsSame(head1, tail2)):
+    elif (is2PtsSame(head1, tail2, error)):
         newSeq = [seq1[len(seq1) - 1 - i] for i in range(len(seq1) - 1)]
         newSeq.extend([seq2[len(seq2) - 1 - i] for i in range(len(seq2))])
         return newSeq
 
-    elif (is2PtsSame(tail1, head2)):
+    elif (is2PtsSame(tail1, head2, error)):
         newSeq = [seq1[i] for i in range(len(seq1) - 1)]
         newSeq.extend([i for i in seq2])
         return newSeq
 
-    elif (is2PtsSame(tail1, tail2)):
+    elif (is2PtsSame(tail1, tail2, error)):
         newSeq = [seq1[i] for i in range(len(seq1) - 1)]
         newSeq.extend([seq2[len(seq2) - 1 - i] for i in range(len(seq2))])
         return newSeq
@@ -2695,6 +2695,7 @@ def mileagePt(seq: list[pt], pt: pt, error = CONST_EPSILON) -> None | float | li
         None if pt is not on the sequence, float if only one mileage, list[float] if the pt appears multiple times
 
     """
+    seq = locSeqRemoveDegen(seq)['newSeq']
 
     m = []
 
@@ -2709,12 +2710,13 @@ def mileagePt(seq: list[pt], pt: pt, error = CONST_EPSILON) -> None | float | li
         leng = distEuclideanXY(seq[i], seq[i + 1])['dist']
         if (isPtOnSeg(pt, seg, interiorOnly=False, error=error)):
             onSeg.append((acc, seg))
+        # 如果
         elif (len(onSeg) == 0):
             snapPt = ptFoot2Line(pt, seg)
             dist2Snap = distEuclideanXY(pt, snapPt)['dist']
             if (dist2Snap < closest2Snap):
                 closest2Snap = dist2Snap
-                closestSeg = seg
+                closestSeg = (acc, seg)
                 bestSnap = snapPt
         acc += leng 
     # 如果pt不在任何一段线段上,那么把pt给snap到最近的线段上
@@ -4304,6 +4306,254 @@ def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
         'removedFlag': removedFlag,
         'locatedSeg': locatedSeg
     }
+
+def splitOverlapSegs(seg1: line, seg2: line, belong1: list = [1], belong2: list = [2]):
+    s2s = intSeg2Seg(seg1, seg2)
+    if (s2s['status'] == 'Collinear' and s2s['interiorFlag'] == True and s2s['intersectType'] == 'Segment'):
+        # print("Part ", i, segSet[i], "Part ", j, segSet[j], "S2S")
+        # 取出seg1和seg2的端点
+        A = seg1[0]
+        B = seg1[1]
+        X = seg2[0]
+        Y = seg2[1]
+
+        AXB = isPtOnSeg(pt = X, seg = [A, B], interiorOnly = True)
+        AYB = isPtOnSeg(pt = Y, seg = [A, B], interiorOnly = True)
+        XAY = isPtOnSeg(pt = A, seg = [X, Y], interiorOnly = True)
+        XBY = isPtOnSeg(pt = B, seg = [X, Y], interiorOnly = True)
+
+        sameAX = is2PtsSame(A, X)
+        sameAY = is2PtsSame(A, Y)
+        sameBX = is2PtsSame(B, X)
+        sameBY = is2PtsSame(B, Y)
+
+        distAX = distEuclideanXY(A, X)['dist']
+        distBX = distEuclideanXY(B, X)['dist']
+        distAY = distEuclideanXY(A, Y)['dist']
+        distBY = distEuclideanXY(B, Y)['dist']
+
+        jointBelong = [k for k in belong1]
+        jointBelong.extend([k for k in belong2 if k not in belong1])
+        
+        newSegSet = []
+        # NOTE: This is so stupid, but efficient
+        # Case 1: A - X - Y - B
+        if (AXB and AYB and distAX < distAY):
+            # print("# Case 1: A - X - Y - B")
+            newSegSet.append({
+                'shape': [A, X],
+                'belong': [k for k in belong1],
+            })
+            newSegSet.append({
+                'shape': [X, Y],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [Y, B],
+                'belong': [k for k in belong1],
+            })
+        # Case 2: A - Y - X - B
+        elif (AXB and AYB and distAX > distAY):
+            # print("# Case 2: A - Y - X - B")
+            newSegSet.append({
+                'shape': [A, Y],
+                'belong': [k for k in belong1],
+            })
+            newSegSet.append({
+                'shape': [Y, X],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [X, B],
+                'belong': [k for k in belong1],
+            })
+        # Case 3: A - X - B - Y
+        elif (AXB and XBY):
+            # print("# Case 3: A - X - B - Y")
+            newSegSet.append({
+                'shape': [A, X],
+                'belong': [k for k in belong1],
+            })
+            newSegSet.append({
+                'shape': [X, B],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [B, Y],
+                'belong': [k for k in belong2],
+            })
+        # Case 4: A - Y - B - X
+        elif (AYB and XBY):
+            # print("# Case 4: A - Y - B - X")
+            newSegSet.append({
+                'shape': [A, Y],
+                'belong': [k for k in belong1],
+            })
+            newSegSet.append({
+                'shape': [Y, B],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [B, X],
+                'belong': [k for k in belong2],
+            })
+        # Case 5: X - A - Y - B
+        elif (XAY and AYB):
+            # print("# Case 5: X - A - Y - B")
+            newSegSet.append({
+                'shape': [X, A],
+                'belong': [k for k in belong2],
+            })
+            newSegSet.append({
+                'shape': [A, Y],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [Y, B],
+                'belong': [k for k in belong1],
+            })
+        # Case 6: Y - A - X - B
+        elif (XAY and AXB):
+            # print("# Case 6: Y - A - X - B")
+            newSegSet.append({
+                'shape': [Y, A],
+                'belong': [k for k in belong2],
+            })
+            newSegSet.append({
+                'shape': [A, X],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [X, B],
+                'belong': [k for k in belong1],
+            })
+        # Case 7: X - A - B - Y
+        elif (XAY and XBY and distAX < distBX):
+            # print("# Case 7: X - A - B - Y")
+            newSegSet.append({
+                'shape': [X, A],
+                'belong': [k for k in belong2],
+            })
+            newSegSet.append({
+                'shape': [A, B],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [B, Y],
+                'belong': [k for k in belong2],
+            })
+        # Case 8: Y - A - B - X
+        elif (XAY and XBY and distAX > distBX):
+            # print("# Case 8: Y - A - B - X")
+            newSegSet.append({
+                'shape': [Y, A],
+                'belong': [k for k in belong2],
+            })
+            newSegSet.append({
+                'shape': [A, B],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [B, X],
+                'belong': [k for k in belong2],
+            })
+        # Case 9: A - X - (BY)
+        elif (AXB and sameBY):
+            # print("# Case 9: A - X - (BY)")
+            newSegSet.append({
+                'shape': [A, X],
+                'belong': [k for k in belong1],
+            })
+            newSegSet.append({
+                'shape': [X, B],
+                'belong': [k for k in jointBelong],
+            })
+        # Case 10: A - Y - (BX)
+        elif (AYB and sameBX):
+            # print("# Case 10: A - Y - (BX)")
+            newSegSet.append({
+                'shape': [A, Y],
+                'belong': [k for k in belong1],
+            })
+            newSegSet.append({
+                'shape': [Y, B],
+                'belong': [k for k in jointBelong],
+            })
+        # Case 11: X - A - (BY)
+        elif (XAY and sameBY):
+            # print("# Case 11: X - A - (BY)")
+            newSegSet.append({
+                'shape': [X, A],
+                'belong': [k for k in belong2],
+            })
+            newSegSet.append({
+                'shape': [A, B],
+                'belong': [k for k in jointBelong],
+            })
+        # Case 12: Y - A - (XB)
+        elif (XAY and sameBX):
+            # print("# Case 12: Y - A - (XB)")
+            newSegSet.append({
+                'shape': [Y, A],
+                'belong': [k for k in belong2],
+            })
+            newSegSet.append({
+                'shape': [A, B],
+                'belong': [k for k in jointBelong],
+            })
+        # Case 13: (AX) - Y - B
+        elif (AYB and sameAX):
+            # print("# Case 13: (AX) - Y - B")
+            newSegSet.append({
+                'shape': [A, Y],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [Y, B],
+                'belong': [k for k in belong1],
+            })
+        # Case 14: (AX) - B - Y
+        elif (XBY and sameAX):
+            # print("# Case 14: (AX) - B - Y")
+            newSegSet.append({
+                'shape': [A, B],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [B, Y],
+                'belong': [k for k in belong2],
+            })
+        # Case 15: (AY) - X - B
+        elif (AXB and sameAY):
+            # print("# Case 15: (AY) - X - B")
+            newSegSet.append({
+                'shape': [A, X],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [X, B],
+                'belong': [k for k in belong1],
+            })
+        # Case 16: (AY) - B - X
+        elif (XBY and sameAY):
+            # print("# Case 16: (AY) - B - X")
+            newSegSet.append({
+                'shape': [A, B],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [B, X],
+                'belong': [k for k in belong2],
+            })
+        # Case 17: (AX) - (BY) or (AY) - (BX)
+        elif (is2SegsSame([A, B], [X, Y])):
+            # print("# Case 17: (AX) - (BY) or (AY) - (BX)")
+            newSegSet.append({
+                'shape': [A, B],
+                'belong': [k for k in jointBelong],
+            })
+        return newSegSet
+    return None
 
 def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', polyInt: dict = None):
     # 简化线段,去掉穿越点
