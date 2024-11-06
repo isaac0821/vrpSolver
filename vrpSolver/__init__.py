@@ -98,6 +98,9 @@ from .plot import *
 from .animation import *
 from .instance import *
 
+# Metaheuristic modules
+from .GA import *
+
 # Geometry
 from .geometry import *
 from .obj2Obj import *
@@ -106,8 +109,6 @@ from .obj2Obj import *
 from .tsp import *
 from .satsp import *
 from .mtsp import *
-
 from .vrptw import *
-
 from .op import *
 from .top import *

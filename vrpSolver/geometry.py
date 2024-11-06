@@ -4555,7 +4555,7 @@ def splitOverlapSegs(seg1: line, seg2: line, belong1: list = [1], belong2: list 
         return newSegSet
     return None
 
-def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', polyInt: dict = None):
+def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', tangPts: dict = None, polyInt: dict = None):
     # 简化线段,去掉穿越点
     seq = locSeqRemoveDegen(seq, error = 0.03)['newSeq']
 
@@ -4575,12 +4575,15 @@ def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', po
         # 用来记录可以分配时间的经停点/经过线段
         polygons[p]['intersect'] = []
         # 由于计算精度的问题,加上简化线段时损失的精度,可能会导致path和polygon没有交点,属于提前需要把seq预设的represent point记录上来
-        polygons[p]['tmpPoint'] = [{
-            'status': 'Cross',
-            'intersectType': 'Point',
-            'intersect': polygons[p]['repPt'],
-            'interiorFlag':  True # 其实可能是在boundary上,但是不重要
-        }]
+        if (tangPts != None and p in tangPts):
+            polygons[p]['tmpPoint'] = [{
+                'status': 'Cross',
+                'intersectType': 'Point',
+                'intersect': tangPts[p],
+                'interiorFlag':  True # 其实可能是在boundary上,但是不重要
+            }]
+        else:
+            polygons[p]['tmpPoint'] = []
         for i in range(len(seq) - 1):
             segInt = intSeg2Poly([seq[i], seq[i + 1]], polygons[p][polyFieldName])
             # 对于Nonconvex的poly，这部分不应该出现，但是实测下来Shapely还是不够可靠

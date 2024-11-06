@@ -1,3 +1,4 @@
+import heapq
 
 from .common import *
 from .geometry import *
@@ -5,21 +6,34 @@ from .ds import *
 
 def algoGA(
 	popSize,
-	initSeqFunc = initSeqFunc,
-	feasibleCheckFunc,
-	repairFunc,
-	fitnessFunc,
-	localSearchDict,
-	stopCriteriaDict,
+	initSeqFunc=None,
+	feasibleCheckFunc=None,
+	repairFunc=None,
+	fitnessFunc=None,
+	localSearchDict=None,
+	stopCriteriaDict=None,
 	*args
 	) -> dict:
 
 	# Create the initial solution bank ========================================
-	seqBank = {}
-	for 
+	seqHeap = []
+	for i in range(popSize):
+		seqBank[i] = {
+			'encode': initSeqFunc(args),
+			'fitness': fitnessFunc(args)
+		}
 
-def initSeqFunc() -> list:
-	return
+
+	# Selection ===============================================================
+
+	# Crossover ===============================================================
+
+
+
+
+def initSeqFunc(length) -> list:
+
+	return seq
 
 def feasibleCheck(seq):
 	return True
@@ -27,6 +41,7 @@ def feasibleCheck(seq):
 def repairFunc(seq):
 	return True
 
-def fitnessFunc(seq) -> float:
+def fitnessFunc(seq: Ring) -> float:
+
 	return True
 

@@ -25,8 +25,10 @@ def aniRouting(
     nodeMarkerSize: float = 2,
     # Vehicles ----------------------------------------------------------------
     vehicles: dict|None = None,
+    vehLocFieldName: str = 'loc',
     vehTimedSeqFieldName: str = 'timedSeq',
     vehLabelFieldName: str = 'label',
+    vehNoteFieldName: str = 'note',
     vehColor: str = 'blue',
     vehMarker: str = '^',
     vehMarkerSize: float = 5,
@@ -52,11 +54,12 @@ def aniRouting(
     polyOpacity: float = 0.5,
     # Settings ----------------------------------------------------------------
     speed: int = 1,
-    fps: int = 1,
+    fps: int = 12,
     repeatFlag: bool = True,
     xyReverseFlag: bool = False,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
     boundingBox: tuple[int|float|None, int|float|None, int|float|None, int|float|None] = (None, None, None, None),
+    showProgressFlag: bool = True,
     aniSavePath: str|None = None,
     aniSaveDPI: int = 300
     ):
@@ -271,6 +274,9 @@ def aniRouting(
         clock = timeRange[0] + t * speed / (fps * 1.0)
         ax.set_title("Clock: %s[s]" % round(clock, 2))
 
+        if (showProgressFlag):
+            print("Clock: %s[s]" % round(clock, 2))
+
         # Plot static/dynamic polygons
         if (polygons != None):
             # Plot each polygon -----------------------------------------------
@@ -435,16 +441,16 @@ def aniRouting(
                     curSpd = curSnap['speed']
                     lbl += " %s[m/s]" % (round(curSpd, 2))
                 
-                if (vehShowNoteFlag and 'note' in vehicles[vID]):
+                if (vehShowNoteFlag and vehNoteFieldName in vehicles[vID]):
                     note = ""
                     if (clock <= vehicles[vID]['timedSeq'][0][1]):
-                        note = vehicles[vID]['note'][0]
+                        note = vehicles[vID][vehNoteFieldName][0]
                     elif (clock >= vehicles[vID]['timedSeq'][-1][1]):
-                        note = vehicles[vID]['note'][-1]
+                        note = vehicles[vID][vehNoteFieldName][-1]
                     else:
                         for i in range(len(vehicles[vID]['timedSeq']) - 1):
                             if (vehicles[vID]['timedSeq'][i][1] <= clock < vehicles[vID]['timedSeq'][i + 1][1]):
-                                note = vehicles[vID]['note'][i]
+                                note = vehicles[vID][vehNoteFieldName][i]
                                 break
                     ax.annotate(lbl + "\n" + note, (curLoc[0], curLoc[1]))
                 else:
