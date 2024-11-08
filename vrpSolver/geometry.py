@@ -3,6 +3,8 @@ import heapq
 import math
 import tripy
 import warnings
+import random
+import gurobipy as grb
 
 import shapely
 from shapely.geometry import mapping
@@ -13,7 +15,7 @@ from .common import *
 from .msg import *
 from .ds import *
 
-# Point versus Objects ========================================================
+# Relation between Pts ========================================================
 def is2PtsSame(pt1: pt, pt2: pt, error: float = CONST_EPSILON) -> bool:
     """
     Are two points at the 'same' location?
@@ -76,6 +78,123 @@ def is3PtsClockWise(pt1: pt, pt2: pt, pt3: pt, error: float = CONST_EPSILON) -> 
     else:        
         return False
 
+# Relation between line segments ==============================================
+def is2SegsSame(seg1: line, seg2: line, error: float = CONST_EPSILON) -> bool:
+    if (is2PtsSame(seg1[0], seg2[0]) and is2PtsSame(seg1[1], seg2[1])):
+        return True
+    elif (is2PtsSame(seg1[0], seg2[1]) and is2PtsSame(seg1[1], seg2[0])):
+        return True
+    else:
+        return False
+
+def is2SegsParallel(seg1: line, seg2: line, error: float = CONST_EPSILON):
+    # 计算一堆 dy, dx
+    dy1 = seg1[1][1] - seg1[0][1]
+    dx1 = seg1[1][0] - seg1[0][0]
+    dy2 = seg2[1][1] - seg2[0][1]
+    dx2 = seg2[1][0] - seg2[0][0]
+
+    # 先判断是不是水平或者垂直
+    isHori1 = (dy1 == 0)
+    isHori2 = (dy2 == 0)
+    isVert1 = (dx1 == 0)
+    isVert2 = (dx2 == 0)
+
+    if (isHori1 and isVert1):
+        raise ZeroDivisionError("ERROR: seg1 is a singleton point")
+    if (isHori2 and isVert2):
+        raise ZeroDivisionError("ERROR: seg2 is a singleton point")
+
+    # 是不是都水平
+    if (isHori1 and isHori2):
+        return True
+    elif (isHori1 and not isHori2):
+        return False
+    elif (not isHori1 and isHori2):
+        return False
+
+    # 是不是都垂直
+    if (isVert1 and isVert2):
+        return True
+    elif (isVert1 and not isVert2):
+        return False
+    elif (not isVert1 and isVert2):
+        return False
+
+    # slope = (y2 - y1) / (x2 - x1)
+    slope1 = dy1 / dx1
+    slope2 = dy2 / dx2
+
+    if (abs(slop1 - slope2) <= CONST_EPSILON):
+        return True
+    else:
+        return False
+
+def is2SegsAffine(seg1: line, seg2: line, error: float = CONST_EPSILON):
+    if (is2SegsParallel(seg1, seg2) and isPtOnLine(seg1[0], seg2)):
+        return True
+    else:
+        return False
+
+def is2SegsOverlap(seg1: line, seg2: line, error: float = CONST_EPSILON):
+    if (is2SegsParallel(seg1, seg2) and (isPtOnSeg(seg1[0], seg2) or isPtOnSeg(seg1[1], seg2))):
+        return True
+    else:
+        return False
+
+def subSegFromPoly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False):
+    # Sanity check ============================================================
+    if (poly == None and polyShapely == None):
+        raise MissingParameterError("ERROR: `poly` and `polyShapely` cannot be None at the same time.")
+
+    # get shapely objects =====================================================
+    segShapely = shapely.LineString([seg[0], seg[1]])
+    if (polyShapely == None):
+        polyShapely = shapely.Polygon(poly)
+    intShape = shapely.difference(segShapely, polyShapely)
+
+    # If return shapely objects no processing needed ==========================
+    if (returnShaplelyObj):
+        return intShape
+
+    # 若不相交，返回不相交
+    # FIXME: 现在的精度可能有问题，需要计算两者间距离
+    if (intShape.is_empty): 
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None,
+            'interiorFlag': None
+        }
+    elif (isinstance(intShape, shapely.Point)):
+        # 都是闭集，不应该交出一个开集来
+        return {
+            'status': 'NoCross',
+            'intersect': None,
+            'intersectType': None,
+            'interiorFlag': None
+        }
+    elif (isinstance(intShape, shapely.LineString)):
+        return {
+            'status': 'Cross',
+            'intersect': [tuple(intShape.coords[0]), tuple(intShape.coords[1])],
+            'intersectType': 'Segment',
+            'interiorFlag': True
+        }
+    else:
+        intSp = []
+        for obj in intShape.geoms:
+            if (isinstance(obj, shapely.LineString)):
+                intSp.append({
+                    'status': 'Cross',
+                    'intersect': [tuple(obj.coords[0]), tuple(obj.coords[1])],
+                    'intersectType': 'Segment',
+                    'interiorFlag': True
+                })
+
+        return intSp
+
+# Relation between Pt and Objects =============================================
 def isPtOnLine(pt: pt, line: line, error: float = CONST_EPSILON) -> bool:
     """
     Is a pt on the line?
@@ -250,7 +369,7 @@ def isPtInPoly(pt: pt, poly: poly, interiorOnly: bool=False, error: float = CONS
     else:
         return inPoly
 
-# Point to line-shape =========================================================
+# Object to line-shape ========================================================
 def rayPerp2Line(pt: pt, line: line) -> line:
     """
     Given a point and a line, return a ray from that point and perpendicular to the given line
@@ -286,29 +405,6 @@ def rayPerp2Line(pt: pt, line: line) -> line:
     ray = [pt, intPt['intersect']]
 
     return ray
-
-def ptFoot2Line(pt: pt, line: line) -> pt:
-    """
-    Given a point and a line, return the foot of that point on the line
-
-    Parameters
-    ----------
-    pt: pt, required
-        The point where the foot will go through
-    line: line Required
-        The line which the foot is perpendicular to
-
-    Return
-    ------
-    pt
-        The foot of that point on the line
-
-    """
-    if (isPtOnLine(pt, line)):
-        return tuple(pt)
-    else:
-        ray = rayPerp2Line(pt, line)
-        return ray[1]
 
 # Line-shape intersection =====================================================
 def intLine2Line(line1: line, line2: line) -> dict:
@@ -354,7 +450,7 @@ def intLine2Line(line1: line, line2: line) -> dict:
 
     # Check if parallel
     # 共线情形
-    if (D == 0 and is3PtsClockWise(line1[0], line1[1], line2[0]) == None):
+    if (abs(D) <= CONST_EPSILON and is3PtsClockWise(line1[0], line1[1], line2[0]) == None):
         return {
             'status': 'Collinear',
             'intersect': line1,
@@ -362,7 +458,7 @@ def intLine2Line(line1: line, line2: line) -> dict:
             'interiorFlag': True
         }
     # 平行情形
-    elif (D == 0):
+    elif (abs(D) <= CONST_EPSILON):
         return {
             'status': 'NoCross',
             'intersect': None,
@@ -670,8 +766,8 @@ def intSeg2Seg(seg1: line, seg2: line) -> dict:
                 'interiorFlag': None
             }
     # 若交点不在任何一个线段上，不相交
-    elif (not isPtOnSeg(intPt['intersect'], seg1, interiorOnly=False)
-            or not isPtOnSeg(intPt['intersect'], seg2, interiorOnly=False)):
+    elif (not isPtOnSeg(intPt['intersect'], seg1, interiorOnly=False) 
+        or not isPtOnSeg(intPt['intersect'], seg2, interiorOnly=False)):
         return {
             'status': 'NoCross',
             'intersect': None,
@@ -1282,6 +1378,224 @@ def intLine2Poly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None,
 
     return intSeg2Poly(seg, poly, polyShapely, returnShaplelyObj)
 
+def intSeq2Poly(seq: list[pt], poly: poly):
+    # NOTE: 这个函数真的麻烦死了
+    # 存储所有的（连续）相交线段组
+    inte = []
+    # 存储之前连续相交的部分，由于poly可能nonconvex，这个可能有多段
+    candiCur = []
+    def appendCur2Inte(inte, candiCur, excludeIndex = None):
+        # print("inte: ", inte)
+        # print("candiCur: ", candiCur)
+        # print("\n")
+        inteUpdate = [i for i in inte]
+        candiCurUpdate = []
+        # 如果需要跳过某个不并入inte，就先存起来
+        if (excludeIndex != None):
+            candiCurUpdate = [candiCur[excludeIndex]]
+        for c in range(len(candiCur)):
+            if (excludeIndex == None or c != excludeIndex):
+                if (len(candiCur[c]) == 0):
+                    # 如果之前就没有累计相交过，跳过
+                    pass
+                elif (len(candiCur[c]) == 1):
+                    # 如果之前的那段只交了一个点，记录下来
+                    inteUpdate.append({
+                        'status': 'Cross',
+                        'intersect': candiCur[c][0],
+                        'intersectType': 'Point',
+                        'interiorFlag': False
+                    })
+                elif (len(candiCur[c]) > 1):
+                    # 如果之前相交的那段超过一个点，记录下来路径
+                    inteUpdate.append({
+                        'status': 'Cross',
+                        'intersect': [k for k in candiCur[c]],
+                        'intersectType': 'Segment',
+                        'interiorFlag': True
+                    })
+        return inteUpdate, candiCurUpdate
+
+    # 把seq一段一段拆开分别算相交
+    for i in range(len(seq) - 1):
+        # 当前的这段
+        seg = [seq[i], seq[i + 1]]
+        p = intSeg2Poly(seg, poly)
+
+        # Case 1: 如果当前的这段与poly有交集，交集只有一个部分，那么这个部分与已有的其中一个可能相邻接
+        if (type(p) != list and p['status'] == 'Cross'):
+            # Case 1.1: 如果交集是一个点，判断这个点和之前连续相交的部分的关系
+            if (p['intersectType'] == 'Point'):
+                # Case 2.1.1: 如果之前没有连续相交的部分，这个点存起来
+                if (len(candiCur) == 0):
+                    candiCur = [[p['intersect']]]
+                # Case 2.1.2: 如果之前有连续相交的部分，判断是否在之前的一个上延续
+                else:
+                    idInclude = None
+                    # 判断相交的这个点是不是和之前的部分重合，只能首或尾
+                    for c in range(len(candiCur)):
+                        if (is2PtsSame(candiCur[c][0], p['intersect']) or is2PtsSame(candiCur[c][-1], p['intersect'])):
+                            idInclude = c
+                            break
+                    # Case 2.1.2.1: 如果这个交点与之前的都不重合，则重头开始
+                    if (idInclude == None):
+                        inte, candiCur = appendCur2Inte(inte, candiCur)
+                        candiCur = [[p['intersect']]]
+                    # Case 2.1.2.2: 否则保留第c个可以继续拼接，其他存入inte
+                    else:
+                        inte, candiCur = appendCur2Inte(inte, candiCur, idInclude)
+
+            # Case 1.2: 如果交集是一个线段，判断这个线段和之前连续相交的部分的关系
+            elif (p['intersectType'] == 'Segment'):
+                # Case 2.2.1: 如果之前没有连续相交的部分
+                if (len(candiCur) == 0):
+                    candiCur = [[k for k in p['intersect']]]
+                # Case 2.2.2: 如果之前有连续相交的部分
+                else:
+                    idLink = None
+                    linked = None
+                    for c in range(len(candiCur)):
+                        linked = seqLinkSeq(candiCur[c], p['intersect'])
+                        if (linked != None):
+                            idLink = c
+                            break
+                    # Case 2.2.2.1: 如果这段线段和之前的都不重合，则重头开始
+                    if (idLink == None):
+                        inte, candiCur = appendCur2Inte(inte, candiCur)
+                        candiCur = [[k for k in p['intersect']]]
+                    # Case 2.2.2.2: 如果这段线段能接上之前的，则接上
+                    else:
+                        inte, candiCur = appendCur2Inte(inte, candiCur, idLink)
+                        candiCur = [[k for k in linked]]
+        
+        # Case 2: 如果poly非凸，那么可能有好几个相交部分，每个部分都有可能要和之前的连续相交
+        elif (type(p) == list):
+            # 先把交出来的点和线段都列出来
+            # NOTE: 这里的pts和segs两两不相交
+            pts = []
+            segs = []
+            for k in p:
+                if (k['intersectType'] == 'Point'):
+                    pts.append(k['intersect'])
+                elif (k['intersectType'] == 'Segment'):
+                    segs.append([v for v in k['intersect']])
+
+            # 这里的seg和pts要一个一个和cur里的试能不能连上
+            # 连不上的每一个都有可能被下一段连上，但是下一段至多只有一个可以连上
+            idPt = None
+            idInclude = None
+            for p in range(len(pts)):
+                # 判断相交的这个点是不是和之前的部分重合，只能首或尾
+                for c in range(len(candiCur)):
+                    if (is2PtsSame(candiCur[c][0], pts[p]) or is2PtsSame(candiCur[c][-1], pts[p])):
+                        idInclude = c
+                        idPt = p
+                        break
+            idSeg = None
+            idLink = None
+            linked = None
+            for s in range(len(segs)):
+                for c in range(len(candiCur)):
+                    tryLink = seqLinkSeq(candiCur[c], segs[s])
+                    if (tryLink != None):
+                        idLink = c
+                        idSeg = s
+                        linked = tryLink
+                        break
+
+            # Case 2.1: 如果点有可以归属于上一段的，但线段没有的
+            if (idInclude != None and idLink == None):
+                inte, candiCur = appendCur2Inte(inte, candiCur, idInclude)
+                # 除了归属于上一段的点，剩余的点和线段（若有）加入candiCur
+                if (len(pts) > 1):
+                    for p in range(len(pts)):
+                        if (p != idPt):
+                            candiCur.append([pts[p]])
+                if (len(seg) >= 1):
+                    for seg in segs:
+                        candiCur.append([v for v in seg])
+            # Case 2.2: 如果线段有可以连接到上一段的，但点没有的
+            elif (idInclude == None and idLink != None):
+                inte, candiCur = appendCur2Inte(inte, candiCur, idLink)
+                candiCur = [[k for k in linked]]
+                if (len(pts) >= 1):
+                    for pt in pts:
+                        candiCur.append([pt])
+                if (len(seg) > 1):
+                    for s in range(len(segs)):
+                        if (s != idSeg):
+                            candiCur.append([v for v in segs[s]])
+
+            # Case 2.3: 如果线段和点里都没有可以连接到上一段的
+            elif (idInclude == None and idLink == None):
+                inte, candiCur = appendCur2Inte(inte, candiCur)
+                if (len(pts) >= 1):
+                    for pt in pts:
+                        candiCur.append([pt])
+                if (len(seg) >= 1):
+                    for seg in segs:
+                        candiCur.append([v for v in seg])
+                        
+            # Case 2.4: 如果有可以都连到上一段的，说明有问题
+            else:
+                pass
+
+        # Case 3: 如果当前段与poly完全无交集，后续段也不会相交
+        elif (p == None or p['status'] == 'NoCross'):
+            inte, candiCur = appendCur2Inte(inte, candiCur)
+
+    inte, candiCur = appendCur2Inte(inte, candiCur)
+
+    if (len(inte) == 1):
+        return inte[0]
+    else:
+        return inte
+
+def seqLinkSeq(seq1: list[pt], seq2: list[pt], error:float = CONST_EPSILON):
+    """
+    Given two seqs, link them together if possible, return None if they are separated
+
+    Parameters
+    ----------
+    seq1: list[pt], required
+        The first sequence
+    seq2: list[pt], required
+        The second sequence
+
+    Return
+    ------
+    list[pt]
+        The sequence connected both seq, or None if two seqs are separated
+
+    """
+
+    head1 = seq1[0]
+    tail1 = seq1[-1]
+    head2 = seq2[0]
+    tail2 = seq2[-1]
+    if (is2PtsSame(head1, head2, error)):
+        newSeq = [seq1[len(seq1) - 1 - i] for i in range(len(seq1) - 1)]
+        newSeq.extend([i for i in seq2])
+        return newSeq
+
+    elif (is2PtsSame(head1, tail2, error)):
+        newSeq = [seq1[len(seq1) - 1 - i] for i in range(len(seq1) - 1)]
+        newSeq.extend([seq2[len(seq2) - 1 - i] for i in range(len(seq2))])
+        return newSeq
+
+    elif (is2PtsSame(tail1, head2, error)):
+        newSeq = [seq1[i] for i in range(len(seq1) - 1)]
+        newSeq.extend([i for i in seq2])
+        return newSeq
+
+    elif (is2PtsSame(tail1, tail2, error)):
+        newSeq = [seq1[i] for i in range(len(seq1) - 1)]
+        newSeq.extend([seq2[len(seq2) - 1 - i] for i in range(len(seq2))])
+        return newSeq
+
+    else:
+        return None
+
 def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
     """
     The intersection of a line segment to a polygon
@@ -1348,7 +1662,7 @@ def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, r
                     'interiorFlag': False
                 }
             # Case 2: 相切的情形
-            for pt in polys:
+            for pt in poly:
                 ptDist = distPt2Seg(pt, seg)
                 if (ptDist <= CONST_EPSILON):
                     return {
@@ -1421,6 +1735,7 @@ def intSeg2Poly(seg: line, poly: poly=None, polyShapely: shapely.Polygon=None, r
                         'intersectType': 'Segment',
                         'interiorFlag': interiorFlag
                     })
+
         return intSp
 
 def intRay2Poly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False) -> dict | list[dict] | shapely.Point | shapely.Polygon | shapely.GeometryCollection:
@@ -1484,92 +1799,6 @@ def intRay2Poly(ray: line, poly: poly=None, polyShapely: shapely.Polygon=None, r
     else:
         seg = [ray[0], maxPt]
         return intSeg2Poly(seg, poly, polyShapely, returnShaplelyObj)
-
-def intSeq2Poly(seq: list[pt], poly: poly, seqShapely: shapely.LineString=None, polyShapely: shapely.Polygon=None, returnShaplelyObj: bool=False):
-    """
-    The intersection of a sequence to a polygon
-
-    Parameters
-    ----------
-    seq: list of pt, required
-        The first sequence of points
-    poly: poly, optional, default as None
-        The second polygon
-    polyShapely: shapely.Polygon, optional, default as None
-        The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
-    returnShaplelyObj: bool, optional, default as False
-        True if alter the result to be a shapely object        
-
-    Return
-    ------
-    dict
-        >>> {
-        ...     'status': 'Cross', # Relations between two objects,
-        ...     'intersect': pt, # The intersection,
-        ...     'intersectType': 'Point', # Type of intersection
-        ...     'interiorFlag': False, # True if the intersection is at the boundary
-        ... }
-    """
-
-    # Sanity check
-    if (seq == None and seqShapely == None):
-        raise MissingParameterError("ERROR: `seq` and `seqShapely` cannot be None at the same time.")
-    if (poly == None and polyShapely == None):
-        raise MissingParameterError("ERROR: `poly` and `polyShapely` cannot be None at the same time.")
-
-    # get shapely objects
-    if (seqShapely == None):
-        seqShapely = shapely.LineString(seq)
-    if (polyShapely == None):
-        polyShapely = shapely.Polygon(poly)
-    intShape = shapely.intersection(seqShapely, polyShapely)
-
-    # If return shapely objects no processing needed
-    if (returnShaplelyObj):
-        return intShape 
-    # 若不相交，返回不相交
-    if (intShape.is_empty):
-        # FIXME: 误差的部分之后加，现在只考虑用在clipRoadNetworkByPoly()里
-        return {
-            'status': 'NoCross',
-            'intersect': None,
-            'intersectType': None,
-            'interiorFlag': None
-        }
-    elif (isinstance(intShape, shapely.Point)):
-        return {
-            'status': 'Cross',
-            'intersect': (intShape.x, intShape.y),
-            'intersectType': 'Point',
-            'interiorFlag': False
-        }
-    elif (isinstance(intShape, shapely.LineString)):
-        intSeq = [list(pt) for pt in intShape.coords]
-        return {
-            'status': 'Cross',
-            'intersect': intSeq,
-            'intersectType': 'Segment',
-            'interiorFlag': True
-        }
-    else:
-        intSp = []
-        for obj in intShape.geoms:
-            if (isinstance(obj, shapely.Point)):
-                intSp.append({
-                    'status': 'Cross',
-                    'intersect': (obj.x, obj.y),
-                    'intersectType': 'Point',
-                    'interiorFlag': False
-                })
-            elif (isinstance(obj, shapely.LineString)):
-                intSeq = [list(pt) for pt in obj.coords]
-                intSp.append({
-                    'status': 'Cross',
-                    'intersect': intSeq,
-                    'intersectType': 'Segment',
-                    'interiorFlag': True
-                })
-        return intSp
 
 # Line-shape versus polygon ===================================================
 def isLineIntPoly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None, interiorOnly: bool=False) -> bool:
@@ -1812,6 +2041,16 @@ def isPolyIntPoly(poly1: poly=None, poly2: poly=None, poly1Shapely: shapely.Poly
                 return True    
         return False
 
+def isPolyLegal(poly: poly):
+    for i in range(-1, len(poly)):
+        for j in range(-1, len(poly)):
+            if (i != j):
+                segI = [poly[i], poly[i + 1]]
+                segJ = [poly[j], poly[j + 1]]
+                if (isSegIntSeg(segI, segJ)):
+                    return False
+    return True
+
 # Distance from Point to Object ===============================================
 def distPt2Line(pt: pt, line: line) -> float:
     """
@@ -1884,7 +2123,7 @@ def distPt2Ray(pt: pt, ray: line) -> float:
     else:
         return distEuclideanXY(pt, ray[0])
 
-def distPt2Seq(pt: pt, seq: list[pt]) -> float:
+def distPt2Seq(pt: pt, seq: list[pt], closedFlag = False) -> float:
     """
     The distance between a point and a sequence of points
 
@@ -1894,6 +2133,8 @@ def distPt2Seq(pt: pt, seq: list[pt]) -> float:
         The point
     seq: list of pt, required
         A sequence of points
+    closedFlag: bool, optional, default False
+        True if the sequence is closed
 
     Return
     ------
@@ -1908,15 +2149,23 @@ def distPt2Seq(pt: pt, seq: list[pt]) -> float:
 
     dist2Seg = []
     for p in seq:
-        dist2Seg.append(distEuclideanXY(pt, p))
+        dist2Seg.append(distEuclideanXY(pt, p)['dist'])
     minIndex = dist2Seg.index(min(dist2Seg))
     if (minIndex == 0):
-        return distPt2Seg(pt, [seq[0], seq[1]])
+        if (closedFlag == False):
+            return distPt2Seg(pt, [seq[0], seq[1]])
+        else:
+            return min(distPt2Seg(pt, [seq[0], seq[1]]),
+                       distPt2Seg(pt, [seq[0], seq[-1]]))
     elif (minIndex == len(dist2Seg) - 1):
-        return distPt2Seg(pt, [seq[-2], seq[-1]])
+        if (closedFlag == False):
+            return distPt2Seg(pt, [seq[-2], seq[-1]])
+        else:
+            return min(distPt2Seg(pt, [seq[-2], seq[-1]]),
+                       distPt2Seg(pt, [seq[0], seq[-1]]))
     else:
         return min(distPt2Seg(pt, [seq[minIndex], seq[minIndex + 1]]),
-                   dist2Seg(pt, [seq[minIndex], seq[minIndex - 1]]))
+                   distPt2Seg(pt, [seq[minIndex], seq[minIndex - 1]]))
 
 def distPt2Poly(pt: pt, poly: poly=None, polyShapely: shapely.Polygon=None) -> float:
     """
@@ -1946,6 +2195,40 @@ def distPt2Poly(pt: pt, poly: poly=None, polyShapely: shapely.Polygon=None) -> f
     ptShapely = shapely.Point(pt)
     return shapely.distance(ptShapely, polyShapely)
 
+def distPoly2Poly(poly1: poly=None, poly2: poly=None, poly1Shapely: shapely.Polygon=None, poly2Shapely: shapely.Polygon=None) -> float:
+    """
+    The distance between two polys
+
+    Parameters
+    ----------
+    poly1: poly, optional, default as None
+        The first polygon
+    poly1Shapely: shapely.Polygon, optional, default as None
+        The correspond shapely object for the first polygon. Need to provide one of the following fields: [`poly1`, `poly1Shapely`]
+    poly2: poly, optional, default as None
+        The second polygon
+    poly2Shapely: shapely.Polygon, optional, default as None
+        The correspond shapely object for the second polygon. Need to provide one of the following fields: [`poly2`, `poly2Shapely`]
+
+    Return
+    ------
+    float
+        The distance between two objects
+
+    """
+
+    if (poly1 == None and poly1Shapely == None):
+        raise MissingParameterError("ERROR: Missing required field `poly1` or `poly1Shapely`")
+    if (poly2 == None and poly2Shapely == None):
+        raise MissingParameterError("ERROR: Missing required field `poly2` or `poly2Shapely`")
+
+    if (poly1Shapely == None):
+        poly1Shapely = shapely.Polygon([p for p in poly1])
+    if (poly2Shapely == None):
+        poly2Shapely = shapely.Polygon([p for p in poly2])
+    return shapely.distance(poly1Shapely, poly2Shapely)
+
+# Nearest to object ===========================================================
 def nearestPtLine2Poly(line: line, poly: poly=None, polyShapely: shapely.Polygon=None) -> dict:
     """
     Find the nearest point between a line and a polygon
@@ -1981,6 +2264,206 @@ def nearestPtLine2Poly(line: line, poly: poly=None, polyShapely: shapely.Polygon
         'ptOnLine': (nearestPts[0].x, nearestPts[0].y),
         'ptOnPoly': (nearestPts[1].x, nearestPts[1].y),
     }
+
+# Distance between timed-objects ==============================================
+# [Constructing]
+def distTimedSeg2TimedSeg(timedSeg1: list[tuple[pt, float]], timedSeg2: list[tuple[pt, float]], startTime: float = 0):
+    # 先区分出timedSeg哪段在前，哪段在后
+    if (timedSeg1[0][1] < timedSeg2[0][1]):
+        (sx1, sy1) = timedSeg1[0][0]
+        (ex1, ey1) = timedSeg1[1][0]
+        st1 = timedSeg1[0][1]
+        et1 = timedSeg1[1][1]
+        (sx2, sy2) = timedSeg2[0][0]
+        (ex2, ey2) = timedSeg2[1][0]
+        st2 = timedSeg2[0][1]
+        et2 = timedSeg2[1][1]
+    else:
+        (sx1, sy1) = timedSeg2[0][0]
+        (ex1, ey1) = timedSeg2[1][0]
+        st1 = timedSeg2[0][1]
+        et1 = timedSeg2[1][1]
+        (sx2, sy2) = timedSeg1[0][0]
+        (ex2, ey2) = timedSeg1[1][0]
+        st2 = timedSeg1[0][1]
+        et2 = timedSeg1[1][1]
+
+    # 分三类情况讨论求解
+    minDist = None
+    if (st1 <= et1 <= st2 <= et2):
+        # t \in [st1, et1] 
+        # 1 move, 2 stay
+        pt2 = (sx2, sy2)
+        seg1 = [(sx1, sy1), (ex1, ey1)]
+        minDist1 = distPt2Seg(pt2, seg1)
+
+        # t \in [et1, st2]
+        # 1 stay, 2 stay
+        minDist2 = distEuclideanXY((ex1, ey1), (ex2, ey2))['dist']
+
+        # t \in [st2, et2]
+        # 1 stay, 2 move
+        pt1 = (ex1, ey1)
+        seg2 = [(sx2, sy2), (ex2, ey2)]
+        minDist3 = distPt2Seg(pt1, seg2)
+
+        return min([minDist1, minDist2, minDist3])
+
+    elif (st1 <= st2 <= et1 <= et2):
+        # t \in [st1, st2]
+        # 1 move, 2 stay
+        seg1AtS2 = snapInTimedSeq([((sx1, sy1), st1), ((ex1, ey1), et1)], st2)['loc']
+        seg1 = [(sx1, ex1), seg1AtS2]
+        pt2 = (sx2, sy2)
+        minDist1 = distPt2Seg(pt2, seg1)
+
+        # t \in [st2, et1]
+        seg2AtE1 = snapInTimedSeq([((sx2, sy2), st2), ((ex2, ey2), et2)], et1)['loc']
+        seg1 = [seg1AtS2, (ex1, ey1)]
+        seg2 = None
+        # 1 move, 2 move
+
+        # t \in [et1, et2]
+        # 1 stay, 2 move
+
+        return min([minDist1, minDist2, minDist3])
+
+    elif (st1 <= st2 <= et2 <= et1):
+        # t \in [st1, st2]
+        # 1 move, 2 stay
+
+        # t \in [st2, et2]
+        # 1 move, 2 move
+
+        # t \in [et2, et1]
+        # 1 move, 2 stay
+
+        return min([minDist1, minDist2, minDist3])
+
+def timedSeg2Vec(timedSeg):
+    dt = timedSeg[1][1] - timedSeg[0][1]
+    dx = timedSeg[1][0][0] - timedSeg[0][0][0]
+    dy = timedSeg[1][0][1] - timedSeg[0][0][1]
+    l = math.sqrt(dx ** 2 + dy ** 2)
+    lx = dx * dt / l 
+    ly = dy * dt / l
+    return timedSeg[0][0], (lx, ly)
+
+def distVec2Vec(pt1, vec1, pt2, vec2, earliest:None|float = None, latest:None|float = None):
+    # NOTE: 俩点同时都在动
+    # NOTE: 这段代码目前先用gurobi来做，之后要换成O(1)代入公式
+    x1, y1 = pt1
+    x2, y2 = pt2
+    vx1, vy1 = vec1
+    vx2, vy2 = vec2
+
+    model = grb.Model("SOCP")
+    model.setParam("OutputFlag", 0)
+
+    # Decision variables ======================================================
+    d = model.addVar(vtype=grb.GRB.CONTINUOUS, obj=1)
+    t = model.addVar(vtype=grb.GRB.CONTINUOUS)
+    dx = model.addVar(vtype=grb.GRB.CONTINUOUS, lb = -float('inf'))
+    dy = model.addVar(vtype=grb.GRB.CONTINUOUS, lb = -float('inf'))
+
+    # Constraints =============================================================
+    model.addConstr(dx == (x1 - x2) + t * (vx1 - vx2))
+    model.addConstr(dy == (y1 - y2) + t * (vy1 - vy2))
+    model.addConstr(d ** 2 >= dx ** 2 + dy ** 2)
+    if (earliest != None):
+        model.addConstr(t >= earliest)
+    if (latest != None):
+        model.addConstr(t <= latest)
+
+    # Optimize ================================================================
+    model.modelSense = grb.GRB.MINIMIZE
+    model.optimize()
+    minDist = model.getObjective().getValue()
+
+    return minDist
+
+def travelVec2Vec(pt1, vec1, pt2, vec2, speed, earliest:None|float = None, latest:None|float = None):
+    # NOTE: 俩点同时都在动
+    # NOTE: 这段代码目前先用gurobi来做，之后要换成O(1)代入公式
+    x1, y1 = pt1
+    x2, y2 = pt2
+    vx1, vy1 = vec1
+    vx2, vy2 = vec2
+
+    model = grb.Model("SOCP")
+    model.setParam("OutputFlag", 0)
+
+    # Decision variables ======================================================
+    d = model.addVar(vtype=grb.GRB.CONTINUOUS, obj=1)
+
+    t1 = model.addVar(vtype=grb.GRB.CONTINUOUS)
+    t2 = model.addVar(vtype=grb.GRB.CONTINUOUS)
+
+    dx = model.addVar(vtype=grb.GRB.CONTINUOUS, lb = -float('inf'))
+    dy = model.addVar(vtype=grb.GRB.CONTINUOUS, lb = -float('inf'))
+
+    # Constraints =============================================================
+    model.addConstr(dx == x1 - x2 + t1 * vx1 - t2 * vx2)
+    model.addConstr(dy == y1 - y2 + t1 * vy1 - t2 * vy2)
+    model.addConstr(d ** 2 >= dx ** 2 + dy ** 2)
+    model.addConstr(t2 == t1 + d * (1 / speed))
+
+    if (earliest != None):
+        model.addConstr(t1 >= earliest)
+    if (latest != None):
+        model.addConstr(t2 <= latest)
+
+    # Optimize ================================================================
+    model.modelSense = grb.GRB.MINIMIZE
+    model.optimize()
+
+    if (model.status == grb.GRB.status.OPTIMAL):
+        minDist = model.getObjective().getValue()
+        timedSeg = [
+            ((x1 + t1.x * vx1, y1 + t1.x * vy1), t1.x), 
+            ((x2 + t2.x * vx2, y2 + t2.x * vy2), t2.x)
+        ]
+        return {
+            'minDist': minDist,
+            'minTime': (t2.x - t1.x),
+            'timedSeg': timedSeg
+        }
+    else:
+        return None
+
+def earliest2Vec(oriPt, speed, movPt, movVec):
+    # NOTE: 这俩同时都在动
+    oriPtX, oriPtY = oriPt
+    movPtX, movPtY = movPt
+    movVX, movVY = movVec
+
+    A = (movVX ** 2 + movVY ** 2 - speed ** 2)
+    B = 2 * (movVX * (movPtX - oriPtX) + movVY * (movPtY - oriPtY))
+    C = (movPtX - oriPtX) ** 2 + (movPtY - oriPtY) ** 2
+
+    # 求根，如有两个解，均输出
+    delta = B ** 2 - 4 * A * C
+
+    if (delta < 0):
+        return None
+    else:
+        t1 = (- B + math.sqrt(delta)) / (2 * A)
+        t2 = (- B - math.sqrt(delta)) / (2 * A)
+
+        if (max([t1, t2]) < 0):
+            return None
+        elif (min([t1, t2]) < 0 and max([t1, t2]) >= 0):
+            meetTime = max([t1, t2])
+            meetPtX = movPtX + meetTime * movVX
+            meetPtY = movPtY + meetTime * movVY
+            meetPt = (meetPtX, meetPtY)
+            return (meetPt, meetTime)
+        else: 
+            meetTime = min([t1, t2])
+            meetPtX = movPtX + meetTime * movVX
+            meetPtY = movPtY + meetTime * movVY
+            meetPt = (meetPtX, meetPtY)
+            return (meetPt, meetTime)
 
 # Dimension mapping ===========================================================
 def vecPolar2XY(vecPolar: pt) -> pt:
@@ -2109,6 +2592,161 @@ def ptLatLon2XYMercator(ptLatLon: pt) -> pt:
     x = math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * CONST_EARTH_RADIUS_METERS
     ptXY = (x, y)
     return ptXY
+
+# Get pt ======================================================================
+def ptFoot2Line(pt: pt, line: line) -> pt:
+    """
+    Given a point and a line, return the foot of that point on the line
+
+    Parameters
+    ----------
+    pt: pt, required
+        The point where the foot will go through
+    line: line Required
+        The line which the foot is perpendicular to
+
+    Return
+    ------
+    pt
+        The foot of that point on the line
+
+    """
+    if (isPtOnLine(pt, line)):
+        return tuple(pt)
+    else:
+        ray = rayPerp2Line(pt, line)
+        return ray[1]
+
+def ptInSeqMileage(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
+    """Given a list of lat/lon coordinates, and a traveling mileage, returns the coordinate"""
+    # Initialize ==============================================================
+    inPathFlag = False
+    accDist = 0
+    preLoc = []
+    nextLoc = []
+    # Find segment ============================================================
+    for i in range(0, len(seq) - 1):
+        if (dimension == 'LatLon'):
+            accDist += distLatLon(seq[i], seq[i + 1])['dist']
+        elif (dimension == 'XY'):
+            accDist += distEuclideanXY(seq[i], seq[i + 1])['dist']
+        if (accDist > dist):
+            preLoc = seq[i]
+            nextLoc = seq[i + 1]
+            inPathFlag = True
+            break
+    if (inPathFlag == False):
+        raise RuntimeError("ERROR: `dist` is longer than the length of `seq`")
+    # Find location on the segment ============================================
+    remainDist = accDist - dist
+    segDist = 0
+    if (dimension == 'LatLon'):
+        segDist = distLatLon(preLoc, nextLoc)['dist']
+    elif (dimension == 'XY'):
+        segDist = distEuclideanXY(preLoc, nextLoc)['dist']
+    if (segDist <= CONST_EPSILON):
+        raise ZeroDivisionError
+    x = nextLoc[0] + (remainDist / segDist) * (preLoc[0] - nextLoc[0])
+    y = nextLoc[1] + (remainDist / segDist) * (preLoc[1] - nextLoc[1])
+    return (x, y)
+
+def ptPolyCenter(poly: poly=None, polyShapely: shapely.Polygon=None) -> pt:
+    """
+    Given a poly, returns the centroid of the poly
+
+    Parameters
+    ----------
+    poly: poly, optional, default as None
+        The polygon
+    polyShapely: shapely.Polygon, optional, default as None
+        The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
+
+    Returns
+    -------
+    pt
+        The centroid
+
+    """
+
+    if (poly == None and polyShapely == None):
+        raise MissingParameterError("ERROR: Missing required field 'poly' or 'polyShapely'.")
+    if (polyShapely == None):
+        polyShapely = shapely.Polygon(poly)
+
+    ptShapely = shapely.centroid(polyShapely)
+    center = (ptShapely.x, ptShapely.y)
+    return center
+
+# Mileage of points on seq ====================================================
+def mileagePt(seq: list[pt], pt: pt, error = CONST_EPSILON) -> None | float | list[float]:
+    """
+    Given a sequence of locs, and a point, returns the mileage of point on the seq, None if not on the sequence
+
+    Parameters
+    ----------
+    seq: list[pt], Required
+        A sequence of locations
+    pt: pt, Required
+        A point
+
+    Return
+    ------
+    None | float | list[float]
+        None if pt is not on the sequence, float if only one mileage, list[float] if the pt appears multiple times
+
+    """
+    seq = locSeqRemoveDegen(seq)['newSeq']
+
+    m = []
+
+    # 找到所有pt所处的线段
+    acc = 0
+    onSeg = []
+    closest2Snap = float('inf')
+    bestSnap = None
+    closestSeg = None
+    for i in range(len(seq) - 1):
+        seg = [seq[i], seq[i + 1]]
+        leng = distEuclideanXY(seq[i], seq[i + 1])['dist']
+        if (isPtOnSeg(pt, seg, interiorOnly=False, error=error)):
+            onSeg.append((acc, seg))
+        # 如果
+        elif (len(onSeg) == 0):
+            snapPt = ptFoot2Line(pt, seg)
+            dist2Snap = distEuclideanXY(pt, snapPt)['dist']
+            if (dist2Snap < closest2Snap):
+                closest2Snap = dist2Snap
+                closestSeg = (acc, seg)
+                bestSnap = snapPt
+        acc += leng 
+    # 如果pt不在任何一段线段上,那么把pt给snap到最近的线段上
+    if (len(onSeg) == 0):
+        onSeg.append(closestSeg)
+        pt = bestSnap
+
+    # 逐个计算mileage
+    for i in range(len(onSeg)):
+        dist2Ori = distEuclideanXY(pt, onSeg[i][1][0])['dist']
+        newMileage = dist2Ori + onSeg[i][0]
+        repeatedFlag = False
+        for exist in m:
+            if (abs(exist - newMileage) <= CONST_EPSILON):
+                repeatedFlag = True
+        if (not repeatedFlag):
+            m.append(newMileage)
+
+    if (len(m) == 0):
+        return None
+    elif (len(m) == 1):
+        return m[0]
+    else:
+        return m
+
+# Vectors =====================================================================
+def rndVec(norm: float = 1):
+    deg = random.random() * 360
+    vec = ptInDistXY((0, 0), deg, norm)
+    return vec
 
 # Polys =======================================================================
 def polysUnion(polys:polys=None, polysShapely:list[shapely.Polygon]=None, returnShaplelyObj:bool=False) -> list:
@@ -2383,158 +3021,58 @@ def polysSteinerZone(polys: dict, order: int|None = None) -> list[dict]:
 
     return lstSteinerZone
 
-def polygonsAlongLocSeq(seq, polygons:dict, polyFieldName = 'poly'):
-     # First, for each leg in the seq, find the individual polygons intersect with the leg
-    actions = {}
-    actionIDOnLeg = 0
-    for i in range(len(seq) - 1):
-        seg = [seq[i], seq[i + 1]]
-
-        # NOTE: 准备用segment tree
-        # NOTE: For now use the naive way - checking the bounding box
-        for pID in polygons:
-            # 根据Seg和poly的相交情况做判断
-            segIntPoly = intSeg2Poly(seg = seg, poly = polygons[pID][polyFieldName])
-            # if (type(segIntPoly) == list or segIntPoly['status'] != 'NoCross'):
-                # print(segIntPoly, pID)
-            # 如果相交得到多个部分，则分别进行处理
-            if (type(segIntPoly) == list):
-                for intPart in segIntPoly:
-                    if (intPart['status'] == 'Cross' and intPart['intersectType'] == 'Point'):
-                        intPt = segIntPoly['intersect']
-                        actions[actionIDOnLeg] = {
-                            'loc': intPt,
-                            'action': 'touch',
-                            'polyID': pID,                       
-                        }
-                        actionIDOnLeg += 1
-                    elif (intPart['status'] == 'Cross' and intPart['intersectType'] == 'Segment'):
-                        intPt1 = segIntPoly['intersect'][0]
-                        intPt2 = segIntPoly['intersect'][1]
-                        intPt1InnerFlag = False
-                        intPt2InnerFlag = False
-                        if (isPtInPoly(intPt1, polygons[pID][polyFieldName], interiorOnly=True)):
-                            intPt1InnerFlag = True
-                        if (isPtInPoly(intPt2, polygons[pID][polyFieldName], interiorOnly=True)):
-                            intPt2InnerFlag = True
-                        if (distEuclideanXY(seq[i], intPt1)['dist'] <
-                            distEuclideanXY(seq[i], intPt2)['dist']):
-                            if (not intPt1InnerFlag):
-                                actions[actionIDOnLeg] = {
-                                    'loc': intPt1,
-                                    'action': 'enter',
-                                    'polyID': pID,
-                                }
-                                actionIDOnLeg += 1
-                            if (not intPt2InnerFlag):
-                                actions[actionIDOnLeg] = {
-                                    'loc': intPt2,
-                                    'action': 'leave',
-                                    'polyID': pID,
-                                }
-                                actionIDOnLeg += 1
-                        else:
-                            if (not intPt1InnerFlag):
-                                actions[actionIDOnLeg] = {
-                                    'loc': intPt1,
-                                    'action': 'leave',
-                                    'polyID': pID,
-                                }
-                                actionIDOnLeg += 1
-                            if (not intPt2InnerFlag):
-                                actions[actionIDOnLeg] = {
-                                    'loc': intPt2,
-                                    'action': 'enter',
-                                    'polyID': pID,
-                                }
-                                actionIDOnLeg += 1
-            else:
-                if (segIntPoly['status'] == 'NoCross'):
-                    # No intersection pass
-                    pass
-                elif (segIntPoly['status'] == 'Cross' and segIntPoly['intersectType'] == 'Point'):
-                    intPt = segIntPoly['intersect']
-                    actions[actionIDOnLeg] = {
-                        'loc': intPt,
-                        'action': 'touch',
-                        'polyID': pID,
-                    }
-                    actionIDOnLeg += 1
-                elif (segIntPoly['status'] == 'Cross' and segIntPoly['intersectType'] == 'Segment'):
-                    intPt1 = segIntPoly['intersect'][0]
-                    intPt2 = segIntPoly['intersect'][1]
-                    intPt1InnerFlag = False
-                    intPt2InnerFlag = False
-                    if (isPtInPoly(intPt1, polygons[pID][polyFieldName], interiorOnly=True)):
-                        intPt1InnerFlag = True
-                    if (isPtInPoly(intPt2, polygons[pID][polyFieldName], interiorOnly=True)):
-                        intPt2InnerFlag = True
-                    if (distEuclideanXY(seq[i], intPt1)['dist'] <
-                        distEuclideanXY(seq[i], intPt2)['dist']):
-                        if (not intPt1InnerFlag):
-                            actions[actionIDOnLeg] = {
-                                'loc': intPt1,
-                                'action': 'enter',
-                                'polyID': pID,
-                            }
-                            actionIDOnLeg += 1
-                        if (not intPt2InnerFlag):
-                            actions[actionIDOnLeg] = {
-                                'loc': intPt2,
-                                'action': 'leave',
-                                'polyID': pID,
-                            }
-                            actionIDOnLeg += 1
-                    else:
-                        if (not intPt1InnerFlag):
-                            actions[actionIDOnLeg] = {
-                                'loc': intPt1,
-                                'action': 'leave',
-                                'polyID': pID,
-                            }
-                            actionIDOnLeg += 1
-                        if (not intPt2InnerFlag):
-                            actions[actionIDOnLeg] = {
-                                'loc': intPt2,
-                                'action': 'enter',
-                                'polyID': pID,
-                            }
-                            actionIDOnLeg += 1
-    sortedIDOnLeg = locSeqSortNodes(seq, actions, allowNotIncludeFlag = False)['sortedNodeIDs']
-
-    sortedActions = [actions[i] for i in sortedIDOnLeg]
-    sortedActions = [sortedActions[i] for i in range(len(sortedActions)) if (
-        i == 0
-        or not is2PtsSame(sortedActions[i - 1]['loc'], sortedActions[i]['loc']))]
-
-    return sortedActions
-
-def ptPolyCenter(poly: poly=None, polyShapely: shapely.Polygon=None) -> pt:
+def polyClockWise(poly) -> bool:
     """
-    Given a poly, returns the centroid of the poly
+    Given a poly, return True if the poly is clockwise, False otherwise
 
     Parameters
     ----------
-    poly: poly, optional, default as None
-        The polygon
-    polyShapely: shapely.Polygon, optional, default as None
-        The correspond shapely object for polygon. Need to provide one of the following fields: [`poly`, `polyShapely`]
+    poly: poly, required
+        The poly
 
     Returns
     -------
-    pt
-        The centroid
+    bool
+        True if clockwise, false otherwise
 
     """
+    numCW = 0
+    numCCW = 0
 
-    if (poly == None and polyShapely == None):
-        raise MissingParameterError("ERROR: Missing required field 'poly' or 'polyShapely'.")
-    if (polyShapely == None):
-        polyShapely = shapely.Polygon(poly)
+    for i in range(len(poly)):
+        pt1 = poly[i]
+        pt2 = None
+        pt3 = None
+        if (i == len(poly) - 1):
+            pt2 = poly[0]
+            pt3 = poly[1]
+        elif (i == len(poly) - 2):
+            pt2 = poly[i + 1]
+            pt3 = poly[0]
+        else:
+            pt2 = poly[i + 1]
+            pt3 = poly[i + 2]
+        cwFlag = is3PtsClockWise(pt1, pt2, pt3)
+        if (cwFlag == True):
+            numCW += 1
+        elif (cwFlag == False):
+            numCCW += 1
+    if (numCW > numCCW):
+        return True
+    else:
+        return False
 
-    ptShapely = shapely.centroid(polyShapely)
-    center = (ptShapely.x, ptShapely.y)
-    return center
+def poly2CW(poly) -> poly:
+    if (polyClockWise(poly)):
+        return poly
+    else:
+        return [poly[len(poly) - 1 - i] for i in range(len(poly))]
+
+def poly2CCW(poly) -> poly:
+    if (polyClockWise(poly)):
+        return [poly[len(poly) - 1 - i] for i in range(len(poly))]
+    else:
+        return poly
 
 # Visibility check ============================================================
 def polysVisibleGraph(polys:polys) -> dict:
@@ -2736,7 +3274,7 @@ def _visPtAmongPolys(v:int|str|tuple, polys:polys, standalonePts:dict|None=None,
     return W
 
 # Time seq related ============================================================
-def snapInTimedSeq(timedSeq: list[tuple[pt, float]], t: float) -> pt:
+def snapInTimedSeq(timedSeq: list[tuple[pt, float]], t: float) -> dict:
     """
     Given a timedSeq, return the location, speed, and trajectory at time t
 
@@ -2891,6 +3429,18 @@ def traceInTimedSeq(timedSeq: list[tuple[pt, float]], ts: float, te: float) -> l
 
     return trace
 
+def locSeq2TimedSeq(seq: list[pt], vehSpeed: float, timeEachStop: float = 0, startTime: float = 0):
+    timedSeq = []
+    accTime = startTime
+    for i in range(len(seq) - 1):
+        timedSeq.append((seq[i], accTime))
+        if (timeEachStop > 0):
+            accTime += timeEachStop
+            timedSeq.append((seq[i], accTime))
+        accTime += (distEuclideanXY(seq[i], seq[i + 1])['dist']) / vehSpeed
+    timedSeq.append((seq[-1], accTime))
+    return timedSeq
+
 # Loc seq related =============================================================
 def locSeqSortPts(seq: list[pt], pts: list[pt], allowNotIncludeFlag = True) -> list:
     # First, calculate accumulated dist since start for each turning point of locSeq
@@ -2959,39 +3509,6 @@ def locSeqSortNodes(seq: list[pt], nodes: dict, locFieldName: str = 'loc', allow
         'sortedNodeIDs': sortedNodeIDs,
         'notIncludedNodeIDs': notIncludedNodeIDs
     }
-
-def locSeqMileage(seq: list[pt], dist: int|float, dimension: str = 'XY') -> pt:
-    """Given a list of lat/lon coordinates, and a traveling mileage, returns the coordinate"""
-    # Initialize ==============================================================
-    inPathFlag = False
-    accDist = 0
-    preLoc = []
-    nextLoc = []
-    # Find segment ============================================================
-    for i in range(0, len(seq) - 1):
-        if (dimension == 'LatLon'):
-            accDist += distLatLon(seq[i], seq[i + 1])['dist']
-        elif (dimension == 'XY'):
-            accDist += distEuclideanXY(seq[i], seq[i + 1])['dist']
-        if (accDist > dist):
-            preLoc = seq[i]
-            nextLoc = seq[i + 1]
-            inPathFlag = True
-            break
-    if (inPathFlag == False):
-        raise UnsupportedInputError("ERROR: `dist` is longer than the length of `seq`")
-    # Find location on the segment ============================================
-    remainDist = accDist - dist
-    segDist = 0
-    if (dimension == 'LatLon'):
-        segDist = distLatLon(preLoc, nextLoc)['dist']
-    elif (dimension == 'XY'):
-        segDist = distEuclideanXY(preLoc, nextLoc)['dist']
-    if (segDist <= CONST_EPSILON):
-        raise ZeroDivisionError
-    x = nextLoc[0] + (remainDist / segDist) * (preLoc[0] - nextLoc[0])
-    y = nextLoc[1] + (remainDist / segDist) * (preLoc[1] - nextLoc[1])
-    return (x, y)
 
 # Area calculation ============================================================
 def calTriangleAreaEdge(a: float, b: float, c: float) -> float:
@@ -3322,437 +3839,6 @@ def nodesInIsochrone(nodes: dict, nodeIDs: list|str = 'All', locFieldName = 'loc
         'nearest': nearest
     }
 
-# Create distance matrix ======================================================
-def matrixDist(nodes: dict, locFieldName: str = 'loc', nodeIDs: list|str = 'All', edges: str = 'Euclidean', **kwargs) -> dict:
-    """
-    Given a `nodes` dictionary, returns the traveling matrix between nodes
-
-    Parameters
-    ----------
-
-    nodes: dict, required
-        A `nodes`dictionary with location information
-    locFieldName: str, optional, default as 'loc'
-        The key in nodes dictionary to indicate the locations
-    nodeIDs: list of int|str, or 'All', optional, default as 'All'
-        A list of nodes in `nodes` that needs to be considered, other nodes will be ignored
-    edges: str, optional, default as 'Euclidean'
-        The methods for the calculation of distances between nodes. Options and required additional information are as follows:
-
-        1) (default) 'Euclidean', using Euclidean distance, no additional information needed
-        2) 'EuclideanBarrier', using Euclidean distance, if `polys` is provided, the path between nodes will consider them as barriers and by pass those areas.
-            - polys: list of poly, the polygons to be considered as barriers
-        3) 'LatLon', calculate distances by lat/lon, no additional information needed
-            - distUnit: str, the unit of distance, default as 'meter'
-        4) 'ManhattenXY', calculate distance by Manhatten distance            
-        5) 'Dictionary', directly provide the travel matrix
-            - tau: the traveling matrix
-        6) 'Grid', traveling on a grid with barriers, usually used in warehouses
-            - column: number of columns
-            - row: number of rows
-            - barrier: a list of coordinates on the grid indicating no-entrance
-    **kwargs: optional
-        Provide additional inputs for different `edges` options
-
-    Returns
-    -------
-
-    tuple
-        Two dictionaries, the first one is the travel matrix, index by (nodeID1, nodeID2), the second one is the dictionary for path between start and end locations (useful for 'EuclideanBarrier').
-
-    """
-
-    # Define tau
-    tau = {}
-    pathLoc = {}
-
-    if (type(nodeIDs) is not list):
-        if (nodeIDs == 'All'):
-            nodeIDs = []
-            for i in nodes:
-                nodeIDs.append(i)
-
-    if (edges == 'Euclidean'):
-        tau, pathLoc = _matrixDistEuclideanXY(
-            nodes = nodes, 
-            nodeIDs = nodeIDs, 
-            locFieldName = locFieldName)
-    elif (edges == 'EuclideanBarrier'):
-        if ('polys' not in kwargs or kwargs['polys'] == None):
-            warnings.warning("WARNING: No barrier provided.")
-            tau, pathLoc = _matrixDistEuclideanXY(
-                nodes = nodes, 
-                nodeIDs = nodeIDs, 
-                locFieldName = locFieldName)
-        else:
-            tau, pathLoc = _matrixDistBtwPolysXY(
-                nodes = nodes, 
-                nodeIDs = nodeIDs, 
-                polys = kwargs['polys'], 
-                locFieldName = locFieldName)
-    elif (edges == 'LatLon'):
-        distUnit = 'meter' if 'distUnit' not in kwargs else kwargs['distUnit']
-        tau, pathLoc = _matrixDistLatLon(
-            nodes = nodes, 
-            nodeIDs = nodeIDs, 
-            distUnit = distUnit,
-            locFieldName = locFieldName)
-    elif (edges == 'Manhatten'):
-        tau, pathLoc = _matrixDistManhattenXY(
-            nodes = nodes, 
-            nodeIDs = nodeIDs, 
-            locFieldName = locFieldName)
-    elif (edges == 'Dictionary'):
-        if ('tau' not in kwargs or kwargs['tau'] == None):
-            raise MissingParameterError("ERROR: 'tau' is not specified")
-        for p in kwargs['tau']:
-            tau[p] = kwargs['tau'][p]
-            pathLoc[p] = kwargs['path'][p] if 'path' in kwargs else [nodes[p[0]][locFieldName], nodes[p[1]][locFieldName]]
-    elif (edges == 'Grid'):
-        if ('grid' not in kwargs or kwargs['grid'] == None):
-            raise MissingParameterError("ERROR: 'grid' is not specified")
-        if ('column' not in kwargs['grid'] or 'row' not in kwargs['grid']):
-            raise MissingParameterError("'column' and 'row' need to be specified in 'grid'")
-        tau, pathLoc = _matrixDistGrid(
-            nodes = nodes, 
-            nodeIDs = nodeIDs, 
-            grids = kwargs['grid'], 
-            locFieldName = locFieldName)
-    else:
-        raise UnsupportedInputError(ERROR_MISSING_EDGES)        
-
-    return tau, pathLoc
-
-def _matrixDistEuclideanXY(nodes: dict, nodeIDs: list, locFieldName = 'loc'):
-    tau = {}
-    pathLoc = {}
-    for i in nodeIDs:
-        for j in nodeIDs:
-            if (i != j):
-                d = distEuclideanXY(nodes[i][locFieldName], nodes[j][locFieldName])
-                tau[i, j] = d['dist']
-                tau[j, i] = d['dist']
-                pathLoc[i, j] = [nodes[i][locFieldName], nodes[j][locFieldName]]
-                pathLoc[j, i] = [nodes[j][locFieldName], nodes[i][locFieldName]]
-            else:
-                tau[i, j] = CONST_EPSILON
-                tau[j, i] = CONST_EPSILON
-                pathLoc[i, j] = []
-                pathLoc[j, i] = []
-    return tau, pathLoc
-
-def _matrixDistManhattenXY(nodes: dict, nodeIDs: list, locFieldName = 'loc'):
-    tau = {}
-    pathLoc = {}
-    for i in nodeIDs:
-        for j in nodeIDs:
-            if (i != j):
-                d = distManhattenXY(nodes[i][locFieldName], nodes[j][locFieldName])
-                tau[i, j] = d['dist']
-                tau[j, i] = d['dist']
-                pathLoc[i, j] = d['path']
-                pathLoc[j, i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
-            else:
-                tau[i, j] = CONST_EPSILON
-                tau[j, i] = CONST_EPSILON
-                pathLoc[i, j] = []
-                pathLoc[j, i] = []
-    return tau, pathLoc
-
-def _matrixDistLatLon(nodes: dict, nodeIDs: list, distUnit = 'meter', locFieldName = 'loc'):
-    tau = {}
-    pathLoc = {}
-    for i in nodeIDs:
-        for j in nodeIDs:
-            if (i != j):
-                d = distLatLon(nodes[i][locFieldName], nodes[j][locFieldName], distUnit)
-                tau[i, j] = d['dist']
-                tau[j, i] = d['dist']
-                pathLoc[i, j] = [nodes[i][locFieldName], nodes[j][locFieldName]]
-                pathLoc[j, i] = [nodes[j][locFieldName], nodes[i][locFieldName]]
-            else:
-                tau[i, j] = CONST_EPSILON
-                tau[j, i] = CONST_EPSILON
-                pathLoc[i, j] = []
-                pathLoc[j, i] = []
-    return tau, pathLoc
-
-def _matrixDistGrid(nodes: dict, nodeIDs: list, grid: dict, locFieldName = 'loc'):
-    tau = {}
-    pathLoc = {}
-    for i in nodeIDs:
-        for j in nodeIDs:
-            if (i != j):
-                d = distOnGrid(pt1 = nodes[i][locFieldName], pt2 = nodes[j][locFieldName], grid = grid)
-                tau[i, j] = d['dist']
-                tau[j, i] = d['dist']
-                pathLoc[i, j] = d['path']
-                pathLoc[j, i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
-            else:
-                tau[i, j] = CONST_EPSILON
-                tau[j, i] = CONST_EPSILON
-                pathLoc[i, j] = []
-                pathLoc[j, i] = []
-    return tau, pathLoc
-
-def _matrixDistBtwPolysXY(nodes: dict, nodeIDs: list, polys: polys, polyVG = None, locFieldName = 'loc'):
-    tau = {}
-    pathLoc = {}
-    
-    if (polyVG == None):
-        polyVG = polysVisibleGraph(polys)
-
-    for i in nodeIDs:
-        for j in nodeIDs:
-            if (i != j):
-                d = distBtwPolysXY(pt1 = nodes[i][locFieldName], pt2 = nodes[j][locFieldName], polys = polys, polyVG = polyVG)
-                tau[i, j] = d['dist']
-                tau[j, i] = d['dist']
-                pathLoc[i, j] = d['path']
-                pathLoc[j, i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
-            else:
-                tau[i, j] = CONST_EPSILON
-                tau[j, i] = CONST_EPSILON
-                pathLoc[i, j] = []
-                pathLoc[j, i] = []
-    return tau, pathLoc
-
-def vectorDist(loc: pt, nodes: dict, locFieldName: str = 'loc', nodeIDs: list|str = 'All', edges: str = 'Euclidean', **kwargs) -> dict:
-    """
-    Given a location and a `nodes` dictionary, returns the traveling distance and path between the location to each node.
-
-    Parameters
-    ----------
-
-    loc: pt, required
-        Origin/destination location.
-    nodes: dict, required
-        A `nodes`dictionary with location information. See :ref:`nodes` for reference.
-    locFieldName: str, optional, default as 'loc'
-        The key in nodes dictionary to indicate the locations
-    nodeIDs: list of int|str, or 'All', optional, default as 'All'
-        A list of nodes in `nodes` that needs to be considered, other nodes will be ignored
-    edges: str, optional, default as 'Euclidean'
-        The methods for the calculation of distances between nodes. Options and required additional information are referred to :func:`~vrpSolver.geometry.matrixDist()`.
-    **kwargs: optional
-        Provide additional inputs for different `edges` options
-
-    Returns
-    -------
-
-    tuple
-        tau, revTau, pathLoc, revPathLoc. Four dictionaries, the first one is the travel distance from loc to each node index by nodeID, the second the travel distance from each node back to loc. The third and fourth dictionaries are the corresponded path.
-
-    """
-
-    # Define tau
-    tau = {}
-    revTau = {}
-    pathLoc = {}
-    revPathLoc = {}
-
-    if (type(nodeIDs) is not list):
-        if (nodeIDs == 'All'):
-            nodeIDs = []
-            for i in nodes:
-                nodeIDs.append(i)
-
-    if (edges == 'Euclidean'):
-        tau, revTau, pathLoc, revPath = _vectorDistEuclideanXY(
-            loc = loc,
-            nodes = nodes, 
-            nodeIDs = nodeIDs, 
-            locFieldName = locFieldName)
-    elif (edges == 'EuclideanBarrier'):
-        if ('polys' not in kwargs or kwargs['polys'] == None):
-            warnings.warning("WARNING: No barrier provided.")
-            tau, revTau, pathLoc, revPath = _vectorDistEuclideanXY(
-                loc = loc,
-                nodes = nodes, 
-                nodeIDs = nodeIDs, 
-                locFieldName = locFieldName)
-        else:
-            tau, revTau, pathLoc, revPath = _vectorDistBtwPolysXY(
-                loc = loc,
-                nodes = nodes, 
-                nodeIDs = nodeIDs, 
-                polys = kwargs['polys'], 
-                locFieldName = locFieldName)
-    elif (edges == 'LatLon'):
-        tau, revTau, pathLoc, revPath = _vectorDistLatLon(
-            loc = loc,
-            nodes = nodes, 
-            nodeIDs = nodeIDs, 
-            locFieldName = locFieldName)
-    elif (edges == 'Manhatten'):
-        tau, revTau, pathLoc, revPath = _vectorDistManhattenXY(
-            loc = loc,
-            nodes = nodes, 
-            nodeIDs = nodeIDs, 
-            locFieldName = locFieldName)
-    elif (edges == 'Grid'):
-        if ('grid' not in kwargs or kwargs['grid'] == None):
-            raise MissingParameterError("'grid' is not specified")
-        if ('column' not in kwargs['grid'] or 'row' not in kwargs['grid']):
-            raise MissingParameterError("'column' and 'row' need to be specified in 'grid'")
-        tau, revTau, pathLoc, revPath = _vectorDistGrid(
-            loc = loc,
-            nodes = nodes, 
-            nodeIDs = nodeIDs, 
-            grids = kwargs['grid'], 
-            locFieldName = locFieldName)
-    else:
-        raise UnsupportedInputError(ERROR_MISSING_EDGES)        
-
-    return tau, revTau, pathLoc, revPathLoc
-
-def _vectorDistEuclideanXY(loc: pt, nodes: dict, nodeIDs: list, speed = 1, locFieldName = 'loc'):
-    tau = {}
-    revTau = {}
-    pathLoc = {}
-    revPathLoc = {}
-    for i in nodeIDs:
-        d = distEuclideanXY(loc, nodes[i][locFieldName])
-        tau[i] = d['dist'] / speed
-        revTau[i] = d['dist'] / speed
-        pathLoc[i] = [loc, nodes[i][locFieldName]]
-        revPathLoc[i] = [nodes[i][locFieldName], loc]
-    return tau, revTau, pathLoc, revPathLoc
-
-def _vectorDistManhattenXY(loc: pt, nodes: dict, nodeIDs: list, speed = 1, locFieldName = 'loc'):
-    tau = {}
-    revTau = {}
-    pathLoc = {}
-    revPathLoc = {}
-    for i in nodeIDs:
-        d = distManhattenXY(loc, nodes[i][locFieldName])
-        tau[i] = d['dist'] / speed
-        revTau[i] = d['dist'] / speed
-        pathLoc[i] = d['path']
-        revPathLoc[i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
-    return tau, revTau, pathLoc, revPathLoc
-
-def _vectorDistLatLon(loc: pt, nodes: dict, nodeIDs: list, distUnit = 'meter', speed = 1, locFieldName = 'loc'):
-    tau = {}
-    revTau = {}
-    pathLoc = {}
-    revPathLoc = {}
-    for i in nodeIDs:
-        d = distLatLon(loc, nodes[i][locFieldName], distUnit)
-        tau[i] = d['dist'] / speed
-        revTau[i] = d['dist'] / speed
-        pathLoc[i] = [loc, nodes[i][locFieldName]]
-        revPathLoc[i] = [nodes[i][locFieldName], loc]
-    return tau, revTau, pathLoc, revPathLoc
-
-def _vectorDistGrid(loc: pt, nodes: dict, nodeIDs: list, grid: dict, locFieldName = 'loc'):
-    tau = {}
-    revTau = {}
-    pathLoc = {}
-    revPathLoc = {}
-    for i in nodeIDs:
-        d = distOnGrid(pt1 = loc, pt2 = nodes[i][locFieldName], grid = grid)
-        tau[i] = d['dist'] / speed
-        revTau[i] = d['dist'] / speed
-        pathLoc[i] = d['path']
-        revPathLoc[i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
-    return tau, revTau, pathLoc, revPathLoc
-
-def _vectorDistBtwPolysXY(loc: pt, nodes: dict, nodeIDs: list, polys: polys, polyVG = None, locFieldName = 'loc'):
-    tau = {}
-    revTau = {}
-    pathLoc = {}
-    revPathLoc = {}
-
-    if (polyVG == None):
-        polyVG = polysVisibleGraph(polys)
-
-    for i in nodeIDs:
-        d = distBtwPolysXY(pt1 = loc, pt2 = nodes[i][locFieldName], polys = polys, polyVG = polyVG)
-        tau[i] = d['dist'] / speed
-        revTau[i] = d['dist'] / speed
-        pathLoc[i] = d['path']
-        revPathLoc[i] = [d['path'][len(d['path']) - 1 - i] for i in range(len(d['path']))]
-    return tau, revTau, pathLoc, revPathLoc
-
-def scaleDist(loc1: pt, loc2: pt, edges: str = 'Euclidean', **kwargs) -> dict:
-    """
-    Given a two locations, returns the traveling distance and path between locations.
-
-    Parameters
-    ----------
-
-    loc1: pt, required
-        The first location.
-    loc2: pt, required
-        The second location.
-    edges: str, optional, default as 'Euclidean'
-        The methods for the calculation of distances between nodes. Options and required additional information are referred to :func:`~vrpSolver.geometry.matrixDist()`.
-    **kwargs: optional
-        Provide additional inputs for different `edges` options
-
-    Returns
-    -------
-
-    dict
-        tau, revTau, pathLoc, revPathLoc. Four keys, the first one is the travel distance from loc to each node index by nodeID, the second the travel distance from each node back to loc. The third and fourth dictionaries are the corresponded path.
-
-    """
-
-    # Define tau
-    dist = None
-    revDist = None
-    pathLoc = []
-    revPathLoc = []
-
-    if (edges == 'Euclidean'):
-        dist = distEuclideanXY(loc1, loc2)['dist']
-        revDist = dist
-        pathLoc = [loc1, loc2]
-        revPathLoc = [loc2, loc1]
-    elif (edges == 'EuclideanBarrier'):
-        if ('polys' not in kwargs or kwargs['polys'] == None):
-            warnings.warning("WARNING: No barrier provided.")
-            dist = distEuclideanXY(loc1, loc2)['dist']
-            revDist = dist
-            pathLoc = [loc1, loc2]
-            revPathLoc = [loc2, loc1]
-        else:
-            res = distBtwPolysXY(pt1, pt2, kwargs['polys'])
-            dist = res['dist']
-            revDist = dist
-            pathLoc = [i for i in res['path']]
-            revPathLoc = [pathLoc[len(pathLoc) - i - 1] for i in range(len(pathLoc))]
-    elif (edges == 'LatLon'):
-        dist = distLatLon(loc1, loc2)['dist']
-        revDist = dist
-        pathLoc = [loc1, loc2]
-        revPathLoc = [loc2, loc1]
-    elif (edges == 'Manhatten'):
-        dist = distManhattenXY(loc1, loc2)['dist']
-        revDist = dist
-        pathLoc = [loc1, (pt1[0], pt2[1]), loc2]
-        revPathLoc = [loc2, (pt1[0], pt2[1]), loc1]
-    elif (edges == 'Grid'):
-        if ('grid' not in kwargs or kwargs['grid'] == None):
-            raise MissingParameterError("'grid' is not specified")
-        if ('column' not in kwargs['grid'] or 'row' not in kwargs['grid']):
-            raise MissingParameterError("'column' and 'row' need to be specified in 'grid'")
-        res = distOnGrid(loc1, loc2, kwargs['grid'])
-        dist = res['dist']
-        revDist = dist
-        pathLoc = [i for i in res['path']]
-        revPathLoc = [pathLoc[len(pathLoc) - i - 1] for i in range(len(pathLoc))]
-    else:
-        raise UnsupportedInputError(ERROR_MISSING_EDGES)        
-
-    return {
-        'dist': dist,
-        'revDist': revDist,
-        'pathLoc': pathLoc,
-        'revPathLoc': revPathLoc
-    }
-
 # Distance calculation ========================================================
 def distEuclideanXY(pt1: pt, pt2: pt) -> dict:
     """
@@ -3809,7 +3895,7 @@ def distBtwPolysXY(pt1:pt, pt2:pt, polys:polys, polyVG: dict = None) -> dict:
     polys: polys, required
         The polygons as barriers.
     polyVG: dict, optional, default as None
-        The pre-calculated visual-graph using :func:`~vrpSolver.polysVisibleGraph()`. To avoid repeated calculation
+        The pre-calculated visual-graph using :func:`~polysVisibleGraph()`. To avoid repeated calculation
 
     Returns
     -------
@@ -4078,229 +4164,6 @@ def _distOnGridAStar(column, row, barriers, pt1, pt2, distMeasure):
     }
 
 # Path touring through polygons ===============================================
-def polyPath2Mileage(repSeq: list, path: list[pt], nodes: dict):
-
-    # NOTE: 根据p2pPath，得到足够多的子问题信息以生成cut
-    # Step 1: 先把转折点找出来
-    # NOTE: error取值不能太小，因为用的是30边形拟合的圆 + poly2Poly，导致误差其实还蛮大的
-    degenPath = locSeqRemoveDegen(path, error = 0.01)
-
-    # Step 2: 按照转折点，找到路径与每个poly的合法相交部分
-    mileage = []
-    lastTurnPt = path[0]
-    turnPtMileageAcc = 0
-    for i in range(len(degenPath['removedFlag'])):
-        # 接下来分情况讨论：
-        # NOTE: 单独/重合 => 在该坐标上有一个解还是多个解
-        # NOTE: 转折/穿透 => path访问该poly的时候是相切还是相交
-        # Case 1: 单独转折点
-        # Case 2: 重合转折点
-        # Case 3: 单独穿透点
-        # Case 4: 重合穿透点
-        aggNode = degenPath['aggNodeList'][i]
-
-        # 转折点的情形
-        if (degenPath['removedFlag'][i] == False):
-            # 先得到当前转折点的坐标
-            curLoc = None
-            distAdd2Acc = None
-            
-            # Case 1: 单独转折点
-            # NOTE: 生成一个Touch的Single点，该点的mileage为lastTurnPt到该点的距离
-            if (len(aggNode) == 1):
-                turnNode = aggNode[0]
-                curLoc = path[turnNode]
-                distAdd2Acc = distEuclideanXY(lastTurnPt, curLoc)['dist']
-                mileage.append({
-                    'polyID': repSeq[turnNode],
-                    'type': 'Touch',
-                    'intersect': curLoc,
-                    'mileage': turnPtMileageAcc + distAdd2Acc
-                })
-            
-            # Case 2: 重合转折点
-            # NOTE: 这种情况下，要区分每个重合在此处的转折点与neighborhood是相交还是相切
-            # NOTE: 对于相交的，返回mileage的范围，对于相切的，则视作转折点
-            # NOTE: 注意，至少一个是转折点
-            else:
-                curLoc = path[aggNode[0]]
-                distAdd2Acc = distEuclideanXY(lastTurnPt, curLoc)['dist']
-                # 重合转折点中的相切的点的集合
-                tangNodes = []
-                for k in aggNode:
-                    # 来判断是相交还是相切
-                    inclNode = k
-                    neiIntSeg = intSeg2Poly(
-                        [lastTurnPt, curLoc], 
-                        nodes[repSeq[inclNode]]['neighbor'])
-                    # 如果是相交，则处理成穿透点
-                    if (neiIntSeg['intersectType'] == 'Segment'):
-                        intSeg = neiIntSeg['intersect']
-                        loc1 = intSeg[0]
-                        loc2 = intSeg[1]
-                        dist1 = distEuclideanXY(loc1, lastTurnPt)['dist']
-                        dist2 = distEuclideanXY(loc2, lastTurnPt)['dist']
-                        # 相交实际上是相切的数值问题
-                        if (abs(dist1 - dist2) < 0.001):
-                            tangNodes.append(k)
-                        elif (dist1 < dist2):
-                            mileage.append({
-                                'polyID': repSeq[inclNode],
-                                'type': 'Intersect',
-                                'intersect': [loc1, loc2],
-                                'mileage': [turnPtMileageAcc + dist1, turnPtMileageAcc + dist2]
-                            })
-                        else:
-                            mileage.append({
-                                'polyID': repSeq[inclNode],
-                                'type': 'Intersect',
-                                'intersect': [loc2, loc1],
-                                'mileage': [turnPtMileageAcc + dist2, turnPtMileageAcc + dist1]
-                            })
-                    else:
-                        tangNodes.append(k)
-
-                if (len(tangNodes) == 1):
-                    mileage.append({
-                        'polyID': repSeq[tangNodes[0]],
-                        'type': 'Touch',
-                        'intersect': curLoc,
-                        'mileage': turnPtMileageAcc + distAdd2Acc
-                    })
-                else:
-                    mileage.append({
-                        'polyID': [repSeq[k] for k in tangNodes],
-                        'type': 'Touch',
-                        'intersect': curLoc,
-                        'mileage': turnPtMileageAcc + distAdd2Acc
-                    })
-
-            # 转折点的话更新一下lastTurnPt，因为现在是最后一个转折点了
-            # NOTE: 不是转折点就不用更新
-            lastTurnPt = curLoc
-            turnPtMileageAcc += distAdd2Acc
-        
-        # 穿透点的情形
-        else:
-            # Case 3: 单独穿透点
-            if (len(aggNode) == 1):
-                # 穿透点所在的线段
-                inclNode = aggNode[0]
-                neiIntSeg = intSeg2Poly(
-                    degenPath['locatedSeg'][i], 
-                    nodes[repSeq[inclNode]]['neighbor'])
-                
-                # Case 3.1: 最正常的情况，path穿过poly，相交为一个线段
-                if (neiIntSeg['intersectType'] == 'Segment'):
-                    intSeg = neiIntSeg['intersect']
-                    loc1 = intSeg[0]
-                    loc2 = intSeg[1]
-                    dist1 = distEuclideanXY(loc1, lastTurnPt)['dist']
-                    dist2 = distEuclideanXY(loc2, lastTurnPt)['dist']
-                    if (dist1 < dist2):
-                        mileage.append({
-                            'polyID': repSeq[inclNode],
-                            'type': 'Intersect',
-                            'intersect': [loc1, loc2],
-                            'mileage': [turnPtMileageAcc + dist1, turnPtMileageAcc + dist2]
-                        })
-                    else:
-                        mileage.append({
-                            'polyID': repSeq[inclNode],
-                            'type': 'Intersect',
-                            'intersect': [loc2, loc1],
-                            'mileage': [turnPtMileageAcc + dist2, turnPtMileageAcc + dist1]
-                        })
-
-                # Case 3.2: 特殊情况下，如果穿透点+单独点为neighbor的切点，此时把穿透点处理成转折点
-                elif (neiIntSeg['intersectType'] == 'Point'):
-                    tangLoc = neiIntSeg['intersect']
-                    dist = distEuclideanXY(tangLoc, lastTurnPt)['dist']
-                    mileage.append({
-                        'polyID': repSeq[inclNode],
-                        'type': 'Touch',
-                        'intersect': tangLoc,
-                        'mileage': turnPtMileageAcc + dist,
-                        'info': 'Tangent'
-                    })
-                    lastTurnPt = tangLoc
-                    turnPtMileageAcc += dist
-                
-                # Case 3.No: 正常情况下这个分支不应该存在，但是实际上因为精度的问题就是会出现
-                # NOTE: 处理成相切点，相切处为线段上离poly最近点
-                else:
-                    tangLoc = nearestPtLine2Poly(
-                        degenPath['locatedSeg'][i], 
-                        nodes[repSeq[inclNode]]['neighbor'])['ptOnLine']
-                    dist = distEuclideanXY(tangLoc, lastTurnPt)['dist']
-                    mileage.append({
-                        'polyID': repSeq[inclNode],
-                        'type': 'Touch',
-                        'intersect': tangLoc,
-                        'mileage': turnPtMileageAcc + dist,
-                        'info': 'TangentError'
-                    })
-                    lastTurnPt = tangLoc
-                    turnPtMileageAcc += dist
-                    warnings.warn("WARNING: Numerical issue when calculating mileage.")
-            
-            # Case 4: 重合穿透点
-            # FIXME: 这部分代码要好好走查一下
-            # NOTE: 这个情况很复杂，如果存在至少一个相切的情况，那么该点实际上是转折点，且是多重转折点
-            # NOTE: 需要挨个确认是否是相切点，如果是相切点，按相切点处理（聚合在一起），如果不是相切点，依次计算mileage
-            else:
-                tangFlag = False
-                tangLoc = None
-                neiIntSet = []
-
-                for k in degenPath['aggNodeList'][i]:
-                    # 穿透点所在的线段
-                    neiInt = intSeg2Poly(
-                        degenPath['locatedSeg'][i], 
-                        nodes[repSeq[k]]['neighbor'])
-                    neiIntSet.append((repSeq[k], neiInt))
-                    if (neiInt['intersectType'] == 'Point'):
-                        tangFlag = True
-                        # 虽然一直在更新，但是理论上应该是同一个点
-                        tangLoc = neiInt['intersect']
-
-                if (tangFlag == False):
-                    for intSeg in neiIntSet:
-                        loc1 = intSeg[1]['intersect'][0]
-                        loc2 = intSeg[1]['intersect'][1]
-                        dist1 = distEuclideanXY(loc1, lastTurnPt)['dist']
-                        dist2 = distEuclideanXY(loc2, lastTurnPt)['dist']
-                        if (dist1 < dist2):
-                            mileage.append({
-                                'polyID': intSeg[0],
-                                'type': 'Intersect',
-                                'intersect': [loc1, loc2],
-                                'mileage': [turnPtMileageAcc + dist1, turnPtMileageAcc + dist2]
-                            })
-                        else:
-                            mileage.append({
-                                'polyID': intSeg[0],
-                                'type': 'Intersect',
-                                'intersect': [loc2, loc1],
-                                'mileage': [turnPtMileageAcc + dist2, turnPtMileageAcc + dist1]
-                            })
-
-                # Case 4.1: 特殊情况下，如果穿透点+重合点为neighbor的切点，此时把穿透点处理成转折点
-                # NOTE: 这个目前很罕见，但是应该也可以生成对应的算例
-                else:
-                    dist = distEuclideanXY(tangLoc, lastTurnPt)['dist']
-                    mileage.append({
-                        'polyID': [repSeq[k] for k in degenPath['aggNodeList'][i]],
-                        'type': 'Touch',
-                        'intersect': tangLoc,
-                        'mileage': turnPtMileageAcc + dist,
-                        'info': 'Tangent'
-                    })
-                    lastTurnPt = tangLoc
-                    turnPtMileageAcc += dist
-    
-    return mileage
-
 def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
     """
     Given a sequence of points, returns a subset of points that only includes turning points of the sequence. If there are multiple points overlapped at the same location, keeps one of those points.
@@ -4355,19 +4218,27 @@ def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
     """
 
     # Step 1: 先按是否重合对点进行聚合  
-    curLoc = seq[0]
+    curLocList = [seq[0]]
     curAgg = [0]
     aggNodeList = []
     # 挤香肠算法
     for i in range(1, len(seq)):
-        # 如果当前点重复，则计入
-        if (is2PtsSame(curLoc, seq[i], error)):
-            curAgg.append(i)
+        # 如果当前点和任意一个挤出来的点足够近，则计入
+        samePtFlag = False
+
+        for pt in curLocList:
+            if (is2PtsSame(pt, seq[i], error)):
+                curAgg.append(i)
+                curLocList.append(seq[i])
+                samePtFlag = True
+                break
+
         # 若不重复，了结
-        else:
+        if (not samePtFlag):
             aggNodeList.append([k for k in curAgg])
             curAgg = [i]
-            curLoc = seq[i]
+            curLocList = [seq[i]]
+
     aggNodeList.append([k for k in curAgg])
 
     # Step 2: 对聚合后的点，判断是否为转折点
@@ -4436,644 +4307,859 @@ def locSeqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
         'locatedSeg': locatedSeg
     }
 
-# obj2ObjPath =================================================================
-def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, algo: str = 'SOCP', **kwargs):
-    
-    """Given a starting point, a list of polys, and an ending point, returns a shortest route that starts from startPt, visits every polys in given order, and returns to the ending point.
+def splitOverlapSegs(seg1: line, seg2: line, belong1: list = [1], belong2: list = [2]):
+    s2s = intSeg2Seg(seg1, seg2)
+    if (s2s['status'] == 'Collinear' and s2s['interiorFlag'] == True and s2s['intersectType'] == 'Segment'):
+        # print("Part ", i, segSet[i], "Part ", j, segSet[j], "S2S")
+        # 取出seg1和seg2的端点
+        A = seg1[0]
+        B = seg1[1]
+        X = seg2[0]
+        Y = seg2[1]
 
-    Parameters
-    ----------
-    startPt: pt, required, default None
-        The coordinate which starts the path.
-    endPt: pt, required, default None
-        The coordinate which ends the path.
-    polys: polys, required
-        A list of polys to be visited in given sequence
-    algo: str, optional, default as 'SOCP'
-        Select the algorithm for calculating the shortest path. Options and required additional inputs are as follows:
-            
-        1) (default) 'SOCP', use Second-order Cone Programing method.
-            - solver: str, optional, now only supports 'Gurobi'
-            - timeLimit: int|float, additional stopping criteria
-            - gapTolerance: int|float, additional stopping criteria
-            - outputFlag: bool, True if turn on the log output from solver. Default to be False
-        2) 'AdaptIter', use adapt iteration algorithm
-            - errorTol: float, optional, error tolerance
-    **kwargs: optional
-        Provide additional inputs for different `edges` options and `algo` options
+        AXB = isPtOnSeg(pt = X, seg = [A, B], interiorOnly = True)
+        AYB = isPtOnSeg(pt = Y, seg = [A, B], interiorOnly = True)
+        XAY = isPtOnSeg(pt = A, seg = [X, Y], interiorOnly = True)
+        XBY = isPtOnSeg(pt = B, seg = [X, Y], interiorOnly = True)
 
-    Returns
-    -------
-    dict
-        Two fields in the dictionary, 'dist' indicates the distance of the path, 'path' indicates the travel path.
-    """
+        sameAX = is2PtsSame(A, X)
+        sameAY = is2PtsSame(A, Y)
+        sameBX = is2PtsSame(B, X)
+        sameBY = is2PtsSame(B, Y)
 
-    # Sanity check ============================================================
-    if (method == None):
-        raise MissingParameterError("ERROR: Missing required field `method`.")
+        distAX = distEuclideanXY(A, X)['dist']
+        distBX = distEuclideanXY(B, X)['dist']
+        distAY = distEuclideanXY(A, Y)['dist']
+        distBY = distEuclideanXY(B, Y)['dist']
 
-    if (algo == 'AdaptIter'):
-        errTol = CONST_EPSILON
-        if ('errTol' in kwargs):
-            errTol = kwargs['errTol']
-        res = _poly2PolyPathAdaptIter(startPt, endPt, polys, errTol)
-    elif (algo == 'SOCP'):
-        outputFlag = False
-        if ('outputFlag' in kwargs):
-            outputFlag = kwargs['outputFlag']
-        gapTol = None
-        if ('gapTol' in kwargs):
-            gapTol = kwargs['gapTol']
-        timeLimit = None
-        if ('timeLimit' in kwargs):
-            timeLimit = kwargs['timeLimit']
-        res = _poly2PolyPathGurobi(startPt, endPt, polys, outputFlag, gapTol, timeLimit)
-    else:
-        raise UnsupportedInputError("ERROR: Not support by vrpSolver for now.")
+        jointBelong = [k for k in belong1]
+        jointBelong.extend([k for k in belong2 if k not in belong1])
+        
+        newSegSet = []
+        # NOTE: This is so stupid, but efficient
+        # Case 1: A - X - Y - B
+        if (AXB and AYB and distAX < distAY):
+            # print("# Case 1: A - X - Y - B")
+            newSegSet.append({
+                'shape': [A, X],
+                'belong': [k for k in belong1],
+            })
+            newSegSet.append({
+                'shape': [X, Y],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [Y, B],
+                'belong': [k for k in belong1],
+            })
+        # Case 2: A - Y - X - B
+        elif (AXB and AYB and distAX > distAY):
+            # print("# Case 2: A - Y - X - B")
+            newSegSet.append({
+                'shape': [A, Y],
+                'belong': [k for k in belong1],
+            })
+            newSegSet.append({
+                'shape': [Y, X],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [X, B],
+                'belong': [k for k in belong1],
+            })
+        # Case 3: A - X - B - Y
+        elif (AXB and XBY):
+            # print("# Case 3: A - X - B - Y")
+            newSegSet.append({
+                'shape': [A, X],
+                'belong': [k for k in belong1],
+            })
+            newSegSet.append({
+                'shape': [X, B],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [B, Y],
+                'belong': [k for k in belong2],
+            })
+        # Case 4: A - Y - B - X
+        elif (AYB and XBY):
+            # print("# Case 4: A - Y - B - X")
+            newSegSet.append({
+                'shape': [A, Y],
+                'belong': [k for k in belong1],
+            })
+            newSegSet.append({
+                'shape': [Y, B],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [B, X],
+                'belong': [k for k in belong2],
+            })
+        # Case 5: X - A - Y - B
+        elif (XAY and AYB):
+            # print("# Case 5: X - A - Y - B")
+            newSegSet.append({
+                'shape': [X, A],
+                'belong': [k for k in belong2],
+            })
+            newSegSet.append({
+                'shape': [A, Y],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [Y, B],
+                'belong': [k for k in belong1],
+            })
+        # Case 6: Y - A - X - B
+        elif (XAY and AXB):
+            # print("# Case 6: Y - A - X - B")
+            newSegSet.append({
+                'shape': [Y, A],
+                'belong': [k for k in belong2],
+            })
+            newSegSet.append({
+                'shape': [A, X],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [X, B],
+                'belong': [k for k in belong1],
+            })
+        # Case 7: X - A - B - Y
+        elif (XAY and XBY and distAX < distBX):
+            # print("# Case 7: X - A - B - Y")
+            newSegSet.append({
+                'shape': [X, A],
+                'belong': [k for k in belong2],
+            })
+            newSegSet.append({
+                'shape': [A, B],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [B, Y],
+                'belong': [k for k in belong2],
+            })
+        # Case 8: Y - A - B - X
+        elif (XAY and XBY and distAX > distBX):
+            # print("# Case 8: Y - A - B - X")
+            newSegSet.append({
+                'shape': [Y, A],
+                'belong': [k for k in belong2],
+            })
+            newSegSet.append({
+                'shape': [A, B],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [B, X],
+                'belong': [k for k in belong2],
+            })
+        # Case 9: A - X - (BY)
+        elif (AXB and sameBY):
+            # print("# Case 9: A - X - (BY)")
+            newSegSet.append({
+                'shape': [A, X],
+                'belong': [k for k in belong1],
+            })
+            newSegSet.append({
+                'shape': [X, B],
+                'belong': [k for k in jointBelong],
+            })
+        # Case 10: A - Y - (BX)
+        elif (AYB and sameBX):
+            # print("# Case 10: A - Y - (BX)")
+            newSegSet.append({
+                'shape': [A, Y],
+                'belong': [k for k in belong1],
+            })
+            newSegSet.append({
+                'shape': [Y, B],
+                'belong': [k for k in jointBelong],
+            })
+        # Case 11: X - A - (BY)
+        elif (XAY and sameBY):
+            # print("# Case 11: X - A - (BY)")
+            newSegSet.append({
+                'shape': [X, A],
+                'belong': [k for k in belong2],
+            })
+            newSegSet.append({
+                'shape': [A, B],
+                'belong': [k for k in jointBelong],
+            })
+        # Case 12: Y - A - (XB)
+        elif (XAY and sameBX):
+            # print("# Case 12: Y - A - (XB)")
+            newSegSet.append({
+                'shape': [Y, A],
+                'belong': [k for k in belong2],
+            })
+            newSegSet.append({
+                'shape': [A, B],
+                'belong': [k for k in jointBelong],
+            })
+        # Case 13: (AX) - Y - B
+        elif (AYB and sameAX):
+            # print("# Case 13: (AX) - Y - B")
+            newSegSet.append({
+                'shape': [A, Y],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [Y, B],
+                'belong': [k for k in belong1],
+            })
+        # Case 14: (AX) - B - Y
+        elif (XBY and sameAX):
+            # print("# Case 14: (AX) - B - Y")
+            newSegSet.append({
+                'shape': [A, B],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [B, Y],
+                'belong': [k for k in belong2],
+            })
+        # Case 15: (AY) - X - B
+        elif (AXB and sameAY):
+            # print("# Case 15: (AY) - X - B")
+            newSegSet.append({
+                'shape': [A, X],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [X, B],
+                'belong': [k for k in belong1],
+            })
+        # Case 16: (AY) - B - X
+        elif (XBY and sameAY):
+            # print("# Case 16: (AY) - B - X")
+            newSegSet.append({
+                'shape': [A, B],
+                'belong': [k for k in jointBelong],
+            })
+            newSegSet.append({
+                'shape': [B, X],
+                'belong': [k for k in belong2],
+            })
+        # Case 17: (AX) - (BY) or (AY) - (BX)
+        elif (is2SegsSame([A, B], [X, Y])):
+            # print("# Case 17: (AX) - (BY) or (AY) - (BX)")
+            newSegSet.append({
+                'shape': [A, B],
+                'belong': [k for k in jointBelong],
+            })
+        return newSegSet
+    return None
 
-    return {
-        'path': res['path'],
-        'dist': res['dist']
-    }
+def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', tangPts: dict = None, polyInt: dict = None):
+    # 简化线段,去掉穿越点
+    seq = locSeqRemoveDegen(seq, error = 0.03)['newSeq']
 
-def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, errTol = CONST_EPSILON):
+    # NOTE: 仅是加速用
+    if (polyInt == None):
+        polyInt = {}
+        for i in polygons:
+            for j in polygons:
+                if (i < j and isPolyIntPoly(
+                    poly1 = polygons[i][polyFieldName], 
+                    poly2 = polygons[j][polyFieldName])):
+                    polyInt[i, j] = True
+                    polyInt[j, i] = True
 
-    """Given a list of points, each belongs to a neighborhood of a node, find the shortest path between each steps
+    # Step 1: For each polygon, get intersections =============================
+    for p in polygons:
+        # 用来记录可以分配时间的经停点/经过线段
+        polygons[p]['intersect'] = []
+        # 由于计算精度的问题,加上简化线段时损失的精度,可能会导致path和polygon没有交点,属于提前需要把seq预设的represent point记录上来
+        if (tangPts != None and p in tangPts):
+            polygons[p]['tmpPoint'] = [{
+                'status': 'Cross',
+                'intersectType': 'Point',
+                'intersect': tangPts[p],
+                'interiorFlag':  True # 其实可能是在boundary上,但是不重要
+            }]
+        else:
+            polygons[p]['tmpPoint'] = []
+        for i in range(len(seq) - 1):
+            segInt = intSeg2Poly([seq[i], seq[i + 1]], polygons[p][polyFieldName])
+            # 对于Nonconvex的poly，这部分不应该出现，但是实测下来Shapely还是不够可靠
+            if (type(segInt) == list):
+                for s in segInt:
+                    if (s['intersectType'] == 'Point'):
+                        polygons[p]['tmpPoint'].append(s)
+                    else:
+                        length = distEuclideanXY(s['intersect'][0], s['intersect'][1])['dist']
+                        if (length > 0.01):
+                            polygons[p]['intersect'].append(s)
+                        else:
+                            k = {
+                                'status': 'Cross',
+                                'intersectType': 'Point',
+                                'intersect': s['intersect'][0],
+                                'interiorFlag': False
+                            }
+                            polygons[p]['tmpPoint'].append(k)
+            # 对于相交的情形，先存起来，再判断相交情况，特别是点，对于所有的点，判断是不是已经存在
+            elif (segInt['status'] == 'Cross'):
+                if (segInt['intersectType'] == 'Point'):
+                    polygons[p]['tmpPoint'].append(segInt)
+                else:
+                    length = distEuclideanXY(segInt['intersect'][0], segInt['intersect'][1])['dist']
+                    if (length > 0.01):
+                        polygons[p]['intersect'].append(segInt)
+                    else:
+                        k = {
+                            'status': 'Cross',
+                            'intersectType': 'Point',
+                            'intersect': segInt['intersect'][0],
+                            'interiorFlag': False
+                        }
+                        polygons[p]['tmpPoint'].append(k)
 
-    Parameters
-    ----------
+    for i in polygons:
+        # 对于所有的相交项，判断重合性，主要判断Point是不是重合了已经
+        for pt in polygons[i]['tmpPoint']:
+            existFlag = False
+            for obj in polygons[i]['intersect']:
+                if (obj['intersectType'] == 'Point'):
+                    if (is2PtsSame(pt1 = pt['intersect'], pt2 = obj['intersect'], error = 0.03)):
+                        existFlag = True
+                        break
+                else:
+                    if (isPtOnSeg(pt = pt['intersect'], seg = obj['intersect'], error = 0.03)):
+                        existFlag = True
+                        break
+            if (not existFlag):
+                polygons[i]['intersect'].append(pt)
+        polygons[i].pop('tmpPoint')
 
-    polys: list of polygons, required
-        A list of polygons to be visited
-    solver: string, optional, default AVAIL_SOLVER
-        The commercial solver used to solve the minimum cost flow problem
+    # Step 2: Initialize ======================================================
+    # 把所有polygon内的seg/pt原封不动的放进来
+    segSet = {}
+    segIDAcc = 0
+    for i in polygons:
+        for s in polygons[i]['intersect']:
+            segSet[segIDAcc] = {
+                'shape': s['intersect'],
+                'type': s['intersectType'],
+                'belong': [i],
+                'split': False
+            }
+            segIDAcc += 1
 
-    """
+    # Step 3: Split the segments ==============================================
+    canSplitFlag = True
+    while (canSplitFlag):
+        canSplitFlag = False
 
-    # First, create a ring, to help keying each extreme points of polygons
-    tau = {}
+        newSegSet = []
+        for i in segSet:
+            canSplitBetweenIJFlag = False  
+            for j in segSet:
+                # 两个seg/pt看看能不能相交
+                if (i < j and segSet[i]['split'] == False and segSet[j]['split'] == False):
+                    # 分别看看i和j所属的poly有没有可能相交,如果有可能,才尝试,不可能相交就没必要了
+                    trySplitFlag = False
+                    for iBelong in segSet[i]['belong']:
+                        for jBelong in segSet[j]['belong']:
+                            if ((iBelong, jBelong) in polyInt and polyInt[iBelong, jBelong] == True):
+                                trySplitFlag = True
 
-    # Initialize
-    G = nx.Graph()
-    polyRings = []
+                    if (trySplitFlag):
+                        # 如果i和j都是segment
+                        if (segSet[i]['type'] == 'Segment' and segSet[j]['type'] == 'Segment'):
+                            s2s = intSeg2Seg(segSet[i]['shape'], segSet[j]['shape'])
+                            if (s2s['status'] == 'Collinear' and s2s['interiorFlag'] == True and s2s['intersectType'] == 'Segment'):
+                                # print("Part ", i, segSet[i], "Part ", j, segSet[j], "S2S")
+                                # 取出seg1和seg2的端点
+                                A = segSet[i]['shape'][0]
+                                B = segSet[i]['shape'][1]
+                                X = segSet[j]['shape'][0]
+                                Y = segSet[j]['shape'][1]
 
-    for poly in polys:
-        polyRing = Ring()
-        for i in range(len(poly)):
-            polyRing.append(RingNode(i, poly[i]))
-        polyRings.append(polyRing)
+                                AXB = isPtOnSeg(pt = X, seg = [A, B], interiorOnly = True)
+                                AYB = isPtOnSeg(pt = Y, seg = [A, B], interiorOnly = True)
+                                XAY = isPtOnSeg(pt = A, seg = [X, Y], interiorOnly = True)
+                                XBY = isPtOnSeg(pt = B, seg = [X, Y], interiorOnly = True)
 
-    # startPt to the first polygon
-    cur = polyRings[0].head
-    while (True):
-        d = distEuclideanXY(startPt, cur.value)['dist']
-        tau['s', (0, cur.key)] = d
-        G.add_edge('s', (0, cur.key), weight = d)
-        cur = cur.next
-        if (cur.key == polyRings[0].head.key):
-            break
+                                sameAX = is2PtsSame(A, X)
+                                sameAY = is2PtsSame(A, Y)
+                                sameBX = is2PtsSame(B, X)
+                                sameBY = is2PtsSame(B, Y)
 
-    # If more than one polygon btw startPt and endPt
-    for i in range(len(polys) - 1):
-        curI = polyRings[i].head
-        while (True):
-            curJ = polyRings[i + 1].head
-            while (True):
-                d = distEuclideanXY(curI.value, curJ.value)['dist']
-                tau[(i, curI.key), (i + 1, curJ.key)] = d
-                G.add_edge((i, curI.key), (i + 1, curJ.key), weight = d)
-                curJ = curJ.next
-                if (curJ.key == polyRings[i + 1].head.key):
-                    break
-            curI = curI.next
-            if (curI.key == polyRings[i].head.key):
+                                distAX = distEuclideanXY(A, X)['dist']
+                                distBX = distEuclideanXY(B, X)['dist']
+                                distAY = distEuclideanXY(A, Y)['dist']
+                                distBY = distEuclideanXY(B, Y)['dist']
+
+                                jointBelong = [k for k in segSet[i]['belong']]
+                                jointBelong.extend([k for k in segSet[j]['belong'] if k not in segSet[i]['belong']])
+
+                                # NOTE: This is so stupid, but efficient
+                                # Case 1: A - X - Y - B
+                                if (AXB and AYB and distAX < distAY):
+                                    # print("# Case 1: A - X - Y - B")
+                                    newSegSet.append({
+                                        'shape': [A, X],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [X, Y],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [Y, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                # Case 2: A - Y - X - B
+                                elif (AXB and AYB and distAX > distAY):
+                                    # print("# Case 2: A - Y - X - B")
+                                    newSegSet.append({
+                                        'shape': [A, Y],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [Y, X],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [X, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                # Case 3: A - X - B - Y
+                                elif (AXB and XBY):
+                                    # print("# Case 3: A - X - B - Y")
+                                    newSegSet.append({
+                                        'shape': [A, X],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [X, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [B, Y],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                # Case 4: A - Y - B - X
+                                elif (AYB and XBY):
+                                    # print("# Case 4: A - Y - B - X")
+                                    newSegSet.append({
+                                        'shape': [A, Y],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [Y, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [B, X],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                # Case 5: X - A - Y - B
+                                elif (XAY and AYB):
+                                    # print("# Case 5: X - A - Y - B")
+                                    newSegSet.append({
+                                        'shape': [X, A],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [A, Y],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [Y, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                # Case 6: Y - A - X - B
+                                elif (XAY and AXB):
+                                    # print("# Case 6: Y - A - X - B")
+                                    newSegSet.append({
+                                        'shape': [Y, A],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [A, X],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [X, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                # Case 7: X - A - B - Y
+                                elif (XAY and XBY and distAX < distBX):
+                                    # print("# Case 7: X - A - B - Y")
+                                    newSegSet.append({
+                                        'shape': [X, A],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [A, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [B, Y],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                # Case 8: Y - A - B - X
+                                elif (XAY and XBY and distAX > distBX):
+                                    # print("# Case 8: Y - A - B - X")
+                                    newSegSet.append({
+                                        'shape': [Y, A],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [A, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [B, X],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                # Case 9: A - X - (BY)
+                                elif (AXB and sameBY):
+                                    # print("# Case 9: A - X - (BY)")
+                                    newSegSet.append({
+                                        'shape': [A, X],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [X, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                # Case 10: A - Y - (BX)
+                                elif (AYB and sameBX):
+                                    # print("# Case 10: A - Y - (BX)")
+                                    newSegSet.append({
+                                        'shape': [A, Y],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [Y, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                # Case 11: X - A - (BY)
+                                elif (XAY and sameBY):
+                                    # print("# Case 11: X - A - (BY)")
+                                    newSegSet.append({
+                                        'shape': [X, A],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [A, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                # Case 12: Y - A - (XB)
+                                elif (XAY and sameBX):
+                                    # print("# Case 12: Y - A - (XB)")
+                                    newSegSet.append({
+                                        'shape': [Y, A],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [A, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                # Case 13: (AX) - Y - B
+                                elif (AYB and sameAX):
+                                    # print("# Case 13: (AX) - Y - B")
+                                    newSegSet.append({
+                                        'shape': [A, Y],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [Y, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                # Case 14: (AX) - B - Y
+                                elif (XBY and sameAX):
+                                    # print("# Case 14: (AX) - B - Y")
+                                    newSegSet.append({
+                                        'shape': [A, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [B, Y],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                # Case 15: (AY) - X - B
+                                elif (AXB and sameAY):
+                                    # print("# Case 15: (AY) - X - B")
+                                    newSegSet.append({
+                                        'shape': [A, X],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [X, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[i]['belong']],
+                                        'split': False
+                                    })
+                                # Case 16: (AY) - B - X
+                                elif (XBY and sameAY):
+                                    # print("# Case 16: (AY) - B - X")
+                                    newSegSet.append({
+                                        'shape': [A, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                    newSegSet.append({
+                                        'shape': [B, X],
+                                        'type': 'Segment',
+                                        'belong': [k for k in segSet[j]['belong']],
+                                        'split': False
+                                    })
+                                # Case 17: (AX) - (BY) or (AY) - (BX)
+                                elif (is2SegsSame([A, B], [X, Y])):
+                                    # print("# Case 17: (AX) - (BY) or (AY) - (BX)")
+                                    newSegSet.append({
+                                        'shape': [A, B],
+                                        'type': 'Segment',
+                                        'belong': [k for k in jointBelong],
+                                        'split': False
+                                    })
+                                # Case 18: Should not happen
+                                else:
+                                    raise RuntimeError("Something else for S2S", i, segSet[i], j, segSet[j])
+                                segSet[i]['split'] = True
+                                segSet[j]['split'] = True
+                                canSplitBetweenIJFlag = True
+                                break
+
+                        # 如果i是segment, j是point
+                        elif (segSet[i]['type'] == 'Segment' and segSet[j]['type'] == 'Point'):
+                            if (isPtOnSeg(pt = segSet[j]['shape'], seg = segSet[i]['shape'], interiorOnly = True)):
+                                # print("Part ", i, segSet[i], "Part ", j, segSet[j], "S2P")
+                                newSegSet.append({
+                                    'shape': [segSet[i]['shape'][0], segSet[j]['shape']],
+                                    'type': 'Segment',
+                                    'belong': [k for k in segSet[i]['belong']],
+                                    'split': False
+                                })
+                                newSegSet.append({
+                                    'shape': segSet[j]['shape'],
+                                    'type': 'Point',
+                                    'belong': [k for k in segSet[j]['belong']],
+                                    'split': False
+                                })
+                                newSegSet.append({
+                                    'shape': [segSet[j]['shape'], segSet[i]['shape'][1]],
+                                    'type': 'Segment',
+                                    'belong': [k for k in segSet[i]['belong']],
+                                    'split': False
+                                })                                                                
+                                segSet[i]['split'] = True
+                                segSet[j]['split'] = True
+                                canSplitBetweenIJFlag = True
+                                break
+
+                        # 如果i是point, j是segment
+                        elif (segSet[i]['type'] == 'Point' and segSet[j]['type'] == 'Segment'):
+                            if (isPtOnSeg(pt = segSet[i]['shape'], seg = segSet[j]['shape'], interiorOnly = True)):
+                                # print("Part ", i, segSet[i], "Part ", j, segSet[j], "P2S")
+                                newSegSet.append({
+                                    'shape': [segSet[j]['shape'][0], segSet[i]['shape']],
+                                    'type': 'Segment',
+                                    'belong': [k for k in segSet[j]['belong']],
+                                    'split': False
+                                })
+                                newSegSet.append({
+                                    'shape': segSet[i]['shape'],
+                                    'type': 'Point',
+                                    'belong': [k for k in segSet[i]['belong']],
+                                    'split': False
+                                })
+                                newSegSet.append({
+                                    'shape': [segSet[i]['shape'], segSet[j]['shape'][1]],
+                                    'type': 'Segment',
+                                    'belong': [k for k in segSet[j]['belong']],
+                                    'split': False
+                                })                                
+                                segSet[i]['split'] = True
+                                segSet[j]['split'] = True
+                                canSplitBetweenIJFlag = True
+                                break
+
+                        # 如果i和j都是point
+                        elif (segSet[i]['type'] == 'Point' and segSet[j]['type'] == 'Point'):
+                            # 若两点重合, 则合并两者的belong, 否则不需要进行处理
+                            if (is2PtsSame(pt1 = segSet[i]['shape'], pt2 = segSet[j]['shape'])):
+                                # print("Part ", i, segSet[i], "Part ", j, segSet[j], "P2P")
+                                jointBelong = [k for k in segSet[i]['belong']]
+                                jointBelong.extend([k for k in segSet[j]['belong'] if k not in segSet[i]['belong']])
+                                newSegSet.append({
+                                    'shape': segSet[i]['shape'],
+                                    'type': 'Point',
+                                    'belong': jointBelong,
+                                    'split': False
+                                })                                
+                                segSet[i]['split'] = True
+                                segSet[j]['split'] = True
+                                canSplitBetweenIJFlag = True
+                                break
+            if (canSplitBetweenIJFlag):                
                 break
 
-    # last polygon to endPt
-    cur = polyRings[-1].head
-    while (True):
-        d = distEuclideanXY(cur.value, endPt)['dist']
-        tau[(len(polys) - 1, cur.key), 'e'] = d
-        G.add_edge((len(polys) - 1, cur.key), 'e', weight = d)
-        cur = cur.next
-        if (cur.key == polyRings[len(polys) - 1].head.key):
-            break
+        if (len(newSegSet) > 0):
+            # print("newSegSet", newSegSet)
+            # print(hyphenStr())
+            canSplitFlag = True
 
-    sp = nx.dijkstra_path(G, 's', 'e')
-
-    dist = distEuclideanXY(startPt, polyRings[sp[1][0]].query(sp[1][1]).value)['dist']
-    for i in range(1, len(sp) - 2):
-        dist += tau[(sp[i][0], sp[i][1]), (sp[i + 1][0], sp[i + 1][1])]
-    dist += distEuclideanXY(polyRings[sp[-2][0]].query(sp[-2][1]).value, endPt)['dist']
+        for k in newSegSet:
+            segSet[segIDAcc] = k
+            segIDAcc += 1
+        
+        segSet = {k: v for k, v in segSet.items() if (v['split'] == False)}
     
-    # Find detailed location
-    refineFlag = True
-    iterNum = 0
-    while (refineFlag):
-        for i in range(1, len(sp) - 1):
-            # Find current shortest intersecting point
-            polyIdx = sp[i][0]
-            exPtIdx = sp[i][1]
+    # NOTE: 到这里是对的
+    # return segSet
 
-            # Insert two new points before and after this point
-            p = polyRings[polyIdx].query(exPtIdx)
-            pPrev = p.prev
-            pNext = p.next
+    # Step 4: Sort segSet by mileage ==========================================
+    # NOTE: 每个segSet内的元素应该是两两不相交
+    heapSegSet = []
+    sortedSegSet = {}
+    # NOTE: 先得到每个segSet内元素的mileage
+    for i in segSet:
+        if (segSet[i]['type'] == 'Point'):
+            mileage = mileagePt(seq, segSet[i]['shape'], error = 0.03)
+            # 找不到mileage是真没办法...
+            # NOTE: 最差的办法就是做投影然后求mileage
+            if (mileage == None):
+                raise RuntimeError("ERROR: Precision error")
+            # 这个好麻烦...
+            # NOTE: 如果仅仅是[0, end]的话还好说, 属于不应该出现在这里
+            elif (type(mileage) == list):
+                raise RuntimeError("ERROR: Depot is on the edge of one of polygons")
+            else:
+                pass
+            # print(i,  mileage)
+            segSet[i]['mileage'] = mileage
+            heapq.heappush(heapSegSet, (mileage, segSet[i]))
+        else:
+            mileage1 = mileagePt(seq, segSet[i]['shape'][0], error = 0.03)
+            mileage2 = mileagePt(seq, segSet[i]['shape'][1], error = 0.03)
+            # NOTE: 真的好讨厌啊...
+            if (mileage1 == None):
+                raise RuntimeError("ERROR: Precision error")
+            elif (type(mileage1) == list):
+                # 这边专门针对[0, end]这种特殊情形处理
+                if (type(mileage2) != list and mileage2 < distEuclideanXY(seq[0], seq[1])['dist']):
+                    mileage1 = min(mileage1)
+                elif (type(mileage2) != list and mileage2 > distEuclideanXY(seq[0], seq[1])['dist']):
+                    mileage1 = max(mileage1)
+            else:
+                pass
+            if (mileage2 == None):
+                raise RuntimeError("ERROR: Precision error")
+            elif (type(mileage2) == list):
+                # 这边专门针对[0, end]这种特殊情形处理
+                if (type(mileage1) != list and mileage1 < distEuclideanXY(seq[0], seq[1])['dist']):
+                    mileage2 = min(mileage2)
+                elif (type(mileage1) != list and mileage1 > distEuclideanXY(seq[0], seq[1])['dist']):
+                    mileage2 = max(mileage2)
+            else:
+                pass
+            # print(i, mileage1, mileage2)
+            segSet[i]['mileage'] = [min(mileage1, mileage2), max(mileage1, mileage2)]
+            heapq.heappush(heapSegSet, ((mileage1 + mileage2) / 2, segSet[i]))
 
-            pPrevMidLoc = [(pPrev.value[0] + (p.value[0] - pPrev.value[0]) / 2), (pPrev.value[1] + (p.value[1] - pPrev.value[1]) / 2)]
-            pPrevMid = RingNode(polyRings[polyIdx].count, pPrevMidLoc)
-            pNextMidLoc = [(p.value[0] + (pNext.value[0] - p.value[0]) / 2), (p.value[1] + (pNext.value[1] - p.value[1]) / 2)]
-            pNextMid = RingNode(polyRings[polyIdx].count + 1, pNextMidLoc)
+    curMileage = 0
+    while(len(heapSegSet) > 0):
+        nextSeg = heapq.heappop(heapSegSet)[1]
+        nextSegStart = nextSeg['mileage'] if type(nextSeg['mileage']) != list else nextSeg['mileage'][0]
+        nextSegEnd = nextSeg['mileage'] if type(nextSeg['mileage']) != list else nextSeg['mileage'][1]
 
-            polyRings[polyIdx].insert(p, pNextMid)
-            polyRings[polyIdx].insert(pPrev, pPrevMid)
+        if (abs(curMileage - nextSegStart) <= CONST_EPSILON):
+            sortedSegSet[len(sortedSegSet)] = nextSeg
+        else:
+            sortedSegSet[len(sortedSegSet)] = {
+                'shape': [ptInSeqMileage(seq, curMileage), ptInSeqMileage(seq, nextSegStart)],
+                'type': 'Segment',
+                'belong': [],
+                'mileage': [curMileage, nextSegStart],
+                'split': False
+            }
+            sortedSegSet[len(sortedSegSet)] = nextSeg
+        curMileage = nextSegEnd
 
-        # Simplify the graph
-        G = nx.Graph()
+    return sortedSegSet
 
-        # New start
-        startPolyPt = polyRings[sp[1][0]].query(sp[1][1])
-        startNearPt = [startPolyPt.prev.prev, startPolyPt.prev, startPolyPt, startPolyPt.next, startPolyPt.next.next]
-        for p in startNearPt:
-            d = distEuclideanXY(startPt, p.value)['dist']
-            G.add_edge('s', (0, p.key), weight = d)
-
-        # In between
-        for i in range(1, len(sp) - 2):
-            polyIdx = sp[i][0]
-            polyNextIdx = sp[i + 1][0]
-            exPtIdx = sp[i][1]
-            exPtNextIdx = sp[i + 1][1]
-
-            ptI = polyRings[polyIdx].query(exPtIdx)
-            ptNearI = [ptI.prev.prev, ptI.prev, ptI, ptI.next, ptI.next.next]
-            ptJ = polyRings[polyNextIdx].query(exPtNextIdx)
-            ptNearJ = [ptJ.prev.prev, ptJ.prev, ptJ, ptJ.next, ptJ.next.next]
-            for kI in ptNearI:
-                for kJ in ptNearJ:
-                    d = None
-                    if (((polyIdx, kI.key), (polyNextIdx, kJ.key)) in tau):
-                        d = tau[((polyIdx, kI.key), (polyNextIdx, kJ.key))]
-                    else:
-                        d = distEuclideanXY(kI.value, kJ.value)['dist']
-                        tau[((polyIdx, kI.key), (polyNextIdx, kJ.key))] = d
-                    G.add_edge((polyIdx, kI.key), (polyNextIdx, kJ.key), weight = d)
-
-        # New end
-        endPolyPt = polyRings[sp[-2][0]].query(sp[-2][1])
-        endNearPt = [endPolyPt.prev.prev, endPolyPt.prev, endPolyPt, endPolyPt.next, endPolyPt.next.next]
-        for p in endNearPt:
-            d = distEuclideanXY(p.value, endPt)['dist']
-            G.add_edge((len(polys) - 1, p.key), 'e', weight = d)
-
-        sp = nx.dijkstra_path(G, 's', 'e')
-
-        newDist = distEuclideanXY(startPt, polyRings[sp[1][0]].query(sp[1][1]).value)['dist']
-        for i in range(1, len(sp) - 2):
-            newDist += tau[(sp[i][0], sp[i][1]), (sp[i + 1][0], sp[i + 1][1])]
-        newDist += distEuclideanXY(polyRings[sp[-2][0]].query(sp[-2][1]).value, endPt)['dist']
-
-        if (abs(newDist - dist) <= errTol):
-            refineFlag = False
-
-        dist = newDist
-
-    path = [startPt]
-    for p in sp:
-        if (p != 's' and p != 'e'):
-            path.append(polyRings[p[0]].query(p[1]).value)
-    path.append(endPt)
-
-    return {
-        'path': path,
-        'dist': dist
-    }
-
-def _poly2PolyPathGurobi(startPt: pt, endPt: pt, polys: polys,  outputFlag = False, gapTol = None, timeLimit = None):
-    return _seg2SegPathGurobi(
-        startPt = startPt, 
-        endPt = endPt, 
-        segs = polys, 
-        closedFlag = True, 
-        outputFlag = outputFlag, 
-        gapTol = gapTol, 
-        timeLimit = timeLimit)
-
-def _seg2SegPathGurobi(startPt: pt, endPt: pt, segs, closedFlag = False, outputFlag = False, gapTol = None, timeLimit = None):
-    try:
-        import gurobipy as grb
-    except(ImportError):
-        raise ImportError("ERROR: Cannot find Gurobi")
-        return
-
-    model = grb.Model("SOCP")
-    model.setParam('OutputFlag', 0 if outputFlag == False else 1)
-
-    if (gapTol != None):
-        model.setParam('MIPGap', gapTol)
-    if (timeLimit != None):
-        model.setParam(grb.GRB.Param.TimeLimit, timeLimit)
-
-    # Parameters ==============================================================
-    if (lbX == None or lbY == None or ubX == None or ubY == None):
-        allX = [startPt[0], endPt[0]]
-        allY = [startPt[1], endPt[1]]
-        for i in range(len(segs)):
-            for j in range(len(segs[i])):
-                allX.append(segs[i][j][0])
-                allY.append(segs[i][j][1])
-        lbX = min(allX) - 1
-        lbY = min(allY) - 1
-        ubX = max(allX) + 1
-        ubY = max(allY) + 1
-
-    # close seg flag ==========================================================
-    if (closedFlag):
-        for seg in segs:
-            seg.append(seg[0])
-
-    # Decision variables ======================================================
-    # (xi, yi) 为第i个seg上的坐标
-    # index = 1, 2, ..., len(segs)
-    x = {}
-    y = {}
-    for i in range(1, len(segs) + 1):
-        x[i] = model.addVar(vtype=grb.GRB.CONTINUOUS, name = "x_%s" % i, lb=lbX, ub=ubX)
-        y[i] = model.addVar(vtype=grb.GRB.CONTINUOUS, name = "y_%s" % i, lb=lbY, ub=ubY)
-
-    # e[i, j] 为binary，表示(xi, yi)处于第i个seg上的第j段
-    # index i = 1, 2, ..., len(segs)
-    # index j = 1, ..., len(segs[i]) - 1
-    # lam[i, j] 为[0, 1]之间的值，表示第i段是处于对应e[i, j]上的位置，若e[i, j] = 0，则lam[i, j] = 0
-    e = {}
-    lam = {}    
-    for i in range(1, len(segs) + 1):
-        for j in range(1, len(segs[i - 1])):
-            e[i, j] = model.addVar(vtype=grb.GRB.BINARY, name="e_%s_%s" % (i, j))
-            lam[i, j] = model.addVar(vtype=grb.GRB.CONTINUOUS, name="lam_%s_%s" % (i, j))
-
-    # d[i] 为第i个到第i+1个坐标的距离, dx[i], dy[i] 为对应辅助变量
-    # Distance from ((xi, yi)) to (x[i + 1], y[i + 1]), 
-    # where startPt = (x[0], y[0]) and endPt = (x[len(circles) + 1], y[len(circles) + 1])
-    d = {}
-    for i in range(len(segs) + 1):
-        d[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'd_%s' % i)
-    model.setObjective(grb.quicksum(d[i] for i in range(len(segs) + 1)), grb.GRB.MINIMIZE)
-
-    # Aux vars - distance between (x, y)
-    dx = {}
-    dy = {}
-    for i in range(len(segs) + 1):
-        dx[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'dx_%s' % i, lb = -float('inf'), ub = float('inf'))
-        dy[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'dy_%s' % i, lb = -float('inf'), ub = float('inf'))
-
-    # Constraints =============================================================
-    # (xi, yi)必须在其中一段上
-    for i in range(1, len(segs) + 1):
-        model.addConstr(grb.quicksum(e[i, j] for j in range(1, len(segs[i - 1]))) == 1)
-
-    # 具体(xi, yi)的位置，lam[i, j]在e[i, j] = 0的段上不激活
-    for i in range(1, len(segs) + 1):
-        model.addConstr(x[i] == grb.quicksum(
-            e[i, j] * segs[i - 1][j - 1][0] + lam[i, j] * (segs[i - 1][j][0] - segs[i - 1][j - 1][0])
-            for j in range(1, len(segs[i - 1]))))
-        model.addConstr(y[i] == grb.quicksum(
-            e[i, j] * segs[i - 1][j - 1][1] + lam[i, j] * (segs[i - 1][j][1] - segs[i - 1][j - 1][1])
-            for j in range(1, len(segs[i - 1]))))
-    for i in range(1, len(segs) + 1):
-        for j in range(1, len(segs[i - 1])):
-            model.addConstr(lam[i, j] <= e[i, j])
-
-    # Aux constr - dx dy
-    model.addConstr(dx[0] == x[1] - startPt[0])
-    model.addConstr(dy[0] == y[1] - startPt[1])
-    for i in range(1, len(segs)):
-        model.addConstr(dx[i] == x[i] - x[i + 1])
-        model.addConstr(dy[i] == y[i] - y[i + 1])
-    model.addConstr(dx[len(segs)] == endPt[0] - x[len(segs)])
-    model.addConstr(dy[len(segs)] == endPt[1] - y[len(segs)])
-
-    # Distance btw visits
-    for i in range(len(segs) + 1):
-        model.addQConstr(d[i] ** 2 >= dx[i] ** 2 + dy[i] ** 2)
-
-    # model.write("SOCP.lp")
-    model.optimize()
-
-    # close seg flag ==========================================================
-    if (closedFlag):
-        for seg in segs:
-            del seg[-1]
-
-    # Post-processing =========================================================
-    ofv = None
-    path = [startPt]
-    if (model.status == grb.GRB.status.OPTIMAL):
-        solType = 'IP_Optimal'
-        ofv = model.getObjective().getValue()
-        for i in x:
-            path.append((x[i].x, y[i].x))
-        path.append(endPt)
-        gap = 0
-        lb = ofv
-        ub = ofv
-        runtime = model.Runtime
-    elif (model.status == grb.GRB.status.TIME_LIMIT):
-        solType = 'IP_TimeLimit'
-        ofv = model.ObjVal
-        for i in x:
-            path.append((x[i].x, y[i].x))
-        path.append(endPt)
-        gap = model.MIPGap
-        lb = model.ObjBoundC
-        ub = model.ObjVal
-        runtime = model.Runtime
-    return {
-        'path': path,
-        'dist': ofv,
-        'runtime': runtime
-    }
-
-def circle2CirclePath(startPt: pt, endPt: pt, circles: list[dict], algo: str = 'SOCP', **kwargs):
-    
-    """Given a starting point, a list of circles, and an ending point, returns a shortest route that starts from startPt, visits every polys in given order, and returns to the ending point.
-
-    Parameters
-    ----------
-    startPt: pt, required, default None
-        The coordinate which starts the path.
-    endPt: pt, required, default None
-        The coordinate which ends the path.
-    circles: dict, required
-        A list of circles modeled by dictionaries to be visited in given sequence. Each circle is dictionary with two fields: 'radius' and 'center'.
-    algo: str, optional, default as 'SOCP'
-        Select the algorithm for calculating the shortest path. Options and required additional inputs are as follows:
-            
-        1) (default) 'SOCP', use Second-order Cone Programing method.
-            - solver: str, optional, now supports 'Gurobi' and 'COPT'
-            - timeLimit: int|float, additional stopping criteria
-            - gapTolerance: int|float, additional stopping criteria
-            - outputFlag: bool, True if turn on the log output from solver. Default to be False
-    **kwargs: optional
-        Provide additional inputs for different `edges` options and `algo` options
-
-    Returns
-    -------
-    dict
-        Two fields in the dictionary, 'dist' indicates the distance of the path, 'path' indicates the travel path.
-    """
-
-    # Sanity check ============================================================
-    if (algo == None):
-        raise MissingParameterError("ERROR: Missing required field `algo`.")
-
-    errTol = CONST_EPSILON
-    if ('errTol' in kwargs):
-        errTol = kwargs['errTol']
-
-
-    if (algo == 'SOCP'):
-        if ('solver' not in kwargs or kwargs['solver'] == 'Gurobi'):
-            outputFlag = False
-            if ('outputFlag' in kwargs):
-                outputFlag = kwargs['outputFlag']
-            res = _circle2CirclePathGurobi(startPt, endPt, circles, outputFlag)
-        elif (kwargs['solver'] == 'COPT'):
-            outputFlag = False
-            if ('outputFlag' in kwargs):
-                outputFlag = kwargs['outputFlag']
-            res = _circle2CirclePathCOPT(startPt, endPt, circles, outputFlag)
-    else:
-        raise UnsupportedInputError("ERROR: Not support by vrpSolver for now.")
-
-    return {
-        'path': res['path'],
-        'dist': res['dist']
-    }
-
-def _circle2CirclePathGurobi(startPt: pt, endPt: pt, circles: list[dict], outputFlag: bool = False):
-    try:
-        import gurobipy as grb
-    except(ImportError):
-        print("ERROR: Cannot find Gurobi")
-        return
-
-    model = grb.Model("SOCP")
-    model.setParam('OutputFlag', 1 if outputFlag else 0)
-
-    # Parameters ==============================================================
-    # anchor starts from startPt, in between are a list of circles, ends with endPt
-    anchor = [startPt]
-    for i in range(len(circles)):
-        anchor.append(circles[i]['center'])
-    anchor.append(endPt)
-
-    allX = [startPt[0], endPt[0]]
-    allY = [startPt[1], endPt[1]]
-    for i in range(len(circles)):
-        allX.append(circles[i]['center'][0] - circles[i]['radius'])
-        allX.append(circles[i]['center'][0] + circles[i]['radius'])
-        allY.append(circles[i]['center'][1] - circles[i]['radius'])
-        allY.append(circles[i]['center'][1] + circles[i]['radius'])
-    lbX = min(allX) - 1
-    lbY = min(allY) - 1
-    ubX = max(allX) + 1
-    ubY = max(allY) + 1
-
-    # Decision variables ======================================================
-    # NOTE: x, y index starts by 1
-    x = {}
-    y = {}
-    for i in range(1, len(circles) + 1):
-        x[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "x_%s" % i, lb = lbX, ub = ubX)
-        y[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = "y_%s" % i, lb = lbY, ub = ubY)
-    # Distance from ((xi, yi)) to (x[i + 1], y[i + 1]), 
-    # where startPt = (x[0], y[0]) and endPt = (x[len(circles) + 1], y[len(circles) + 1])
-    d = {}
-    for i in range(len(circles) + 1):
-        d[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'd_%s' % i)
-    model.setObjective(grb.quicksum(d[i] for i in range(len(circles) + 1)), grb.GRB.MINIMIZE)
-
-    # Aux vars - distance between (x, y)
-    dx = {}
-    dy = {}
-    for i in range(len(circles) + 1):
-        dx[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'dx_%s' % i, lb = -float('inf'), ub = float('inf'))
-        dy[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'dy_%s' % i, lb = -float('inf'), ub = float('inf'))
-    # Aux vars - distance from (x, y) to the center
-    rx = {}
-    ry = {}
-    for i in range(1, len(circles) + 1):
-        rx[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'rx_%s' % i, lb = -float('inf'), ub = float('inf'))
-        ry[i] = model.addVar(vtype = grb.GRB.CONTINUOUS, name = 'ry_%s' % i, lb = -float('inf'), ub = float('inf'))
-
-    # Constraints =============================================================
-    # Aux constr - dx dy
-    model.addConstr(dx[0] == x[1] - anchor[0][0])
-    model.addConstr(dy[0] == y[1] - anchor[0][1])
-    for i in range(1, len(circles)):
-        model.addConstr(dx[i] == x[i + 1] - x[i])
-        model.addConstr(dy[i] == y[i + 1] - y[i])
-    model.addConstr(dx[len(circles)] == anchor[-1][0] - x[len(circles)])
-    model.addConstr(dy[len(circles)] == anchor[-1][1] - y[len(circles)])
-
-    # Aux constr - rx ry
-    for i in range(1, len(circles) + 1):
-        model.addConstr(rx[i] == x[i] - anchor[i][0])
-        model.addConstr(ry[i] == y[i] - anchor[i][1])
-
-    # Distance btw visits
-    for i in range(len(circles) + 1):
-        model.addQConstr(d[i] ** 2 >= dx[i] ** 2 + dy[i] ** 2)
-        # model.addQConstr(dx[i] ** 2 + dy[i] ** 2 >= 0.1)
-
-    for i in range(1, len(circles) + 1):
-        model.addQConstr(rx[i] ** 2 + ry[i] ** 2 <= circles[i - 1]['radius'] ** 2)
-
-    model.modelSense = grb.GRB.MINIMIZE
-    # model.write("SOCP.lp")
-    model.optimize()
-
-    # Post-processing =========================================================
-    ofv = None
-    path = [startPt]
-    if (model.status == grb.GRB.status.OPTIMAL):
-        solType = 'IP_Optimal'
-        ofv = model.getObjective().getValue()
-        for i in x:
-            path.append((x[i].x, y[i].x))
-        path.append(endPt)
-        gap = 0
-        lb = ofv
-        ub = ofv
-    elif (model.status == grb.GRB.status.TIME_LIMIT):
-        solType = 'IP_TimeLimit'
-        ofv = model.ObjVal
-        for i in x:
-            path.append((x[i].x, y[i].x))
-        path.append(endPt)
-        gap = model.MIPGap
-        lb = model.ObjBoundC
-        ub = model.ObjVal
-    return {
-        'path': path,
-        'dist': ofv,
-        'runtime': model.Runtime
-    }
- 
-def _circle2CirclePathCOPT(startPt: pt, endPt: pt, circles: dict, outputFlag: bool = False):
-    env = None
-    try:
-        import coptpy as cp
-        envconfig = cp.EnvrConfig()
-        envconfig.set('nobanner', '1')
-        AVAIL_SOLVER = 'COPT'
-        if (env == None):
-            env = cp.Envr(envconfig)
-    except(ImportError):
-        print("ERROR: Cannot find COPT")
-        return
-
-    model = env.createModel("SOCP")
-    model.setParam(cp.COPT.Param.Logging, 1 if outputFlag else 0)
-    model.setParam(cp.COPT.Param.LogToConsole, 1 if outputFlag else 0)
-
-    # Decision variables ======================================================
-    # anchor starts from startPt, in between are a list of circles, ends with endPt
-    anchor = [startPt]
-    for i in range(len(circles)):
-        anchor.append(circles[i]['center'])
-    anchor.append(endPt)
-
-    allX = [startPt[0], endPt[0]]
-    allY = [startPt[1], endPt[1]]
-    for i in range(len(circles)):
-        allX.append(circles[i]['center'][0] - circles[i]['radius'])
-        allX.append(circles[i]['center'][0] + circles[i]['radius'])
-        allY.append(circles[i]['center'][1] - circles[i]['radius'])
-        allY.append(circles[i]['center'][1] + circles[i]['radius'])
-    lbX = min(allX) - 1
-    lbY = min(allY) - 1
-    ubX = max(allX) + 1
-    ubY = max(allY) + 1
-
-    # Decision variables ======================================================
-    # NOTE: x, y index starts by 1
-    x = {}
-    y = {}
-    for i in range(1, len(circles) + 1):
-        x[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = "x_%s" % i, lb = lbX, ub = ubX)
-        y[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = "y_%s" % i, lb = lbY, ub = ubY)
-    # Distance from ((xi, yi)) to (x[i + 1], y[i + 1]), 
-    # where startPt = (x[0], y[0]) and endPt = (x[len(circles) + 1], y[len(circles) + 1])
-    d = {}
-    for i in range(len(circles) + 1):
-        d[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'd_%s' % i)
-    # Aux vars - distance between (x, y)
-    dx = {}
-    dy = {}
-    for i in range(len(circles) + 1):
-        dx[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'dx_%s' % i, lb = -float('inf'), ub = float('inf'))
-        dy[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'dy_%s' % i, lb = -float('inf'), ub = float('inf'))
-    # Aux vars - distance from (x, y) to the center
-    rx = {}
-    ry = {}
-    for i in range(1, len(circles) + 1):
-        rx[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'rx_%s' % i, lb = -float('inf'), ub = float('inf'))
-        ry[i] = model.addVar(vtype = cp.COPT.CONTINUOUS, name = 'ry_%s' % i, lb = -float('inf'), ub = float('inf'))
-
-    model.setObjective(cp.quicksum(d[i] for i in range(len(circles) + 1)), cp.COPT.MINIMIZE)
-
-    # Distance constraints ====================================================
-    # Aux constr - dx dy
-    model.addConstr(dx[0] == x[1] - anchor[0][0])
-    model.addConstr(dy[0] == y[1] - anchor[0][1])
-    for i in range(1, len(circles)):
-        model.addConstr(dx[i] == x[i] - x[i + 1])
-        model.addConstr(dy[i] == y[i] - y[i + 1])
-    model.addConstr(dx[len(circles)] == anchor[-1][0] - x[len(circles)])
-    model.addConstr(dy[len(circles)] == anchor[-1][1] - y[len(circles)])
-    # Aux constr - rx ry
-    for i in range(1, len(circles) + 1):
-        model.addConstr(rx[i] == x[i] - anchor[i][0])
-        model.addConstr(ry[i] == y[i] - anchor[i][1])
-
-    # Distance btw visits
-    for i in range(len(circles) + 1):
-        model.addQConstr(d[i] ** 2 >= dx[i] ** 2 + dy[i] ** 2)
-
-    for i in range(1, len(circles) + 1):
-        model.addQConstr(rx[i] ** 2 + ry[i] ** 2 <= circles[i - 1]['radius'] ** 2)
-
-    # model.write("SOCP.lp")
-    model.solve()
-
-    # Post-processing =========================================================
-    ofv = None
-    path = [startPt]
-    if (model.status == cp.COPT.OPTIMAL):
-        solType = 'IP_Optimal'
-        ofv = model.getObjective().getValue()
-        for i in x:
-            path.append((x[i].x, y[i].x))
-        path.append(endPt)
-        gap = 0
-        lb = ofv
-        ub = ofv
-        runtime = model.SolvingTime
-    elif (model.status == cp.COPT.TIMEOUT):
-        solType = 'IP_TimeLimit'
-        ofv = model.ObjVal
-        for i in x:
-            path.append((x[i].x, y[i].x))
-        path.append(endPt)
-        gap = model.BestGap
-        lb = model.BestBnd
-        ub = model.BestObj
-        runtime = model.SolvingTime
-    realDist = 0
-
-    return {
-        'path': path,
-        'dist': ofv
-    }

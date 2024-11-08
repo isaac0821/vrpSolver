@@ -10,6 +10,8 @@ Submodules
 	vrpSolver.instance
 	vrpSolver.geometry
 	vrpSolver.tsp
+	vrpSolver.obj2Obj
+	vrpSolver.travel
 
 Module contents
 ---------------

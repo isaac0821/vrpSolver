@@ -40,6 +40,8 @@
 <span class="c1"># rcParams[&#39;font.family&#39;] = &#39;SimSun&#39;</span>
 <span class="kn">from</span> <span class="nn">matplotlib.animation</span> <span class="kn">import</span> <span class="n">FuncAnimation</span>
 <span class="kn">from</span> <span class="nn">matplotlib.animation</span> <span class="kn">import</span> <span class="n">PillowWriter</span>
+<span class="kn">from</span> <span class="nn">mpl_toolkits.mplot3d</span> <span class="kn">import</span> <span class="n">Axes3D</span>
+<span class="kn">from</span> <span class="nn">matplotlib</span> <span class="kn">import</span> <span class="n">cm</span>
 
 <span class="kn">from</span> <span class="nn">.common</span> <span class="kn">import</span> <span class="o">*</span>
 <span class="kn">from</span> <span class="nn">.color</span> <span class="kn">import</span> <span class="o">*</span>
@@ -143,7 +145,81 @@
 
     <span class="k">return</span> <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span></div>
 
-    
+
+<div class="viewcode-block" id="plotLocs3D">
+<a class="viewcode-back" href="../../vrpSolver.plot.html#vrpSolver.plot.plotLocs3D">[docs]</a>
+<span class="k">def</span> <span class="nf">plotLocs3D</span><span class="p">(</span>
+    <span class="n">locs3D</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pt3D</span><span class="p">],</span>
+    <span class="n">locColor</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Random&#39;</span><span class="p">,</span>
+    <span class="n">locMarker</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;o&#39;</span><span class="p">,</span>
+    <span class="n">locMarkerSize</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">xyReverseFlag</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">ax</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">figSize</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> 
+    <span class="n">boundingBox3D</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+    <span class="n">showAxis</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">saveFigPath</span><span class="p">:</span> <span class="nb">str</span><span class="o">|</span><span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">showFig</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="p">):</span>
+
+    <span class="c1"># Check for required fields ===============================================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">locs3D</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required field `locs3D`.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># If no based matplotlib figure provided, define boundary =================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">fig</span> <span class="o">==</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">ax</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">(</span><span class="n">projection</span> <span class="o">=</span> <span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">boundingBox3D</span> <span class="o">=</span> <span class="n">findBoundingBox3D</span><span class="p">(</span>
+            <span class="n">boundingBox3D</span> <span class="o">=</span> <span class="n">boundingBox3D</span><span class="p">,</span> 
+            <span class="n">pts3D</span> <span class="o">=</span> <span class="n">locs3D</span><span class="p">)</span>
+        <span class="p">(</span><span class="n">xMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">,</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">yMax</span><span class="p">,</span> <span class="n">zMin</span><span class="p">,</span> <span class="n">zMax</span><span class="p">)</span> <span class="o">=</span> <span class="n">boundingBox3D</span>
+        <span class="c1"># (width, height) = findFigSize(boundingBox3D, figSize[0], figSize[1])</span>
+        <span class="c1"># fig.set_figwidth(width)</span>
+        <span class="c1"># fig.set_figheight(height)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="n">xMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">yMin</span><span class="p">,</span> <span class="n">yMax</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_zlim</span><span class="p">(</span><span class="n">zMin</span><span class="p">,</span> <span class="n">zMax</span><span class="p">)</span>
+
+    <span class="c1"># Draw locs ==============================================================</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">locs3D</span><span class="p">:</span>
+        <span class="c1"># Define color --------------------------------------------------------</span>
+        <span class="n">color</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">locColor</span> <span class="o">==</span> <span class="s1">&#39;Random&#39;</span><span class="p">):</span>
+            <span class="n">color</span> <span class="o">=</span> <span class="n">colorRandom</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">color</span> <span class="o">=</span> <span class="n">locColor</span>
+
+        <span class="c1"># plot nodes ----------------------------------------------------------        </span>
+        <span class="n">x</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">i</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">xyReverseFlag</span><span class="p">):</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">locMarkerSize</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">scatter3D</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">color</span><span class="p">,</span> <span class="n">marker</span> <span class="o">=</span> <span class="n">locMarker</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">ax</span><span class="o">.</span><span class="n">scatter3D</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">color</span><span class="p">,</span> <span class="n">marker</span> <span class="o">=</span> <span class="n">locMarker</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="n">locMarkerSize</span><span class="p">)</span>
+
+    <span class="c1"># Axis on and off =========================================================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">showAxis</span><span class="p">):</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s1">&#39;off&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Save figure =============================================================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">saveFigPath</span> <span class="o">!=</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">plt</span><span class="o">.</span><span class="n">Figure</span><span class="p">)):</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">saveFigPath</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">showFig</span><span class="p">):</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span></div>
+
+
 <div class="viewcode-block" id="plotNodes">
 <a class="viewcode-back" href="../../vrpSolver.plot.html#vrpSolver.plot.plotNodes">[docs]</a>
 <span class="k">def</span> <span class="nf">plotNodes</span><span class="p">(</span>
@@ -169,14 +245,14 @@
 <span class="sd">    ----------</span>
 <span class="sd">    nodes: dictionary, required</span>
 <span class="sd">        A `nodes` dictionary. See :ref:`nodes` for reference.</span>
+<span class="sd">    locFieldName: str, optional, default as &#39;loc&#39;</span>
+<span class="sd">        The key value in `nodes` indicating the location of each node.</span>
 <span class="sd">    nodeColor: str, optional, default &#39;Random&#39;</span>
-<span class="sd">        Alternative option. If &#39;color&#39; is provided in `node`, this will be ignored.</span>
-<span class="sd">    neighborColor: str, optional, default &#39;gray&#39;</span>
-<span class="sd">        If nodes have &#39;neighbor&#39; label, will plot the neighbor area in this color</span>
-<span class="sd">    neighborOpacity: float, optional, default 0.5</span>
-<span class="sd">        The opacity of neighborhood.</span>
-<span class="sd">    neighborEntranceColor: str, optional, default &#39;black&#39;, </span>
-<span class="sd">        The color of neighbor entrance</span>
+<span class="sd">        Alternative option. If &#39;color&#39; is provided in `nodes`, this field will be ignored.</span>
+<span class="sd">    nodeMarker: str, optional, default &#39;o&#39;</span>
+<span class="sd">        Alternative option for node marker. If &#39;marker&#39; is provided in `nodes`, this field will be ignored.</span>
+<span class="sd">    nodeMarker: str, optional, default &#39;o&#39;</span>
+<span class="sd">        Alternative option for node marker size. If &#39;markerSize&#39; is provided in `nodes`, this field will be ignored.</span>
 <span class="sd">    xyReverseFlag: bool, optional, default False</span>
 <span class="sd">        True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)</span>
 <span class="sd">    fig: matplotlib object, optional, defaut None</span>
@@ -548,6 +624,81 @@
     <span class="k">return</span> <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span></div>
 
 
+<div class="viewcode-block" id="plotLocSeq3D">
+<a class="viewcode-back" href="../../vrpSolver.plot.html#vrpSolver.plot.plotLocSeq3D">[docs]</a>
+<span class="k">def</span> <span class="nf">plotLocSeq3D</span><span class="p">(</span>
+    <span class="n">locSeq3D</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pt3D</span><span class="p">],</span>
+    <span class="n">lineColor</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Random&#39;</span><span class="p">,</span>
+    <span class="n">lineWidth</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+    <span class="n">lineStyle</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;solid&#39;</span><span class="p">,</span>
+    <span class="n">lineDashes</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">=</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span>
+    <span class="n">nodeColor</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;black&#39;</span><span class="p">,</span>
+    <span class="n">nodeMarkerSize</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+    <span class="n">xyReverseFlag</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">ax</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">figSize</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> 
+    <span class="n">boundingBox3D</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+    <span class="n">showAxis</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">saveFigPath</span><span class="p">:</span> <span class="nb">str</span><span class="o">|</span><span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">showFig</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="p">):</span>
+
+    <span class="c1"># Check for required fields ===============================================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">locSeq3D</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: Missing required field `locSeq3D`.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># If no based matplotlib figure provided, define boundary =================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">fig</span> <span class="o">==</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">ax</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">(</span><span class="n">projection</span> <span class="o">=</span> <span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">boundingBox3D</span> <span class="o">=</span> <span class="n">findBoundingBox3D</span><span class="p">(</span>
+            <span class="n">boundingBox3D</span> <span class="o">=</span> <span class="n">boundingBox3D</span><span class="p">,</span> 
+            <span class="n">pts3D</span> <span class="o">=</span> <span class="n">locSeq3D</span><span class="p">)</span>
+        <span class="p">(</span><span class="n">xMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">,</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">yMax</span><span class="p">,</span> <span class="n">zMin</span><span class="p">,</span> <span class="n">zMax</span><span class="p">)</span> <span class="o">=</span> <span class="n">boundingBox3D</span>
+        <span class="c1"># (width, height) = findFigSize(boundingBox3D, figSize[0], figSize[1])</span>
+        <span class="c1"># fig.set_figwidth(width)</span>
+        <span class="c1"># fig.set_figheight(height)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="n">xMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">yMin</span><span class="p">,</span> <span class="n">yMax</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_zlim</span><span class="p">(</span><span class="n">zMin</span><span class="p">,</span> <span class="n">zMax</span><span class="p">)</span>
+
+    <span class="n">x</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">loc</span> <span class="ow">in</span> <span class="n">locSeq3D</span><span class="p">:</span>
+        <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">xyReverseFlag</span><span class="p">):</span>
+            <span class="n">x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">y</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">x</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loc</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">y</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loc</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">z</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">loc</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+
+    <span class="n">color</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">lineColor</span> <span class="o">==</span> <span class="s1">&#39;Random&#39;</span><span class="p">):</span>
+        <span class="n">color</span> <span class="o">=</span> <span class="n">colorRandom</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">color</span> <span class="o">=</span> <span class="n">lineColor</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">lineStyle</span> <span class="o">==</span> <span class="s1">&#39;dashed&#39;</span><span class="p">):</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">color</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="n">lineWidth</span><span class="p">,</span> <span class="n">linestyle</span> <span class="o">=</span> <span class="s1">&#39;dashed&#39;</span><span class="p">,</span> <span class="n">dashes</span> <span class="o">=</span> <span class="n">lineDashes</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">color</span><span class="p">,</span> <span class="n">linewidth</span><span class="o">=</span><span class="n">lineWidth</span><span class="p">,</span> <span class="n">linestyle</span> <span class="o">=</span> <span class="n">lineStyle</span><span class="p">)</span>
+            
+    <span class="c1"># Axis on and off =========================================================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">showAxis</span><span class="p">):</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s1">&#39;off&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Save figure =============================================================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">saveFigPath</span> <span class="o">!=</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">plt</span><span class="o">.</span><span class="n">Figure</span><span class="p">)):</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">saveFigPath</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">showFig</span><span class="p">):</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span></div>
+
+
 <div class="viewcode-block" id="plotNodeSeq">
 <a class="viewcode-back" href="../../vrpSolver.plot.html#vrpSolver.plot.plotNodeSeq">[docs]</a>
 <span class="k">def</span> <span class="nf">plotNodeSeq</span><span class="p">(</span>
@@ -774,6 +925,28 @@
     <span class="k">return</span> <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span></div>
 
 
+<div class="viewcode-block" id="plotPolyhedron3D">
+<a class="viewcode-back" href="../../vrpSolver.plot.html#vrpSolver.plot.plotPolyhedron3D">[docs]</a>
+<span class="k">def</span> <span class="nf">plotPolyhedron3D</span><span class="p">(</span>
+    <span class="n">polyhedron</span><span class="p">:</span> <span class="n">poly</span><span class="p">,</span> 
+    <span class="n">edgeWidth</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">edgeColor</span><span class="p">:</span> <span class="nb">str</span><span class="o">|</span><span class="kc">None</span> <span class="o">=</span> <span class="s1">&#39;Random&#39;</span><span class="p">,</span>
+    <span class="n">fillColor</span><span class="p">:</span> <span class="nb">str</span><span class="o">|</span><span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">fillStyle</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;///&quot;</span><span class="p">,</span>
+    <span class="n">opacity</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">xyReverseFlag</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">fig</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">ax</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">figSize</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> 
+    <span class="n">boundingBox</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+    <span class="n">showAxis</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">saveFigPath</span><span class="p">:</span> <span class="nb">str</span><span class="o">|</span><span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">showFig</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="p">):</span>
+
+    <span class="k">return</span> <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span></div>
+
+
 <div class="viewcode-block" id="plotCircle">
 <a class="viewcode-back" href="../../vrpSolver.plot.html#vrpSolver.plot.plotCircle">[docs]</a>
 <span class="k">def</span> <span class="nf">plotCircle</span><span class="p">(</span>
@@ -816,6 +989,68 @@
         <span class="n">saveFigPath</span> <span class="o">=</span> <span class="n">saveFigPath</span><span class="p">,</span>
         <span class="n">showFig</span> <span class="o">=</span> <span class="n">showFig</span><span class="p">,</span>
     <span class="p">)</span>
+    <span class="k">return</span> <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span></div>
+
+
+<div class="viewcode-block" id="plotCone3D">
+<a class="viewcode-back" href="../../vrpSolver.plot.html#vrpSolver.plot.plotCone3D">[docs]</a>
+<span class="k">def</span> <span class="nf">plotCone3D</span><span class="p">(</span>
+    <span class="n">cone</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+    <span class="n">lod</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">30</span><span class="p">,</span>
+    <span class="n">tanAlpha</span><span class="p">:</span> <span class="nb">float</span><span class="o">|</span><span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>    
+    <span class="n">fig</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">ax</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">boundingBox3D</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+    <span class="n">showAxis</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">saveFigPath</span><span class="p">:</span> <span class="nb">str</span><span class="o">|</span><span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">showFig</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">):</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">fig</span> <span class="o">==</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">ax</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">fig</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">()</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">axes</span><span class="p">(</span><span class="n">projection</span> <span class="o">=</span> <span class="s1">&#39;3d&#39;</span><span class="p">)</span>
+        <span class="n">boundingBox3D</span> <span class="o">=</span> <span class="n">findBoundingBox3D</span><span class="p">(</span>
+            <span class="n">boundingBox3D</span> <span class="o">=</span> <span class="n">boundingBox3D</span><span class="p">,</span> 
+            <span class="n">cone</span> <span class="o">=</span> <span class="n">cone</span><span class="p">)</span>
+        <span class="p">(</span><span class="n">xMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">,</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">yMax</span><span class="p">,</span> <span class="n">zMin</span><span class="p">,</span> <span class="n">zMax</span><span class="p">)</span> <span class="o">=</span> <span class="n">boundingBox3D</span>
+        <span class="c1"># (width, height) = findFigSize(boundingBox3D, figSize[0], figSize[1])</span>
+        <span class="c1"># fig.set_figwidth(width)</span>
+        <span class="c1"># fig.set_figheight(height)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_xlim</span><span class="p">(</span><span class="n">xMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_ylim</span><span class="p">(</span><span class="n">yMin</span><span class="p">,</span> <span class="n">yMax</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_zlim</span><span class="p">(</span><span class="n">zMin</span><span class="p">,</span> <span class="n">zMax</span><span class="p">)</span>
+
+    <span class="n">x0</span> <span class="o">=</span> <span class="n">cone</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">y0</span> <span class="o">=</span> <span class="n">cone</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">z0</span> <span class="o">=</span> <span class="n">cone</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">cone</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="mi">3</span> <span class="k">else</span> <span class="mi">0</span>
+    <span class="n">zMax</span> <span class="o">=</span> <span class="n">cone</span><span class="p">[</span><span class="s1">&#39;maxHeight&#39;</span><span class="p">]</span>
+    <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;tanAlpha&#39;</span> <span class="ow">in</span> <span class="n">cone</span><span class="p">):</span>
+        <span class="n">tanAlpha</span> <span class="o">=</span> <span class="n">cone</span><span class="p">[</span><span class="s1">&#39;tanAlpha&#39;</span><span class="p">]</span>
+    <span class="n">rMax</span> <span class="o">=</span> <span class="n">zMax</span> <span class="o">*</span> <span class="n">tanAlpha</span>
+
+    <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">rMax</span><span class="p">,</span> <span class="n">lod</span><span class="p">)</span>
+    <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">lod</span><span class="p">)</span>
+    <span class="n">r</span><span class="p">,</span> <span class="n">theta</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">theta</span><span class="p">)</span>
+
+    <span class="n">X</span> <span class="o">=</span> <span class="n">r</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">+</span> <span class="n">x0</span>
+    <span class="n">Y</span> <span class="o">=</span> <span class="n">r</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span> <span class="o">+</span> <span class="n">y0</span>
+
+    <span class="k">def</span> <span class="nf">f</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">((</span><span class="n">x</span> <span class="o">-</span> <span class="n">x0</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span> <span class="o">+</span> <span class="p">(</span><span class="n">y</span> <span class="o">-</span> <span class="n">y0</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">tanAlpha</span> <span class="o">+</span> <span class="n">z0</span>
+
+    <span class="n">Z</span> <span class="o">=</span> <span class="n">f</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">)</span>
+    <span class="n">ax</span><span class="o">.</span><span class="n">plot_surface</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">rstride</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">cstride</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">cmap</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">jet</span><span class="p">,</span> <span class="n">alpha</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+                <span class="n">edgecolor</span><span class="o">=</span><span class="s1">&#39;black&#39;</span><span class="p">);</span>
+    
+    <span class="c1"># Axis on and off =========================================================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">showAxis</span><span class="p">):</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">axis</span><span class="p">(</span><span class="s1">&#39;off&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Save figure =============================================================</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">saveFigPath</span> <span class="o">!=</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="n">plt</span><span class="o">.</span><span class="n">Figure</span><span class="p">)):</span>
+        <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">saveFigPath</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="ow">not</span> <span class="n">showFig</span><span class="p">):</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fig</span><span class="p">)</span>
+
     <span class="k">return</span> <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span></div>
 
 

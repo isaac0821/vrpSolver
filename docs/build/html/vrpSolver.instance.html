@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>vrpSolver.instance module &#8212; vrpSolver 0.0.56 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b849a4e9" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinxdoc.css?v=87629129" />
+    <script src="_static/documentation_options.js?v=8f83b1af"></script>
+    <script src="_static/doctools.js?v=9a2dae69"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="vrpSolver.geometry module" href="vrpSolver.geometry.html" />
+    <link rel="prev" title="vrpSolver.common module" href="vrpSolver.common.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="vrpSolver.geometry.html" title="vrpSolver.geometry module"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="vrpSolver.common.html" title="vrpSolver.common module"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">vrpSolver 0.0.56 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">vrpSolver.instance module</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="module-vrpSolver.instance">
+<span id="vrpsolver-instance-module"></span><h1>vrpSolver.instance module<a class="headerlink" href="#module-vrpSolver.instance" title="Link to this heading">¶</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="vrpSolver.instance.rndArcs">
+<span class="sig-prename descclassname"><span class="pre">vrpSolver.instance.</span></span><span class="sig-name descname"><span class="pre">rndArcs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">A</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">arcIDs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'UniformLengthInSquareXY'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">arcFieldName</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'arc'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/vrpSolver/instance.html#rndArcs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vrpSolver.instance.rndArcs" title="Link to this definition">¶</a></dt>
+<dd><p>Randomly create a set of arcs</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>A</strong> (<em>integer</em><em>, </em><em>optional</em><em>, </em><em>default as None</em>) – Number of arcs to be visited</p></li>
+<li><p><strong>arcIDs</strong> (<em>list</em><em>, </em><em>optional</em><em>, </em><em>default as None</em>) – Alternative input parameter of <cite>A</cite>. A list of arc IDs, <cite>A</cite> will be overwritten if <cite>arcIDs</cite> is given</p></li>
+<li><p><strong>distr</strong> (<em>str</em><em>, </em><em>optional</em><em>, </em><em>default as 'UniformLengthInSquareXY'</em>) – <p>The distribution of arcs. Options and required additional inputs are as follows:</p>
+<ol class="arabic simple">
+<li><dl class="simple">
+<dt>(default) ‘UniformLengthInSquareXY’, uniformly sample from a square on the Euclidean space, with uniformly selected length</dt><dd><ul>
+<li><p>xRange: 2-tuple, with minimum/maximum range of x, default as (0, 100)</p></li>
+<li><p>yRange: 2-tuple, with minimum/maximum range of y, default as (0, 100)</p></li>
+<li><p>minLen: float, minimum length of the arcs</p></li>
+<li><p>maxLen: float, maximum length of the arcs</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ol>
+</p></li>
+<li><p><strong>**kwargs</strong> (<em>optional</em>) – Provide additional inputs for different <cite>distr</cite> options</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A dictionary of randomly created arcs.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vrpSolver.instance.rndLocs">
+<span class="sig-prename descclassname"><span class="pre">vrpSolver.instance.</span></span><span class="sig-name descname"><span class="pre">rndLocs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'UniformSquareXY'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">list</span></span></span><a class="reference internal" href="_modules/vrpSolver/instance.html#rndLocs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vrpSolver.instance.rndLocs" title="Link to this definition">¶</a></dt>
+<dd><p>Randomly create a list of N locations</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>N</strong> (<em>integer</em><em>, </em><em>required</em>) – Number of locations/vertices/customers to be randomly created</p></li>
+<li><p><strong>distr</strong> (<em>string</em><em>, </em><em>optional</em><em>, </em><em>default as 'UniformSquareXY'</em>) – <p>Spatial distribution of locations, options and required addtional inputs are as follows:</p>
+<ol class="arabic simple">
+<li><dl class="simple">
+<dt>(default) ‘UniformSquareXY’, uniformly sample from a square on the Euclidean space</dt><dd><ul>
+<li><p>xRange: 2-tuple, with minimum/maximum range of x, default as (0, 100)</p></li>
+<li><p>yRange: 2-tuple, with minimum/maximum range of y, default as (0, 100)</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’UniformPolyXY’, uniformly sample from a given polygon</dt><dd><ul>
+<li><p>polyXY: poly, the polygon of the area, (no holes)</p></li>
+<li><p>polyXYs: list of polys, alternative option for <cite>polyXY</cite></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’UniformAvoidPolyXY’, uniformly sample from a squre avoiding some polygons</dt><dd><ul>
+<li><p>xRange: 2-tuple, with minimum/maximum range of x, default as (0, 100)</p></li>
+<li><p>yRange: 2-tuple, with minimum/maximum range of y, default as (0, 100)</p></li>
+<li><p>polyXY: poly, the polygon of the area, (no holes)</p></li>
+<li><p>polyXYs: list of polys, alternative option for <cite>polyXY</cite></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’UniformCircleXY’, uniformly sample from a circle on the Euclidean space</dt><dd><ul>
+<li><p>centerXY: 2-tuple, the center of circle</p></li>
+<li><p>radius: float, the radius of the circle</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’UniformPolyLatLon’, uniformly sample from a polygon by lat/lon</dt><dd><ul>
+<li><p>polyLatLon: poly, the polygon of the area, (no holes)</p></li>
+<li><p>polyLatLons: list of polys, alternative option for <cite>polyLatLon</cite></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’UniformCircleLatLon’, uniformly sample from a circle by lat/lon</dt><dd><ul>
+<li><p>centerLatLon: 2-tuple, the (lat, lon) for the center</p></li>
+<li><p>radiusInMeters: float, the radius of the circle in meters</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’RoadNetworkPolyLatLon’, uniformly generate within a given polygon on a road network</dt><dd><ul>
+<li><p>roads: dict, the road network dictionary</p></li>
+<li><p>polyLatLon: poly, optional, the polygon on the map to sample from</p></li>
+<li><p>polyLatLons: list of polys, optional, alternative for <cite>polyLatLon</cite></p></li>
+<li><p>roadClass: list[str], the road classes that allows to sample from</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’RoadNetworkCircleLatLon’, uniformly generate within a circle on a road network</dt><dd><ul>
+<li><p>roads: dict, the road network dictionary</p></li>
+<li><p>centerLatLon: 2-tuple, the (lat, lon) for the center</p></li>
+<li><p>radiusInMeters: float, the radius of the circle in meters</p></li>
+<li><p>roadClass: list[str], the road classes that allows to sample from</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ol>
+</p></li>
+<li><p><strong>**kwargs</strong> (<em>optional</em>) – Provide additional inputs for different <cite>distr</cite> options</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of randomly created locations</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference internal" href="vrpSolver.common.html#vrpSolver.common.MissingParameterError" title="vrpSolver.common.MissingParameterError"><strong>MissingParameterError</strong></a> – Missing required inputs in <cite>**kwargs</cite>.</p></li>
+<li><p><a class="reference internal" href="vrpSolver.common.html#vrpSolver.common.UnsupportedInputError" title="vrpSolver.common.UnsupportedInputError"><strong>UnsupportedInputError</strong></a> – Option is not supported for <cite>distr</cite></p></li>
+<li><p><strong>NotAvailableError</strong> – Functions/options that are not ready yet.</p></li>
+<li><p><a class="reference internal" href="vrpSolver.common.html#vrpSolver.common.EmptyError" title="vrpSolver.common.EmptyError"><strong>EmptyError</strong></a> – The sample area is empty.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vrpSolver.instance.rndNodeNeighbors">
+<span class="sig-prename descclassname"><span class="pre">vrpSolver.instance.</span></span><span class="sig-name descname"><span class="pre">rndNodeNeighbors</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nodeIDs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'All'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'Circle'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">locFieldName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'loc'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">neighborFieldName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'neighbor'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/vrpSolver/instance.html#rndNodeNeighbors"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vrpSolver.instance.rndNodeNeighbors" title="Link to this definition">¶</a></dt>
+<dd><p>Given a node dictionary, create neighborhood to selected nodes</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This function will modify the input dictionary <cite>nodes</cite></p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>nodes</strong> (<em>dictionary</em><em>, </em><em>required</em>) – A plain nodes dictionary to add neighborhoods.</p></li>
+<li><p><strong>nodeIDs</strong> (<em>string</em><em>|</em><em>list</em><em>[</em><em>int</em><em>|</em><em>str</em><em>]</em><em>, </em><em>optional</em><em>, </em><em>default 'All'</em>) – A list of node IDs to add neighborhood, leave it as ‘All’ to indicate adding such information to all nodes.</p></li>
+<li><p><strong>shape</strong> (<em>str</em><em>, </em><em>optional</em><em>, </em><em>default as 'Circle'</em>) – <p>The shape of neighborhoods, options and required addtional inputs are as follows:</p>
+<ol class="arabic simple">
+<li><dl class="simple">
+<dt>(default) ‘Cirlce’, add circle surrounding nodes</dt><dd><ul>
+<li><p>’radius’: The radius, default as 1</p></li>
+<li><p>’lod’: The level of details, circle will be approximated as a x-gon polygon, default as 30</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’Poly’, add polygon surrounding nodes</dt><dd><ul>
+<li><p>’poly’: In relative axis where node locates in [0, 0]</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’Egg’, add egg shape to nodes. The curve function: <span class="math notranslate nohighlight">\(\frac{x^2}{(a - b)x + ab} + \frac{y^2}{c^2} = 1\)</span></dt><dd><ul>
+<li><p>’a’: required</p></li>
+<li><p>’b’: required</p></li>
+<li><p>’c’: required</p></li>
+<li><p>’direction’: default as 0</p></li>
+<li><p>’lod’: default as 30</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’RndSquare’, add random size squares around nodes</dt><dd><ul>
+<li><p>’minLen’: required, minimum length</p></li>
+<li><p>’maxLen’: required, maximum length</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ol>
+<ol class="arabic simple" start="4">
+<li><dl class="simple">
+<dt>’RndCurvy’, add random curvy shapes around nodes</dt><dd><ul>
+<li><p>’maxRadius’: default as 1.2</p></li>
+<li><p>’minRadius’: default as 0.8</p></li>
+<li><p>’N’: default as 5</p></li>
+<li><p>’w’: default as 3</p></li>
+<li><p>’lod’: default as 30</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>’RndConvexPoly’, add convex polygons with random size arond nodes</dt><dd><ul>
+<li><p>’maxNumSide’: maximum number of sides</p></li>
+<li><p>’maxDiag’: maximum length of the diagonal</p></li>
+<li><p>’minDiag’: minimum length of the diagonal</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ol>
+</p></li>
+<li><p><strong>**kwargs</strong> (<em>optional</em>) – Provide additional inputs for different <cite>distr</cite> options</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Changes will apply to the original <cite>nodes</cite> dictionary</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vrpSolver.instance.rndNodes">
+<span class="sig-prename descclassname"><span class="pre">vrpSolver.instance.</span></span><span class="sig-name descname"><span class="pre">rndNodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">N</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nodeIDs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">[]</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'UniformSquareXY'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">locFieldName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'loc'</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/vrpSolver/instance.html#rndNodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vrpSolver.instance.rndNodes" title="Link to this definition">¶</a></dt>
+<dd><p>Randomly create a nodes dictionary</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>N</strong> (<em>integer</em><em>, </em><em>optional</em>) – Number of locations/vertices/customers to be randomly created</p></li>
+<li><p><strong>nodeIDs</strong> (<em>list</em><em> of </em><em>int</em><em>|</em><em>str</em><em>, </em><em>optional</em>) – A list of ids for the locations to be created, an alternative option for <cite>N</cite></p></li>
+<li><p><strong>nodes</strong> (<em>dict</em><em>, </em><em>optional</em>) – A nodes dictionary, if given, new locations will be append into this dictionary</p></li>
+<li><p><strong>distr</strong> (<em>string</em><em>, </em><em>optional</em><em>, </em><em>default as 'UniformSquareXY'</em>) – See <cite>distr</cite> docstring in <a class="reference internal" href="#vrpSolver.instance.rndLocs" title="vrpSolver.instance.rndLocs"><code class="xref py py-func docutils literal notranslate"><span class="pre">rndLocs()</span></code></a></p></li>
+<li><p><strong>locFieldName</strong> (<em>str</em><em>, </em><em>optional</em><em>, </em><em>default as 'loc'</em>) – The key in nodes dictionary to indicate the locations</p></li>
+<li><p><strong>**kwargs</strong> (<em>optional</em>) – Provide additional inputs for different <cite>distr</cite> options</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of randomly created locations</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><ul class="simple">
+<li><p><a class="reference internal" href="vrpSolver.common.html#vrpSolver.common.MissingParameterError" title="vrpSolver.common.MissingParameterError"><strong>MissingParameterError</strong></a> – Missing required inputs in <a href="#id1"><span class="problematic" id="id2">**</span></a>kwargs.</p></li>
+<li><p><a class="reference internal" href="vrpSolver.common.html#vrpSolver.common.UnsupportedInputError" title="vrpSolver.common.UnsupportedInputError"><strong>UnsupportedInputError</strong></a> – Option is not supported for <cite>distr</cite></p></li>
+<li><p><strong>NotAvailableError</strong> – Functions/options that are not ready yet.</p></li>
+<li><p><a class="reference internal" href="vrpSolver.common.html#vrpSolver.common.EmptyError" title="vrpSolver.common.EmptyError"><strong>EmptyError</strong></a> – The sample area is empty.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="vrpSolver.instance.rndPolys">
+<span class="sig-prename descclassname"><span class="pre">vrpSolver.instance.</span></span><span class="sig-name descname"><span class="pre">rndPolys</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">P</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polyIDs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">distr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'UniformSquareXY'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'Circle'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">anchorFieldName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'anchor'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">polyFieldName</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'poly'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">allowOverlapFlag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">returnAsListFlag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="_modules/vrpSolver/instance.html#rndPolys"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#vrpSolver.instance.rndPolys" title="Link to this definition">¶</a></dt>
+<dd><p>Randomly create polygons</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>P</strong> (<em>int</em><em>|</em><em>str</em><em>, </em><em>optional</em><em>, </em><em>default as None</em>) – Number of polygons to create</p></li>
+<li><p><strong>polyIDs</strong> (<em>list</em><em>[</em><em>int</em><em>|</em><em>str</em><em>]</em><em>|</em><em>None</em><em>, </em><em>optional</em><em>, </em><em>default as None</em>) – A list of ids for the polygons to be created, an alternative option for <cite>P</cite></p></li>
+<li><p><strong>distr</strong> (<em>str</em><em>, </em><em>optional</em><em>, </em><em>default as 'UniformSquareXY'</em>) – Anchor locations of each polygon. Options and required additional information are referred to <a class="reference internal" href="#vrpSolver.instance.rndLocs" title="vrpSolver.instance.rndLocs"><code class="xref py py-func docutils literal notranslate"><span class="pre">rndLocs()</span></code></a>.</p></li>
+<li><p><strong>shape</strong> (<em>str</em><em>, </em><em>optional</em><em>, </em><em>default as 'Circle'</em><em>,</em>) – Shape of the polygons. Options and required additional information are referred to <a class="reference internal" href="#vrpSolver.instance.rndNodeNeighbors" title="vrpSolver.instance.rndNodeNeighbors"><code class="xref py py-func docutils literal notranslate"><span class="pre">rndNodeNeighbors()</span></code></a>.</p></li>
+<li><p><strong>anchorFieldName</strong> (<em>str</em><em>, </em><em>optional</em><em>, </em><em>default as 'anchor'</em>) – The key value of the anchor location</p></li>
+<li><p><strong>polyFieldName</strong> (<em>str</em><em>, </em><em>optional</em><em>, </em><em>default as 'poly'</em><em>,</em>) – The key value of the polygons</p></li>
+<li><p><strong>allowOverlapFlag</strong> (<em>bool</em><em>, </em><em>optional</em><em>, </em><em>default as True</em>) – True if allows the polygons to overlap</p></li>
+<li><p><strong>returnAsListFlag</strong> (<em>bool</em><em>, </em><em>optional</em><em>, </em><em>default as True</em>) – True if returns a list of polygons instead of a dictionary</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A dictionary with polygon information</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <div>
+    <h3><a href="index.html">Table of Contents</a></h3>
+    <ul>
+<li><a class="reference internal" href="#">vrpSolver.instance module</a><ul>
+<li><a class="reference internal" href="#vrpSolver.instance.rndArcs"><code class="docutils literal notranslate"><span class="pre">rndArcs()</span></code></a></li>
+<li><a class="reference internal" href="#vrpSolver.instance.rndLocs"><code class="docutils literal notranslate"><span class="pre">rndLocs()</span></code></a></li>
+<li><a class="reference internal" href="#vrpSolver.instance.rndNodeNeighbors"><code class="docutils literal notranslate"><span class="pre">rndNodeNeighbors()</span></code></a></li>
+<li><a class="reference internal" href="#vrpSolver.instance.rndNodes"><code class="docutils literal notranslate"><span class="pre">rndNodes()</span></code></a></li>
+<li><a class="reference internal" href="#vrpSolver.instance.rndPolys"><code class="docutils literal notranslate"><span class="pre">rndPolys()</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+  </div>
+  <div>
+    <h4>Previous topic</h4>
+    <p class="topless"><a href="vrpSolver.common.html"
+                          title="previous chapter">vrpSolver.common module</a></p>
+  </div>
+  <div>
+    <h4>Next topic</h4>
+    <p class="topless"><a href="vrpSolver.geometry.html"
+                          title="next chapter">vrpSolver.geometry module</a></p>
+  </div>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/vrpSolver.instance.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="vrpSolver.geometry.html" title="vrpSolver.geometry module"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="vrpSolver.common.html" title="vrpSolver.common module"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">vrpSolver 0.0.56 documentation</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">vrpSolver.instance module</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2024, Lan Peng.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.7.
+    </div>
+  </body>
+</html>

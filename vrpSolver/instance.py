@@ -88,6 +88,22 @@ def rndLocs(
         for n in range(N):
             nodeLocs.append(_rndPtUniformSquareXY(xRange, yRange))
 
+    elif (distr == 'UniformCubeXYZ'):
+        xRange = None
+        yRange = None
+        zRange = None
+        if ('xRange' not in kwargs or 'yRange' not in kwargs or 'zRange' not in kwargs):
+            xRange = [0, 100]
+            yRange = [0, 100]
+            zRange = [0, 100]
+            warnings.warn("WARNING: Set sampled area to be default as a (0, 100) x (0, 100) x (0, 100) cube")
+        else:
+            xRange = [float(kwargs['xRange'][0]), float(kwargs['xRange'][1])]
+            yRange = [float(kwargs['yRange'][0]), float(kwargs['yRange'][1])]
+            zRange = [float(kwargs['zRange'][0]), float(kwargs['zRange'][1])]
+        for n in range(N):
+            nodeLocs.append(_rndPtUniformCubeXYZ(xRange, yRange, zRange))
+
     # Uniformly sample from a polygon/a list of polygons on the Euclidean space
     elif (distr == 'UniformPolyXY'):
         if ('polyXY' not in kwargs and 'polyXYs' not in kwargs):
@@ -261,6 +277,12 @@ def _rndPtUniformSquareXY(xRange: list[int]|list[float], yRange: list[int]|list[
     y = random.uniform(yRange[0], yRange[1])
     return (x, y)
 
+def _rndPtUniformCubeXYZ(xRange: list[int]|list[float], yRange: list[int]|list[float], zRange: list[int]|list[float]) -> pt3D:
+    x = random.uniform(xRange[0], xRange[1])
+    y = random.uniform(yRange[0], yRange[1])
+    z = random.uniform(zRange[0], zRange[1])
+    return (x, y, z)
+
 def _rndPtUniformTriangleXY(triangle: poly) -> pt:
     
     # Get three extreme points ================================================
@@ -379,7 +401,7 @@ def _rndPtRoadNetworkPolyLatLon(N: int, roads: dict, poly: poly, roadClass: str 
         idx = rndPick(lengths)
         edgeLength = lengths[idx]
         edgeDist = random.uniform(0, 1) * edgeLength
-        (lat, lon) = locSeqMileage(clipRoad[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
+        (lat, lon) = ptInSeqMileage(clipRoad[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
         nodeLocs.append((lat, lon))
 
     return nodeLocs
@@ -418,7 +440,7 @@ def _rndPtRoadNetworkPolyLatLons(N: int, roads: dict, polys: polys, roadClass: s
         idx = rndPick(lengths)
         edgeLength = lengths[idx]
         edgeDist = random.uniform(0, 1) * edgeLength
-        (lat, lon) = locSeqMileage(clipRoad[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
+        (lat, lon) = ptInSeqMileage(clipRoad[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
         nodeLocs.append((lat, lon))
 
     return nodeLocs
@@ -461,7 +483,7 @@ def _rndPtRoadNetworkCircleLatLon(N: int, roads: dict, radius: float, center: pt
             idx = rndPick(lengths)
             edgeLength = lengths[idx]
             edgeDist = random.uniform(0, 1) * edgeLength
-            (lat, lon) = locSeqMileage(roads[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
+            (lat, lon) = ptInSeqMileage(roads[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
             if (distLatLon([lat, lon], center)['dist'] <= radius):
                 insideFlag = True
         nodeLocs.append((lat, lon))
@@ -730,9 +752,6 @@ def rndArcs(
     """
 
     # Sanity check ============================================================
-    if (kwargs == None or 'distr' not in kwargs):
-        raise MissingParameterError(ERROR_MISSING_ARCS_DISTR)
-
     arcs = {}
     if (arcIDs == [] and A == None):
         raise MissingParameterError(ERROR_MISSING_N)
@@ -743,6 +762,10 @@ def rndArcs(
     if (distr == 'UniformLengthInSquareXY'):
         if ('minLen' not in kwargs or 'maxLen' not in kwargs):
             raise MissingParameterError("ERROR: Missing required field 'minLen' and/or 'maxLen'")
+        if ('minDeg' not in kwargs):
+            kwargs['minDeg'] = 0
+        if ('maxDeg' not in kwargs):
+            kwargs['maxDeg'] = 360
         xRange = None
         yRange = None
         if ('xRange' not in kwargs or 'yRange' not in kwargs):
@@ -754,16 +777,16 @@ def rndArcs(
             yRange = [float(kwargs['yRange'][0]), float(kwargs['yRange'][1])]
         for n in arcIDs:
             arcs[n] = {
-                arcFieldName : _rndArcUniformSquareXY(xRange, yRange, kwargs['minLen'], kwargs['maxLen'])
+                arcFieldName : _rndArcUniformSquareXY(xRange, yRange, kwargs['minLen'], kwargs['maxLen'], kwargs['minDeg'], kwargs['maxDeg'])
             }
     else:
         raise UnsupportedInputError(ERROR_MISSING_ARCS_DISTR)
 
     return arcs
 
-def _rndArcUniformSquareXY(xRange, yRange, minLen, maxLen) -> tuple[pt, pt]:
+def _rndArcUniformSquareXY(xRange, yRange, minLen, maxLen, minDeg, maxDeg) -> tuple[pt, pt]:
     length = random.uniform(minLen, maxLen)
-    direction = random.uniform(0, 360)
+    direction = random.uniform(minDeg, maxDeg)
     xStart = random.uniform(xRange[0], xRange[1])
     yStart = random.uniform(yRange[0], yRange[1])
     (xEnd, yEnd) = ptInDistXY((xStart, yStart), direction, length)

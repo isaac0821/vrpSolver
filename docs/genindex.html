@@ -78,7 +78,7 @@
 </li>
       <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.calTriangleAreaXY">calTriangleAreaXY() (in module vrpSolver.geometry)</a>
 </li>
-      <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.circle2CirclePath">circle2CirclePath() (in module vrpSolver.geometry)</a>
+      <li><a href="vrpSolver.obj2Obj.html#vrpSolver.obj2Obj.circle2CirclePath">circle2CirclePath() (in module vrpSolver.obj2Obj)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -86,11 +86,11 @@
 </li>
       <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.circleByCenterXY">circleByCenterXY() (in module vrpSolver.geometry)</a>
 </li>
-      <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.circleTW2CircleTWPath">circleTW2CircleTWPath() (in module vrpSolver.geometry)</a>
-</li>
       <li><a href="vrpSolver.road.html#vrpSolver.road.clipRoadsByPoly">clipRoadsByPoly() (in module vrpSolver.road)</a>
 </li>
       <li><a href="vrpSolver.road.html#vrpSolver.road.clipRoadsByPolys">clipRoadsByPolys() (in module vrpSolver.road)</a>
+</li>
+      <li><a href="vrpSolver.obj2Obj.html#vrpSolver.obj2Obj.cone2ConeSeqPath">cone2ConeSeqPath() (in module vrpSolver.obj2Obj)</a>
 </li>
       <li><a href="vrpSolver.road.html#vrpSolver.road.createRoadNetworkFromGeoJSON">createRoadNetworkFromGeoJSON() (in module vrpSolver.road)</a>
 </li>
@@ -112,6 +112,8 @@
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.distPoly2Poly">distPoly2Poly() (in module vrpSolver.geometry)</a>
+</li>
       <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.distPt2Line">distPt2Line() (in module vrpSolver.geometry)</a>
 </li>
       <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.distPt2Poly">distPt2Poly() (in module vrpSolver.geometry)</a>
@@ -254,7 +256,7 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="vrpSolver.common.html#vrpSolver.common.loadDictionary">loadDictionary() (in module vrpSolver.common)</a>
 </li>
-      <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.locSeqMileage">locSeqMileage() (in module vrpSolver.geometry)</a>
+      <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.locSeq2TimedSeq">locSeq2TimedSeq() (in module vrpSolver.geometry)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -270,7 +272,7 @@
 <h2 id="M">M</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.matrixDist">matrixDist() (in module vrpSolver.geometry)</a>
+      <li><a href="vrpSolver.travel.html#vrpSolver.travel.matrixDist">matrixDist() (in module vrpSolver.travel)</a>
 </li>
       <li><a href="vrpSolver.common.html#vrpSolver.common.MissingParameterError">MissingParameterError</a>
 </li>
@@ -286,9 +288,13 @@
 </li>
         <li><a href="vrpSolver.instance.html#module-vrpSolver.instance">vrpSolver.instance</a>
 </li>
+        <li><a href="vrpSolver.obj2Obj.html#module-vrpSolver.obj2Obj">vrpSolver.obj2Obj</a>
+</li>
         <li><a href="vrpSolver.plot.html#module-vrpSolver.plot">vrpSolver.plot</a>
 </li>
         <li><a href="vrpSolver.road.html#module-vrpSolver.road">vrpSolver.road</a>
+</li>
+        <li><a href="vrpSolver.travel.html#module-vrpSolver.travel">vrpSolver.travel</a>
 </li>
         <li><a href="vrpSolver.tsp.html#module-vrpSolver.tsp">vrpSolver.tsp</a>
 </li>
@@ -329,11 +335,17 @@
 </li>
       <li><a href="vrpSolver.plot.html#vrpSolver.plot.plotCircle">plotCircle() (in module vrpSolver.plot)</a>
 </li>
+      <li><a href="vrpSolver.plot.html#vrpSolver.plot.plotCone3D">plotCone3D() (in module vrpSolver.plot)</a>
+</li>
       <li><a href="vrpSolver.plot.html#vrpSolver.plot.plotGantt">plotGantt() (in module vrpSolver.plot)</a>
 </li>
       <li><a href="vrpSolver.plot.html#vrpSolver.plot.plotLocs">plotLocs() (in module vrpSolver.plot)</a>
 </li>
+      <li><a href="vrpSolver.plot.html#vrpSolver.plot.plotLocs3D">plotLocs3D() (in module vrpSolver.plot)</a>
+</li>
       <li><a href="vrpSolver.plot.html#vrpSolver.plot.plotLocSeq">plotLocSeq() (in module vrpSolver.plot)</a>
+</li>
+      <li><a href="vrpSolver.plot.html#vrpSolver.plot.plotLocSeq3D">plotLocSeq3D() (in module vrpSolver.plot)</a>
 </li>
       <li><a href="vrpSolver.plot.html#vrpSolver.plot.plotNodes">plotNodes() (in module vrpSolver.plot)</a>
 </li>
@@ -343,17 +355,23 @@
 </li>
       <li><a href="vrpSolver.plot.html#vrpSolver.plot.plotPolygons">plotPolygons() (in module vrpSolver.plot)</a>
 </li>
+      <li><a href="vrpSolver.plot.html#vrpSolver.plot.plotPolyhedron3D">plotPolyhedron3D() (in module vrpSolver.plot)</a>
+</li>
       <li><a href="vrpSolver.plot.html#vrpSolver.plot.plotProvinceMap">plotProvinceMap() (in module vrpSolver.plot)</a>
 </li>
       <li><a href="vrpSolver.plot.html#vrpSolver.plot.plotRoads">plotRoads() (in module vrpSolver.plot)</a>
 </li>
-      <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.poly2PolyPath">poly2PolyPath() (in module vrpSolver.geometry)</a>
-</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.polygonsAlongLocSeq">polygonsAlongLocSeq() (in module vrpSolver.geometry)</a>
+      <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.poly2CCW">poly2CCW() (in module vrpSolver.geometry)</a>
 </li>
-      <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.polyPath2Mileage">polyPath2Mileage() (in module vrpSolver.geometry)</a>
+      <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.poly2CW">poly2CW() (in module vrpSolver.geometry)</a>
+</li>
+      <li><a href="vrpSolver.obj2Obj.html#vrpSolver.obj2Obj.poly2PolyPath">poly2PolyPath() (in module vrpSolver.obj2Obj)</a>
+</li>
+      <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.polyClockWise">polyClockWise() (in module vrpSolver.geometry)</a>
+</li>
+      <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.polygonsAlongLocSeq">polygonsAlongLocSeq() (in module vrpSolver.geometry)</a>
 </li>
       <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.polysIntersect">polysIntersect() (in module vrpSolver.geometry)</a>
 </li>
@@ -370,6 +388,8 @@
       <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.ptInDistLatLon">ptInDistLatLon() (in module vrpSolver.geometry)</a>
 </li>
       <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.ptInDistXY">ptInDistXY() (in module vrpSolver.geometry)</a>
+</li>
+      <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.ptInSeqMileage">ptInSeqMileage() (in module vrpSolver.geometry)</a>
 </li>
       <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.ptLatLon2XYMercator">ptLatLon2XYMercator() (in module vrpSolver.geometry)</a>
 </li>
@@ -407,7 +427,7 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="vrpSolver.common.html#vrpSolver.common.saveDictionary">saveDictionary() (in module vrpSolver.common)</a>
 </li>
-      <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.scaleDist">scaleDist() (in module vrpSolver.geometry)</a>
+      <li><a href="vrpSolver.travel.html#vrpSolver.travel.scaleDist">scaleDist() (in module vrpSolver.travel)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -439,7 +459,7 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.vecPolar2XY">vecPolar2XY() (in module vrpSolver.geometry)</a>
 </li>
-      <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.vectorDist">vectorDist() (in module vrpSolver.geometry)</a>
+      <li><a href="vrpSolver.travel.html#vrpSolver.travel.vectorDist">vectorDist() (in module vrpSolver.travel)</a>
 </li>
       <li><a href="vrpSolver.geometry.html#vrpSolver.geometry.vecXY2Polar">vecXY2Polar() (in module vrpSolver.geometry)</a>
 </li>
@@ -464,13 +484,20 @@
         <li><a href="vrpSolver.geometry.html#module-vrpSolver.geometry">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     vrpSolver.instance
 
       <ul>
         <li><a href="vrpSolver.instance.html#module-vrpSolver.instance">module</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li>
+    vrpSolver.obj2Obj
+
+      <ul>
+        <li><a href="vrpSolver.obj2Obj.html#module-vrpSolver.obj2Obj">module</a>
 </li>
       </ul></li>
       <li>
@@ -485,6 +512,13 @@
 
       <ul>
         <li><a href="vrpSolver.road.html#module-vrpSolver.road">module</a>
+</li>
+      </ul></li>
+      <li>
+    vrpSolver.travel
+
+      <ul>
+        <li><a href="vrpSolver.travel.html#module-vrpSolver.travel">module</a>
 </li>
       </ul></li>
       <li>

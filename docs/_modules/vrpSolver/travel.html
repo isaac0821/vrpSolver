@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>vrpSolver.travel &#8212; vrpSolver 0.0.56 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b849a4e9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinxdoc.css?v=87629129" />
+    <script src="../../_static/documentation_options.js?v=8f83b1af"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">vrpSolver 0.0.56 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">vrpSolver.travel</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for vrpSolver.travel</h1><div class="highlight"><pre>
+<span></span>
+<span class="kn">from</span> <span class="nn">.common</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">.geometry</span> <span class="kn">import</span> <span class="o">*</span>
+
+<div class="viewcode-block" id="matrixDist">
+<a class="viewcode-back" href="../../vrpSolver.travel.html#vrpSolver.travel.matrixDist">[docs]</a>
+<span class="k">def</span> <span class="nf">matrixDist</span><span class="p">(</span><span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">locFieldName</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">,</span> <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="o">|</span><span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;All&#39;</span><span class="p">,</span> <span class="n">edges</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Euclidean&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given a `nodes` dictionary, returns the traveling matrix between nodes</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    nodes: dict, required</span>
+<span class="sd">        A `nodes`dictionary with location information</span>
+<span class="sd">    locFieldName: str, optional, default as &#39;loc&#39;</span>
+<span class="sd">        The key in nodes dictionary to indicate the locations</span>
+<span class="sd">    nodeIDs: list of int|str, or &#39;All&#39;, optional, default as &#39;All&#39;</span>
+<span class="sd">        A list of nodes in `nodes` that needs to be considered, other nodes will be ignored</span>
+<span class="sd">    edges: str, optional, default as &#39;Euclidean&#39;</span>
+<span class="sd">        The methods for the calculation of distances between nodes. Options and required additional information are as follows:</span>
+
+<span class="sd">        1) (default) &#39;Euclidean&#39;, using Euclidean distance, no additional information needed</span>
+<span class="sd">        2) &#39;EuclideanBarrier&#39;, using Euclidean distance, if `polys` is provided, the path between nodes will consider them as barriers and by pass those areas.</span>
+<span class="sd">            - polys: list of poly, the polygons to be considered as barriers</span>
+<span class="sd">        3) &#39;LatLon&#39;, calculate distances by lat/lon, no additional information needed</span>
+<span class="sd">            - distUnit: str, the unit of distance, default as &#39;meter&#39;</span>
+<span class="sd">        4) &#39;ManhattenXY&#39;, calculate distance by Manhatten distance            </span>
+<span class="sd">        5) &#39;Dictionary&#39;, directly provide the travel matrix</span>
+<span class="sd">            - tau: the traveling matrix</span>
+<span class="sd">        6) &#39;Grid&#39;, traveling on a grid with barriers, usually used in warehouses</span>
+<span class="sd">            - column: number of columns</span>
+<span class="sd">            - row: number of rows</span>
+<span class="sd">            - barrier: a list of coordinates on the grid indicating no-entrance</span>
+<span class="sd">    **kwargs: optional</span>
+<span class="sd">        Provide additional inputs for different `edges` options</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    tuple</span>
+<span class="sd">        Two dictionaries, the first one is the travel matrix, index by (nodeID1, nodeID2), the second one is the dictionary for path between start and end locations (useful for &#39;EuclideanBarrier&#39;).</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Define tau</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">nodeIDs</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">nodeIDs</span> <span class="o">==</span> <span class="s1">&#39;All&#39;</span><span class="p">):</span>
+            <span class="n">nodeIDs</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">:</span>
+                <span class="n">nodeIDs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">edges</span> <span class="o">==</span> <span class="s1">&#39;Euclidean&#39;</span><span class="p">):</span>
+        <span class="n">tau</span><span class="p">,</span> <span class="n">pathLoc</span> <span class="o">=</span> <span class="n">_matrixDistEuclideanXY</span><span class="p">(</span>
+            <span class="n">nodes</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">,</span> 
+            <span class="n">nodeIDs</span> <span class="o">=</span> <span class="n">nodeIDs</span><span class="p">,</span> 
+            <span class="n">locFieldName</span> <span class="o">=</span> <span class="n">locFieldName</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">edges</span> <span class="o">==</span> <span class="s1">&#39;EuclideanBarrier&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;polys&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;polys&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;WARNING: No barrier provided.&quot;</span><span class="p">)</span>
+            <span class="n">tau</span><span class="p">,</span> <span class="n">pathLoc</span> <span class="o">=</span> <span class="n">_matrixDistEuclideanXY</span><span class="p">(</span>
+                <span class="n">nodes</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">,</span> 
+                <span class="n">nodeIDs</span> <span class="o">=</span> <span class="n">nodeIDs</span><span class="p">,</span> 
+                <span class="n">locFieldName</span> <span class="o">=</span> <span class="n">locFieldName</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">tau</span><span class="p">,</span> <span class="n">pathLoc</span> <span class="o">=</span> <span class="n">_matrixDistBtwPolysXY</span><span class="p">(</span>
+                <span class="n">nodes</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">,</span> 
+                <span class="n">nodeIDs</span> <span class="o">=</span> <span class="n">nodeIDs</span><span class="p">,</span> 
+                <span class="n">polys</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;polys&#39;</span><span class="p">],</span> 
+                <span class="n">locFieldName</span> <span class="o">=</span> <span class="n">locFieldName</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">edges</span> <span class="o">==</span> <span class="s1">&#39;LatLon&#39;</span><span class="p">):</span>
+        <span class="n">distUnit</span> <span class="o">=</span> <span class="s1">&#39;meter&#39;</span> <span class="k">if</span> <span class="s1">&#39;distUnit&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="k">else</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;distUnit&#39;</span><span class="p">]</span>
+        <span class="n">tau</span><span class="p">,</span> <span class="n">pathLoc</span> <span class="o">=</span> <span class="n">_matrixDistLatLon</span><span class="p">(</span>
+            <span class="n">nodes</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">,</span> 
+            <span class="n">nodeIDs</span> <span class="o">=</span> <span class="n">nodeIDs</span><span class="p">,</span> 
+            <span class="n">distUnit</span> <span class="o">=</span> <span class="n">distUnit</span><span class="p">,</span>
+            <span class="n">locFieldName</span> <span class="o">=</span> <span class="n">locFieldName</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">edges</span> <span class="o">==</span> <span class="s1">&#39;Manhatten&#39;</span><span class="p">):</span>
+        <span class="n">tau</span><span class="p">,</span> <span class="n">pathLoc</span> <span class="o">=</span> <span class="n">_matrixDistManhattenXY</span><span class="p">(</span>
+            <span class="n">nodes</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">,</span> 
+            <span class="n">nodeIDs</span> <span class="o">=</span> <span class="n">nodeIDs</span><span class="p">,</span> 
+            <span class="n">locFieldName</span> <span class="o">=</span> <span class="n">locFieldName</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">edges</span> <span class="o">==</span> <span class="s1">&#39;Dictionary&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;tau&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;tau&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: &#39;tau&#39; is not specified&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;tau&#39;</span><span class="p">]:</span>
+            <span class="n">tau</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;tau&#39;</span><span class="p">][</span><span class="n">p</span><span class="p">]</span>
+            <span class="n">pathLoc</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">][</span><span class="n">p</span><span class="p">]</span> <span class="k">if</span> <span class="s1">&#39;path&#39;</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="k">else</span> <span class="p">[</span><span class="n">nodes</span><span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">]][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">nodes</span><span class="p">[</span><span class="n">p</span><span class="p">[</span><span class="mi">1</span><span class="p">]][</span><span class="n">locFieldName</span><span class="p">]]</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">edges</span> <span class="o">==</span> <span class="s1">&#39;Grid&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;grid&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;ERROR: &#39;grid&#39; is not specified&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;column&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">]</span> <span class="ow">or</span> <span class="s1">&#39;row&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;&#39;column&#39; and &#39;row&#39; need to be specified in &#39;grid&#39;&quot;</span><span class="p">)</span>
+        <span class="n">tau</span><span class="p">,</span> <span class="n">pathLoc</span> <span class="o">=</span> <span class="n">_matrixDistGrid</span><span class="p">(</span>
+            <span class="n">nodes</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">,</span> 
+            <span class="n">nodeIDs</span> <span class="o">=</span> <span class="n">nodeIDs</span><span class="p">,</span> 
+            <span class="n">grids</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">],</span> 
+            <span class="n">locFieldName</span> <span class="o">=</span> <span class="n">locFieldName</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">UnsupportedInputError</span><span class="p">(</span><span class="n">ERROR_MISSING_EDGES</span><span class="p">)</span>        
+
+    <span class="k">return</span> <span class="n">tau</span><span class="p">,</span> <span class="n">pathLoc</span></div>
+
+
+<span class="k">def</span> <span class="nf">_matrixDistEuclideanXY</span><span class="p">(</span><span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">locFieldName</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">):</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">!=</span> <span class="n">j</span><span class="p">):</span>
+                <span class="n">d</span> <span class="o">=</span> <span class="n">distEuclideanXY</span><span class="p">(</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">nodes</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">])</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">nodes</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">]]</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">nodes</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">]]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">CONST_EPSILON</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">CONST_EPSILON</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">return</span> <span class="n">tau</span><span class="p">,</span> <span class="n">pathLoc</span>
+
+<span class="k">def</span> <span class="nf">_matrixDistManhattenXY</span><span class="p">(</span><span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">locFieldName</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">):</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">!=</span> <span class="n">j</span><span class="p">):</span>
+                <span class="n">d</span> <span class="o">=</span> <span class="n">distManhattenXY</span><span class="p">(</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">nodes</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">])</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">]</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">][</span><span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">]))]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">CONST_EPSILON</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">CONST_EPSILON</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">return</span> <span class="n">tau</span><span class="p">,</span> <span class="n">pathLoc</span>
+
+<span class="k">def</span> <span class="nf">_matrixDistLatLon</span><span class="p">(</span><span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">distUnit</span> <span class="o">=</span> <span class="s1">&#39;meter&#39;</span><span class="p">,</span> <span class="n">locFieldName</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">):</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">!=</span> <span class="n">j</span><span class="p">):</span>
+                <span class="n">d</span> <span class="o">=</span> <span class="n">distLatLon</span><span class="p">(</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">nodes</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">distUnit</span><span class="p">)</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">nodes</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">]]</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">nodes</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">]]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">CONST_EPSILON</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">CONST_EPSILON</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">return</span> <span class="n">tau</span><span class="p">,</span> <span class="n">pathLoc</span>
+
+<span class="k">def</span> <span class="nf">_matrixDistGrid</span><span class="p">(</span><span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">grid</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">locFieldName</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">):</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">!=</span> <span class="n">j</span><span class="p">):</span>
+                <span class="n">d</span> <span class="o">=</span> <span class="n">distOnGrid</span><span class="p">(</span><span class="n">pt1</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">pt2</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">grid</span> <span class="o">=</span> <span class="n">grid</span><span class="p">)</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">]</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">][</span><span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">]))]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">CONST_EPSILON</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">CONST_EPSILON</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">return</span> <span class="n">tau</span><span class="p">,</span> <span class="n">pathLoc</span>
+
+<span class="k">def</span> <span class="nf">_matrixDistBtwPolysXY</span><span class="p">(</span><span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">polys</span><span class="p">:</span> <span class="n">polys</span><span class="p">,</span> <span class="n">polyVG</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">locFieldName</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">):</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">{}</span>
+    
+    <span class="k">if</span> <span class="p">(</span><span class="n">polyVG</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">polyVG</span> <span class="o">=</span> <span class="n">polysVisibleGraph</span><span class="p">(</span><span class="n">polys</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">!=</span> <span class="n">j</span><span class="p">):</span>
+                <span class="n">d</span> <span class="o">=</span> <span class="n">distBtwPolysXY</span><span class="p">(</span><span class="n">pt1</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">pt2</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">polys</span> <span class="o">=</span> <span class="n">polys</span><span class="p">,</span> <span class="n">polyVG</span> <span class="o">=</span> <span class="n">polyVG</span><span class="p">)</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">]</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">][</span><span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">]))]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">CONST_EPSILON</span>
+                <span class="n">tau</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">CONST_EPSILON</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="n">pathLoc</span><span class="p">[</span><span class="n">j</span><span class="p">,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">return</span> <span class="n">tau</span><span class="p">,</span> <span class="n">pathLoc</span>
+
+<div class="viewcode-block" id="vectorDist">
+<a class="viewcode-back" href="../../vrpSolver.travel.html#vrpSolver.travel.vectorDist">[docs]</a>
+<span class="k">def</span> <span class="nf">vectorDist</span><span class="p">(</span><span class="n">loc</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">locFieldName</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">,</span> <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="o">|</span><span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;All&#39;</span><span class="p">,</span> <span class="n">edges</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Euclidean&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given a location and a `nodes` dictionary, returns the traveling distance and path between the location to each node.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    loc: pt, required</span>
+<span class="sd">        Origin/destination location.</span>
+<span class="sd">    nodes: dict, required</span>
+<span class="sd">        A `nodes`dictionary with location information. See :ref:`nodes` for reference.</span>
+<span class="sd">    locFieldName: str, optional, default as &#39;loc&#39;</span>
+<span class="sd">        The key in nodes dictionary to indicate the locations</span>
+<span class="sd">    nodeIDs: list of int|str, or &#39;All&#39;, optional, default as &#39;All&#39;</span>
+<span class="sd">        A list of nodes in `nodes` that needs to be considered, other nodes will be ignored</span>
+<span class="sd">    edges: str, optional, default as &#39;Euclidean&#39;</span>
+<span class="sd">        The methods for the calculation of distances between nodes. Options and required additional information are referred to :func:`~vrpSolver.geometry.matrixDist()`.</span>
+<span class="sd">    **kwargs: optional</span>
+<span class="sd">        Provide additional inputs for different `edges` options</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    tuple</span>
+<span class="sd">        tau, revTau, pathLoc, revPathLoc. Four dictionaries, the first one is the travel distance from loc to each node index by nodeID, the second the travel distance from each node back to loc. The third and fourth dictionaries are the corresponded path.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Define tau</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">revTau</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">revPathLoc</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">nodeIDs</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="nb">list</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">nodeIDs</span> <span class="o">==</span> <span class="s1">&#39;All&#39;</span><span class="p">):</span>
+            <span class="n">nodeIDs</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">:</span>
+                <span class="n">nodeIDs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">edges</span> <span class="o">==</span> <span class="s1">&#39;Euclidean&#39;</span><span class="p">):</span>
+        <span class="n">tau</span><span class="p">,</span> <span class="n">revTau</span><span class="p">,</span> <span class="n">pathLoc</span><span class="p">,</span> <span class="n">revPath</span> <span class="o">=</span> <span class="n">_vectorDistEuclideanXY</span><span class="p">(</span>
+            <span class="n">loc</span> <span class="o">=</span> <span class="n">loc</span><span class="p">,</span>
+            <span class="n">nodes</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">,</span> 
+            <span class="n">nodeIDs</span> <span class="o">=</span> <span class="n">nodeIDs</span><span class="p">,</span> 
+            <span class="n">locFieldName</span> <span class="o">=</span> <span class="n">locFieldName</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">edges</span> <span class="o">==</span> <span class="s1">&#39;EuclideanBarrier&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;polys&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;polys&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;WARNING: No barrier provided.&quot;</span><span class="p">)</span>
+            <span class="n">tau</span><span class="p">,</span> <span class="n">revTau</span><span class="p">,</span> <span class="n">pathLoc</span><span class="p">,</span> <span class="n">revPath</span> <span class="o">=</span> <span class="n">_vectorDistEuclideanXY</span><span class="p">(</span>
+                <span class="n">loc</span> <span class="o">=</span> <span class="n">loc</span><span class="p">,</span>
+                <span class="n">nodes</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">,</span> 
+                <span class="n">nodeIDs</span> <span class="o">=</span> <span class="n">nodeIDs</span><span class="p">,</span> 
+                <span class="n">locFieldName</span> <span class="o">=</span> <span class="n">locFieldName</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">tau</span><span class="p">,</span> <span class="n">revTau</span><span class="p">,</span> <span class="n">pathLoc</span><span class="p">,</span> <span class="n">revPath</span> <span class="o">=</span> <span class="n">_vectorDistBtwPolysXY</span><span class="p">(</span>
+                <span class="n">loc</span> <span class="o">=</span> <span class="n">loc</span><span class="p">,</span>
+                <span class="n">nodes</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">,</span> 
+                <span class="n">nodeIDs</span> <span class="o">=</span> <span class="n">nodeIDs</span><span class="p">,</span> 
+                <span class="n">polys</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;polys&#39;</span><span class="p">],</span> 
+                <span class="n">locFieldName</span> <span class="o">=</span> <span class="n">locFieldName</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">edges</span> <span class="o">==</span> <span class="s1">&#39;LatLon&#39;</span><span class="p">):</span>
+        <span class="n">tau</span><span class="p">,</span> <span class="n">revTau</span><span class="p">,</span> <span class="n">pathLoc</span><span class="p">,</span> <span class="n">revPath</span> <span class="o">=</span> <span class="n">_vectorDistLatLon</span><span class="p">(</span>
+            <span class="n">loc</span> <span class="o">=</span> <span class="n">loc</span><span class="p">,</span>
+            <span class="n">nodes</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">,</span> 
+            <span class="n">nodeIDs</span> <span class="o">=</span> <span class="n">nodeIDs</span><span class="p">,</span> 
+            <span class="n">locFieldName</span> <span class="o">=</span> <span class="n">locFieldName</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">edges</span> <span class="o">==</span> <span class="s1">&#39;Manhatten&#39;</span><span class="p">):</span>
+        <span class="n">tau</span><span class="p">,</span> <span class="n">revTau</span><span class="p">,</span> <span class="n">pathLoc</span><span class="p">,</span> <span class="n">revPath</span> <span class="o">=</span> <span class="n">_vectorDistManhattenXY</span><span class="p">(</span>
+            <span class="n">loc</span> <span class="o">=</span> <span class="n">loc</span><span class="p">,</span>
+            <span class="n">nodes</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">,</span> 
+            <span class="n">nodeIDs</span> <span class="o">=</span> <span class="n">nodeIDs</span><span class="p">,</span> 
+            <span class="n">locFieldName</span> <span class="o">=</span> <span class="n">locFieldName</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">edges</span> <span class="o">==</span> <span class="s1">&#39;Grid&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;grid&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;&#39;grid&#39; is not specified&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;column&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">]</span> <span class="ow">or</span> <span class="s1">&#39;row&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;&#39;column&#39; and &#39;row&#39; need to be specified in &#39;grid&#39;&quot;</span><span class="p">)</span>
+        <span class="n">tau</span><span class="p">,</span> <span class="n">revTau</span><span class="p">,</span> <span class="n">pathLoc</span><span class="p">,</span> <span class="n">revPath</span> <span class="o">=</span> <span class="n">_vectorDistGrid</span><span class="p">(</span>
+            <span class="n">loc</span> <span class="o">=</span> <span class="n">loc</span><span class="p">,</span>
+            <span class="n">nodes</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">,</span> 
+            <span class="n">nodeIDs</span> <span class="o">=</span> <span class="n">nodeIDs</span><span class="p">,</span> 
+            <span class="n">grids</span> <span class="o">=</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">],</span> 
+            <span class="n">locFieldName</span> <span class="o">=</span> <span class="n">locFieldName</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">UnsupportedInputError</span><span class="p">(</span><span class="n">ERROR_MISSING_EDGES</span><span class="p">)</span>        
+
+    <span class="k">return</span> <span class="n">tau</span><span class="p">,</span> <span class="n">revTau</span><span class="p">,</span> <span class="n">pathLoc</span><span class="p">,</span> <span class="n">revPathLoc</span></div>
+
+
+<span class="k">def</span> <span class="nf">_vectorDistEuclideanXY</span><span class="p">(</span><span class="n">loc</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">speed</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">locFieldName</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">):</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">revTau</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">revPathLoc</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">distEuclideanXY</span><span class="p">(</span><span class="n">loc</span><span class="p">,</span> <span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">])</span>
+        <span class="n">tau</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">speed</span>
+        <span class="n">revTau</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">speed</span>
+        <span class="n">pathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">loc</span><span class="p">,</span> <span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">]]</span>
+        <span class="n">revPathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">loc</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">tau</span><span class="p">,</span> <span class="n">revTau</span><span class="p">,</span> <span class="n">pathLoc</span><span class="p">,</span> <span class="n">revPathLoc</span>
+
+<span class="k">def</span> <span class="nf">_vectorDistManhattenXY</span><span class="p">(</span><span class="n">loc</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">speed</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">locFieldName</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">):</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">revTau</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">revPathLoc</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">distManhattenXY</span><span class="p">(</span><span class="n">loc</span><span class="p">,</span> <span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">])</span>
+        <span class="n">tau</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">speed</span>
+        <span class="n">revTau</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">speed</span>
+        <span class="n">pathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">]</span>
+        <span class="n">revPathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">][</span><span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">]))]</span>
+    <span class="k">return</span> <span class="n">tau</span><span class="p">,</span> <span class="n">revTau</span><span class="p">,</span> <span class="n">pathLoc</span><span class="p">,</span> <span class="n">revPathLoc</span>
+
+<span class="k">def</span> <span class="nf">_vectorDistLatLon</span><span class="p">(</span><span class="n">loc</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">distUnit</span> <span class="o">=</span> <span class="s1">&#39;meter&#39;</span><span class="p">,</span> <span class="n">speed</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">locFieldName</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">):</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">revTau</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">revPathLoc</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">distLatLon</span><span class="p">(</span><span class="n">loc</span><span class="p">,</span> <span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">distUnit</span><span class="p">)</span>
+        <span class="n">tau</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">speed</span>
+        <span class="n">revTau</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">speed</span>
+        <span class="n">pathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">loc</span><span class="p">,</span> <span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">]]</span>
+        <span class="n">revPathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">loc</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">tau</span><span class="p">,</span> <span class="n">revTau</span><span class="p">,</span> <span class="n">pathLoc</span><span class="p">,</span> <span class="n">revPathLoc</span>
+
+<span class="k">def</span> <span class="nf">_vectorDistGrid</span><span class="p">(</span><span class="n">loc</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">grid</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">locFieldName</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">):</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">revTau</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">revPathLoc</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">distOnGrid</span><span class="p">(</span><span class="n">pt1</span> <span class="o">=</span> <span class="n">loc</span><span class="p">,</span> <span class="n">pt2</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">grid</span> <span class="o">=</span> <span class="n">grid</span><span class="p">)</span>
+        <span class="n">tau</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">speed</span>
+        <span class="n">revTau</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">speed</span>
+        <span class="n">pathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">]</span>
+        <span class="n">revPathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">][</span><span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">]))]</span>
+    <span class="k">return</span> <span class="n">tau</span><span class="p">,</span> <span class="n">revTau</span><span class="p">,</span> <span class="n">pathLoc</span><span class="p">,</span> <span class="n">revPathLoc</span>
+
+<span class="k">def</span> <span class="nf">_vectorDistBtwPolysXY</span><span class="p">(</span><span class="n">loc</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">nodeIDs</span><span class="p">:</span> <span class="nb">list</span><span class="p">,</span> <span class="n">polys</span><span class="p">:</span> <span class="n">polys</span><span class="p">,</span> <span class="n">polyVG</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">locFieldName</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">):</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">revTau</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">revPathLoc</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">polyVG</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">polyVG</span> <span class="o">=</span> <span class="n">polysVisibleGraph</span><span class="p">(</span><span class="n">polys</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">nodeIDs</span><span class="p">:</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="n">distBtwPolysXY</span><span class="p">(</span><span class="n">pt1</span> <span class="o">=</span> <span class="n">loc</span><span class="p">,</span> <span class="n">pt2</span> <span class="o">=</span> <span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">],</span> <span class="n">polys</span> <span class="o">=</span> <span class="n">polys</span><span class="p">,</span> <span class="n">polyVG</span> <span class="o">=</span> <span class="n">polyVG</span><span class="p">)</span>
+        <span class="n">tau</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">speed</span>
+        <span class="n">revTau</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span> <span class="o">/</span> <span class="n">speed</span>
+        <span class="n">pathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">]</span>
+        <span class="n">revPathLoc</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">][</span><span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">])</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">]))]</span>
+    <span class="k">return</span> <span class="n">tau</span><span class="p">,</span> <span class="n">revTau</span><span class="p">,</span> <span class="n">pathLoc</span><span class="p">,</span> <span class="n">revPathLoc</span>
+
+<div class="viewcode-block" id="scaleDist">
+<a class="viewcode-back" href="../../vrpSolver.travel.html#vrpSolver.travel.scaleDist">[docs]</a>
+<span class="k">def</span> <span class="nf">scaleDist</span><span class="p">(</span><span class="n">loc1</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">loc2</span><span class="p">:</span> <span class="n">pt</span><span class="p">,</span> <span class="n">edges</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;Euclidean&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given a two locations, returns the traveling distance and path between locations.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    loc1: pt, required</span>
+<span class="sd">        The first location.</span>
+<span class="sd">    loc2: pt, required</span>
+<span class="sd">        The second location.</span>
+<span class="sd">    edges: str, optional, default as &#39;Euclidean&#39;</span>
+<span class="sd">        The methods for the calculation of distances between nodes. Options and required additional information are referred to :func:`~vrpSolver.geometry.matrixDist()`.</span>
+<span class="sd">    **kwargs: optional</span>
+<span class="sd">        Provide additional inputs for different `edges` options</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    dict</span>
+<span class="sd">        tau, revTau, pathLoc, revPathLoc. Four keys, the first one is the travel distance from loc to each node index by nodeID, the second the travel distance from each node back to loc. The third and fourth dictionaries are the corresponded path.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Define tau</span>
+    <span class="n">dist</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">revDist</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">revPathLoc</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">edges</span> <span class="o">==</span> <span class="s1">&#39;Euclidean&#39;</span><span class="p">):</span>
+        <span class="n">dist</span> <span class="o">=</span> <span class="n">distEuclideanXY</span><span class="p">(</span><span class="n">loc1</span><span class="p">,</span> <span class="n">loc2</span><span class="p">)[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+        <span class="n">revDist</span> <span class="o">=</span> <span class="n">dist</span>
+        <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">[</span><span class="n">loc1</span><span class="p">,</span> <span class="n">loc2</span><span class="p">]</span>
+        <span class="n">revPathLoc</span> <span class="o">=</span> <span class="p">[</span><span class="n">loc2</span><span class="p">,</span> <span class="n">loc1</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">edges</span> <span class="o">==</span> <span class="s1">&#39;EuclideanBarrier&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;polys&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;polys&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;WARNING: No barrier provided.&quot;</span><span class="p">)</span>
+            <span class="n">dist</span> <span class="o">=</span> <span class="n">distEuclideanXY</span><span class="p">(</span><span class="n">loc1</span><span class="p">,</span> <span class="n">loc2</span><span class="p">)[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+            <span class="n">revDist</span> <span class="o">=</span> <span class="n">dist</span>
+            <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">[</span><span class="n">loc1</span><span class="p">,</span> <span class="n">loc2</span><span class="p">]</span>
+            <span class="n">revPathLoc</span> <span class="o">=</span> <span class="p">[</span><span class="n">loc2</span><span class="p">,</span> <span class="n">loc1</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">res</span> <span class="o">=</span> <span class="n">distBtwPolysXY</span><span class="p">(</span><span class="n">pt1</span><span class="p">,</span> <span class="n">pt2</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;polys&#39;</span><span class="p">])</span>
+            <span class="n">dist</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+            <span class="n">revDist</span> <span class="o">=</span> <span class="n">dist</span>
+            <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">res</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">]]</span>
+            <span class="n">revPathLoc</span> <span class="o">=</span> <span class="p">[</span><span class="n">pathLoc</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">pathLoc</span><span class="p">)</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">pathLoc</span><span class="p">))]</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">edges</span> <span class="o">==</span> <span class="s1">&#39;LatLon&#39;</span><span class="p">):</span>
+        <span class="n">dist</span> <span class="o">=</span> <span class="n">distLatLon</span><span class="p">(</span><span class="n">loc1</span><span class="p">,</span> <span class="n">loc2</span><span class="p">)[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+        <span class="n">revDist</span> <span class="o">=</span> <span class="n">dist</span>
+        <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">[</span><span class="n">loc1</span><span class="p">,</span> <span class="n">loc2</span><span class="p">]</span>
+        <span class="n">revPathLoc</span> <span class="o">=</span> <span class="p">[</span><span class="n">loc2</span><span class="p">,</span> <span class="n">loc1</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">edges</span> <span class="o">==</span> <span class="s1">&#39;Manhatten&#39;</span><span class="p">):</span>
+        <span class="n">dist</span> <span class="o">=</span> <span class="n">distManhattenXY</span><span class="p">(</span><span class="n">loc1</span><span class="p">,</span> <span class="n">loc2</span><span class="p">)[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+        <span class="n">revDist</span> <span class="o">=</span> <span class="n">dist</span>
+        <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">[</span><span class="n">loc1</span><span class="p">,</span> <span class="p">(</span><span class="n">pt1</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">pt2</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">loc2</span><span class="p">]</span>
+        <span class="n">revPathLoc</span> <span class="o">=</span> <span class="p">[</span><span class="n">loc2</span><span class="p">,</span> <span class="p">(</span><span class="n">pt1</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">pt2</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span> <span class="n">loc1</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">edges</span> <span class="o">==</span> <span class="s1">&#39;Grid&#39;</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;grid&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span> <span class="ow">or</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;&#39;grid&#39; is not specified&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="p">(</span><span class="s1">&#39;column&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">]</span> <span class="ow">or</span> <span class="s1">&#39;row&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">]):</span>
+            <span class="k">raise</span> <span class="n">MissingParameterError</span><span class="p">(</span><span class="s2">&quot;&#39;column&#39; and &#39;row&#39; need to be specified in &#39;grid&#39;&quot;</span><span class="p">)</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">distOnGrid</span><span class="p">(</span><span class="n">loc1</span><span class="p">,</span> <span class="n">loc2</span><span class="p">,</span> <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;grid&#39;</span><span class="p">])</span>
+        <span class="n">dist</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="s1">&#39;dist&#39;</span><span class="p">]</span>
+        <span class="n">revDist</span> <span class="o">=</span> <span class="n">dist</span>
+        <span class="n">pathLoc</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">res</span><span class="p">[</span><span class="s1">&#39;path&#39;</span><span class="p">]]</span>
+        <span class="n">revPathLoc</span> <span class="o">=</span> <span class="p">[</span><span class="n">pathLoc</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">pathLoc</span><span class="p">)</span> <span class="o">-</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">pathLoc</span><span class="p">))]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">UnsupportedInputError</span><span class="p">(</span><span class="n">ERROR_MISSING_EDGES</span><span class="p">)</span>        
+
+    <span class="k">return</span> <span class="p">{</span>
+        <span class="s1">&#39;dist&#39;</span><span class="p">:</span> <span class="n">dist</span><span class="p">,</span>
+        <span class="s1">&#39;revDist&#39;</span><span class="p">:</span> <span class="n">revDist</span><span class="p">,</span>
+        <span class="s1">&#39;pathLoc&#39;</span><span class="p">:</span> <span class="n">pathLoc</span><span class="p">,</span>
+        <span class="s1">&#39;revPathLoc&#39;</span><span class="p">:</span> <span class="n">revPathLoc</span>
+    <span class="p">}</span></div>
+
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">vrpSolver 0.0.56 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">vrpSolver.travel</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2024, Lan Peng.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.7.
+    </div>
+  </body>
+</html>
