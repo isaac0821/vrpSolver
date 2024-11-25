@@ -1,15 +1,20 @@
 import random
 import numpy as np
 
-def colorScale(baseColor = 'R'):
-    color = ""
-    if (baseColor == 'R'):
-        color = "#FFFF00"
-    elif (baseColor == 'G'):
-        color = "#FFFF00"
-    elif (baseColor == 'B'):
-        color = "#00FFFF"
+def rndColor() -> str:
+    color = "#%06x" % random.randint(0, 0xFFFFFF)
     return color
+
+def colorComplement(hexColor):
+    (r, g, b) = hex2RGB(hexColor)
+    def hilo(a, b, c):
+        if c < b: b, c = c, b
+        if b < a: a, b = b, a
+        if c < b: b, c = c, b
+        return a + c
+    k = hilo(r, g, b)
+    (revR, revG, revB) = tuple(k - u for u in (r, g, b))
+    return RGB2Hex((revR, revG, revB))
 
 def hex2RGB(colorHex):
     colorHex = colorHex.lstrip('#')
@@ -39,17 +44,5 @@ def getBWText(hexColor):
 def RGB2Hex(colorRGB):
     return '#%02x%02x%02x' % colorRGB
 
-def colorRandom() -> str:
-    color = "#%06x" % random.randint(0, 0xFFFFFF)
-    return color
 
-def colorComplement(hexColor):
-    (r, g, b) = hex2RGB(hexColor)
-    def hilo(a, b, c):
-        if c < b: b, c = c, b
-        if b < a: a, b = b, a
-        if c < b: b, c = c, b
-        return a + c
-    k = hilo(r, g, b)
-    (revR, revG, revB) = tuple(k - u for u in (r, g, b))
-    return RGB2Hex((revR, revG, revB))
+
