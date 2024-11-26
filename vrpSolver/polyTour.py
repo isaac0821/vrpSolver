@@ -552,300 +552,489 @@ def splitOverlapSegs(seg1: line, seg2: line, belong1: list = [1], belong2: list 
         return newSegSet
     return None
 
-def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', tangPts: dict = None, polyInt: dict = None):
-    # 简化线段,去掉穿越点
-    seq = seqRemoveDegen(seq, error = 0.03)['newSeq']
+def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', seqDegenFlag: bool = False):
+    """Given a sequence and a dictionary of polygons, finds the intersection between seq and polygons
 
-    # NOTE: 仅是加速用
-    if (polyInt == None):
-        polyInt = {}
-        for i in polygons:
-            for j in polygons:
-                if (i < j and isPolyIntPoly(
-                    poly1 = polygons[i][polyFieldName], 
-                    poly2 = polygons[j][polyFieldName])):
-                    polyInt[i, j] = True
-                    polyInt[j, i] = True
+    Parameters
+    ----------
+    seq: list[pt], required
+        A list of points as a sequence
+    polygons: dict, required
+        A dictionary, each key is the ID of polygon, the field of polygon is in `polyFieldName`
+    polyFieldName: string, optional, default 'polygon'
+        Default field name for polygon
+    seqDegenFlag: boolean, optional, default False
+        True if the sequence has already been processed to remove degenerated points.
+    turnPts: list of dict, optional, default None
+        A list of dictionaries, each includes a coordinate and a polygon ID that the turn point is attached to.
 
-    # Step 0: tangPts =========================================================
-    # NOTE: 所有的转折点必须在一个多边形的边缘上
-    if (tangPts == None):
+    Return
+    ------
+    list of dict
+        A list of dictionaries, each includes the information of a segment/point, a list of polygon IDs that the segment belongs to
+
+    """
+
+    # NOTE: 简化线段，去掉穿越点，如果已经处理过了，就不用重复计算了
+    if (not seqDegenFlag):
+        seq = seqRemoveDegen(seq, error = 0.03)['newSeq']
+
+    # Step 0: turnPts =========================================================
+    # NOTE: 所有的转折点必须在一个多边形的边缘上，所以必须给每个turn point找到一个polygon
+    turnPts = {}
+    for pt in seq:
+        # 记录每个转折点在哪些polygon内
+        for p in polygons:
+            
 
 
-    # Step 1: For each polygon, get intersections =============================
-    for p in polygons:
-        # 用来记录可以分配时间的经停点/经过线段
-        polygons[p]['intersect'] = []
-        # 由于计算精度的问题,加上简化线段时损失的精度,可能会导致path和polygon没有交点,属于提前需要把seq预设的represent point记录上来
-        if (tangPts != None and p in tangPts):
-            polygons[p]['tmpPoint'] = [{
-                'status': 'Cross',
-                'intersectType': 'Point',
-                'intersect': tangPts[p],
-                'interiorFlag':  True # 其实可能是在boundary上,但是不重要
-            }]
-        else:
-            polygons[p]['tmpPoint'] = []
-        for i in range(len(seq) - 1):
+    # Step 1: Initialize ======================================================
+    segIntPoly = {}
+    accMileage = 0
+    for i in range(len(seq) - 1):
+        segIntPoly[i] = {
+            'seg': [seq[i], seq[i + 1]],
+            'startMilage': accMileage,
+            'intPolys': []
+        }
+        accMileage += distEuclideanXY(seq[i], seq[i + 1])['dist']
+        segIntPoly[i]['endMileage'] = accMileage
+
+    # Step 2: For each segment, gets polygon intersected ======================
+    for i in segIntPoly:
+        segIntPoly[i]['intMileageList'] = []
+        st = segIntPoly[i]['startMilage']
+        for p in polygons:
             segInt = intSeg2Poly([seq[i], seq[i + 1]], polygons[p][polyFieldName])
-            # 对于Nonconvex的poly，这部分不应该出现，但是实测下来Shapely还是不够可靠
+            # 如果交出多个来的话，分别计算
             if (type(segInt) == list):
                 for s in segInt:
-                    if (s['intersectType'] == 'Point'):
-                        polygons[p]['tmpPoint'].append(s)
-                    else:
-                        length = distEuclideanXY(s['intersect'][0], s['intersect'][1])['dist']
-                        if (length > 0.01):
-                            polygons[p]['intersect'].append(s)
+                    # 如果交出一个线段，计算线段的起始结束mileage
+                    if (s['status'] == 'Cross' and s['intersectType'] == 'Segment'):
+                        int1 = s['intersect'][0]
+                        int2 = s['intersect'][1]
+                        d1 = distEuclideanXY(segIntPoly[i]['seg'][0], int1)['dist']
+                        d2 = distEuclideanXY(segIntPoly[i]['seg'][0], int2)['dist']
+                        if (d1 < d2):
+                            segIntPoly[i]['intMileageList'].append((d1 + st, p, int1, 'enter'))
+                            segIntPoly[i]['intMileageList'].append((d2 + st, p, int2, 'leave'))
                         else:
-                            k = {
-                                'status': 'Cross',
-                                'intersectType': 'Point',
-                                'intersect': s['intersect'][0],
-                                'interiorFlag': False
-                            }
-                            polygons[p]['tmpPoint'].append(k)
-            # 对于相交的情形，先存起来，再判断相交情况，特别是点，对于所有的点，判断是不是已经存在
-            elif (segInt['status'] == 'Cross'):
-                if (segInt['intersectType'] == 'Point'):
-                    polygons[p]['tmpPoint'].append(segInt)
+                            segIntPoly[i]['intMileageList'].append((d2 + st, p, int2, 'enter'))
+                            segIntPoly[i]['intMileageList'].append((d1 + st, p, int1, 'leave'))
+                            
+                    # 如果交出一个点，计算点的mileage
+                    elif (s['status'] == 'Cross' and s['intersectType'] == 'Point'):
+                        intP = s['intersect']
+                        dP = distEuclideanXY(segIntPoly[i]['seg'][0], intP)['dist']
+                        segIntPoly[i]['intMileageList'].append((dP + st, p, intP, 'tangle'))
+            # 如果交出一个线段，计算线段的起始结束mileage
+            elif (segInt['status'] == 'Cross' and segInt['intersectType'] == 'Segment'):
+                int1 = segInt['intersect'][0]
+                int2 = segInt['intersect'][1]
+                d1 = distEuclideanXY(segIntPoly[i]['seg'][0], int1)['dist']
+                d2 = distEuclideanXY(segIntPoly[i]['seg'][0], int2)['dist']
+                if (d1 < d2):
+                    segIntPoly[i]['intMileageList'].append((d1 + st, p, int1, 'enter'))
+                    segIntPoly[i]['intMileageList'].append((d2 + st, p, int2, 'leave'))
                 else:
-                    length = distEuclideanXY(segInt['intersect'][0], segInt['intersect'][1])['dist']
-                    if (length > 0.01):
-                        polygons[p]['intersect'].append(segInt)
+                    segIntPoly[i]['intMileageList'].append((d2 + st, p, int2, 'enter'))
+                    segIntPoly[i]['intMileageList'].append((d1 + st, p, int1, 'leave'))
+            # 如果交出一个点，计算点的mileage
+            elif (segInt['status'] == 'Cross' and segInt['intersectType'] == 'Point'):
+                intP = segInt['intersect']
+                dP = distEuclideanXY(segIntPoly[i]['seg'][0], intP)['dist']
+                segIntPoly[i]['intMileageList'].append((dP + st, p, intP, 'tangle'))
+        # 对intMileageList进行排序
+        segIntPoly[i]['intMileageList'].sort()
+
+    # Step 3: Restore =========================================================
+    segSet = []
+    for i in segIntPoly:
+        polyInside = []
+        segIntPoly[i]['segSet'] = []
+        curMileage = segIntPoly[i]['startMilage']
+        curPt = segIntPoly[i]['seg'][0]
+        for k in range(len(segIntPoly[i]['intMileageList'])):
+            # 下一个点
+            newMileage = segIntPoly[i]['intMileageList'][k][0]
+            newPt = segIntPoly[i]['intMileageList'][k][2]
+
+            # 如果mileage不增长，则不会单独交一段出来，除非是有tangle
+            if (abs(newMileage - curMileage) > CONST_EPSILON):
+                segSet.append({
+                    'shape': [curPt, newPt],
+                    'type': 'Segment',
+                    'belong': [k for k in polyInside],
+                    'mileage': [curMileage, newMileage]
+                    })
+                curMileage = newMileage
+                curPt = newPt
+
+            if (segIntPoly[i]['intMileageList'][k][3] == 'enter'):
+                polyInside.append(segIntPoly[i]['intMileageList'][k][1])
+
+            elif (segIntPoly[i]['intMileageList'][k][3] == 'leave'):
+                polyInside.remove(segIntPoly[i]['intMileageList'][k][1])
+
+    return segSet
+
+def polyPath2Mileage(repSeq: list, path: list[pt], nodes: dict, polyFieldName: str = 'neighbor'):
+    # RECORD: 20240724 这个函数真是麻烦得要死
+
+    # NOTE: 根据p2pPath，得到足够多的子问题信息以生成cut
+    # NOTE: repSeq的第一项和最后一项应该是startLoc和endLoc对应的ID
+
+    # Step 1: 先把转折点找出来
+    # NOTE: error取值不能太小，因为用的是30边形拟合的圆 + poly2Poly，导致误差其实还蛮大的
+    # NOTE: 这个有问题，但是不好调...error太大了不行，太小了也不行
+    degenPath = seqRemoveDegen(path, error = 0.015)
+
+    # Step 2: 按照转折点，找到路径与每个poly的合法相交部分
+    # 需要返回的字典列表
+    mileage = []
+    turnPtMileageAcc = 0
+
+    # 针对聚合后的aggNodeList上的点逐个分情况讨论，
+    # NOTE: 这里
+    for i in range(len(degenPath['removedFlag'])):
+        # 接下来分情况讨论：
+        # NOTE: 单独/重合 => 在该坐标上有一个解还是多个解
+        # NOTE: 转折/穿透 => path访问该poly的时候是相切还是相交
+        # Case 1: 单独转折点 - len(aggNode) == 1 and removeFlag == False
+        # Case 2: 重合转折点 - len(aggNode) >  1 and removeFlag == False
+        # Case 3: 单独穿透点 - len(aggNode) == 1 and removeFlag == True
+        # Case 4: 重合穿透点 - len(aggNode) >  1 and removeFlag == True
+        aggNode = degenPath['aggNodeList'][i]
+
+        # 转折点的情形
+        # 此时涉及的线段包括两条，[lastTurnPt, curTurnPt]和[curTurnPt, nextTurnPt]
+        if (degenPath['removedFlag'][i] == False):
+            # 找到上个转折点
+            lastTurnPt = None
+            if (i >= 1):
+                # 向前找到前面最后一个False的值的位置，对应的index在aggNodeList里
+                # NOTE: 第一个值肯定为False，所以一定能找到               
+                for lastTurnIdx in range(i):
+                    if (degenPath['removedFlag'][i - 1 - lastTurnIdx] == False):
+                        lastTurnPt = path[degenPath['aggNodeList'][i - 1 - lastTurnIdx][0]]
+                        break
+
+            # 当前的转折点和进一步累加的里程
+            curTurnPt = path[aggNode[0]]
+            distAdd2Acc = 0
+            if (lastTurnPt != None):
+                distAdd2Acc = distEuclideanXY(lastTurnPt, curTurnPt)['dist']
+
+            # 找到下个转折点
+            nextTurnPt = None
+            if (i <= len(degenPath['removedFlag']) - 2):
+                # 找到后续的removedFlag里第一个为False的值，对应的index在aggNodeList里
+                # NOTE: 最后一个值肯定为False，所以一定能找到
+                for nextTurnIdx in range(i, len(degenPath['removedFlag'])):
+                    if (degenPath['removedFlag'][nextTurnIdx] == False):
+                        nextTurnPt = path[degenPath['aggNodeList'][nextTurnIdx][0]]
+                        break
+            
+            # Case 1: 单独转折点
+            # NOTE: 生成一个Touch的Single点，该点的mileage为lastTurnPt到该点的距离
+            # NOTE: 最简单情形
+            if (len(aggNode) == 1):
+                mileage.append({
+                    'polyID': repSeq[aggNode[0]],
+                    'type': 'Touch',
+                    'intersect': curTurnPt,
+                    'mileage': turnPtMileageAcc + distAdd2Acc
+                })
+            
+            # Case 2: 重合转折点
+            # NOTE: 这种情况下，要区分每个重合在此处的转折点与neighborhood是相交还是相切
+            # NOTE: 对于相交的，返回mileage的范围，对于相切的，则视作转折点
+            # NOTE: 注意，至少一个是转折点
+            # NOTE: 找到转折点对应的nodeID，在那之前和之后的分别属于上一段和下一段
+            elif (len(aggNode) > 1):
+                # 基本流程：
+                # Step 1: 找到aggNode里相切点的连续子集，也就是第一个相切点到最后一个相切点之间
+                # Step 2: 相切连续子集的前面与上一段线段相交
+                # Step 3: 相切连续子集的后面与后一段线段相交
+                
+                # 先区分出是相切还是相交
+                intType = []
+                for k in range(len(aggNode)):
+                    # 如果是出发点或返回点，则必须是相切点
+                    if (aggNode[k] == repSeq[0] or aggNode[k] == repSeq[-1]):
+                        intType.append("Point")
+                    # 判断转折点是在poly的内部还是边缘
+                    # NOTE: 如果转折点是在
+                    else:                        
+                        insideInteriorFlag = isPtInPoly(
+                            pt = curTurnPt,
+                            poly = nodes[repSeq[aggNode[k]]][polyFieldName],
+                            interiorOnly = True)
+                        if (insideInteriorFlag):
+                            insideInteriorFlag = not (distPt2Seq(
+                                pt = curTurnPt,
+                                seq = nodes[repSeq[aggNode[k]]][polyFieldName],
+                                closedFlag = True) <= 0.01)
+                        if (insideInteriorFlag):
+                            intType.append("Seg")
+                        else:
+                            intType.append("Point")
+                # print("intType", intType)
+
+                # 先区分出相切前和相切后
+                # NOTE: 先从前往后，再从后往前，分别标记出Pre和Post
+                intPhase = ["Tang" for i in range(len(aggNode))]
+                for k in range(len(intType)):
+                    if (intType[k] == "Seg"):
+                        intPhase[k] = "Prev"
                     else:
-                        k = {
-                            'status': 'Cross',
-                            'intersectType': 'Point',
-                            'intersect': segInt['intersect'][0],
-                            'interiorFlag': False
-                        }
-                        polygons[p]['tmpPoint'].append(k)
-
-    for i in polygons:
-        # 对于所有的相交项，判断重合性，主要判断Point是不是重合了已经
-        for pt in polygons[i]['tmpPoint']:
-            existFlag = False
-            for obj in polygons[i]['intersect']:
-                if (obj['intersectType'] == 'Point'):
-                    if (is2PtsSame(pt1 = pt['intersect'], pt2 = obj['intersect'], error = 0.03)):
-                        existFlag = True
                         break
+                for k in range(len(intType)):
+                    if (intType[len(intType) - 1 - k] == "Seg"):
+                        intPhase[len(intType) - 1 - k] = "Post"
+                    else:
+                        break
+                # print("intPhase", intPhase)
+
+                # 按照分区确定mileage
+                prevInt = [] # 与上一段相交
+                tangInt = [] # 相切
+                postInt = [] # 与下一段相交
+                for k in range(len(aggNode)):
+                    if (intPhase[k] == "Prev"):
+                        prevInt.append(aggNode[k])
+                    elif (intPhase[k] == "Tang"):
+                        tangInt.append(aggNode[k])
+                    elif (intPhase[k] == "Post"):
+                        postInt.append(aggNode[k])
+                # print(prevInt, tangInt, postInt)
+
+                # 与上一段相交的部分
+                for k in range(len(prevInt)):
+                    neiIntSeg = intSeg2Poly(
+                        [lastTurnPt, curTurnPt], 
+                        nodes[repSeq[prevInt[k]]][polyFieldName])
+                    # NOTE: 这段必须处理成线段，如果是距离很短，那就是数值问题
+                    if (neiIntSeg['intersectType'] == 'Segment'):
+                        [loc1, loc2] = neiIntSeg['intersect']
+                        dist1 = distEuclideanXY(loc1, lastTurnPt)['dist']
+                        dist2 = distEuclideanXY(loc2, lastTurnPt)['dist']
+                        if (dist1 < dist2):
+                            mileage.append({
+                                'polyID': repSeq[prevInt[k]],
+                                'type': 'Intersect',
+                                'intersect': [loc1, loc2],
+                                'mileage': [turnPtMileageAcc + dist1, turnPtMileageAcc + distAdd2Acc]
+                            })
+                        else:
+                            mileage.append({
+                                'polyID': repSeq[prevInt[k]],
+                                'type': 'Intersect',
+                                'intersect': [loc2, loc1],
+                                'mileage': [turnPtMileageAcc + dist2, turnPtMileageAcc + distAdd2Acc]
+                            })
+                    elif (neiIntSeg['intersectType'] == 'Point'):
+                        loc = neiIntSeg['intersect']
+                        mileage.append({
+                            'polyID': repSeq[postInt[k]],
+                            'type': 'Touch',
+                            'intersect': loc,
+                            'mileage': turnPtMileageAcc + distAdd2Acc
+                            })
+                    else:
+                        print("ERROR: 说好的相交了呢...")
+                        print("Intersection", neiIntSeg)
+                        print(repSeq)
+                        print(path)
+                        print(degenPath)
+                        print(prevInt, tangInt, postInt, intType)
+
+                # 相切的部分
+                if (len(tangInt) == 1):
+                    mileage.append({
+                        'polyID': repSeq[tangInt[0]],
+                        'type': 'Touch',
+                        'intersect': curTurnPt,
+                        'mileage': turnPtMileageAcc + distAdd2Acc
+                    })
                 else:
-                    if (isPtOnSeg(pt = pt['intersect'], seg = obj['intersect'], error = 0.03)):
-                        existFlag = True
-                        break
-            if (not existFlag):
-                polygons[i]['intersect'].append(pt)
-        polygons[i].pop('tmpPoint')
+                    mileage.append({
+                        'polyID': [repSeq[tangInt[k]] for k in range(len(tangInt))],
+                        'type': 'Touch',
+                        'intersect': curTurnPt,
+                        'mileage': turnPtMileageAcc + distAdd2Acc
+                    })
 
-    # Step 2: Initialize ======================================================
-    # 把所有polygon内的seg/pt原封不动的放进来
-    segSet = {}
-    segIDAcc = 0
-    for i in polygons:
-        for s in polygons[i]['intersect']:
-            segSet[segIDAcc] = {
-                'shape': s['intersect'],
-                'type': s['intersectType'],
-                'belong': [i],
-                'split': False
-            }
-            segIDAcc += 1
-
-    # Step 3: Split the segments ==============================================
-    canSplitFlag = True
-    while (canSplitFlag):
-        canSplitFlag = False
-
-        newSegSet = []
-        for i in segSet:
-            canSplitBetweenIJFlag = False  
-            for j in segSet:
-                # 两个seg/pt看看能不能相交
-                if (i < j and segSet[i]['split'] == False and segSet[j]['split'] == False):
-                    # 分别看看i和j所属的poly有没有可能相交,如果有可能,才尝试,不可能相交就没必要了
-                    trySplitFlag = False
-                    for iBelong in segSet[i]['belong']:
-                        for jBelong in segSet[j]['belong']:
-                            if ((iBelong, jBelong) in polyInt and polyInt[iBelong, jBelong] == True):
-                                trySplitFlag = True
-
-                    if (trySplitFlag):
-                        # 如果i和j都是segment
-                        if (segSet[i]['type'] == 'Segment' and segSet[j]['type'] == 'Segment'):
-                            s2s = intSeg2Seg(segSet[i]['shape'], segSet[j]['shape'])
-                            if (s2s['status'] == 'Collinear' and s2s['interiorFlag'] == True and s2s['intersectType'] == 'Segment'):
-                                segOverlapSeg = splitOverlapSegs(
-                                    seg1 = segSet[i]['shape'],
-                                    seg2 = segSet[j]['shape'],
-                                    belong1 = [k for k in segSet[i]['belong']],
-                                    belong2 = [k for k in segSet[j]['belong']])
-                                if (segOverlapSeg != None):
-                                    for k in range(len(segOverlapSeg)):
-                                        segOverlapSeg[k]['type'] = 'Segment'
-                                        segOverlapSeg[k]['split'] = False                                
-                                newSegSet.extend(segOverlapSeg)
-                                
-                                segSet[i]['split'] = True
-                                segSet[j]['split'] = True
-                                canSplitBetweenIJFlag = True
-                                break
-
-                        # 如果i是segment, j是point
-                        elif (segSet[i]['type'] == 'Segment' and segSet[j]['type'] == 'Point'):
-                            if (isPtOnSeg(pt = segSet[j]['shape'], seg = segSet[i]['shape'], interiorOnly = True)):
-                                # print("Part ", i, segSet[i], "Part ", j, segSet[j], "S2P")
-                                newSegSet.append({
-                                    'shape': [segSet[i]['shape'][0], segSet[j]['shape']],
-                                    'type': 'Segment',
-                                    'belong': [k for k in segSet[i]['belong']],
-                                    'split': False
+                # 与下一段相交的部分
+                for k in range(len(postInt)):
+                    neiIntSeg = intSeg2Poly(
+                        [curTurnPt, nextTurnPt], 
+                        nodes[repSeq[postInt[k]]][polyFieldName])
+                    # NOTE: 这段必须处理成线段，如果是距离很短，那就是数值问题
+                    if (neiIntSeg['intersectType'] == 'Segment'):
+                        [loc1, loc2] = neiIntSeg['intersect']
+                        dist1 = distEuclideanXY(loc1, curTurnPt)['dist']
+                        dist2 = distEuclideanXY(loc2, curTurnPt)['dist']
+                        if (dist1 < dist2):
+                            mileage.append({
+                                'polyID': repSeq[postInt[k]],
+                                'type': 'Intersect',
+                                'intersect': [loc1, loc2],
+                                'mileage': [turnPtMileageAcc + distAdd2Acc, 
+                                    turnPtMileageAcc + distAdd2Acc + dist2]
                                 })
-                                newSegSet.append({
-                                    'shape': segSet[j]['shape'],
-                                    'type': 'Point',
-                                    'belong': [k for k in segSet[j]['belong']],
-                                    'split': False
+                        else:
+                            mileage.append({
+                                'polyID': repSeq[postInt[k]],
+                                'type': 'Intersect',
+                                'intersect': [loc2, loc1],
+                                'mileage': [turnPtMileageAcc + distAdd2Acc, 
+                                    turnPtMileageAcc + distAdd2Acc + dist1]
                                 })
-                                newSegSet.append({
-                                    'shape': [segSet[j]['shape'], segSet[i]['shape'][1]],
-                                    'type': 'Segment',
-                                    'belong': [k for k in segSet[i]['belong']],
-                                    'split': False
-                                })                                                                
-                                segSet[i]['split'] = True
-                                segSet[j]['split'] = True
-                                canSplitBetweenIJFlag = True
-                                break
+                    elif (neiIntSeg['intersectType'] == 'Point'):
+                        loc = neiIntSeg['intersect']
+                        mileage.append({
+                            'polyID': repSeq[postInt[k]],
+                            'type': 'Touch',
+                            'intersect': loc,
+                            'mileage': turnPtMileageAcc + distAdd2Acc
+                            })
+                    else:
+                        print("ERROR: 说好的相交了呢...")
+                        print("Intersection", neiIntSeg)
+                        print(repSeq)
+                        print(path)
+                        print(degenPath)
+                        print(prevInt, tangInt, postInt, intType)
 
-                        # 如果i是point, j是segment
-                        elif (segSet[i]['type'] == 'Point' and segSet[j]['type'] == 'Segment'):
-                            if (isPtOnSeg(pt = segSet[i]['shape'], seg = segSet[j]['shape'], interiorOnly = True)):
-                                # print("Part ", i, segSet[i], "Part ", j, segSet[j], "P2S")
-                                newSegSet.append({
-                                    'shape': [segSet[j]['shape'][0], segSet[i]['shape']],
-                                    'type': 'Segment',
-                                    'belong': [k for k in segSet[j]['belong']],
-                                    'split': False
-                                })
-                                newSegSet.append({
-                                    'shape': segSet[i]['shape'],
-                                    'type': 'Point',
-                                    'belong': [k for k in segSet[i]['belong']],
-                                    'split': False
-                                })
-                                newSegSet.append({
-                                    'shape': [segSet[i]['shape'], segSet[j]['shape'][1]],
-                                    'type': 'Segment',
-                                    'belong': [k for k in segSet[j]['belong']],
-                                    'split': False
-                                })                                
-                                segSet[i]['split'] = True
-                                segSet[j]['split'] = True
-                                canSplitBetweenIJFlag = True
-                                break
-
-                        # 如果i和j都是point
-                        elif (segSet[i]['type'] == 'Point' and segSet[j]['type'] == 'Point'):
-                            # 若两点重合, 则合并两者的belong, 否则不需要进行处理
-                            if (is2PtsSame(pt1 = segSet[i]['shape'], pt2 = segSet[j]['shape'])):
-                                # print("Part ", i, segSet[i], "Part ", j, segSet[j], "P2P")
-                                jointBelong = [k for k in segSet[i]['belong']]
-                                jointBelong.extend([k for k in segSet[j]['belong'] if k not in segSet[i]['belong']])
-                                newSegSet.append({
-                                    'shape': segSet[i]['shape'],
-                                    'type': 'Point',
-                                    'belong': jointBelong,
-                                    'split': False
-                                })                                
-                                segSet[i]['split'] = True
-                                segSet[j]['split'] = True
-                                canSplitBetweenIJFlag = True
-                                break
-            if (canSplitBetweenIJFlag):                
-                break
-
-        if (len(newSegSet) > 0):
-            # print("newSegSet", newSegSet)
-            # print(hyphenStr())
-            canSplitFlag = True
-
-        for k in newSegSet:
-            segSet[segIDAcc] = k
-            segIDAcc += 1
+            # 更新一下累积到lastTurnPt的累积mileage
+            turnPtMileageAcc += distAdd2Acc
         
-        segSet = {k: v for k, v in segSet.items() if (v['split'] == False)}
-    
-    # NOTE: 到这里是对的
-    # return segSet
+        # 穿透点的情形
+        elif (degenPath['removedFlag'][i] == True):
+            # NOTE: 穿透点一般而言将找到一条相交的线段，也有可能极小情况下实际上是相切的，那种情况得处理成转折点
 
-    # Step 4: Sort segSet by mileage ==========================================
-    # NOTE: 每个segSet内的元素应该是两两不相交
-    heapSegSet = []
-    sortedSegSet = {}
-    # NOTE: 先得到每个segSet内元素的mileage
-    for i in segSet:
-        if (segSet[i]['type'] == 'Point'):
-            mileage = mileagePt(seq, segSet[i]['shape'], error = 0.03)
-            # 找不到mileage是真没办法...
-            # NOTE: 最差的办法就是做投影然后求mileage
-            if (mileage == None):
-                raise RuntimeError("ERROR: Precision error")
-            # 这个好麻烦...
-            # NOTE: 如果仅仅是[0, end]的话还好说, 属于不应该出现在这里
-            elif (type(mileage) == list):
-                raise RuntimeError("ERROR: Depot is on the edge of one of polygons")
+            lastTurnPt = degenPath['locatedSeg'][i][0]
+
+            # Case 3: 单独穿透点
+            if (len(aggNode) == 1):
+                # 穿透点所在的线段
+                inclNode = aggNode[0]
+                neiIntSeg = intSeg2Poly(
+                    degenPath['locatedSeg'][i], 
+                    nodes[repSeq[inclNode]][polyFieldName])
+                
+                # Case 3.1: 最正常的情况，path穿过poly，相交为一个线段
+                if (neiIntSeg['intersectType'] == 'Segment'):
+                    intSeg = neiIntSeg['intersect']
+                    loc1 = intSeg[0]
+                    loc2 = intSeg[1]
+                    dist1 = distEuclideanXY(loc1, lastTurnPt)['dist']
+                    dist2 = distEuclideanXY(loc2, lastTurnPt)['dist']
+                    if (dist1 < dist2):
+                        mileage.append({
+                            'polyID': repSeq[inclNode],
+                            'type': 'Intersect',
+                            'intersect': [loc1, loc2],
+                            'mileage': [turnPtMileageAcc + dist1, turnPtMileageAcc + dist2]
+                        })
+                    else:
+                        mileage.append({
+                            'polyID': repSeq[inclNode],
+                            'type': 'Intersect',
+                            'intersect': [loc2, loc1],
+                            'mileage': [turnPtMileageAcc + dist2, turnPtMileageAcc + dist1]
+                        })
+
+                # Case 3.2: 特殊情况下，如果穿透点+单独点为neighbor的切点，此时把穿透点处理成转折点
+                elif (neiIntSeg['intersectType'] == 'Point'):
+                    tangLoc = neiIntSeg['intersect']
+                    dist = distEuclideanXY(tangLoc, lastTurnPt)['dist']
+                    mileage.append({
+                        'polyID': repSeq[inclNode],
+                        'type': 'Touch',
+                        'intersect': tangLoc,
+                        'mileage': turnPtMileageAcc + dist,
+                        'info': 'Tangent'
+                    })
+                    lastTurnPt = tangLoc
+                    turnPtMileageAcc += dist
+                
+                # Case 3.No: 正常情况下这个分支不应该存在，但是实际上因为精度的问题就是会出现
+                # NOTE: 处理成相切点，相切处为线段上离poly最近点
+                elif (neiIntSeg['intersectType'] == None):
+                    tangLoc = nearestPtLine2Poly(
+                        degenPath['locatedSeg'][i], 
+                        nodes[repSeq[inclNode]][polyFieldName])['ptOnLine']
+                    dist = distEuclideanXY(tangLoc, lastTurnPt)['dist']
+                    mileage.append({
+                        'polyID': repSeq[inclNode],
+                        'type': 'Touch',
+                        'intersect': tangLoc,
+                        'mileage': turnPtMileageAcc + dist,
+                        'info': 'TangentError'
+                    })
+                    lastTurnPt = tangLoc
+                    turnPtMileageAcc += dist
+                    warnings.warn("WARNING: Numerical issue when calculating mileage.")
+            
+            # Case 4: 重合穿透点
+            # FIXME: 这部分代码要好好走查一下
+            # NOTE: 这个情况很复杂，如果存在至少一个相切的情况，那么该点实际上是转折点，且是多重转折点
+            # NOTE: 需要挨个确认是否是相切点，如果是相切点，按相切点处理（聚合在一起），如果不是相切点，依次计算mileage
             else:
-                pass
-            # print(i,  mileage)
-            segSet[i]['mileage'] = mileage
-            heapq.heappush(heapSegSet, (mileage, segSet[i]))
-        else:
-            mileage1 = mileagePt(seq, segSet[i]['shape'][0], error = 0.03)
-            mileage2 = mileagePt(seq, segSet[i]['shape'][1], error = 0.03)
-            # NOTE: 真的好讨厌啊...
-            if (mileage1 == None):
-                raise RuntimeError("ERROR: Precision error")
-            elif (type(mileage1) == list):
-                # 这边专门针对[0, end]这种特殊情形处理
-                if (type(mileage2) != list and mileage2 < distEuclideanXY(seq[0], seq[1])['dist']):
-                    mileage1 = min(mileage1)
-                elif (type(mileage2) != list and mileage2 > distEuclideanXY(seq[0], seq[1])['dist']):
-                    mileage1 = max(mileage1)
-            else:
-                pass
-            if (mileage2 == None):
-                raise RuntimeError("ERROR: Precision error")
-            elif (type(mileage2) == list):
-                # 这边专门针对[0, end]这种特殊情形处理
-                if (type(mileage1) != list and mileage1 < distEuclideanXY(seq[0], seq[1])['dist']):
-                    mileage2 = min(mileage2)
-                elif (type(mileage1) != list and mileage1 > distEuclideanXY(seq[0], seq[1])['dist']):
-                    mileage2 = max(mileage2)
-            else:
-                pass
-            # print(i, mileage1, mileage2)
-            segSet[i]['mileage'] = [min(mileage1, mileage2), max(mileage1, mileage2)]
-            heapq.heappush(heapSegSet, ((mileage1 + mileage2) / 2, segSet[i]))
+                tangFlag = False
+                tangLoc = None
+                neiIntSet = []
 
-    curMileage = 0
-    while(len(heapSegSet) > 0):
-        nextSeg = heapq.heappop(heapSegSet)[1]
-        nextSegStart = nextSeg['mileage'] if type(nextSeg['mileage']) != list else nextSeg['mileage'][0]
-        nextSegEnd = nextSeg['mileage'] if type(nextSeg['mileage']) != list else nextSeg['mileage'][1]
+                for k in degenPath['aggNodeList'][i]:
+                    # 穿透点所在的线段
+                    neiInt = intSeg2Poly(
+                        degenPath['locatedSeg'][i], 
+                        nodes[repSeq[k]][polyFieldName])
+                    neiIntSet.append((repSeq[k], neiInt))
+                    if (neiInt['intersectType'] == 'Point'):
+                        tangFlag = True
+                        tangLoc = neiInt['intersect']
+                    elif (neiInt['intersectType'] == None):
+                        tangFlag = True
+                        tangLoc = nearestPtLine2Poly(
+                            degenPath['locatedSeg'][i], 
+                            nodes[repSeq[k]][polyFieldName])['ptOnLine']
 
-        if (abs(curMileage - nextSegStart) <= CONST_EPSILON):
-            sortedSegSet[len(sortedSegSet)] = nextSeg
-        else:
-            sortedSegSet[len(sortedSegSet)] = {
-                'shape': [ptInSeqMileage(seq, curMileage), ptInSeqMileage(seq, nextSegStart)],
-                'type': 'Segment',
-                'belong': [],
-                'mileage': [curMileage, nextSegStart],
-                'split': False
-            }
-            sortedSegSet[len(sortedSegSet)] = nextSeg
-        curMileage = nextSegEnd
+                if (tangFlag == False):
+                    for intSeg in neiIntSet:
+                        loc1 = intSeg[1]['intersect'][0]
+                        loc2 = intSeg[1]['intersect'][1]
+                        dist1 = distEuclideanXY(loc1, lastTurnPt)['dist']
+                        dist2 = distEuclideanXY(loc2, lastTurnPt)['dist']
+                        if (dist1 < dist2):
+                            mileage.append({
+                                'polyID': intSeg[0],
+                                'type': 'Intersect',
+                                'intersect': [loc1, loc2],
+                                'mileage': [turnPtMileageAcc + dist1, turnPtMileageAcc + dist2]
+                            })
+                        else:
+                            mileage.append({
+                                'polyID': intSeg[0],
+                                'type': 'Intersect',
+                                'intersect': [loc2, loc1],
+                                'mileage': [turnPtMileageAcc + dist2, turnPtMileageAcc + dist1]
+                            })
 
-    return sortedSegSet
+                # Case 4.1: 特殊情况下，如果穿透点+重合点为neighbor的切点，此时把穿透点处理成转折点
+                # NOTE: 这个目前很罕见，但是应该也可以生成对应的算例
+                else:
+                    dist = distEuclideanXY(tangLoc, lastTurnPt)['dist']
+                    mileage.append({
+                        'polyID': [repSeq[k] for k in degenPath['aggNodeList'][i]],
+                        'type': 'Touch',
+                        'intersect': tangLoc,
+                        'mileage': turnPtMileageAcc + dist,
+                        'info': 'Tangent'
+                    })
+                    lastTurnPt = tangLoc
+                    turnPtMileageAcc += dist
+
+    return mileage

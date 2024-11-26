@@ -817,7 +817,7 @@ def rndPolys(
     P: int|None = None,
     polyIDs: list[int|str]|None = None,
     distr = 'UniformSquareXY',
-    shape = 'Circle',
+    shape = 'RndConvexPoly',
     anchorFieldName = 'anchor',
     polyFieldName = 'poly',    
     allowOverlapFlag = True,
@@ -857,9 +857,19 @@ def rndPolys(
     # Sanity check ============================================================
     if (polyIDs == None and P == None):
         raise MissingParameterError("ERROR: Missing required field `P` and `polyIDs`.")
-    
     elif (polyIDs == None and P != None):
         polyIDs = [i for i in range(P)]
+
+    if (shape == 'RndConvexPoly'):
+        if ('maxNumSide' not in kwargs):
+            kwargs['maxNumSide'] = 7
+            warnings.warn("WARNING: Missing `maxNumSide`, set to be default as 7")
+        if ('maxDiag' not in kwargs):
+            kwargs['maxDiag'] = 12
+            warnings.warn("WARNING: Missing `maxDiag`, set to be default as 12")
+        if ('minDiag' not in kwargs):
+            kwargs['minDiag'] = 7
+            warnings.warn("WARNING: Missing `minDiag`, set to be default as 7")
 
     # If overlapping is allowed ===============================================
     if (allowOverlapFlag):

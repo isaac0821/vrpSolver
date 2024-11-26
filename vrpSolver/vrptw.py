@@ -10,7 +10,6 @@ from .geometry import *
 from .msg import *
 from .travel import *
 
-@runtime("solveVRPTW")
 def solveVRPTW(
     nodes: dict, 
     numVeh: int,

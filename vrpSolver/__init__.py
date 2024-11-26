@@ -1,4 +1,4 @@
-__version__ = "0.0.56"
+__version__ = "0.0.57"
 __author__ = "Lan Peng"
 
 # A few SE tips/notes =========================================================
@@ -39,4 +39,4 @@ from .vrptw import *
 from .op import *
 
 # Close enough TSP
-# from .cetsp import *
+from .cetsp import *
