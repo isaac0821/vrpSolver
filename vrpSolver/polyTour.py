@@ -565,8 +565,6 @@ def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', se
         Default field name for polygon
     seqDegenFlag: boolean, optional, default False
         True if the sequence has already been processed to remove degenerated points.
-    turnPts: list of dict, optional, default None
-        A list of dictionaries, each includes a coordinate and a polygon ID that the turn point is attached to.
 
     Return
     ------
@@ -581,12 +579,25 @@ def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', se
 
     # Step 0: turnPts =========================================================
     # NOTE: 所有的转折点必须在一个多边形的边缘上，所以必须给每个turn point找到一个polygon
+    # NOTE: 只有出现了转折点本身在一个多边形的边缘上才需要记录tangle的形式，否则都会作为seg的一部分
     turnPts = {}
-    for pt in seq:
-        # 记录每个转折点在哪些polygon内
+    for i in range(len(seq)):
+        pt = seq[i]
+        # 记录到每个polygon的距离
+        tansPolys = []
+        inerPolys = []
         for p in polygons:
-            
-
+            d2Edge = distPt2Seq(pt = pt, seq = polygons[p][polyFieldName], closedFlag = True)
+            if (d2Edge <= 0.03):
+                tansPolys.append(p)
+                inerPolys.append(p)
+            if (isPtInPoly(pt=pt, poly=polygons[p][polyFieldName])):
+                inerPolys.append(p)
+        turnPts[i] = {
+            'loc': seq[i],
+            'tansPolys': tansPolys,
+            'inerPolys': inerPolys
+        }
 
     # Step 1: Initialize ======================================================
     segIntPoly = {}
@@ -594,16 +605,28 @@ def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', se
     for i in range(len(seq) - 1):
         segIntPoly[i] = {
             'seg': [seq[i], seq[i + 1]],
-            'startMilage': accMileage,
-            'intPolys': []
+            'startMileage': accMileage,
+            'intPolys': [],
+            'stTangPt': None,
         }
+        if (len(turnPts[i]['tansPolys']) > 0):
+            segIntPoly[i]['stTangPt'] = {
+                'shape': seq[i],
+                'type': 'Point',
+                'belong': turnPts[i]['inerPolys'],
+                'mileage': accMileage
+            }
         accMileage += distEuclideanXY(seq[i], seq[i + 1])['dist']
         segIntPoly[i]['endMileage'] = accMileage
 
     # Step 2: For each segment, gets polygon intersected ======================
     for i in segIntPoly:
         segIntPoly[i]['intMileageList'] = []
-        st = segIntPoly[i]['startMilage']
+        st = segIntPoly[i]['startMileage']
+        ed = segIntPoly[i]['endMileage']
+
+        segIntPoly[i]['intMileageList'].append((st, -1, segIntPoly[i]['seg'][0], 'start'))
+
         for p in polygons:
             segInt = intSeg2Poly([seq[i], seq[i + 1]], polygons[p][polyFieldName])
             # 如果交出多个来的话，分别计算
@@ -622,11 +645,13 @@ def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', se
                             segIntPoly[i]['intMileageList'].append((d2 + st, p, int2, 'enter'))
                             segIntPoly[i]['intMileageList'].append((d1 + st, p, int1, 'leave'))
                             
-                    # 如果交出一个点，计算点的mileage
+                    # 如果交出一个点，计算点的mileage, 这个点不能是两边端点
                     elif (s['status'] == 'Cross' and s['intersectType'] == 'Point'):
                         intP = s['intersect']
-                        dP = distEuclideanXY(segIntPoly[i]['seg'][0], intP)['dist']
-                        segIntPoly[i]['intMileageList'].append((dP + st, p, intP, 'tangle'))
+                        if (not is2PtsSame(intP, segIntPoly[i]['seg'][0]) and not is2PtsSame(intP, segIntPoly[i]['seg'][1])):
+                            dP = distEuclideanXY(segIntPoly[i]['seg'][0], intP)['dist']
+                            segIntPoly[i]['intMileageList'].append((dP + st, p, intP, 'tangle'))
+
             # 如果交出一个线段，计算线段的起始结束mileage
             elif (segInt['status'] == 'Cross' and segInt['intersectType'] == 'Segment'):
                 int1 = segInt['intersect'][0]
@@ -644,16 +669,21 @@ def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', se
                 intP = segInt['intersect']
                 dP = distEuclideanXY(segIntPoly[i]['seg'][0], intP)['dist']
                 segIntPoly[i]['intMileageList'].append((dP + st, p, intP, 'tangle'))
+
         # 对intMileageList进行排序
         segIntPoly[i]['intMileageList'].sort()
+        segIntPoly[i]['intMileageList'].append((ed, -1, segIntPoly[i]['seg'][1], 'end'))
 
     # Step 3: Restore =========================================================
     segSet = []
     for i in segIntPoly:
         polyInside = []
         segIntPoly[i]['segSet'] = []
-        curMileage = segIntPoly[i]['startMilage']
+        curMileage = segIntPoly[i]['startMileage']
         curPt = segIntPoly[i]['seg'][0]
+        if (segIntPoly[i]['stTangPt'] != None):
+            segSet.append(segIntPoly[i]['stTangPt'])
+
         for k in range(len(segIntPoly[i]['intMileageList'])):
             # 下一个点
             newMileage = segIntPoly[i]['intMileageList'][k][0]
@@ -1038,3 +1068,146 @@ def polyPath2Mileage(repSeq: list, path: list[pt], nodes: dict, polyFieldName: s
                     turnPtMileageAcc += dist
 
     return mileage
+
+def serviceTimeCETSP(
+    seq: list[pt], 
+    polygons: dict, 
+    maxSpeed: float, 
+    demand: float,
+    polyFieldName: str = 'polygon',
+    mode: str = "AccuOverlap"):
+
+    seq = seqRemoveDegen(
+        seq = seq, 
+        error = 0.03)['newSeq']
+
+    # 每个Seg所属的polygon的集合: segSet[seg]['belong']
+    segSet = segSetSeq2Poly(
+        seq = seq, 
+        polygons = polygons, 
+        polyFieldName = 'neighbor',
+        seqDegenFlag = True)
+
+    # 补充计算下每段的长度
+    for i in range(len(segSet)):
+        if (segSet[i]['type'] == 'Segment'):
+            segSet[i]['length'] = distEuclideanXY(segSet[i]['shape'][0], segSet[i]['shape'][1])['dist']
+        else:
+            segSet[i]['length'] = 0
+
+    # 配置demand service time
+    for p in polygons:
+        if ('demandST' not in polygons[p]):
+            polygons[p]['demandST'] = demand
+        polygons[p]['serviceTime'] = 0
+
+    # 每个polygon内的seg的集合
+    for p in polygons:
+        polygons[p]['segSet'] = []
+    for i in range(len(segSet)):
+        for p in segSet[i]['belong']:
+            polygons[p]['segSet'].append(i)
+
+    ST = grb.Model("ServiceTime")
+    ST.setParam('LogToConsole', 1)
+    ST.setParam('OutputFlag', 1)
+    ST.modelSense = grb.GRB.MINIMIZE
+
+    # Decision variables ======================================================
+    # csp - Binary, 1 if segment s is to serve polygon p
+    csp = {}
+    hasGRB = []
+    for s in range(len(segSet)):
+        for p in polygons:
+            if (p in segSet[s]['belong']):
+                csp[s, p] = ST.addVar(vtype = grb.GRB.BINARY)
+                hasGRB.append((s, p))
+            else:
+                csp[s, p] = 0
+
+    # Travel time on each segment s
+    ts = {}
+    for s in range(len(segSet)):
+        ts[s] = ST.addVar(vtype = grb.GRB.CONTINUOUS, obj = 1)
+
+    # Aux variables to ensure continuous visit
+    hL = {}
+    hR = {}
+    for s in range(len(segSet)):
+        for p in polygons:
+            hL[s, p] = ST.addVar(vtype = grb.GRB.BINARY)
+            hR[s, p] = ST.addVar(vtype = grb.GRB.BINARY)
+
+    # Constraints =============================================================
+    # 每个seg的时间至少是ts[s]
+    for s in range(len(segSet)):
+        ST.addConstr(ts[s] >= segSet[s]['length'] / maxSpeed)
+    # 每个poly的服务时长需要满足
+    for p in polygons:
+        ST.addConstr(grb.quicksum(csp[s, p] * ts[s] for s in polygons[p]['segSet']) >= polygons[p]['demandST'])
+
+    # Accu v.s. Cont ==========================================================
+    if (mode == "ContOverlap" or mode == "ContNonOverlap"):
+        for p in polygons:
+            for s in range(len(segSet)):
+                ST.addConstr(hL[s, p] + hR[s, p] <= 1)
+            for s in range(len(segSet)):
+                for k in range(len(segSet)):
+                    if (k < s):
+                        ST.addConstr(hL[s, p] >= csp[k, p] - len(segSet) * csp[s, p])
+                    elif (k > s):
+                        ST.addConstr(hR[s, p] >= csp[k, p] - len(segSet) * csp[s, p])
+    # Overlap v.s. nonOverlap =================================================
+    if (mode == "AccuNonOverlap" or mode == "ContNonOverlap"):
+        for s in range(len(segSet)):
+            ST.addConstr(grb.quicksum(csp[s, p] for p in segSet[s]['belong']) <= 1)
+
+    ST.update()
+    ST.optimize()
+
+    # Rebuild solution ========================================================
+    ofv = None
+    if (ST.status == grb.GRB.status.OPTIMAL):
+        ofv = ST.getObjective().getValue()
+
+        # 计算每个点上的时间
+        timedSeq = []
+        for s in range(len(segSet)):
+            segSet[s]['duration'] = ts[s].x
+
+        # 每段的Note
+        noteSeq = []
+        for s in range(len(segSet)):
+            objs = []
+            for (k, p) in csp:
+                if (k == s and (k, p) in hasGRB and csp[k, p].x > 0.9):
+                    objs.append(p)
+            noteSeq.append(
+                "Obj: " + list2String(objs) + "\n" + 
+                "Dur: " + str(round(ts[s].x, 2)) + "\n" + 
+                "Len: " + str(round(segSet[s]['length'], 2)))
+
+        # 出入每个边界点的时间戳
+        accTravelTime = 0
+        for i in range(len(segSet)):
+            if (type(segSet[i]['mileage']) == list):
+                timedSeq.append((segSet[i]['shape'][0], accTravelTime))
+                accTravelTime += segSet[i]['duration']
+            else:
+                timedSeq.append((segSet[i]['shape'], accTravelTime))
+                accTravelTime += segSet[i]['duration']
+        if (type(segSet[len(segSet)-1]['mileage']) == list):
+            timedSeq.append((segSet[len(segSet)-1]['shape'][1], accTravelTime))
+        else:
+            timedSeq.append((segSet[len(segSet)-1]['shape'], accTravelTime))
+
+        # 记录每个polygon累计服务时间
+        for (s, p) in csp:
+            if ((s, p) in hasGRB and csp[s, p].x > 0.9):
+                polygons[p]['serviceTime'] += segSet[s]['duration']
+
+    return {
+        'ofv': ofv,
+        'timedSeq': timedSeq,
+        'note': noteSeq
+    }

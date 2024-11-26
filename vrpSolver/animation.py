@@ -25,7 +25,6 @@ def aniRouting(
     nodeMarkerSize: float = 2,
     # Vehicles ----------------------------------------------------------------
     vehicles: dict|None = None,
-    vehLocFieldName: str = 'loc',
     vehTimedSeqFieldName: str = 'timedSeq',
     vehLabelFieldName: str = 'label',
     vehNoteFieldName: str = 'note',
