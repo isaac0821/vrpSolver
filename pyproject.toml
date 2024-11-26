@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vrpSolver"
-version = "0.0.56"
+version = "0.0.57"
 authors = [
   { name="Lan Peng", email="lanpeng@shu.edu.cn" },
 ]
