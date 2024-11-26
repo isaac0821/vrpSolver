@@ -993,6 +993,52 @@ class IntervalTreeNilNode(IntervalTreeNode):
     @property
     def isNil(self):
         return True
+
+class SimpleTimeWindowsTree(RedBlackTree):
+    def __init__(self):
+        self.nil = IntervalTreeNode(None, None, None, color='B')
+        self.root = self.nil
+
+    @property    
+    def isEmpty(self):
+        if (self.root == self.nil):
+            return True
+        else:
+            return False
+
+    def query(self, t):
+        def search(n, t):
+            if (n == self.nil):
+                return self.nil
+            if (n.lower <= t and t <= n.upper):
+                return n
+            if (t < n.lower):
+                return search(n.left, t)
+            elif (t > n.upper):
+                return search(n.right, t)
+        return search(self.root, t)
+
+    def earlisetAvail(self, t):
+        visited = []
+        def search(n, t):
+            if (n == self.nil):
+                return self.nil
+            else:
+                visited.append(n)
+            if (n.lower <= t and t <= n.upper):
+                return n
+            if (t < n.lower):
+                return search(n.left, t)
+            elif (t > n.upper):
+                return search(n.right, t)
+        s = search(self.root, t)
+        if (s != self.nil):
+            return t, s
+        elif (t > visited[-1].upper):
+            i = self.next(visited[-1])
+            return i.lower, i
+        elif (t < visited[-1].lower):
+            return visited[-1].lower, visited[-1]
     
 class IntervalTree(RedBlackTree):
     def __init__(self):
@@ -1020,3 +1066,369 @@ class IntervalTree(RedBlackTree):
             return self._search(n.left, t)
         elif (t > n.upper):
             return self._search(n.right, t)
+
+class Job(object):
+    def __init__(self, length):
+        self.length = length
+
+class JobTimeWindowed(Job):
+    def __init__(self, key, twTree):
+        self.key = key
+        self.twTree = twTree
+        
+class JobNode(object):
+    def __init__(self, key, job, value=None, ts=None, te=None, prev=None, succ=None):
+        self.key = key
+        self.job = job
+        self.value = value
+        self.ts = ts
+        self.te = te
+        self.prev = prev
+        self.succ = succ
+
+class ScheduleList(object):
+    def __init__(self, tabuTWs = None):
+        self.head = None
+        self.tail = None         # tail要单独处理, 只有一个元素的时候tail是head的复制
+        self.tabuTWs = tabuTWs   # 禁止时间窗
+
+    @property
+    def makespan(self):
+        if (self.tail != None):
+            return self.tail.te
+        else:
+            return 0
+
+    @property
+    def length(self):
+        l = len([i for i in self.traverse()])
+        return l
+
+    def query(self, key):
+        n = self.head
+        while (n != None and n.key != key):
+            n = n.succ
+        if (n == None):
+            raise KeyNotExistError("%s does not exist" % key)  
+        return n
+
+    def clone(self):
+        c = ScheduleList(self.tabuTWs)
+        tr = self.traverse()
+        tc = []
+        for i in range(len(tr)):
+            tc.append(JobNode(
+                key = tr[i].key,
+                value = tr[i].value,
+                ts = tr[i].ts,
+                te = tr[i].te,
+                prev = tc[i - 1] if i >= 1 else None))
+        for i in range(len(tr)):
+            tc[i].succ = tc[i + 1] if (i < len(tr) - 1) else None
+        if (len(tc) > 0):
+            c.head = tc[0]
+            c.tail = tc[-1]
+        return c
+
+    def traverse(self):
+        traverse = []
+        n = self.head
+        if (self.head == None):
+            return []
+        while (n.succ != None):
+            traverse.append(n)
+            n = n.succ
+        traverse.append(n)
+        return traverse
+
+    def traverseKey(self):
+        traverse = []
+        n = self.head
+        if (self.head == None):
+            return []
+        while (n.succ != None):
+            traverse.append(n.key)
+            n = n.succ
+        traverse.append(n.key)
+        return traverse
+
+    def append(self, key, job):
+        # NOTE: Does not need to update time windows
+        n = JobNode(key, job)
+        n.ts = self.te
+        n.te = self.te + n.job.length
+        n.prev = self.tail
+        n.succ = None
+
+        # For empty linked list
+        if (self.head == None):
+            self.head = n
+            self.tail = n
+        # If there is only one element
+        elif (self.head != None and self.head.succ == None):
+            self.head.succ = n
+            self.tail = n
+        else:
+            self.tail.succ = n
+            self.tail = n
+        return
+
+    def remove(self, key):
+        if (self.head == None):
+            raise KeyNotExistError("%s does not exist" % key)
+        elif (self.head != None and self.head.succ == None):
+            if (self.head.key == key):
+                self.head = None
+                self.tail = None
+            else:
+                raise KeyNotExistError("%s does not exist" % key)
+        # At lease there are more than one node
+        elif (self.head != None and self.head.succ != None):
+            # Search from the beginning
+            n = self.query(key)
+            # Remove key node that is not the head
+            if (n.prev != None):
+                # Remove n
+                n.prev.succ = n.succ
+            else:
+                self.head = n.succ
+            if (n.succ != None):
+                n.succ.prev = n.prev
+                # NOTE: 移除了一个节点之后原先后续的节点开始要更新time windows, 直至第一个没有被更新的job
+                self.updateFromNode(n.succ)
+            else:
+                self.tail = n.prev           
+        return
+
+    def insert(self, key, newJID):
+        # insert newJID right BEFORE key, if key == None, append to the linked list
+        # Old:  = = =  p   n s = =
+        # New:  = = p newN n s = =
+        if (self.head == None):
+            raise KeyNotExistError("%s does not exist" % key)
+        if (key == None):
+            self.append(newJID)
+        elif (self.head != None and self.head.succ == None):
+            if (self.head.key == key):
+                n = self.head
+                newN = JobNode(newJID)
+                (t, interval) = self.jobs[newJID]['twTree'].earlisetAvail(0)
+                newN.ts = t
+                newN.te = t + interval.value
+                newN.succ = n
+                newN.prev = None
+                self.head = newN
+                self.tail = n
+                n.prev = newN
+                n.succ = None
+                self.updateFromNode(n)
+            else:
+                raise KeyNotExistError("%s does not exist" % key)
+        elif (self.head != None and self.head.succ != None):
+            # Find key
+            n = self.query(key)
+            # Create a newJID node
+            newN = JobNode(newJID)
+            (t, interval) = self.jobs[newJID]['twTree'].earlisetAvail(n.prev.te if n.prev != None else 0)  # O(log I)
+            newN.ts = t
+            newN.te = t + interval.value
+            # Insert newN between n and n.succ
+            newN.succ = n
+            newN.prev = n.prev
+            # Update the link
+            if (n.prev != None):
+                n.prev.succ = newN
+            else:
+                self.head = newN
+            n.prev = newN
+            self.updateFromNode(n)
+        return
+
+    def cheapInsert(self, key):
+        if (self.head == None):
+            self.append(key)
+            return
+        
+        # Naive way
+        # Step 1: Insert to head of linked list
+        # Step 2: Swap from head to tail, log the makespan
+        # Step 3: Remove the tail
+        # Step 4: Insert to best position
+
+        # Step 1: Insert to head of linked list
+        bestInsert = self.head.key
+        self.insert(self.head.key, key)
+        bestMakespan = self.makespan
+        # print("Step 1")
+        # self.print()
+
+        # Step 2: Swap from head to tail, log the makespan
+        n = self.head.succ # Must be not-None, the origin head
+        pos = n.key
+        while(n != None):
+            insert = n.succ.key if n.succ != None else None
+            self.swap(key, pos)
+            # print("Step 2", pos)
+            # self.print()
+            if (self.makespan < bestMakespan):
+                bestInsert = insert
+                bestMakespan = self.makespan
+            n = n.succ.succ
+            if (n != None):
+                pos = n.key
+
+        if (bestInsert != None):
+            # Step 3: Remove the tail
+            self.tail.prev.succ = None
+            self.tail = self.tail.prev
+            # print("Step 3")
+            # self.print()
+
+            # Step 4: Insert to the best position
+            self.insert(bestInsert, key)
+            # print("Step 4")
+            # self.print()
+        else:
+            # If `bestInsert == None` we don need to remove the tail and add it back
+            pass
+        return
+
+    def replace(self, oldJID, newJID):
+        if (self.head == None):
+            raise KeyNotExistError("%s does not exist" % key)
+        elif (self.head != None and self.head.succ == None):
+            if (self.head.key == oldJID):
+                n = JobNode(newJID)
+                # interval will not be None since the last interval is to inf
+                (t, interval) = self.jobs[newJID]['twTree'].earlisetAvail(0)  # O(log I)
+                n.ts = t
+                n.te = t + interval.value
+                n.prev = None
+                n.succ = None
+                self.head = n
+                self.tail = n
+            else:
+                raise KeyNotExistError("%s does not exist" % oldJID)
+        # At lease there are more than one node
+        elif (self.head != None and self.head.succ != None):
+            # Find key
+            n = self.query(oldJID)
+            # Create a newJID node
+            newN = JobNode(newJID)
+            (t, interval) = self.jobs[newJID]['twTree'].earlisetAvail(n.prev.te if n.prev != None else 0)  # O(log I)
+            newN.ts = t
+            newN.te = t + interval.value
+            # Replace
+            newN.prev = n.prev
+            newN.succ = n.succ
+            # Update link
+            if (n.prev != None):
+                n.prev.succ = newN
+            else:
+                self.head = newN
+            if (n.succ != None):
+                n.succ.prev = newN
+            else:
+                self.tail = newN
+            if (newN.succ != None):
+                # NOTE: newN的时间窗已经计算过了，所以更新时间窗从newN的下一个开始
+                self.updateFromNode(newN.succ)
+        return
+
+    def swap(self, keyI, keyJ):
+        if (self.head == None):
+            raise KeyNotExistError("%s and %s does not exist." % (keyI, keyJ))
+        # Find nI and nJ
+        # FIXME: these two lines can be merged into one query
+        nI = None
+        nJ = None
+        n = self.head
+        while (n != None):
+            if (n.key == keyI):
+                nI = n
+            if (n.key == keyJ):
+                nJ = n
+            if (nI != None and nJ != None):
+                break
+            n = n.succ
+
+        if (n == None):
+            if (nI == None and nJ != None):
+                raise KeyNotExistError("%s does not exist" % keyI)
+            if (nI != None and nJ == None):
+                raise KeyNotExistError("%s does not exist" % keyJ)
+            if (nI == None and nJ == None):
+                raise KeyNotExistError("%s and %s does not exist" % (keyI, keyJ))
+
+        if ((nI.succ != None and nI.succ.key == keyJ)
+            or (nJ.succ != None and nJ.succ.key == keyI)):
+            # Old: = = = p nI nJ s = = =
+            # New: = = = p nJ nI s = = =
+            if (nI.succ == nJ):
+                if (nI.prev != None):
+                    nI.prev.succ = nJ
+                else:
+                    self.head = nJ
+                if (nJ.succ != None):
+                    nJ.succ.prev = nI
+                else:
+                    self.tail = nI
+
+                nI.prev, nI.succ, nJ.prev, nJ.succ = nJ, nJ.succ, nI.prev, nI
+            else:
+                if (nJ.prev != None):
+                    nJ.prev.succ = nI
+                else:
+                    self.head = nI
+                if (nI.succ != None):
+                    nI.succ.prev = nJ
+                else:
+                    self.tail = nJ
+                nJ.prev, nJ.succ, nI.prev, nI.succ = nI, nI.succ, nJ.prev, nJ
+        else:
+            # Update links
+            # Old: = = = pI nI sI = = pJ nJ sJ = = =
+            # New: = = = pI nJ sI = = pJ nI sJ = = =
+            if (nI.prev != None):
+                nI.prev.succ = nJ
+            else:
+                self.head = nJ
+            if (nI.succ != None):
+                nI.succ.prev = nJ
+            else:
+                self.tail = nJ
+            if (nJ.prev != None):
+                nJ.prev.succ = nI
+            else:
+                self.head = nI
+            if (nJ.succ != None):
+                nJ.succ.prev = nI
+            nI.prev, nJ.prev = nJ.prev, nI.prev
+            nI.succ, nJ.succ = nJ.succ, nI.succ
+        
+        # Update links
+        # FIXME: this needs to be improved
+        self.updateFromNode(nJ)
+        if (nJ.succ != None):
+            self.updateFromNode(nJ.succ)
+        self.updateFromNode(nI)
+        if (nI.succ != None):
+            self.updateFromNode(nI.succ)
+        return
+
+    def updateFromNode(self, n=None):
+        # Update the time windows starts from n, until we find a tw that is invariant
+        if (n == None):
+            n = self.head
+        while (n != None):
+            (t, interval) = self.jobs[n.key]['twTree'].earlisetAvail(n.prev.te if n.prev != None else 0)
+            newTs = t
+            newTe = t + interval.value
+            if (abs(newTs - n.ts) < CONST_EPSILON and abs(newTe - n.te) < CONST_EPSILON):
+                break
+            else:
+                n.ts = newTs
+                n.te = newTe
+                n = n.succ
+        return
+

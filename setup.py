@@ -1,5 +1,5 @@
 import setuptools
-from vrpSolver import __version__
+# from vrpSolver import __version__
 
 long_description = """
 	Working project: Learn VRP by coding
@@ -7,7 +7,7 @@ long_description = """
 
 setuptools.setup(
 	name="vrpSolver",
-	version=__version__,
+	version="0.0.56",
 	author="Lan Peng",
 	author_email="lanpeng@shu.edu.cn",
 	description="VRP Solver",

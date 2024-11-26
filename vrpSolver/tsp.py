@@ -16,7 +16,6 @@ def solveTSP(
     vehicles: dict = {0: {'speed': 1}},
     vehicleID: int|str = 0,
     serviceTime: float = 0,
-    predefinedArcs: list[list[tuple[int|str]]] = [],
     edges: str = 'Euclidean',
     algo: str = 'IP',
     detailsFlag: bool = False,
@@ -44,8 +43,6 @@ def solveTSP(
         The vehicle that takes the TSP route in `vehicles`.
     serviceTime: float, optional, default as 0
         The service time needed at each location. If `serviceTime` is provided in `nodes`, it will be ignored.
-    predefinedArcs: list of nodeID pairs, optional, default as []
-        In some cases, some of the arcs are predefined, they will be modeled as additional constraints.
     edges: string, optional, default as 'Euclidean'
         The methods for the calculation of distances between nodes. Options and required additional information are referred to :func:`~vrpSolver.geometry.matrixDist()`.
     algo: string, optional, default as 'IP'
@@ -120,8 +117,10 @@ def solveTSP(
             raise MissingParameterError("ERROR: Cannot find `vehicleID` in `vehicles`.")
 
     if (algo == 'IP'):
-        if ('solver' not in kwargs):
-            raise MissingParameterError("ERROR: Missing required field `solver`.")
+        if ('solver' not in kwargs and 'fml' not in kwargs):
+            kwargs['solver'] = 'Gurobi'
+            kwargs['fml'] = 'DFJ_Lazy'
+            warnings.warn("WARNING: Missing required field `solver`, set to default 'Gurobi' with DFJ + lazy cuts")
         elif (kwargs['solver'] == 'Gurobi' and kwargs['fml'] not in ['DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', 'QAP']):
             raise OutOfRangeError("ERROR: Gurobi option s upports 'DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', and 'QAP' formulations", )
         elif (kwargs['solver'] == 'COPT' and kwargs['fml'] not in ['DFJ_Lazy']):
@@ -129,10 +128,6 @@ def solveTSP(
     elif (algo == 'Heuristic'):
         if ('cons' not in kwargs and 'impv' not in kwargs):
             raise MissingParameterError(ERROR_MISSING_TSP_ALGO)
-
-    if (predefinedArcs != None and len(predefinedArcs) > 0):
-        if (not (algo == 'IP' and 'fml' in kwargs and kwargs['fml'] in ['DFJ_Lazy'])):
-            raise OutOfRangeError("ERROR: TSP with pre-defined arcs is supported by DFJ_Lazy only, for now.")
 
     # Define tau ==============================================================
     tau = None
@@ -162,7 +157,7 @@ def solveTSP(
     # TSP =====================================================================
     tsp = None
     if (algo == 'IP'):
-        outputFlag = None if 'outputFlag' not in kwargs else kwargs['outputFlag']
+        outputFlag = False if 'outputFlag' not in kwargs else kwargs['outputFlag']
         timeLimit = None if 'timeLimit' not in kwargs else kwargs['timeLimit']
         gapTolerance = None if 'gapTolerance' not in kwargs else kwargs['gapTolerance']
         tsp = _ipTSP(
@@ -170,7 +165,6 @@ def solveTSP(
             tau = tau, 
             solver = kwargs['solver'], 
             fml = kwargs['fml'], 
-            predefinedArcs = predefinedArcs, 
             outputFlag = outputFlag, 
             timeLimit = timeLimit, 
             gapTolerance = gapTolerance)
@@ -287,11 +281,11 @@ def solveTSP(
 
     return res
 
-def _ipTSP(nodeIDs, tau, solver, fml, predefinedArcs, outputFlag, timeLimit, gapTolerance) -> dict|None:
+def _ipTSP(nodeIDs, tau, solver, fml, outputFlag, timeLimit, gapTolerance) -> dict|None:
     tsp = None
     if (solver == 'Gurobi'):
         if (fml == 'DFJ_Lazy'):
-            tsp = _ipTSPGurobiLazyCuts(nodeIDs, tau, predefinedArcs, outputFlag, timeLimit, gapTolerance)
+            tsp = _ipTSPGurobiLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance)
         elif (fml == 'DFJ_Plainloop'):
             tsp = _ipTSPGurobiPlainLoop(nodeIDs, tau, outputFlag, timeLimit, gapTolerance)
         elif (fml == 'MTZ'):
@@ -310,7 +304,7 @@ def _ipTSP(nodeIDs, tau, solver, fml, predefinedArcs, outputFlag, timeLimit, gap
     
     return tsp
 
-def _ipTSPGurobiLazyCuts(nodeIDs, tau, predefinedArcs, outputFlag, timeLimit, gapTolerance):
+def _ipTSPGurobiLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     try:
         import gurobipy as grb
     except:
@@ -345,14 +339,6 @@ def _ipTSPGurobiLazyCuts(nodeIDs, tau, predefinedArcs, outputFlag, timeLimit, ga
     for i in nodeIDs:
         TSP.addConstr(grb.quicksum(x[i, j] for j in nodeIDs if i != j) == 1, name = 'leave_%s' % str(i))
         TSP.addConstr(grb.quicksum(x[j, i] for j in nodeIDs if i != j) == 1, name = 'enter_%s' % str(i))
-
-    # Predefined arcs =========================================================
-    if (predefinedArcs != None and len(predefinedArcs) > 0):
-        for arcs in predefinedArcs:
-            for arc in arcs:
-                if ((arc[0], arc[1]) not in x or (arc[1], arc[0]) not in x):
-                    raise UnsupportedInputError("ERROR: Cannot find arc[%s, %s] and/or arc[%s, %s]" % (arc[0], arc[1], arc[1], arc[0]))
-            TSP.addConstr(grb.quicksum(x[arc[0], arc[1]] for arc in arcs) == 1)
 
     # Sub-tour elimination ====================================================
     TSP._x = x

@@ -1,6 +1,5 @@
 import math
 import random
-import tripy
 import warnings
 
 from .common import *
@@ -21,7 +20,7 @@ def rndLocs(
     N: integer, required
         Number of locations/vertices/customers to be randomly created
     distr: string, optional, default as 'UniformSquareXY'
-        Spatial distribution of locations, options and required addtional inputs are as follows:
+        Spatial distribution of locations, options and required additional inputs are as follows:
 
         1) (default) 'UniformSquareXY', uniformly sample from a square on the Euclidean space
             - xRange: 2-tuple, with minimum/maximum range of x, default as (0, 100)
@@ -29,7 +28,7 @@ def rndLocs(
         2) 'UniformPolyXY', uniformly sample from a given polygon
             - polyXY: poly, the polygon of the area, (no holes)
             - polyXYs: list of polys, alternative option for `polyXY`
-        3) 'UniformAvoidPolyXY', uniformly sample from a squre avoiding some polygons
+        3) 'UniformAvoidPolyXY', uniformly sample from a square avoiding some polygons
             - xRange: 2-tuple, with minimum/maximum range of x, default as (0, 100)
             - yRange: 2-tuple, with minimum/maximum range of y, default as (0, 100)
             - polyXY: poly, the polygon of the area, (no holes)
@@ -300,8 +299,8 @@ def _rndPtUniformTriangleXY(triangle: poly) -> pt:
 
 def _rndPtUniformPolyXY(poly: poly) -> pt:
     # Get list of triangles ===================================================
-    # TODO: tripy.earclip() to be replaced
-    lstTriangle = tripy.earclip(poly)
+    # TODO: polyTriangulation() to be replaced
+    lstTriangle = polyTriangulation(poly)
 
     # Weight them and make draws ==============================================
     lstWeight = []
@@ -316,10 +315,10 @@ def _rndPtUniformPolyXY(poly: poly) -> pt:
 
 def _rndPtUniformPolyXYs(polys: polys) -> pt:
     # Get all triangulated triangles ==========================================
-    # TODO: tripy.earclip() to be replaced
+    # TODO: polyTriangulation() to be replaced
     lstTriangle = []
     for p in polys:
-        lstTriangle.extend(tripy.earclip(p))
+        lstTriangle.extend(polyTriangulation(p))
 
     # Weight them and make draws ==============================================
     lstWeight = []
@@ -708,9 +707,31 @@ def rndNodeNeighbors(
                 r = kwargs['minDiag'] / 2 + random.uniform(0, 1) * (kwargs['maxDiag'] - kwargs['minDiag']) / 2
                 polyPts.append(ptInDistXY(
                     pt = nodes[n][locFieldName], direction = deg, dist = r))
-                poly = shapely.convex_hull(shapely.MultiPoint(points = polyPts))
-                nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON]
-        
+            polyShapely = shapely.convex_hull(shapely.MultiPoint(points = polyPts))
+            poly = [i for i in mapping(polyShapely)['coordinates'][0]]
+            nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON]
+
+    elif (shape == 'RndStar'):
+        for n in nodeIDs:
+            if ('maxNumSide' not in kwargs):
+                raise MissingParameterError("ERROR: Missing required args 'maxNumSide'")
+            if ('maxDiag' not in kwargs):
+                raise MissingParameterError("ERROR: Missing required args 'maxDiag'")
+            if ('minDiag' not in kwargs):
+                raise MissingParameterError("ERROR: Missing required args 'minDiag'")
+
+            degs = []
+            for i in range(kwargs['maxNumSide']):
+                degs.append(random.uniform(0, 1) * 360)
+            degs.sort()
+
+            polyPts = []
+            for i in range(kwargs['maxNumSide']):
+                r = kwargs['minDiag'] / 2 + random.uniform(0, 1) * (kwargs['maxDiag'] - kwargs['minDiag']) / 2
+                polyPts.append(ptInDistXY(
+                    pt = nodes[n][locFieldName], direction = degs[i], dist = r))
+            nodes[n][neighborFieldName] = [polyPts[i] for i in range(len(polyPts)) if distEuclideanXY(polyPts[i], polyPts[i - 1])['dist'] > CONST_EPSILON]
+
     else:
         raise UnsupportedInputError("ERROR: Unsupported option for `kwargs`. Supported 'shape' includes: 'Poly', 'Circle', 'Egg', 'RndSquare', 'RndConvexPoly' and 'RndCurvy'.")
 
@@ -796,7 +817,7 @@ def rndPolys(
     P: int|None = None,
     polyIDs: list[int|str]|None = None,
     distr = 'UniformSquareXY',
-    shape = 'Circle',
+    shape = 'RndConvexPoly',
     anchorFieldName = 'anchor',
     polyFieldName = 'poly',    
     allowOverlapFlag = True,
@@ -836,9 +857,19 @@ def rndPolys(
     # Sanity check ============================================================
     if (polyIDs == None and P == None):
         raise MissingParameterError("ERROR: Missing required field `P` and `polyIDs`.")
-    
     elif (polyIDs == None and P != None):
         polyIDs = [i for i in range(P)]
+
+    if (shape == 'RndConvexPoly'):
+        if ('maxNumSide' not in kwargs):
+            kwargs['maxNumSide'] = 7
+            warnings.warn("WARNING: Missing `maxNumSide`, set to be default as 7")
+        if ('maxDiag' not in kwargs):
+            kwargs['maxDiag'] = 12
+            warnings.warn("WARNING: Missing `maxDiag`, set to be default as 12")
+        if ('minDiag' not in kwargs):
+            kwargs['minDiag'] = 7
+            warnings.warn("WARNING: Missing `minDiag`, set to be default as 7")
 
     # If overlapping is allowed ===============================================
     if (allowOverlapFlag):

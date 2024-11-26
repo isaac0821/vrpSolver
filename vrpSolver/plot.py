@@ -77,7 +77,7 @@ def plotLocs(
         # Define color --------------------------------------------------------
         color = None
         if (locColor == 'Random'):
-            color = colorRandom()
+            color = rndColor()
         else:
             color = locColor
 
@@ -146,7 +146,7 @@ def plotLocs3D(
         # Define color --------------------------------------------------------
         color = None
         if (locColor == 'Random'):
-            color = colorRandom()
+            color = rndColor()
         else:
             color = locColor
 
@@ -257,7 +257,7 @@ def plotNodes(
         if ('color' in nodes[n]):
             color = nodes[n]['color']
         elif (nodeColor == 'Random'):
-            color = colorRandom()
+            color = rndColor()
         else:
             color = nodeColor
 
@@ -426,8 +426,8 @@ def plotArcs(
         dx = x2 - x1
         dy = y2 - y1
         if (arcColor == 'Random'):
-            rndColor = colorRandom()
-            ax.plot([x1, x2], [y1, y2], color = rndColor, linewidth=arcWidth, linestyle = arcStyle, dashes = arcDashes)
+            rndRGB = rndColor()
+            ax.plot([x1, x2], [y1, y2], color = rndRGB, linewidth=arcWidth, linestyle = arcStyle, dashes = arcDashes)
             if (arrowFlag):
                 deg = headingXY([x1, y1], [x2, y2])
                 ptC = [x1 + (x2 - x1) * arrowPosition, y1 + (y2 - y1) * arrowPosition]
@@ -435,8 +435,8 @@ def plotArcs(
                 ptH = ptInDistXY(ptC, direction = deg, dist = arrowHeadLength / 2)
                 pt1 = ptInDistXY(ptM, direction = deg + 90, dist = arrowHeadWidth / 2)
                 pt2 = ptInDistXY(ptM, direction = deg - 90, dist = arrowHeadWidth / 2)
-                ax.fill([ptH[0], pt1[0], pt2[0]], [ptH[1], pt1[1], pt2[1]], facecolor=rndColor, edgecolor=rndColor, linewidth=0)
-                # ax.arrow(x=x1, y=y1, dx=dx * arrowPosition, dy=dy * arrowPosition, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=rndColor)
+                ax.fill([ptH[0], pt1[0], pt2[0]], [ptH[1], pt1[1], pt2[1]], facecolor=rndRGB, edgecolor=rndRGB, linewidth=0)
+                # ax.arrow(x=x1, y=y1, dx=dx * arrowPosition, dy=dy * arrowPosition, linewidth=arcWidth, head_width=arrowHeadWidth, head_length=arrowHeadLength, color=rndRGB)
         else:
             ax.plot([x1, x2], [y1, y2], color = arcColor, linewidth=arcWidth, linestyle = arcStyle, dashes = arcDashes)
             if (arrowFlag):
@@ -546,7 +546,7 @@ def plotLocSeq(
 
     # Color ===================================================================
     if (lineColor == 'Random'):
-        lineColor = colorRandom()
+        lineColor = rndColor()
 
     fig, ax = plotArcs(
         fig = fig,
@@ -624,7 +624,7 @@ def plotLocSeq3D(
 
     color = None
     if (lineColor == 'Random'):
-        color = colorRandom()
+        color = rndColor()
     else:
         color = lineColor
 
@@ -721,7 +721,7 @@ def plotNodeSeq(
 
     # Color ===================================================================
     if (lineColor == 'Random'):
-        lineColor = colorRandom()
+        lineColor = rndColor()
 
     fig, ax = plotArcs(
         fig = fig,
@@ -844,12 +844,12 @@ def plotPoly(
 
     # Plot ====================================================================
     if (edgeColor == 'Random'):
-        edgeColor = colorRandom()
+        edgeColor = rndColor()
     if (fillColor == None):
         ax.plot(x, y, color = edgeColor, linewidth = edgeWidth)
     else:
         if (fillColor == 'Random'):
-            ax.fill(x, y, facecolor=colorRandom(), edgecolor=edgeColor, hatch=fillStyle, linewidth=edgeWidth, alpha=opacity)
+            ax.fill(x, y, facecolor=rndColor(), edgecolor=edgeColor, hatch=fillStyle, linewidth=edgeWidth, alpha=opacity)
         else:
             ax.fill(x, y, facecolor=fillColor, edgecolor=edgeColor, hatch=fillStyle, linewidth=edgeWidth, alpha=opacity)
 
@@ -1228,7 +1228,7 @@ def plotRoads(
                 y.append(pt[0])
             color = None
             if (roadColors == 'Random'):
-                color = colorRandom()
+                color = rndColor()
             elif (type(roadColors) == str):
                 color = roadColors
             elif (type(roadColors) == dict):
@@ -1339,7 +1339,7 @@ def plotBuildings(
                 x.append(pt[1])
                 y.append(pt[0])
             if (buildingColors == 'Random'):
-                color = colorRandom()
+                color = rndColor()
             elif (type(buildingColors) == str):
                 color = buildingColors
             elif (type(buildingColors) == dict):
@@ -1524,7 +1524,7 @@ def plotGantt(
             if (group[i]['backgroundColor'] != 'Random'):
                 groupColor.append(group[i]['backgroundColor'])
             else:
-                groupColor.append(colorRandom())
+                groupColor.append(rndColor())
             groupOpacity.append(group[i]['backgroundOpacity'])
             groupTitle.append(group[i]['title'])
     groupStyle = []
@@ -1557,7 +1557,7 @@ def plotGantt(
             if (phase[i]['backgroundColor'] != None):
                 ax.fill([phase[i]['timeWindow'][0], phase[i]['timeWindow'][0], phase[i]['timeWindow'][1], phase[i]['timeWindow'][1], phase[i]['timeWindow'][0]], 
                     [0, totalHeight, totalHeight, 0, 0], 
-                    color=phase[i]['backgroundColor'] if phase[i]['backgroundColor'] != 'Random' else colorRandom(), 
+                    color=phase[i]['backgroundColor'] if phase[i]['backgroundColor'] != 'Random' else rndColor(), 
                     alpha=phase[i]['backgroundOpacity'])
                 ax.annotate(phase[i]['title'], (phase[i]['timeWindow'][0] + (phase[i]['timeWindow'][1] - phase[i]['timeWindow'][0]) / 2, totalHeight), ha='center', va='bottom')
 
@@ -1581,8 +1581,8 @@ def plotGantt(
                 if ('color' in g or g['color'] != 'random'):
                     ax.fill(x, y, color = g['color'], linewidth = ganttLinewidth)
                 else:
-                    rndColor = colorRandom()
-                    ax.fill(x, y, color = rndColor, linewidth = ganttLinewidth)
+                    rndRGB = rndColor()
+                    ax.fill(x, y, color = rndRGB, linewidth = ganttLinewidth)
                 if ('desc' in g):
                     if ('descPosition' not in g or g['descPosition'] == 'Top'):
                         ax.annotate(g['desc'], (s + ganttHeight / 8, top + ganttHeight / 8))

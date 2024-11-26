@@ -25,7 +25,6 @@ def aniRouting(
     nodeMarkerSize: float = 2,
     # Vehicles ----------------------------------------------------------------
     vehicles: dict|None = None,
-    vehLocFieldName: str = 'loc',
     vehTimedSeqFieldName: str = 'timedSeq',
     vehLabelFieldName: str = 'label',
     vehNoteFieldName: str = 'note',
@@ -164,7 +163,7 @@ def aniRouting(
         for nID in nodes:
             nodeStyle[nID] = {}
             if (nodeColor == None or nodeColor == 'Random'):
-                nodeStyle[nID]['nodeColor'] = colorRandom()
+                nodeStyle[nID]['nodeColor'] = rndColor()
             elif (nodeColor != None):
                 nodeStyle[nID]['nodeColor'] = nodeColor
             elif ('nodeColor' in nodes[nID]):
@@ -185,7 +184,7 @@ def aniRouting(
         for pID in polygons:
             polyStyle[pID] = {}
             if (polyEdgeColor == None or polyEdgeColor == 'Random'):
-                polyStyle[pID]['edgeColor'] = colorRandom()
+                polyStyle[pID]['edgeColor'] = rndColor()
             elif (polyEdgeColor != None):
                 polyStyle[pID]['edgeColor'] = polyEdgeColor
             elif ('edgeColor' in polygons[pID]):
@@ -197,7 +196,7 @@ def aniRouting(
                 polyStyle[pID]['edgeWidth'] = polygons[pID]['edgeWidth']
 
             if (polyFillColor == 'Random'):
-                polyStyle[pID]['fillColor'] = colorRandom()
+                polyStyle[pID]['fillColor'] = rndColor()
             elif (polyFillColor != None):
                 polyStyle[pID]['fillColor'] = polyFillColor
             elif ('fillColor' in polygons[pID]):
@@ -218,7 +217,7 @@ def aniRouting(
         for vID in vehicles:
             vehicleStyle[vID] = {}
             if (vehColor == 'Random'):
-                vehicleStyle[vID]['vehColor'] = colorRandom()
+                vehicleStyle[vID]['vehColor'] = rndColor()
             elif (vehColor != None):
                 vehicleStyle[vID]['vehColor'] = vehColor
             elif ('color' in vehicles[vID]):
@@ -235,7 +234,7 @@ def aniRouting(
                 vehicleStyle[vID]['vehMarkerSize'] = vehicles[vID]['markerSize']
 
             if (vehPathColor == 'Random'):
-                vehicleStyle[vID]['pathColor'] = colorRandom()
+                vehicleStyle[vID]['pathColor'] = rndColor()
             elif (vehPathColor != None):
                 vehicleStyle[vID]['pathColor'] = vehPathColor
             elif ('pathColor' in vehicles[vID]):
@@ -247,7 +246,7 @@ def aniRouting(
                 vehicleStyle[vID]['pathWidth'] = vehicles[vID]['pathWidth']
 
             if (vehTraceColor == 'Random'):
-                vehicleStyle[vID]['traceColor'] = colorRandom()
+                vehicleStyle[vID]['traceColor'] = rndColor()
             elif (vehTraceColor != None):
                 vehicleStyle[vID]['traceColor'] = vehTraceColor
             elif ('traceColor' in vehicles[vID]):

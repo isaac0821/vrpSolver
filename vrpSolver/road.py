@@ -156,6 +156,9 @@ def createRoadNetworkFromGeoJSON(
         'building': building
     }
 
+def convertRoadNetwork2Graph(road:dict):
+    return g
+
 def clipRoadsByPoly(
     roads: dict,
     poly: poly) -> dict:
