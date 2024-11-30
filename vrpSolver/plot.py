@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 
 from matplotlib import rcParams
-# rcParams['font.family'] = 'SimSun'
 from matplotlib.animation import FuncAnimation
 from matplotlib.animation import PillowWriter
 from mpl_toolkits.mplot3d import Axes3D
@@ -1067,7 +1066,6 @@ def plotPolygons(
     return fig, ax
 
 def plotProvinceMap(
-    country: str = 'U.S.',
     province: list[str]|str = [],
     edgeWidth: float = 0.5,
     edgeColor: str = 'Random',
@@ -1088,21 +1086,36 @@ def plotProvinceMap(
     if (type(province) == str):
         province = [province]
     for prv in province:
-        if (country == 'U.S.'):
-            if prv in usState:
-                ct = ptPolyCenter(usState[prv])
+        try:
+        # if 1:
+            if prv in prov:
+                ct = ptPolyCenter(prov[prv]['shape'])
                 prvPoly[prv] = {
                     'anchor': ct,
-                    'poly': usState[prv]
-                }                
-            elif prv in usStateAbbr:
-                ct = ptPolyCenter(usState[usStateAbbr[prv]])
-                prvPoly[prv] = {
-                    'anchor': ct,
-                    'poly': usState[usStateAbbr[prv]]
+                    'label': prov[prv]['abbr'],
+                    'poly': prov[prv]['shape'],
                 }
-        else:
-            raise VrpSolverNotAvailableError("Error: %s is not included yet, please stay tune." % country) 
+                if (prov[prv]['country'] == 'China'):
+                    rcParams['font.family'] = 'SimSun'
+                else:
+                    rcParams['font.family'] = 'DejaVu Sans'
+            else:
+                # 看看是不是输入的abbr
+                for k in prov:
+                    if (prv == prov[k]['abbr']):
+                        ct = ptPolyCenter(prov[k]['shape'])
+                        prvPoly[prv] = {
+                            'anchor': ct,
+                            'label': prov[k]['abbr'],
+                            'poly': prov[k]['shape'],
+                        }
+                        if (prov[k]['country'] == 'China'):
+                            rcParams['font.family'] = 'SimSun'
+                        else:
+                            rcParams['font.family'] = 'DejaVu Sans'
+        except:
+            raise UnsupportedInputError("Error: %s is not included yet, please stay tune." % country) 
+
     fig, ax = plotPolygons(
         fig = fig,
         ax = ax,

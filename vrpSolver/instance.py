@@ -629,13 +629,9 @@ def rndNodeNeighbors(
             polyB4Rot = [i for i in polyHf]
             polyB4Rot.extend([(polyHf[len(polyHf) - 1 - k][0], - polyHf[len(polyHf) - 1 - k][1]) for k in range(len(polyHf))])
             
-            poly = []
-            for d in range(len(polyB4Rot)):
-                di = headingXY((0, 0), polyB4Rot[d])
-                r = distEuclideanXY((0, 0), polyB4Rot[d])['dist']
-                pt = ptInDistXY(nodes[n][locFieldName], di + direction, r)
-                poly.append(pt)
-
+            u = math.cos(math.radians(direction))
+            v = math.sin(math.radians(direction))
+            poly = [(u * pt[0] + v * pt[1], -v * pt[0] + u * pt[1]) for pt in polyB4Rot]
             nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON]
             
     elif (shape == 'RndSquare'):
