@@ -183,6 +183,10 @@ def plotNodes(
     nodeColor: str = 'Random',
     nodeMarker: str = 'o',
     nodeMarkerSize: float = 1,
+    neighborFieldName = 'neighbor',
+    neighborColor: str|None = 'gray',
+    neighborOpacity: float = 0.5,
+    neighborFillStyle: str = '///',
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
@@ -208,6 +212,12 @@ def plotNodes(
         Alternative option for node marker. If 'marker' is provided in `nodes`, this field will be ignored.
     nodeMarker: str, optional, default 'o'
         Alternative option for node marker size. If 'markerSize' is provided in `nodes`, this field will be ignored.
+    neighborColor: str, optional, default 'gray'
+        If nodes have 'neighbor' label, will plot the neighbor area in this color
+    neighborOpacity: float, optional, default 0.5
+        The opacity of neighborhood.
+    neighborFillStyle: str, optional, default '///'
+        The fill style of the neighborhood.
     xyReverseFlag: bool, optional, default False
         True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
     fig: matplotlib object, optional, defaut None
@@ -292,6 +302,50 @@ def plotNodes(
             va = nodes[n]['va']
         ax.annotate(lbl, (x, y), ha=ha, va=va)
 
+    # Draw node neighborhoods =================================================
+    for n in nodes:
+        # If node has neighbor, plot the neighbor color first -----------------
+        if ('neiShape' in nodes[n] and nodes[n]['neiShape'] == 'Poly'):
+            fig, ax = plotPoly(
+                fig = fig,
+                ax = ax,
+                poly = nodes[n][neighborFieldName],
+                edgeWidth = 1,
+                edgeColor = 'black',
+                fillColor = neighborColor,
+                opacity = neighborOpacity,
+                xyReverseFlag = xyReverseFlag,
+                showAxis = showAxis,
+                fillStyle = neighborFillStyle)
+        if ('neiShape' in nodes[n] and nodes[n]['neiShape'] == 'Isochrone'):
+            for poly in nodes[n][neighborFieldName]:
+                fig, ax = plotPoly(
+                    fig = fig,
+                    ax = ax,
+                    poly = poly,
+                    edgeWidth = 1,
+                    edgeColor = 'black',
+                    fillColor = neighborColor,
+                    opacity = neighborOpacity / len(nodes[n][neighborFieldName]),
+                    xyReverseFlag = xyReverseFlag,
+                    showAxis = showAxis,
+                    fillStyle = neighborFillStyle)            
+        if ('neiShape' in nodes[n] and 'radius' in nodes[n] and nodes[n]['neiShape'] == 'Circle'):
+            neiPoly = circleByCenterXY(
+                center = nodes[n][locFieldName],
+                radius = nodes[n]['radius'])
+            fig, ax = plotPoly(
+                fig = fig,
+                ax = ax,
+                poly = neiPoly,
+                edgeWidth = 1,
+                edgeColor = 'black',
+                fillColor = neighborColor,
+                opacity = neighborOpacity,
+                xyReverseFlag = xyReverseFlag,
+                showAxis = showAxis,
+                fillStyle = neighborFillStyle)
+
     # Axis on and off =========================================================
     if (not showAxis):
         plt.axis('off')
@@ -321,6 +375,12 @@ def plotArcs(
     startColor: str = 'black',
     endColor: str = 'black',
     bothEndSize: int|float = 2.0,
+    neighborOpacity: float = 0.5,
+    neighborEntWidth: float = 1.2,
+    neighborEntColor: str = 'black',
+    neighborBtwWidth: float = 1,
+    neighborBtwColor: str = 'gray',
+    neighborFillStyle: str = '///',
     xyReverseFlag: bool = False,
     fig = None,
     ax = None,
@@ -462,6 +522,45 @@ def plotArcs(
         if ('va' in arcs[i]):
             va = arcs[i]['va']
         ax.annotate(lbl, (x1 + dx / 2, y1 + dy / 2), ha=ha, va=va)
+
+    # Draw arcs neighborhoods =================================================
+    for i in arcs:
+        if ('neiA' in arcs[i]):
+            fig, ax = plotPoly(
+                fig = fig,
+                ax = ax,
+                poly = arcs[i]['neiA'],
+                edgeWidth = neighborEntWidth,
+                edgeColor = 'black',
+                fillColor = neighborEntColor,
+                opacity = neighborOpacity,
+                xyReverseFlag = xyReverseFlag,
+                showAxis = showAxis,
+                fillStyle = neighborFillStyle)
+        if ('neiB' in arcs[i]):
+            fig, ax = plotPoly(
+                fig = fig,
+                ax = ax,
+                poly = arcs[i]['neiB'],
+                edgeWidth = neighborEntWidth,
+                edgeColor = 'black',
+                fillColor = neighborEntColor,
+                opacity = neighborOpacity,
+                xyReverseFlag = xyReverseFlag,
+                showAxis = showAxis,
+                fillStyle = neighborFillStyle)
+        if ('neiBtw' in arcs[i]):
+            fig, ax = plotPoly(
+                fig = fig,
+                ax = ax,
+                poly = arcs[i]['neiBtw'],
+                edgeWidth = neighborBtwWidth,
+                edgeColor = 'black',
+                fillColor = neighborBtwColor,
+                opacity = neighborOpacity,
+                xyReverseFlag = xyReverseFlag,
+                showAxis = showAxis,
+                fillStyle = neighborFillStyle)
 
     # Axis on and off =========================================================
     if (not showAxis):
@@ -1072,6 +1171,7 @@ def plotProvinceMap(
     fillColor: str|None = None,
     fillStyle: str = "///",
     opacity: float = 0.5,   
+    showAnchorFlag = False,
     fig = None,
     ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
@@ -1120,7 +1220,7 @@ def plotProvinceMap(
         fig = fig,
         ax = ax,
         polygons = prvPoly,
-        showAnchorFlag = True,
+        showAnchorFlag = showAnchorFlag,
         edgeWidth = edgeWidth,
         edgeColor = edgeColor,
         fillColor = fillColor,

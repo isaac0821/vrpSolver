@@ -1,7 +1,9 @@
+import requests
+
 from .common import *
 from .geometry import *
 
-def matrixDist(nodes: dict, locFieldName: str = 'loc', nodeIDs: list|str = 'All', edges: str = 'Euclidean', **kwargs) -> dict:
+def matrixDist(nodes: dict, locFieldName: str = 'loc', nodeIDs: list|str = 'All', edges: str = 'Euclidean', detailFlag: bool = False, **kwargs) -> dict:
     """
     Given a `nodes` dictionary, returns the traveling matrix between nodes
 
@@ -96,10 +98,50 @@ def matrixDist(nodes: dict, locFieldName: str = 'loc', nodeIDs: list|str = 'All'
             nodeIDs = nodeIDs, 
             grids = kwargs['grid'], 
             locFieldName = locFieldName)
+    elif (edges == 'RoadNetwork'):
+        if ('source' not in kwargs or kwargs['source'] == None):
+            raise MissingParameterError("ERROR: 'source' is not specified")
+        if ('APIkey' not in kwargs or kwargs['APIkey'] == None):
+            raise MissingParameterError("ERROR: 'APIkey' is not specified")
+
+        if (kwargs['source'] == 'Baidu'):
+            if (detailFlag):
+                raise UnsupportedInputError("ERROR: Stay tune")
+            else:
+                try:
+                    tau = _matrixBaiduSimple(nodes, nodeIDs, API, locFieldName)
+                except:
+                    raise UnsupportedInputError("ERROR: Failed to fetch data, check network connection and API key")
+        else:
+            raise UnsupportedInputError("ERROR: Right now we support 'Baidu'")
     else:
         raise UnsupportedInputError(ERROR_MISSING_EDGES)        
 
     return tau, pathLoc
+
+def _matrixBaiduSimple(nodes: dict, nodeIDs: list, API, locFieldName = 'loc'):
+    locStr = ""
+    for i in range(len(nodeIDs)):
+        locStr += str(nodes[nodeIDs[i]][locFieldName][0]) + "," + str(nodes[nodeIDs[i]][locFieldName][1]) + "|"
+    locStr = locStr[:-1]
+
+    url = "https://api.map.baidu.com/routematrix/v2/driving"
+    params = {
+        "origins": locStr,
+        "destinations": locStr,
+        "ak": API,
+    }
+    response = requests.get(url=url, params=params)
+    
+    tau = {}
+    if (response):
+        k = 0
+        for i in range(len(nodeIDs)):
+            for j in range(len(nodeIDs)):
+                tau[nodeIDs[i], nodeIDs[j]] = response.json()['result'][k]['distance']['value']
+                k += 1
+
+    return tau
 
 def _matrixDistEuclideanXY(nodes: dict, nodeIDs: list, locFieldName = 'loc'):
     tau = {}

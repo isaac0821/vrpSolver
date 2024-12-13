@@ -588,3 +588,6 @@ prov = {
         'abbr': 'WY'
     },
 }
+
+ChinaProvinces = ['Xinjiang', 'Tibet', 'Inner Mongolia', 'Qinghai', 'Sichuan', 'Heilongjiang', 'Gansu', 'Yunnan', 'Guangxi', 'Hunan', 'Shaanxi', 'Guangdong', 'Jilin', 'Hebei', 'Hubei', 'Guizhou', 'Shandong', 'Jiangxi', 'Henan', 'Liaoning', 'Shanxi', 'Anhui', 'Fujian', 'Zhejiang', 'Jiangsu', 'Chongqing', 'Ningxia', 'Hainan', 'Taiwan', 'Beijing', 'Tianjin', 'Shanghai', 'Hong Kong', 'Macau']
+USStates = ['Alaska', 'Alabama', 'Arkansas', 'Arizona', 'California', 'Colorado', 'Connecticut', 'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Iowa', 'Idaho', 'Illinois', 'Indiana', 'Kansas', 'Kentucky', 'Louisiana', 'Massachusetts', 'Maryland', 'Maine', 'Michigan', 'Minnesota', 'Missouri', 'Mississippi', 'Montana', 'North Carolina', 'North Dakota', 'Nebraska', 'New Hampshire', 'New Jersey', 'New Mexico', 'Nevada', 'New York', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Virginia', 'Vermont', 'Washington', 'Wisconsin', 'West Virginia', 'Wyoming']

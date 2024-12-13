@@ -226,11 +226,14 @@ def seqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
         curLoc = seq[aggNodeList[i] if type(aggNodeList[i]) != list else aggNodeList[i][0]]
         sucLoc = seq[aggNodeList[i + 1] if type(aggNodeList[i + 1]) != list else aggNodeList[i + 1][0]]
 
-        dev = distPt2Seg(curLoc, [preLoc, sucLoc])
-        if (dev <= error):
-            removedFlag.append(True)
-        else:
+        if (is2PtsSame(preLoc, sucLoc)):
             removedFlag.append(False)
+        else:
+            dev = distPt2Seg(curLoc, [preLoc, sucLoc])
+            if (dev <= error):
+                removedFlag.append(True)
+            else:
+                removedFlag.append(False)
     removedFlag.append(False)
 
     # 得到去掉共线和重合点后的折线
@@ -1109,8 +1112,8 @@ def serviceTimeCETSP(
             polygons[p]['segSet'].append(i)
 
     ST = grb.Model("ServiceTime")
-    ST.setParam('LogToConsole', 1)
-    ST.setParam('OutputFlag', 1)
+    ST.setParam('LogToConsole', 0)
+    ST.setParam('OutputFlag', 0)
     ST.modelSense = grb.GRB.MINIMIZE
 
     # Decision variables ======================================================

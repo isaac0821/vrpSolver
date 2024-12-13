@@ -20,6 +20,8 @@ def solveCETSP(
     **kwargs
     ) -> dict | None:
 
+    # WARNING: This is a freeze version, do no edit, origin version is in geoVeRo
+
     # Sanity check ============================================================
     if (nodes == None or type(nodes) != dict):
         raise MissingParameterError(ERROR_MISSING_NODES)

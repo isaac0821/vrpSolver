@@ -8,6 +8,9 @@ from .geometry import *
 from .msg import *
 from .travel import *
 
+def addDetails():
+    return
+
 def solveTSP(
     nodes: dict, 
     locFieldName: str = 'loc',
@@ -70,6 +73,11 @@ def solveTSP(
                 - cons = 'Random', randomly create a feasible route
             - impv: str, choose the local improvement heuristic to improve the existing feasible route
                 - impv = '2Opt', use the 2-opt algorithm
+        3) 'Metaheuristic', use metaheuristic methods to solve TSP to sub-optimal
+            - cons: Same as in 'Heuristic'
+            - meta: str, choose a metaheuristic improvement method
+                - meta = 'SimulatedAnnealing', use Simulated Annealing to improve a solution create by 'cons'
+
     detailsFlag: bool, optional, default as False
         If True, an additional field `vehicle` will be added into the solution, which can be used for animation. See :func:`~vrpSolver.plot.aniRouting()`.
     **kwargs: optional
@@ -127,7 +135,12 @@ def solveTSP(
             raise OutOfRangeError("ERROR: COPT option supports 'DFJ_Lazy' formulations", )
     elif (algo == 'Heuristic'):
         if ('cons' not in kwargs and 'impv' not in kwargs):
-            raise MissingParameterError(ERROR_MISSING_TSP_ALGO)
+            raise MissingParameterError("ERROR: Missing constructive heuristic and local improvement heuristic.")
+    elif (algo == 'Metaheuristic'):
+        if ('cons' not in kwargs):
+            raise MissingParameterError("ERROR: A construction heuristic needs to be specified.")
+        if ('meta' not in kwargs):
+            raise MissingParameterError("ERROR: A meta-heuristic needs to be specified.")
 
     # Define tau ==============================================================
     tau = None
@@ -157,20 +170,17 @@ def solveTSP(
     # TSP =====================================================================
     tsp = None
     if (algo == 'IP'):
-        outputFlag = False if 'outputFlag' not in kwargs else kwargs['outputFlag']
-        timeLimit = None if 'timeLimit' not in kwargs else kwargs['timeLimit']
-        gapTolerance = None if 'gapTolerance' not in kwargs else kwargs['gapTolerance']
         tsp = _ipTSP(
             nodeIDs = nodeIDs, 
             tau = tau, 
             solver = kwargs['solver'], 
             fml = kwargs['fml'], 
-            outputFlag = outputFlag, 
-            timeLimit = timeLimit, 
-            gapTolerance = gapTolerance)
+            outputFlag = False if 'outputFlag' not in kwargs else kwargs['outputFlag'], 
+            timeLimit = None if 'timeLimit' not in kwargs else kwargs['timeLimit'], 
+            gapTolerance = None if 'gapTolerance' not in kwargs else kwargs['gapTolerance'])
         tsp['fml'] = kwargs['fml']
         tsp['solver'] = kwargs['solver']
-    elif (algo == 'Heuristic'):
+    elif (algo == 'Heuristic' or algo == 'Metaheuristic'):
         nodeObj = {}
         for n in nodeIDs:
             nodeObj[n] = RouteNode(n, value=nodes[n][locFieldName])
@@ -183,7 +193,7 @@ def solveTSP(
             asymFlag = asymFlag, 
             **kwargs)
     else:
-        raise OutOfRangeError("ERROR: Select 'algo' from ['IP', 'Heuristic'].")
+        raise OutOfRangeError("ERROR: Select 'algo' from ['IP', 'Heuristic', 'Metaheuristic'].")
 
     # Fix the sequence to make it start from the depot ========================
     startIndex = 0
@@ -1035,6 +1045,7 @@ def _heuTSP(nodeObj, tau, depotID, nodeIDs, asymFlag, **kwargs) -> dict|None:
     # Construction heuristics =================================================
     # NOTE: Output of this phase should be a Route() object
     seqObj = Route(tau, asymFlag)
+
     # An initial solution is given
     if ('cons' not in kwargs or kwargs['cons'] == 'Initial' or kwargs['cons'] == None):
         if ('initSeq' not in kwargs):
@@ -1134,6 +1145,16 @@ def _heuTSP(nodeObj, tau, depotID, nodeIDs, asymFlag, **kwargs) -> dict|None:
             # 2Opt
             if (not canImpvFlag and '2Opt' in kwargs['impv']):
                 canImpvFlag = seqObj.impv2Opt()
+
+    if ('meta' in kwargs and kwargs['meta'] == 'SimulatedAnnealing'):
+        seqObj = _metaTSPSimulatedAnnealing(
+            seqObj = seqObj, 
+            nodeIDs = nodeIDs, 
+            initTemp = kwargs['initTemp'], 
+            lengTemp = kwargs['lengTemp'], 
+            neighRatio = kwargs['neighRatio'], 
+            coolRate = kwargs['coolRate'], 
+            stop = kwargs['stop'])
 
     ofv = seqObj.dist
     seq = [n.key for n in seqObj.traverse(closeFlag = True)]
@@ -1261,3 +1282,166 @@ def _consTSPChristofides(depotID, tau):
 
 def _consTSPCycleCover(depotID, tau):
     raise VrpSolverNotAvailableError("ERROR: vrpSolver has not implement this kwargs yet")
+
+def _metaTSPSimulatedAnnealing(seqObj, nodeIDs, initTemp, lengTemp, neighRatio, coolRate, stop) -> dict:
+
+    # Subroutines to generate neighborhoods ===================================
+    # Swap i and i + 1
+    def swap(i):
+        oldDist = seqObj.dist
+        nI = seqObj.query(i)
+        seqObj.swap(nI)
+        newDist = seqObj.dist
+        return (newDist - oldDist)
+
+    # Randomly exchange two vertices
+    def exchange(i, j):
+        oldDist = seqObj.dist
+        nI = seqObj.query(i)
+        nJ = seqObj.query(j)
+        seqObj.exchange(nI, nJ)
+        newDist = seqObj.dist
+        return (newDist - oldDist)
+        
+    # Randomly rotate part of seq
+    def rotate(i, j):
+        oldDist = seqObj.dist
+        # nI = seqObj.query(i)
+        # nJ = seqObj.query(j)
+        seqObj.reverseBetween(i, j)
+        newDist = seqObj.dist
+        return (newDist - oldDist)
+
+    # Initialize ==============================================================
+    # Initial temperature
+    T = initTemp
+    # Temperature length (maximum temperature iteration)
+    L = lengTemp
+
+    # Initial Solution
+    curSeq = None
+    ofv = seqObj.dist
+
+    # Main cooling ============================================================
+    contFlag = True
+
+    iterTotal = 0
+    iterNoImp = 0
+    iterAcc = 0
+    
+    ofvCurve = []
+
+    while (contFlag):
+        # Repeat in the same temperature
+        for l in range(L):
+            # Increment iterator
+            iterTotal += 1
+
+            # Generate a neighbor using different type
+            typeOfNeigh = rndPick(list(neighRatio))
+
+            deltaC = None
+            revAction = {}
+
+            # Randomly swap
+            if (typeOfNeigh == 0):
+                i = random.randint(0, len(nodeIDs))
+                keyI = nodeIDs[i]
+                keyINext = seqObj.query(keyI).next
+                revAction = {
+                    'opt': 'swap',
+                    'key': keyINext
+                }
+                deltaC = swap(keyI)
+            # Randomly exchange two digits
+            elif (typeOfNeigh == 1):
+                i = None
+                j = None
+                while (i == None 
+                        or j == None 
+                        or abs(i - j) <= 2 
+                        or (i == 0 and j == len(nodeIDs) - 1) 
+                        or (i == len(nodeIDs) - 1 and j == 0)):
+                    i = random.randint(0, len(nodeIDs))
+                    j = random.randint(0, len(nodeIDs))
+                keyI = nodeIDs[i]
+                keyJ = nodeIDs[j]
+                revAction = {
+                    'opt': 'exchange',
+                    'key': (keyJ, keyI)
+                }
+                deltaC = exchange(keyI, keyJ)
+            # Randomly reverse part of path
+            elif (typeOfNeigh == 2):
+                i = None
+                j = None
+                while (i == None 
+                        or j == None 
+                        or abs(i - j) <= 2 
+                        or (i == 0 and j == len(nodeIDs) - 1) 
+                        or (i == len(nodeIDs) - 1 and j == 0)):
+                    i = random.randint(0, len(nodeIDs))
+                    j = random.randint(0, len(nodeIDs))
+                keyI = nodeIDs[i]
+                keyJ = nodeIDs[j]
+                revAction = {
+                    'opt': 'reverse',
+                    'key': (keyJ, keyI)
+                }
+                deltaC = rotate(keyI, keyJ)
+
+            # If this new neighbor is good, accept it, 
+            #     otherwise accept it with probability
+            if (deltaC <= 0): # deltaC = newC - preC, <0 means improve
+                ofv = seqObj.dist
+                iterAcc += 1
+                iterNoImp = 0
+            else:
+                sample = random.random()
+                if (sample < math.exp(- deltaC / T)):
+                    ofv = seqObj.dist
+                    iterAcc += 1
+                else:
+                    if (revAction['opt'] == 'swap'):
+                        _ = swap(revAction['key'])
+                    elif (revAction['opt'] == 'exchange'):
+                        _ = exchange(revAction['key'][0], revAction['key'][1])
+                    elif (revAction['opt'] == 'reverse'):
+                        _ = reverse(revAction['key'][0], revAction['key'][1])
+                    iterNoImp += 1
+
+            apRate = iterAcc / iterTotal
+
+            # Check stopping criteria
+            endCriteria = None
+            if ('finalTemp' in stop):
+                if (T < stop['finalTemp']):
+                    contFlag = False
+                    # endCriteria = 'Final_Temperature'
+                    break
+            if ('numNoImproveIter' in stop):
+                if (iterNoImp > stop['numNoImproveIter']):
+                    contFlag = False
+                    # endCriteria = 'Num_Iterations_Without_Improving'
+                    break
+            if ('ptgAcceptedMove' in stop):
+                if (iterTotal > 0 and apRate < stop['ptgAcceptedMove']):
+                    contFlag = False
+                    # endCriteria = 'Percent_of_Accepted_Move'
+                    break
+            if ('numIter' in stop):
+                if (iterTotal > stop['numIter']):
+                    contFlag = False
+                    # endCriteria = 'Num_Iterations'
+                    break
+            if ('runtime' in stop):
+                if ((datetime.datetime.now() - startTime).total_seconds() > stop['runtime']):
+                    contFlag = False
+                    # endCriteria = 'Executed_Time'
+                    break
+        
+        # Cool down
+        T = coolRate * T
+
+    return seqObj
+

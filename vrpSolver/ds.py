@@ -153,7 +153,7 @@ class Route(Ring):
 
     def reverseBetween(self, startKey, endKey):
         if (startKey == endKey):
-            return
+            raise KeyExistError("ERROR: Cannot reverse itself")
         tra = self.queryBetween(startKey, endKey)
         startPrev = tra[0].prev
         endNext = tra[-1].next
@@ -258,7 +258,7 @@ class Route(Ring):
             self.head = n.next
         self._count -= 1
 
-    def swapNext(self, n):
+    def swap(self, n):
         nPrev = n.prev
         nNext = n.next
         nNNext = n.next.next
@@ -276,13 +276,13 @@ class Route(Ring):
             self._revDist += (self.tau[nNNext.key, n.key] + self.tau[n.key, nNext.key] + self.tau[nNext.key, nPrev.key]
                             - self.tau[nNNext.key, nNext.key] + self.tau[nNext.key, n.key] - self.tau[n.key, nPrev.key])
 
-    def swap(self, nI, nJ):
-        if (keyI == keyJ):
+    def exchange(self, nI, nJ):
+        if (nI == nJ):
             raise KeyExistError("ERROR: Cannot swap itself")
-        # Old: = = = i j k l m n = = = | -> swap(j, m)
+        # Old: = = = i j k l m n = = = | -> exchange(j, m)
         # New: = = = i m k l j n = = =
         if (nI.next.key == keyJ):
-            return self.swapNext(nI)
+            return self.swap(nI)
         if (nI.next.next.key == keyJ):
             # Old: = = pI nI nX nJ sJ = =
             # New: = = pI nJ nX nI sJ = =
@@ -336,7 +336,7 @@ class Route(Ring):
         cur = self.head
         trvFlag = True
         while (trvFlag):
-            self.swapNext(n)
+            self.swap(n)
             cur = cur.next
             newCost = self.dist if not self.asymFlag else min(self.dist, self._revDist)
             if (newCost < sofarCheapestCost):
@@ -388,28 +388,28 @@ class Route(Ring):
             endKey = nI.prev.key
             while (nI.key != endKey):
                 # 1. First attempt
-                # Old: = = = nI nINext nJ nJNext nJ2Next nJ3Next nJ4Next = = = | -> swap(nINext, nJ)        | -> swap(nINext, nJ)
+                # Old: = = = nI nINext nJ nJNext nJ2Next nJ3Next nJ4Next = = = | -> exchange(nINext, nJ)        | -> exchange(nINext, nJ)
                 # 2. Follow-up attempts
-                # New: = = = nI nJ nINext nJNext nJ2Next nJ3Next nJ4Next = = = | -> swap(nINext, nJNext)    | -> remove(nJNext)
-                #                                                                -> swap(nJ, nJNext)          -> insert(nI, nJNext)
-                # New: = = = nI nJNext nJ nINext nJ2Next nJ3Next nJ4Next = = = | -> swap(nINext, n2JNext)   | -> remove(nJ2Next)
-                #                                                                -> swap(nJ, nJ2Next)         -> insert(nI, nJ2Next)
-                #                                                                -> swap(nJNext, nJ2Next)
-                # New: = = = nI nJ2Next nJNext nJ nINext nJ3Next nJ4Next = = = | -> swap(nINext, n3JNext)   | -> remove(nJ3Next)
-                #                                                                -> swap(nJ, nJ3Next)         -> insert(nI, nJ3Next)
-                #                                                                -> swap(nJNext, nJ3Next) 
-                #                                                                -> swap(nJ2Next, nJ3Next)
+                # New: = = = nI nJ nINext nJNext nJ2Next nJ3Next nJ4Next = = = | -> exchange(nINext, nJNext)    | -> remove(nJNext)
+                #                                                                -> exchange(nJ, nJNext)          -> insert(nI, nJNext)
+                # New: = = = nI nJNext nJ nINext nJ2Next nJ3Next nJ4Next = = = | -> exchange(nINext, n2JNext)   | -> remove(nJ2Next)
+                #                                                                -> exchange(nJ, nJ2Next)         -> insert(nI, nJ2Next)
+                #                                                                -> exchange(nJNext, nJ2Next)
+                # New: = = = nI nJ2Next nJNext nJ nINext nJ3Next nJ4Next = = = | -> exchange(nINext, n3JNext)   | -> remove(nJ3Next)
+                #                                                                -> exchange(nJ, nJ3Next)         -> insert(nI, nJ3Next)
+                #                                                                -> exchange(nJNext, nJ3Next) 
+                #                                                                -> exchange(nJ2Next, nJ3Next)
                 # New: = = = nI nJ3Next nJ2Next nJNext nJ nINext nJ4Next = = =
                 # ...
                 # 3. Recover to initial status (Until: nJXNext == nIPrev)
-                # Old: nI nJ = = = nINext nJNext (nIPrev) | -> swap(nJNext, nI)
+                # Old: nI nJ = = = nINext nJNext (nIPrev) | -> exchange(nJNext, nI)
                 # New: nI nJNext nJ = = = nINext
                 # self.reverse()
 
                 # 1. First attempt
                 nJ = nI.next.next
                 nINext = nI.next
-                self.swapNext(nINext)
+                self.swap(nINext)
                 newDist = self.dist if not self.asymFlag else min(self.dist, self._revDist)
                 if (newDist < sofarBestDist):
                     sofarBestDist = newDist
@@ -435,7 +435,7 @@ class Route(Ring):
 
                 # 3. Recover to initial status
                 nJXNext = nINext.next
-                self.swapNext(nJXNext)
+                self.swap(nJXNext)
                 self.reverse()
                 self.rehead(oriHeadKey)
                 
@@ -1267,7 +1267,7 @@ class ScheduleList(object):
         pos = n.key
         while(n != None):
             insert = n.succ.key if n.succ != None else None
-            self.swap(key, pos)
+            self.exchange(key, pos)
             # print("Step 2", pos)
             # self.print()
             if (self.makespan < bestMakespan):
@@ -1335,7 +1335,7 @@ class ScheduleList(object):
                 self.updateFromNode(newN.succ)
         return
 
-    def swap(self, keyI, keyJ):
+    def exchange(self, keyI, keyJ):
         if (self.head == None):
             raise KeyNotExistError("%s and %s does not exist." % (keyI, keyJ))
         # Find nI and nJ

@@ -561,6 +561,8 @@ def rndNodeNeighbors(
         for n in nodeIDs:
             if ('poly' not in kwargs):
                 raise MissingParameterError("ERROR: Missing required args 'poly'")
+            
+            nodes[n]['neiShape'] = 'Poly'
             poly = [[i[0] + nodes[n][locFieldName][0], i[1] + nodes[n][locFieldName][1]] for i in kwargs['poly']]
             nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON]
             
@@ -572,12 +574,33 @@ def rndNodeNeighbors(
             lod = 30
             if ('lod' in kwargs and type(kwargs['lod']) == int):
                 lod = kwargs['lod']
+
+            nodes[n]['neiShape'] = 'Circle'
+
             poly = [[
                 nodes[n][locFieldName][0] + kwargs['radius'] * math.sin(2 * d * math.pi / lod),
                 nodes[n][locFieldName][1] + kwargs['radius'] * math.cos(2 * d * math.pi / lod),
             ] for d in range(lod + 1)]
             nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON]
         
+    elif (shape == 'IsoCircle'):
+        for n in nodeIDs:
+            if ('radiusList' not in kwargs):
+                raise MissingParameterError("ERROR: Missing required args 'radiusList'")
+            # By default, a circle is plotted by a 30-gon
+            lod = 30
+            if ('lod' in kwargs and type(kwargs['lod']) == int):
+                lod = kwargs['lod']
+
+            nodes[n][neighborFieldName] = []
+            nodes[n]['neiShape'] = 'Isochrone'
+            for r in kwargs['radiusList']:
+                poly = [[
+                    nodes[n][locFieldName][0] + r * math.sin(2 * d * math.pi / lod),
+                    nodes[n][locFieldName][1] + r * math.cos(2 * d * math.pi / lod),
+                ] for d in range(lod + 1)]
+                nodes[n][neighborFieldName].append([poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON])
+
     elif (shape == 'Egg'):
         for n in nodeIDs:
             if ('a' not in kwargs or 'b' not in kwargs or 'c' not in kwargs):
@@ -588,6 +611,8 @@ def rndNodeNeighbors(
             lod = 30
             if ('lod' in kwargs and type(kwargs['lod']) == int):
                 lod = kwargs['lod']
+            
+            nodes[n]['neiShape'] = 'Poly'
             # Formulation:
             # \frac{x^2}{(a - b)x + ab} + \frac{y^2}{c^2} = 1
             a = kwargs['a']
@@ -644,6 +669,7 @@ def rndNodeNeighbors(
                 warnings.warn("WARNING: 'minLen' is greater than 'maxLen', will be swapped")
                 kwargs['maxLen'], kwargs['minLen'] = kwargs['minLen'], kwargs['maxLen']
             
+            nodes[n]['neiShape'] = 'Poly'
             width = random.uniform(kwargs['minLen'], kwargs['maxLen'])
             height = random.uniform(kwargs['minLen'], kwargs['maxLen'])
 
@@ -662,6 +688,7 @@ def rndNodeNeighbors(
             if ('lod' in kwargs and type(kwargs['lod']) == int):
                 lod = kwargs['lod']
 
+            nodes[n]['neiShape'] = 'Poly'
             r = []
             for i in range(lod + 1):
                 r.append(kwargs['minRadius'])
@@ -697,6 +724,8 @@ def rndNodeNeighbors(
                 raise MissingParameterError("ERROR: Missing required args 'maxDiag'")
             if ('minDiag' not in kwargs):
                 raise MissingParameterError("ERROR: Missing required args 'minDiag'")
+            
+            nodes[n]['neiShape'] = 'Poly'
             polyPts = []
             for i in range(kwargs['maxNumSide']):
                 deg = random.uniform(0, 1) * 360
@@ -716,6 +745,7 @@ def rndNodeNeighbors(
             if ('minDiag' not in kwargs):
                 raise MissingParameterError("ERROR: Missing required args 'minDiag'")
 
+            nodes[n]['neiShape'] = 'Poly'
             degs = []
             for i in range(kwargs['maxNumSide']):
                 degs.append(random.uniform(0, 1) * 360)
@@ -799,6 +829,100 @@ def rndArcs(
     else:
         raise UnsupportedInputError(ERROR_MISSING_ARCS_DISTR)
 
+    return arcs
+
+def rndArcNeighbors(
+    arcs: dict,
+    arcIDs: list[int|str]|str = 'All',
+    shape: str = 'Circle',
+    arcFieldName: str = 'arc',
+    **kwargs
+    ) -> dict:
+
+    """Given an arc dictionary, add neighborhood to selected arcs
+
+    WARNING
+    -------
+
+    This function will modify the input dictionary `arcs`
+
+    Parameters
+    ----------
+
+    arcs: dictionary, required
+        A plain arcs dictionary to add neighborhoods.
+    arcIDs: string|list[int|str], optional, default 'All'
+        A list of arc IDs to add neighborhood, leave it as 'All' to indicate adding such information to all arcs.
+    method: dictionary, optional, default {'shape': 'FixedRadius', 'radius': 1, 'lod': 30}       
+        The shape of dictionary. Options includes
+        1) Adding fixed radius neighborhoods to a given arc
+            >>> method = {
+            ...     'shape': 'FixedRadius',
+            ...     'radius': 1,
+            ...     'lod': 30
+            ... }
+
+    Returns
+    -------
+
+    dictionary
+        Changes will apply to the original `nodes` dictionary
+
+    """
+    
+    # Sanity check ============================================================
+    if (type(arcIDs) is not list):
+        if (arcIDs == 'All'):
+            arcIDs = [i for i in arcs]
+        else:
+            for i in arcIDs:
+                if (i not in arcs):
+                    raise OutOfRangeError("ERROR: Node %s is not in `arcs`." % i)
+    
+    for i in arcIDs:
+        if (shape == 'FixedRadius'):
+            if ('radius' not in kwargs):
+                raise MissingParameterError("ERROR: Missing required key 'radius' in `kwargs`")
+            
+            # By default, a circle is plotted by a 30-gon
+            lod = 30
+            if ('lod' in kwargs and type(kwargs['lod']) == int):
+                lod = kwargs['lod']
+            startLoc = arcs[i][arcFieldName][0]
+            endLoc = arcs[i][arcFieldName][1]
+
+            heading = vrpSolver.headingXY(startLoc, endLoc)
+
+            radius = kwargs['radius']
+            arcs[i]['neiBtw'] = [[
+                startLoc[0] + radius * math.sin(2 * d * math.pi / lod + (heading - 90) * math.pi / 180),
+                startLoc[1] + radius * math.cos(2 * d * math.pi / lod + (heading - 90) * math.pi / 180),
+            ] for d in range(int(lod / 2 + 1))]
+            arcs[i]['neiBtw'].extend([[
+                endLoc[0] + radius * math.sin(2 * d * math.pi / lod + (heading + 90) * math.pi / 180),
+                endLoc[1] + radius * math.cos(2 * d * math.pi / lod + (heading + 90) * math.pi / 180),
+            ] for d in range(int(lod / 2 + 1))])
+
+            arcs[i]['neiA'] = [[
+                    startLoc[0] + radius * math.sin(2 * d * math.pi / lod + (heading + 90) * math.pi / 180),
+                    startLoc[1] + radius * math.cos(2 * d * math.pi / lod + (heading + 90) * math.pi / 180),
+                ] for d in range(int(lod))]
+            arcs[i]['neiB'] = [[
+                    endLoc[0] + radius * math.sin(2 * d * math.pi / lod + (heading - 90) * math.pi / 180),
+                    endLoc[1] + radius * math.cos(2 * d * math.pi / lod + (heading - 90) * math.pi / 180),
+                ] for d in range(int(lod))]
+
+            arcs[i]['neiAll'] = [[
+                startLoc[0] + radius * math.sin(2 * d * math.pi / lod + (heading + 90) * math.pi / 180),
+                startLoc[1] + radius * math.cos(2 * d * math.pi / lod + (heading + 90) * math.pi / 180),
+            ] for d in range(int(lod / 2 + 1))]
+            arcs[i]['neiAll'].extend([[
+                endLoc[0] + radius * math.sin(2 * d * math.pi / lod + (heading - 90) * math.pi / 180),
+                endLoc[1] + radius * math.cos(2 * d * math.pi / lod + (heading - 90) * math.pi / 180),
+            ] for d in range(int(lod / 2 + 1))])
+        
+        else:
+            raise UnsupportedInputError("ERROR: Unsupported option for `shape`. Supported 'shape' includes: 'FixedRadius'.")
     return arcs
 
 def _rndArcUniformSquareXY(xRange, yRange, minLen, maxLen, minDeg, maxDeg) -> tuple[pt, pt]:
