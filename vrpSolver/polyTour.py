@@ -287,6 +287,143 @@ def seqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
         'locatedSeg': locatedSeg
     }
 
+
+def ptSetSeq2Poly(seq, polygons:dict, polyFieldName = 'polygon'):
+    """Given a sequence and a dictionary of polygons, finds the intersection points between seq and polygons
+
+    Parameters
+    ----------
+    seq: list[pt], required
+        A list of points as a sequence
+    polygons: dict, required
+        A dictionary, each key is the ID of polygon, the field of polygon is in `polyFieldName`
+    polyFieldName: string, optional, default 'polygon'
+        Default field name for polygon
+
+    Return
+    ------
+    list of dict
+        A list of dictionaries, each includes the information of a segment/point, a list of polygon IDs that the segment belongs to
+
+    """
+
+    if (polygons == None):
+        raise MissingParameterError("ERROR: Missing required field 'polygons'.")
+
+    # First, for each leg in the seq, find the individual polygons intersect with the leg
+    actions = []
+    accMileage = 0
+
+    for i in range(len(seq) - 1):
+        # seg[0]的mileage更小
+        seg = [seq[i], seq[i + 1]]
+
+        # NOTE: 准备用segment tree
+        # NOTE: For now use the naive way - checking the bounding box
+        for pID in polygons:
+            # 根据Seg和poly的相交情况做判断
+            segIntPoly = intSeg2Poly(seg = seg, poly = polygons[pID][polyFieldName])
+            # 如果相交得到多个部分，则分别进行处理
+
+            ints = []
+            if (type(segIntPoly) == list):
+                for intPart in segIntPoly:
+                    ints.append(intPart)
+            else:
+                ints = [segIntPoly]
+
+            for intPart in ints:
+                if (intPart['status'] == 'NoCross'):
+                    # No intersection pass
+                    pass
+
+                elif (intPart['status'] == 'Cross' and intPart['intersectType'] == 'Point'):
+                    intPt = intPart['intersect']
+
+                    # 距离seg[0]有多远，加入mileage
+                    m = distEuclideanXY(seg[0], intPt)['dist']
+                    actions.append({
+                        'loc': intPt,
+                        'action': 'touch',
+                        'polyID': pID,
+                        'mileage': accMileage + m
+                    })
+
+                elif (intPart['status'] == 'Cross' and intPart['intersectType'] == 'Segment'):
+
+                    # 线段和polygon的两个交点，分别判断是不是在polygon的内部
+                    intPt1 = intPart['intersect'][0]
+                    intPt2 = intPart['intersect'][1]
+                    intPt1InnerFlag = False
+                    intPt2InnerFlag = False
+                    if (isPtInPoly(intPt1, polygons[pID][polyFieldName], interiorOnly=True)):
+                        intPt1InnerFlag = True
+                    if (isPtInPoly(intPt2, polygons[pID][polyFieldName], interiorOnly=True)):
+                        intPt2InnerFlag = True
+
+                    # 两个端点的mileage
+                    m1 = distEuclideanXY(seg[0], intPt1)['dist']
+                    m2 = distEuclideanXY(seg[0], intPt2)['dist']
+
+                    if (m1 > m2):
+                        m1, m2 = m2, m1
+                        intPt1, intPt2 = intPt2, intPt1
+                        intPt1InnerFlag, intPt2InnerFlag = intPt2InnerFlag, intPt1InnerFlag
+
+                    if (abs(m1 - m2) <= CONST_EPSILON):
+                        # 交点距离太近可能是误判
+                        actions.append({
+                            'loc': intPt1,
+                            'action': 'touch',
+                            'polyID': pID,
+                            'mileage': accMileage + m1
+                        })
+                    else:
+                        # 如果第一个点在poly内，第二个在poly外
+                        # m1 => inside, m2 => leave
+                        if (intPt1InnerFlag and not intPt2InnerFlag):
+                            actions.append({
+                                'loc': intPt2,
+                                'action': 'leave',
+                                'polyID': pID,
+                                'mileage': accMileage + m2,
+                            })
+
+                        # 如果第一个点在poly外，第二个点在poly内
+                        # m1 => enter, m2 => inside
+                        elif (not intPt1InnerFlag and intPt2InnerFlag):
+                            actions.append({
+                                'loc': intPt1,
+                                'action': 'enter',
+                                'polyID': pID,
+                                'mileage': accMileage + m1,
+                            })
+
+                        # 如果两点都在内部，整段折线都在内部
+                        elif (intPt1InnerFlag and intPt2InnerFlag):
+                            pass
+
+                        # 如果俩点都在外面，只有可能是两个转折点都在边缘上，一进一出
+                        elif (not intPt1InnerFlag and not intPt2InnerFlag):
+                            actions.append({
+                                'loc': intPt1,
+                                'action': 'enter',
+                                'polyID': pID,
+                                'mileage': accMileage + m1,
+                            })
+                            actions.append({
+                                'loc': intPt2,
+                                'action': 'leave',
+                                'polyID': pID,
+                                'mileage': accMileage + m2,
+                            })
+    
+        accMileage += distEuclideanXY(seg[0], seg[1])['dist']
+
+    actions = sorted(actions, key = lambda d: d['mileage'])
+
+    return actions
+
 def splitOverlapSegs(seg1: line, seg2: line, belong1: list = [1], belong2: list = [2]):
     """Given two segments that are overlapped, split into segments that are not overlapped
 

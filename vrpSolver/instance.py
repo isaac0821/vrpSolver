@@ -260,8 +260,7 @@ def rndNodes(
     nodeLocs = rndLocs(
         N = len(nodeIDs), 
         distr = distr,
-        **kwargs
-        )
+        **kwargs)
     for n in range(len(nodeIDs)):
         if (nodeIDs[n] in nodes):
             warnings.warn("WARNING: %s already exists, will be replaced" % n)
@@ -511,9 +510,9 @@ def rndNodeNeighbors(
     nodeIDs: string|list[int|str], optional, default 'All'
         A list of node IDs to add neighborhood, leave it as 'All' to indicate adding such information to all nodes.
     shape: str, optional, default as 'Circle'
-        The shape of neighborhoods, options and required addtional inputs are as follows:
+        The shape of neighborhoods, options and required additional inputs are as follows:
 
-        1) (default) 'Cirlce', add circle surrounding nodes
+        1) (default) 'Circle', add circle surrounding nodes
             - 'radius': The radius, default as 1
             - 'lod': The level of details, circle will be approximated as a x-gon polygon, default as 30
         2) 'Poly', add polygon surrounding nodes
@@ -533,7 +532,7 @@ def rndNodeNeighbors(
             - 'N': default as 5
             - 'w': default as 3
             - 'lod': default as 30
-        5) 'RndConvexPoly', add convex polygons with random size arond nodes
+        5) 'RndConvexPoly', add convex polygons with random size around nodes
             - 'maxNumSide': maximum number of sides
             - 'maxDiag': maximum length of the diagonal
             - 'minDiag': minimum length of the diagonal
@@ -576,7 +575,7 @@ def rndNodeNeighbors(
                 lod = kwargs['lod']
 
             nodes[n]['neiShape'] = 'Circle'
-
+            nodes[n]['radius'] = kwargs['radius']
             poly = [[
                 nodes[n][locFieldName][0] + kwargs['radius'] * math.sin(2 * d * math.pi / lod),
                 nodes[n][locFieldName][1] + kwargs['radius'] * math.cos(2 * d * math.pi / lod),
@@ -594,6 +593,7 @@ def rndNodeNeighbors(
 
             nodes[n][neighborFieldName] = []
             nodes[n]['neiShape'] = 'Isochrone'
+            nodes[n]['radiusList'] = kwargs['radiusList']
             for r in kwargs['radiusList']:
                 poly = [[
                     nodes[n][locFieldName][0] + r * math.sin(2 * d * math.pi / lod),
@@ -656,7 +656,7 @@ def rndNodeNeighbors(
             
             u = math.cos(math.radians(direction))
             v = math.sin(math.radians(direction))
-            poly = [(u * pt[0] + v * pt[1], -v * pt[0] + u * pt[1]) for pt in polyB4Rot]
+            poly = [(nodes[n][locFieldName][0] + u * pt[0] + v * pt[1], nodes[n][locFieldName][1] + -v * pt[0] + u * pt[1]) for pt in polyB4Rot]
             nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON]
             
     elif (shape == 'RndSquare'):
