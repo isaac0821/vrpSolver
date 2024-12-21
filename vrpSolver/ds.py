@@ -60,11 +60,15 @@ class Ring(object):
             raise EmptyError("ERROR: The route is empty.")
         cur = self.head
         trvFlag = False
+        queried = 0
         while (not trvFlag):
             if (cur.key == key):
                 return cur
             else:
                 cur = cur.next
+                queried += 1
+                if (queried > self._count):
+                    raise OutOfRangeError("ERROR: Unexpected loop")
                 if (cur.key == self.head.key):
                     trvFlag = True
         if (trvFlag):
@@ -74,6 +78,8 @@ class Ring(object):
         route = []
         cur = self.head
         while (not cur.isNil):
+            if (len(route) > self._count):
+                raise OutOfRangeError("ERROR: Unexpected loop")
             route.append(cur)
             cur = cur.next
             if (cur.key == self.head.key):
@@ -151,35 +157,42 @@ class Route(Ring):
         if (self.asymFlag):
             self.dist, self._revDist = self._revDist, self.dist
 
-    def reverseBetween(self, startKey, endKey):
-        if (startKey == endKey):
-            raise KeyExistError("ERROR: Cannot reverse itself")
-        tra = self.queryBetween(startKey, endKey)
-        startPrev = tra[0].prev
-        endNext = tra[-1].next
-        # Calculate reverse distance
-        s2eDist = 0
-        e2sDist = 0
+    def rotate(self, s, e):
+        # = = s.prev s s.next = = = e.prev e e.next = = 
+        # = = s.prev e e.prev = = = s.next s e.next = = 
+
+        sPrev = s.prev
+        eNext = e.next
+
+        s.prev.next = e
+        e.next.prev = s
+
+        # 如果是asymmetric
+        distS2E = 0
+        distE2S = 0
+        # 计算 s => e之间累计的距离
         if (self.asymFlag):
-            cur = tra[0]
-            while (cur != tra[-1]):
-                s2eDist += self.tau[cur.key, cur.next.key]
-                e2sDist += self.tau[cur.next.key, cur.key]
-                cur = cur.next
-        # Change pointers
+            k = s
+            while (k.key != e.key):
+                distS2E += self.tau[k.key, k.next.key]
+                distE2S += self.tau[k.next.key, k.key]
+                k = k.next
+
+        tra = []
+        k = s
+        while (k.key != e.key):
+            tra.append(k)
+            k = k.next
+        tra.append(e)
+
         for n in tra:
             n.prev, n.next = n.next, n.prev
-        tra[-1].prev = startPrev
-        tra[0].next = endNext
-        startPrev.next = tra[-1]
-        endNext.prev = tra[0]
-        # Update distances
-        self.dist += (self.tau[startPrev.key, tra[-1].key] + self.tau[tra[0].key, endNext] 
-            - self.tau[startPrev.key, tra[0].key] - self.tau[tau[-1].key, endNext.key])
-        if (self.asymFlag):
-            self._revDist += (self.tau[startPrev.key, tra[-1].key] + self.tau[tra[0].key, endNext] 
-                - self.tau[startPrev.key, tra[0].key] - self.tau[tau[-1].key, endNext.key])
-            self._revDist += e2sDist - s2eDist
+
+        e.prev = sPrev
+        s.next = eNext
+
+        self.dist = self.dist - self.tau[sPrev.key, s.key] - self.tau[e.key, eNext.key] + self.tau[sPrev.key, e.key] + self.tau[s.key, eNext.key] - distS2E + distE2S
+        self._revDist = self._revDist - self.tau[eNext.key, e.key] - self.tau[s.key, sPrev.key] + self.tau[eNext.key, s.key] + self.tau[e.key, sPrev.key] - distE2S + distS2E
 
     def query(self, key) -> "RouteNode":
         if (self.head.isNil):
@@ -195,24 +208,6 @@ class Route(Ring):
                     trvFlag = True
         if (trvFlag):
             return RouteNilNode()
-
-    def queryBetween(self, startKey, endKey) -> list:
-        if (self.head.isNil):
-            raise EmptyError("ERROR: The route is empty.")
-        cur = self.query(startKey)
-        if (cur.isNil):
-            return []
-        trvFlag = False
-        q = [cur]
-        while (not trvFlag):
-            if (cur.key == endKey):
-                return q
-            else:
-                cur = cur.next
-                q.append(cur)
-                if (cur.key == endKey):
-                    trvFlag = True
-        return q
 
     def insert(self, m, n):
         if (n.isNil):
@@ -281,9 +276,9 @@ class Route(Ring):
             raise KeyExistError("ERROR: Cannot swap itself")
         # Old: = = = i j k l m n = = = | -> exchange(j, m)
         # New: = = = i m k l j n = = =
-        if (nI.next.key == keyJ):
-            return self.swap(nI)
-        if (nI.next.next.key == keyJ):
+        if (nI.next.key == nJ.key):
+            self.swap(nI)
+        if (nI.next.next.key == nJ.key):
             # Old: = = pI nI nX nJ sJ = =
             # New: = = pI nJ nX nI sJ = =
             pI = nI.prev

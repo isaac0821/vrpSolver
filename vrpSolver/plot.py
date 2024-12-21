@@ -1348,7 +1348,7 @@ def plotRoads(
                 if (roads[road]['class'] in roadColors):
                     color = roadColors[roads[road]['class']]
                 else:
-                    color = 'gray'
+                    color = roadColors['others']
             rw = 1
             if (type(roadWidth) == dict):
                 if (roads[road]['class'] in roadWidth):

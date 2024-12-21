@@ -8,9 +8,6 @@ from .geometry import *
 from .msg import *
 from .travel import *
 
-def addDetails():
-    return
-
 def solveTSP(
     nodes: dict, 
     locFieldName: str = 'loc',
@@ -134,13 +131,19 @@ def solveTSP(
         elif (kwargs['solver'] == 'COPT' and kwargs['fml'] not in ['DFJ_Lazy']):
             raise OutOfRangeError("ERROR: COPT option supports 'DFJ_Lazy' formulations", )
     elif (algo == 'Heuristic'):
-        if ('cons' not in kwargs and 'impv' not in kwargs):
-            raise MissingParameterError("ERROR: Missing constructive heuristic and local improvement heuristic.")
+        if ('cons' not in kwargs):
+            kwargs['cons'] = 'NearestNeighbor'
+            warnings.warn("WARNING: No construction heuristic are specified.")
+        if ('impv' not in kwargs):
+            kwargs['impv'] = '2Opt'
+            warnings.warn("WARNING: No local improvement heuristic are specified.")
     elif (algo == 'Metaheuristic'):
         if ('cons' not in kwargs):
-            raise MissingParameterError("ERROR: A construction heuristic needs to be specified.")
+            kwargs['cons'] = 'NearestNeighbor'
+            warnings.warn("WARNING: No construction heuristic are specified.")
         if ('meta' not in kwargs):
-            raise MissingParameterError("ERROR: A meta-heuristic needs to be specified.")
+            kwargs['meta'] = 'SimulatedAnnealing'
+            warnings.warn("WARNING: No metaheuristic are specified.")
 
     # Define tau ==============================================================
     tau = None
@@ -1287,28 +1290,28 @@ def _metaTSPSimulatedAnnealing(seqObj, nodeIDs, initTemp, lengTemp, neighRatio, 
 
     # Subroutines to generate neighborhoods ===================================
     # Swap i and i + 1
-    def swap(i):
+    def swap(keyI):
         oldDist = seqObj.dist
-        nI = seqObj.query(i)
+        nI = seqObj.query(keyI)
         seqObj.swap(nI)
         newDist = seqObj.dist
         return (newDist - oldDist)
 
     # Randomly exchange two vertices
-    def exchange(i, j):
+    def exchange(keyI, keyJ):
         oldDist = seqObj.dist
-        nI = seqObj.query(i)
-        nJ = seqObj.query(j)
+        nI = seqObj.query(keyI)
+        nJ = seqObj.query(keyJ)
         seqObj.exchange(nI, nJ)
         newDist = seqObj.dist
         return (newDist - oldDist)
         
     # Randomly rotate part of seq
-    def rotate(i, j):
+    def rotate(keyI, keyJ):
         oldDist = seqObj.dist
-        # nI = seqObj.query(i)
-        # nJ = seqObj.query(j)
-        seqObj.reverseBetween(i, j)
+        nI = seqObj.query(keyI)
+        nJ = seqObj.query(keyJ)
+        seqObj.rotate(nI, nJ)
         newDist = seqObj.dist
         return (newDist - oldDist)
 
@@ -1319,8 +1322,9 @@ def _metaTSPSimulatedAnnealing(seqObj, nodeIDs, initTemp, lengTemp, neighRatio, 
     L = lengTemp
 
     # Initial Solution
-    curSeq = None
+    curSeq = [i.key for i in seqObj.traverse()]
     ofv = seqObj.dist
+    startTime = datetime.datetime.now()
 
     # Main cooling ============================================================
     contFlag = True
@@ -1331,7 +1335,7 @@ def _metaTSPSimulatedAnnealing(seqObj, nodeIDs, initTemp, lengTemp, neighRatio, 
     
     ofvCurve = []
 
-    while (contFlag):
+    while (contFlag):     
         # Repeat in the same temperature
         for l in range(L):
             # Increment iterator
@@ -1345,69 +1349,87 @@ def _metaTSPSimulatedAnnealing(seqObj, nodeIDs, initTemp, lengTemp, neighRatio, 
 
             # Randomly swap
             if (typeOfNeigh == 0):
-                i = random.randint(0, len(nodeIDs))
-                keyI = nodeIDs[i]
-                keyINext = seqObj.query(keyI).next
+                curSeq = [f.key for f in seqObj.traverse()]
+                i = random.randint(0, len(curSeq) - 1)
+                keyI = curSeq[i]
+                keyINext = seqObj.query(keyI).next.key
                 revAction = {
                     'opt': 'swap',
                     'key': keyINext
                 }
                 deltaC = swap(keyI)
+
             # Randomly exchange two digits
             elif (typeOfNeigh == 1):
+                curSeq = [f.key for f in seqObj.traverse()]
                 i = None
                 j = None
                 while (i == None 
                         or j == None 
                         or abs(i - j) <= 2 
-                        or (i == 0 and j == len(nodeIDs) - 1) 
-                        or (i == len(nodeIDs) - 1 and j == 0)):
-                    i = random.randint(0, len(nodeIDs))
-                    j = random.randint(0, len(nodeIDs))
-                keyI = nodeIDs[i]
-                keyJ = nodeIDs[j]
+                        or (i == 0 and j == len(curSeq) - 1) 
+                        or (i == len(curSeq) - 1 and j == 0)):
+                    i = random.randint(0, len(curSeq) - 1)
+                    j = random.randint(0, len(curSeq) - 1)
+                keyI = curSeq[i]
+                keyJ = curSeq[j]
                 revAction = {
                     'opt': 'exchange',
                     'key': (keyJ, keyI)
                 }
+                nI = seqObj.query(keyI)
+                nJ = seqObj.query(keyJ)
+                if (nI.next.key == nJ.key or nJ.next.key == nI.key):
+                    raise
                 deltaC = exchange(keyI, keyJ)
+
             # Randomly reverse part of path
             elif (typeOfNeigh == 2):
+                curSeq = [f.key for f in seqObj.traverse()]
                 i = None
                 j = None
                 while (i == None 
                         or j == None 
                         or abs(i - j) <= 2 
-                        or (i == 0 and j == len(nodeIDs) - 1) 
-                        or (i == len(nodeIDs) - 1 and j == 0)):
-                    i = random.randint(0, len(nodeIDs))
-                    j = random.randint(0, len(nodeIDs))
-                keyI = nodeIDs[i]
-                keyJ = nodeIDs[j]
+                        or (i == 0 and j == len(curSeq) - 1) 
+                        or (i == len(curSeq) - 1 and j == 0)):
+                    i = random.randint(0, len(curSeq) - 1)
+                    j = random.randint(0, len(curSeq) - 1)
+                keyI = curSeq[i]
+                keyJ = curSeq[j]
+
                 revAction = {
-                    'opt': 'reverse',
+                    'opt': 'rotate',
                     'key': (keyJ, keyI)
-                }
+                }                
+                nI = seqObj.query(keyI)
+                nJ = seqObj.query(keyJ)
+                if (nI.next.key == nJ.key or nJ.next.key == nI.key):
+                    raise
                 deltaC = rotate(keyI, keyJ)
 
             # If this new neighbor is good, accept it, 
             #     otherwise accept it with probability
             if (deltaC <= 0): # deltaC = newC - preC, <0 means improve
+                # print("Improved: Accept")
                 ofv = seqObj.dist
                 iterAcc += 1
                 iterNoImp = 0
             else:
                 sample = random.random()
                 if (sample < math.exp(- deltaC / T)):
+                    # print("No improve: Accept by chance", sample, "<", math.exp(- deltaC / T))
                     ofv = seqObj.dist
                     iterAcc += 1
                 else:
+                    # print("No improve: Refused.")
+                    beforeSeq = seqObj.traverse()
                     if (revAction['opt'] == 'swap'):
                         _ = swap(revAction['key'])
                     elif (revAction['opt'] == 'exchange'):
                         _ = exchange(revAction['key'][0], revAction['key'][1])
-                    elif (revAction['opt'] == 'reverse'):
-                        _ = reverse(revAction['key'][0], revAction['key'][1])
+                    elif (revAction['opt'] == 'rotate'):
+                        _ = rotate(revAction['key'][0], revAction['key'][1])
                     iterNoImp += 1
 
             apRate = iterAcc / iterTotal
@@ -1417,31 +1439,24 @@ def _metaTSPSimulatedAnnealing(seqObj, nodeIDs, initTemp, lengTemp, neighRatio, 
             if ('finalTemp' in stop):
                 if (T < stop['finalTemp']):
                     contFlag = False
-                    # endCriteria = 'Final_Temperature'
                     break
             if ('numNoImproveIter' in stop):
                 if (iterNoImp > stop['numNoImproveIter']):
                     contFlag = False
-                    # endCriteria = 'Num_Iterations_Without_Improving'
                     break
             if ('ptgAcceptedMove' in stop):
                 if (iterTotal > 0 and apRate < stop['ptgAcceptedMove']):
                     contFlag = False
-                    # endCriteria = 'Percent_of_Accepted_Move'
                     break
             if ('numIter' in stop):
                 if (iterTotal > stop['numIter']):
                     contFlag = False
-                    # endCriteria = 'Num_Iterations'
                     break
             if ('runtime' in stop):
                 if ((datetime.datetime.now() - startTime).total_seconds() > stop['runtime']):
                     contFlag = False
-                    # endCriteria = 'Executed_Time'
                     break
-        
         # Cool down
         T = coolRate * T
-
     return seqObj
 
