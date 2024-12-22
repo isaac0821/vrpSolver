@@ -117,6 +117,12 @@ def rndPick(coefficients: list[int|float]) -> int:
             break
     return idx
 
+def rndPickFromDict(coefficients: dict) -> int|str:
+    keys = list(coefficients.keys())
+    values = list(coefficients.values())
+    idx = rndPick(values)
+    return keys[idx]
+
 def list2String(l, noCommaFlag=False):
     listString = "["
     if (noCommaFlag==False):

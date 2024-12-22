@@ -126,6 +126,12 @@ class RouteNode(RingNode):
         self.prev = prev if prev != None else RouteNilNode()
         self.next = next if next != None else RouteNilNode()
 
+    def clone(self):
+        newObj = RouteNode(self.key, self.value)
+        newObj.prev = self.prev
+        newObj.next = self.next
+        return newObj
+
 class RouteNilNode(RouteNode):
     def __init__(self):
         return
@@ -142,6 +148,21 @@ class Route(Ring):
         self._revDist = 0
         self.asymFlag = asymFlag
         self._count = 0
+
+    def clone(self):
+        newRoute = Route(self.tau, self.asymFlag)
+        cur = self.head
+        l = 0
+        while (not cur.isNil):
+            if (l > self._count):
+                raise OutOfRangeError("ERROR: Unexpected loop")
+            clone = cur.clone()
+            newRoute.append(clone)
+            cur = cur.next
+            l += 1
+            if (cur.key == self.head.key):
+                break
+        return newRoute
 
     @property
     def revDist(self):

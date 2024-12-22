@@ -70,10 +70,11 @@ def solveTSP(
                 - cons = 'Random', randomly create a feasible route
             - impv: str, choose the local improvement heuristic to improve the existing feasible route
                 - impv = '2Opt', use the 2-opt algorithm
-        3) 'Metaheuristic', use metaheuristic methods to solve TSP to sub-optimal
-            - cons: Same as in 'Heuristic'
+        3) 'Metaheuristic', use metaheuristic methods to solve TSP to sub-optimal, different metaheuristic methods requires different construction phase of heuristic
+            - cons: str, construction heuristic for metaheuristic, options depends on `meta`
             - meta: str, choose a metaheuristic improvement method
-                - meta = 'SimulatedAnnealing', use Simulated Annealing to improve a solution create by 'cons'
+                - meta = 'SimulatedAnnealing', use Simulated Annealing to improve a solution create by 'cons', choice of 'cons' are all construction heuristic available for 'Heuristic'
+                - meta = 'GeneticAlgorithm', use Genetic Algorithm to create solutions. Choice of 'cons' includes ['Random', 'RandomInsertion']
 
     detailsFlag: bool, optional, default as False
         If True, an additional field `vehicle` will be added into the solution, which can be used for animation. See :func:`~vrpSolver.plot.aniRouting()`.
@@ -171,6 +172,8 @@ def solveTSP(
             break
 
     # TSP =====================================================================
+    startTime = datetime.datetime.now()
+
     tsp = None
     if (algo == 'IP'):
         tsp = _ipTSP(
@@ -183,18 +186,71 @@ def solveTSP(
             gapTolerance = None if 'gapTolerance' not in kwargs else kwargs['gapTolerance'])
         tsp['fml'] = kwargs['fml']
         tsp['solver'] = kwargs['solver']
-    elif (algo == 'Heuristic' or algo == 'Metaheuristic'):
+
+    elif (algo == 'Heuristic'):
         nodeObj = {}
         for n in nodeIDs:
             nodeObj[n] = RouteNode(n, value=nodes[n][locFieldName])
-        tsp = _heuTSP(
+        # Two-phase: construction phase
+        seqObj = _consTSP(
+            nodes = nodes,
             nodeObj = nodeObj, 
             tau = tau, 
             depotID = depotID, 
-            nodes = nodes,
             nodeIDs = nodeIDs, 
             asymFlag = asymFlag, 
             **kwargs)
+        # Two-phase: local improvement phase
+        tsp = _impvTSP(
+            seqObj = seqObj,
+            **kwargs)
+        tsp['cons'] = kwargs['cons']
+        tsp['impv'] = kwargs['impv']
+
+    elif (algo == 'Metaheuristic'):
+        nodeObj = {}
+        for n in nodeIDs:
+            nodeObj[n] = RouteNode(n, value=nodes[n][locFieldName])
+
+        # Population based
+        if (kwargs['meta'] in ['GeneticAlgorithm', 'PSO', 'ACO']):
+            # Two-phase: popularize phase
+            popObj = _popTSP(
+                nodes = nodes,
+                nodeObj = nodeObj, 
+                tau = tau, 
+                depotID = depotID, 
+                nodeIDs = nodeIDs, 
+                asymFlag = asymFlag, 
+                **kwargs)
+            # Two-phase: population based search phase
+            tsp = _metaPopSearchTSP(
+                popObj = popObj,
+                nodeObj = nodeObj,
+                tau = tau,
+                depotID = depotID,
+                asymFlag = asymFlag,
+                **kwargs)
+            tsp['cons'] = kwargs['cons']
+            tsp['meta'] = kwargs['meta']
+        # Search based
+        elif (kwargs['meta'] in ['SimulatedAnnealing', 'ALNS', 'GRASP']):
+            # Two-phase: construction phase
+            seqObj = _consTSP(
+                nodes = nodes,
+                nodeObj = nodeObj, 
+                tau = tau, 
+                depotID = depotID, 
+                nodeIDs = nodeIDs, 
+                asymFlag = asymFlag, 
+                **kwargs)
+            # Two-phase: local search phase
+            tsp = _metaLocalSearchTSP( 
+                seqObj = seqObj, 
+                **kwargs)
+            tsp['cons'] = kwargs['cons']
+            tsp['meta'] = kwargs['meta']
+
     else:
         raise OutOfRangeError("ERROR: Select 'algo' from ['IP', 'Heuristic', 'Metaheuristic'].")
 
@@ -284,13 +340,14 @@ def solveTSP(
         res['gap'] = tsp['gap']
         res['solType'] = tsp['solType']
         res['lowerBound'] = tsp['lowerBound']
-        res['upperBound'] = tsp['upperBound']
-        res['runtime'] = tsp['runtime']    
+        res['upperBound'] = tsp['upperBound']   
     if (metaFlag):
         res['algo'] = algo
         res['serviceTime'] = serviceTime
     if (detailsFlag):
         res['vehicles'] = vehicles
+
+    res['runtime'] = (datetime.datetime.now() - startTime).total_seconds()
 
     return res
 
@@ -398,13 +455,11 @@ def _ipTSPGurobiLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
         gap = 0
         lb = ofv
         ub = ofv
-        runtime = TSP.Runtime
     elif (TSP.status == grb.GRB.status.TIME_LIMIT):
         solType = 'IP_TimeLimit'
         gap = TSP.MIPGap
         lb = TSP.ObjBoundC
         ub = TSP.ObjVal
-        runtime = TSP.Runtime
 
     return {
         'ofv': ofv,
@@ -412,8 +467,7 @@ def _ipTSPGurobiLazyCuts(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
         'gap': gap,
         'solType': solType,
         'lowerBound': lb,
-        'upperBound': ub,
-        'runtime': runtime
+        'upperBound': ub
     }
 
 def _ipTSPGurobiPlainLoop(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
@@ -505,13 +559,11 @@ def _ipTSPGurobiPlainLoop(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
         gap = 0
         lb = ofv
         ub = ofv
-        runtime = accRuntime
     elif (TSP.status == grb.GRB.status.TIME_LIMIT):
         solType = 'IP_TimeLimit'
         gap = TSP.MIPGap
         lb = TSP.ObjBoundC
         ub = TSP.ObjVal
-        runtime = accRuntime
 
     return {
         'ofv': ofv,
@@ -520,7 +572,6 @@ def _ipTSPGurobiPlainLoop(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
         'solType': solType,
         'lowerBound': lb,
         'upperBound': ub,
-        'runtime': runtime
     }
 
 def _ipTSPGurobiMTZ(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
@@ -584,7 +635,6 @@ def _ipTSPGurobiMTZ(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     solType = None
     lb = None
     ub = None
-    runtime = None
 
     ofv = TSP.getObjective().getValue()
     gap = TSP.Params.MIPGapAbs
@@ -605,13 +655,11 @@ def _ipTSPGurobiMTZ(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
         gap = 0
         lb = ofv
         ub = ofv
-        runtime = TSP.Runtime
     elif (TSP.status == grb.GRB.status.TIME_LIMIT):
         solType = 'IP_TimeLimit'
         gap = TSP.MIPGap
         lb = TSP.ObjBoundC
         ub = TSP.ObjVal
-        runtime = TSP.Runtime
 
     return {
         'ofv': ofv,
@@ -619,8 +667,7 @@ def _ipTSPGurobiMTZ(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
         'gap': gap,
         'solType': solType,
         'lowerBound': lb,
-        'upperBound': ub,
-        'runtime': runtime
+        'upperBound': ub
     }
 
 def _ipTSPGurobiShortestPath(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
@@ -680,7 +727,6 @@ def _ipTSPGurobiShortestPath(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     gap = None
     lb = None
     ub = None
-    runtime = None
 
     ofv = TSP.getObjective().getValue()
     for i, j, t in x:
@@ -700,13 +746,11 @@ def _ipTSPGurobiShortestPath(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
         gap = 0
         lb = ofv
         ub = ofv
-        runtime = TSP.Runtime
     elif (TSP.status == grb.GRB.status.TIME_LIMIT):
         solType = 'IP_TimeLimit'
         gap = TSP.MIPGap
         lb = TSP.ObjBoundC
         ub = TSP.ObjVal
-        runtime = TSP.Runtime
 
     return {
         'ofv': ofv,
@@ -715,7 +759,6 @@ def _ipTSPGurobiShortestPath(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
         'solType': solType,
         'lowerBound': lb,
         'upperBound': ub,
-        'runtime': runtime
     }
 
 def _ipTSPGurobiMultiCommodityFlow(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
@@ -789,7 +832,6 @@ def _ipTSPGurobiMultiCommodityFlow(nodeIDs, tau, outputFlag, timeLimit, gapToler
     gap = None
     lb = None
     ub = None
-    runtime = None
 
     ofv = TSP.getObjective().getValue()
     for i, j in x:
@@ -809,13 +851,11 @@ def _ipTSPGurobiMultiCommodityFlow(nodeIDs, tau, outputFlag, timeLimit, gapToler
         gap = 0
         lb = ofv
         ub = ofv
-        runtime = TSP.Runtime
     elif (TSP.status == grb.GRB.status.TIME_LIMIT):
         solType = 'IP_TimeLimit'
         gap = TSP.MIPGap
         lb = TSP.ObjBoundC
         ub = TSP.ObjVal
-        runtime = TSP.Runtime
 
     return {
         'ofv': ofv,
@@ -824,7 +864,6 @@ def _ipTSPGurobiMultiCommodityFlow(nodeIDs, tau, outputFlag, timeLimit, gapToler
         'solType': solType,
         'lowerBound': lb,
         'upperBound': ub,
-        'runtime': runtime
     }
 
 def _ipTSPGurobiQAP(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
@@ -904,7 +943,6 @@ def _ipTSPGurobiQAP(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
     gap = None
     lb = None
     ub = None
-    runtime = None
     solType = None
 
     ofv = TSP.getObjective().getValue()
@@ -919,13 +957,11 @@ def _ipTSPGurobiQAP(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
         gap = 0
         lb = ofv
         ub = ofv
-        runtime = TSP.Runtime
     elif (TSP.status == grb.GRB.status.TIME_LIMIT):
         solType = 'IP_TimeLimit'
         gap = TSP.MIPGap
         lb = TSP.ObjBoundC
         ub = TSP.ObjVal
-        runtime = TSP.Runtime
 
     return {
         'ofv': ofv,
@@ -934,7 +970,6 @@ def _ipTSPGurobiQAP(nodeIDs, tau, outputFlag, timeLimit, gapTolerance):
         'solType': solType,
         'lowerBound': lb,
         'upperBound': ub,
-        'runtime': runtime
     }
 
 def _ipTSPCOPTLazyCuts(nodeIDs, tau, outputFlag, timeLimit):
@@ -1004,7 +1039,6 @@ def _ipTSPCOPTLazyCuts(nodeIDs, tau, outputFlag, timeLimit):
     gap = None
     lb = None
     ub = None
-    runtime = None
     if (TSP.status == cp.COPT.OPTIMAL):
         solType = 'IP_Optimal'
         ofv = TSP.getObjective().getValue()
@@ -1024,7 +1058,6 @@ def _ipTSPCOPTLazyCuts(nodeIDs, tau, outputFlag, timeLimit):
         gap = 0
         lb = ofv
         ub = ofv
-        runtime = TSP.SolvingTime
     elif (TSP.status == cp.COPT.TIMEOUT):
         solType = 'IP_TimeLimit'
         ofv = None
@@ -1032,7 +1065,6 @@ def _ipTSPCOPTLazyCuts(nodeIDs, tau, outputFlag, timeLimit):
         gap = TSP.BestGap
         lb = TSP.BestBnd
         ub = TSP.BestObj
-        runtime = TSP.SolvingTime
 
     return {
         'ofv': ofv,
@@ -1041,16 +1073,15 @@ def _ipTSPCOPTLazyCuts(nodeIDs, tau, outputFlag, timeLimit):
         'solType': solType,
         'lowerBound': lb,
         'upperBound': ub,
-        'runtime': runtime
     }
 
-def _heuTSP(nodeObj, tau, depotID, nodeIDs, asymFlag, **kwargs) -> dict|None:
+def _consTSP(nodes, nodeObj, tau, depotID, nodeIDs, asymFlag, **kwargs) -> "Route":
     # Construction heuristics =================================================
     # NOTE: Output of this phase should be a Route() object
     seqObj = Route(tau, asymFlag)
-
+    cons = kwargs['cons']
     # An initial solution is given
-    if ('cons' not in kwargs or kwargs['cons'] == 'Initial' or kwargs['cons'] == None):
+    if (cons == 'Initial'):
         if ('initSeq' not in kwargs):
             raise MissingParameterError("ERROR: Need 'initSeq' for local improvement")
         elif (len(kwargs['initSeq']) != len(nodeIDs) + 1):
@@ -1063,11 +1094,11 @@ def _heuTSP(nodeObj, tau, depotID, nodeIDs, asymFlag, **kwargs) -> dict|None:
             seqObj.append(nodeObj[i])
 
     # Insertion heuristic
-    elif (kwargs['cons'] == 'Insertion' or kwargs['cons'] == 'RandomInsertion'):
+    elif (cons == 'Insertion' or cons == 'RandomInsertion'):
         initSeq = None
         
         randomInsertionFlag = False
-        if (kwargs['cons'] == 'RandomInsertion'):
+        if (cons == 'RandomInsertion'):
             randomInsertionFlag = True
         
         if ('initSeq' not in kwargs):   
@@ -1092,7 +1123,7 @@ def _heuTSP(nodeObj, tau, depotID, nodeIDs, asymFlag, **kwargs) -> dict|None:
                 seqObj = _consTSPInsertion(nodeIDs, kwargs['initSeq'], tau, asymFlag, randomInsertionFlag)
     
     # Neighborhood based heuristic, including nearest neighborhood, k-nearest neighborhood, and furthest neighborhood
-    elif (kwargs['cons'] == 'NearestNeighbor'):
+    elif (cons == 'NearestNeighbor'):
         nnSeq = None
         if ('k' not in kwargs or kwargs['k'] == 1):
             nnSeq = _consTSPkNearestNeighbor(depotID, nodeIDs, tau, 1)
@@ -1104,28 +1135,28 @@ def _heuTSP(nodeObj, tau, depotID, nodeIDs, asymFlag, **kwargs) -> dict|None:
             seqObj.append(nodeObj[i])
 
     # Sweep heuristic
-    elif (kwargs['cons'] == 'Sweep'):
+    elif (cons == 'Sweep'):
         sweepSeq = _consTSPSweep(nodes, depotID, nodeIDs, locFieldName)
         for i in sweepSeq:
             seqObj.append(nodeObj[i])
         seqObj.rehead(depotID)
 
     # Christofides Algorithm, guaranteed <= 1.5 * optimal
-    elif (kwargs['cons'] == 'Christofides'):
+    elif (cons == 'Christofides'):
         if (not asymFlag):
-            cfSeq = _consTSPChristofides(depotID, tau)
+            cfSeq = _consTSPChristofides(nodes, depotID, tau)
             for i in cfSeq:
                 seqObj.append(nodeObj[i])
         else:
             raise UnsupportedInputError("ERROR: 'Christofides' algorithm is not designed for Asymmetric TSP")
 
-    # Cycle Cover Algorithm, specially designed for Asymmetric TSP
-    elif (kwargs['cons'] == 'CycleCover'):
+   # Cycle Cover Algorithm, specially designed for Asymmetric TSP
+    elif (cons == 'CycleCover'):
         raise VrpSolverNotAvailableError("ERROR: 'CycleCover' algorithm is not available yet, please stay tune")
         seqObj = _consTSPCycleCover(depotID, nodeIDs, tau)
 
     # Randomly create a sequence
-    elif (kwargs['cons'] == 'Random'):
+    elif (cons == 'Random'):
         rndSeq = _consTSPRandom(depotID, nodeIDs)
         for i in rndSeq:
             seqObj.append(nodeObj[i])
@@ -1135,29 +1166,69 @@ def _heuTSP(nodeObj, tau, depotID, nodeIDs, asymFlag, **kwargs) -> dict|None:
         raise UnsupportedInputError(ERROR_MISSING_TSP_ALGO)
 
     # Cleaning seq before local improving =====================================
-    consOfv = seqObj.dist
+    seqObj.rehead(depotID)
+    return seqObj
 
-    # Local improvement phase =================================================
-    # NOTE: Local improvement phase operates by class kwargss
+def _popTSP(popSize, nodes, nodeObj, tau, depotID, nodeIDs, asymFlag, **kwargs) -> list["Route"]:
+    pop = []
+    if (kwargs['cons'] in ['Random', 'RandomInsertion']):    
+        for i in range(popSize):
+            seqObj = _consTSP(nodes, nodeObj, tau, depotID, nodeIDs, asymFlag, **kwargs)
+            pop.append(seqObj.clone())
+    else:
+        raise UnsupportedInputError("ERROR: Population based metaheuristic only supports 'Random' or 'RandomInsertion' as construction heuristic.")
+    return pop
+
+def _impvTSP(seqObj, **kwargs):
     # NOTE: For the local improvement, try every local search operator provided in a greedy way
-    if ('impv' in kwargs and kwargs['impv'] != None and kwargs['impv'] != []):
-        canImpvFlag = True
-        while (canImpvFlag):
-            canImpvFlag = False
+    canImpvFlag = True
+    while (canImpvFlag):
+        canImpvFlag = False
 
-            # 2Opt
-            if (not canImpvFlag and '2Opt' in kwargs['impv']):
-                canImpvFlag = seqObj.impv2Opt()
+        # 2Opt
+        if (not canImpvFlag and kwargs['impv'] == '2Opt' or '2Opt' in kwargs['impv']):
+            canImpvFlag = seqObj.impv2Opt()
 
-    if ('meta' in kwargs and kwargs['meta'] == 'SimulatedAnnealing'):
+    ofv = seqObj.dist
+    seq = [n.key for n in seqObj.traverse(closeFlag = True)]
+
+    return {
+        'ofv': ofv,
+        'seq': seq
+    }
+
+def _metaLocalSearchTSP(seqObj, **kwargs):
+    if (kwargs['meta'] == 'SimulatedAnnealing'):
         seqObj = _metaTSPSimulatedAnnealing(
             seqObj = seqObj, 
-            nodeIDs = nodeIDs, 
             initTemp = kwargs['initTemp'], 
             lengTemp = kwargs['lengTemp'], 
             neighRatio = kwargs['neighRatio'], 
             coolRate = kwargs['coolRate'], 
             stop = kwargs['stop'])
+    else:
+        raise UnsupportedInputError("ERROR: Currently not support.")
+
+    ofv = seqObj.dist
+    seq = [n.key for n in seqObj.traverse(closeFlag = True)]
+
+    return {
+        'ofv': ofv,
+        'seq': seq
+    }
+
+def _metaPopSearchTSP(popObj, nodeObj, depotID, tau, asymFlag, **kwargs):
+    if (kwargs['meta'] == 'GeneticAlgorithm'):
+        seqObj = _metaTSPGeneticAlgorithm(
+            popObj = popObj, 
+            nodeObj = nodeObj, 
+            depotID = depotID, 
+            tau = tau, 
+            asymFlag = asymFlag, 
+            neighRatio = kwargs['neighRatio'], 
+            stop = kwargs['stop'])
+    else:
+        raise UnsupportedInputError("ERROR: Currently not support.")
 
     ofv = seqObj.dist
     seq = [n.key for n in seqObj.traverse(closeFlag = True)]
@@ -1244,7 +1315,7 @@ def _consTSPInsertion(nodeIDs, initSeq, nodeObj, tau, asymFlag, randomInsertionF
 
     return route
     
-def _consTSPChristofides(depotID, tau):
+def _consTSPChristofides(nodes, depotID, tau):
     G = nx.Graph()
     subG = nx.Graph()
     for (i, j) in tau:
@@ -1286,7 +1357,7 @@ def _consTSPChristofides(depotID, tau):
 def _consTSPCycleCover(depotID, tau):
     raise VrpSolverNotAvailableError("ERROR: vrpSolver has not implement this kwargs yet")
 
-def _metaTSPSimulatedAnnealing(seqObj, nodeIDs, initTemp, lengTemp, neighRatio, coolRate, stop) -> dict:
+def _metaTSPSimulatedAnnealing(seqObj, initTemp, lengTemp, neighRatio, coolRate, stop) -> dict:
 
     # Subroutines to generate neighborhoods ===================================
     # Swap i and i + 1
@@ -1332,23 +1403,21 @@ def _metaTSPSimulatedAnnealing(seqObj, nodeIDs, initTemp, lengTemp, neighRatio, 
     iterTotal = 0
     iterNoImp = 0
     iterAcc = 0
-    
-    ofvCurve = []
 
-    while (contFlag):     
+    while (contFlag):
         # Repeat in the same temperature
         for l in range(L):
             # Increment iterator
             iterTotal += 1
 
             # Generate a neighbor using different type
-            typeOfNeigh = rndPick(list(neighRatio))
+            typeOfNeigh = rndPickFromDict(neighRatio)
 
             deltaC = None
             revAction = {}
 
             # Randomly swap
-            if (typeOfNeigh == 0):
+            if (typeOfNeigh == 'swap'):
                 curSeq = [f.key for f in seqObj.traverse()]
                 i = random.randint(0, len(curSeq) - 1)
                 keyI = curSeq[i]
@@ -1360,7 +1429,7 @@ def _metaTSPSimulatedAnnealing(seqObj, nodeIDs, initTemp, lengTemp, neighRatio, 
                 deltaC = swap(keyI)
 
             # Randomly exchange two digits
-            elif (typeOfNeigh == 1):
+            elif (typeOfNeigh == 'exchange'):
                 curSeq = [f.key for f in seqObj.traverse()]
                 i = None
                 j = None
@@ -1384,7 +1453,7 @@ def _metaTSPSimulatedAnnealing(seqObj, nodeIDs, initTemp, lengTemp, neighRatio, 
                 deltaC = exchange(keyI, keyJ)
 
             # Randomly reverse part of path
-            elif (typeOfNeigh == 2):
+            elif (typeOfNeigh == 'rotate'):
                 curSeq = [f.key for f in seqObj.traverse()]
                 i = None
                 j = None
@@ -1460,3 +1529,210 @@ def _metaTSPSimulatedAnnealing(seqObj, nodeIDs, initTemp, lengTemp, neighRatio, 
         T = coolRate * T
     return seqObj
 
+def _metaTSPGeneticAlgorithm(popObj, nodeObj, depotID, tau, asymFlag, neighRatio, stop) -> dict:
+
+    # Subroutines to generate neighborhoods ===================================
+    # Swap i and i + 1
+    def swap(seqObj, keyI):
+        nI = seqObj.query(keyI)
+        seqObj.swap(nI)
+        return seqObj
+
+    # Randomly exchange two vertices
+    def exchange(seqObj, keyI, keyJ):
+        nI = seqObj.query(keyI)
+        nJ = seqObj.query(keyJ)
+        seqObj.exchange(nI, nJ)
+        return seqObj
+        
+    # Randomly rotate part of seq
+    def rotate(seqObj, keyI, keyJ):
+        nI = seqObj.query(keyI)
+        nJ = seqObj.query(keyJ)
+        seqObj.rotate(nI, nJ)
+        return seqObj
+
+    # Randomly crossover two sequence
+    def crossover(seqObj1, seqObj2, idx1, idx2):
+        # 原始序列
+        seq1 = [i.key for i in seqObj1.traverse()]
+        seq2 = [i.key for i in seqObj2.traverse()]
+        # 把idx1和idx2排个序换一下，保证idx1在前面
+        if (idx1 > idx2):
+            idx1, idx2 = idx2, idx1
+        # 构造新序列
+        newSeq1 = [seq2[i] for i in range(idx1, idx2)]
+        for i in range(idx2, len(seq1)):
+            if (seq1[i] not in newSeq1):
+                newSeq1.append(seq1[i])
+        for i in range(idx2):
+            if (seq1[i] not in newSeq1):
+                newSeq1.append(seq1[i])
+        newSeq2 = [seq1[i] for i in range(idx1, idx2)]
+        for i in range(idx2, len(seq2)):
+            if (seq2[i] not in newSeq2):
+                newSeq2.append(seq2[i])
+        for i in range(idx2):
+            if (seq2[i] not in newSeq2):
+                newSeq2.append(seq2[i])
+        # 构造新序列实体
+        newSeqObj1 = Route(tau, asymFlag)
+        for i in newSeq1:
+            newSeqObj1.append(nodeObj[i].clone())
+        newSeqObj1.rehead(depotID)
+        newSeqObj2 = Route(tau, asymFlag)
+        for i in newSeq2:
+            newSeqObj2.append(nodeObj[i].clone())
+        newSeqObj2.rehead(depotID)
+
+        return newSeqObj1, newSeqObj2
+
+    # Initialize ==============================================================
+    dashboard = {
+        'bestOfv': float('inf'),
+        'bestSeq': None
+    }
+    startTime = datetime.datetime.now()
+    for seq in popObj:
+        if (seq.dist < dashboard['bestOfv']):
+            dashboard['bestOfv'] = seq.dist
+            dashboard['bestSeq'] = [i.key for i in seq.traverse()]
+
+    popSize = len(popObj)
+    geneLen = len(popObj[0].traverse())
+
+    # Main loop ===============================================================
+    contFlag = True
+
+    iterTotal = 0
+    iterNoImp = 0   
+
+    while (contFlag):
+        # Crossover and create offspring
+        while (len(popObj) <= (int)((1 + neighRatio['crossover']) * popSize)):
+            # Randomly select two genes, the better gene has better chance to have offspring
+            
+            rnd1 = None
+            rnd2 = None
+            while (rnd1 == None or rnd2 == None or rnd1 == rnd2):
+                coeff = []
+                for i in range(len(popObj)):
+                    coeff.append(1 / (popObj[i].dist - 0.8 * dashboard['bestOfv']))
+                rnd1 = rndPick(coeff)
+                rnd2 = rndPick(coeff)
+            # Randomly select a window
+            idx1 = None
+            idx2 = None
+            while (idx1 == None or idx2 == None 
+                    or abs(idx1 - idx2) <= 2
+                    or (idx1 == 0 and idx2 == geneLen - 1)
+                    or (idx1 == geneLen - 1 and idx2 == 0)):
+                idx1 = random.randint(0, geneLen - 1)
+                idx2 = random.randint(0, geneLen - 1)
+        
+            newSeq1, newSeq2 = crossover(popObj[rnd1], popObj[rnd2], idx1, idx2)
+            popObj.append(newSeq1)
+            popObj.append(newSeq2)
+
+        # Mutation
+        # NOTE: will always keep the worse outcome
+        # swap
+        numSwap = (int)(neighRatio['swap'] * popSize)
+        for i in range(numSwap):
+            rnd = random.randint(0, len(popObj) - 1)
+            curSeq = [f.key for f in popObj[rnd].traverse()]
+            idx = random.randint(0, geneLen - 1)
+            keyI = curSeq[idx]
+            popObj[rnd] = swap(popObj[rnd], keyI)
+
+        # exchange
+        numExchange = (int)(neighRatio['exchange'] * popSize)
+        for i in range(numExchange):
+            rnd = random.randint(0, len(popObj) - 1)
+            curSeq = [f.key for f in popObj[rnd].traverse()]
+            idx1 = None
+            idx2 = None
+            while (idx1 == None 
+                    or idx2 == None 
+                    or abs(idx1 - idx2) <= 2 
+                    or (idx1 == 0 and idx2 == len(curSeq) - 1) 
+                    or (idx1 == len(curSeq) - 1 and idx2 == 0)):
+                idx1 = random.randint(0, len(curSeq) - 1)
+                idx2 = random.randint(0, len(curSeq) - 1)
+            keyI = curSeq[idx1]
+            keyJ = curSeq[idx2]
+            nI = popObj[rnd].query(keyI)
+            nJ = popObj[rnd].query(keyJ)
+            if (nI.next.key == nJ.key or nJ.next.key == nI.key):
+                raise
+            popObj[rnd] = exchange(popObj[rnd], keyI, keyJ)
+
+        # rotate
+        numRotate = (int)(neighRatio['rotate'] * popSize)
+        for i in range(numRotate):
+            rnd = random.randint(0, len(popObj) - 1)
+            curSeq = [f.key for f in popObj[rnd].traverse()]
+            idx1 = None
+            idx2 = None
+            while (idx1 == None 
+                    or idx2 == None 
+                    or abs(idx1 - idx2) <= 2 
+                    or (idx1 == 0 and idx2 == len(curSeq) - 1) 
+                    or (idx1 == len(curSeq) - 1 and idx2 == 0)):
+                idx1 = random.randint(0, len(curSeq) - 1)
+                idx2 = random.randint(0, len(curSeq) - 1)
+            keyI = curSeq[idx1]
+            keyJ = curSeq[idx2]
+            nI = popObj[rnd].query(keyI)
+            nJ = popObj[rnd].query(keyJ)
+            if (nI.next.key == nJ.key or nJ.next.key == nI.key):
+                raise
+            popObj[rnd] = rotate(popObj[rnd], keyI, keyJ)
+
+        # Tournament
+        while (len(popObj) > popSize):
+            # Randomly select two genes
+            rnd1 = None
+            rnd2 = None
+            while (rnd1 == None or rnd2 == None or rnd1 == rnd2):
+                rnd1 = random.randint(0, len(popObj) - 1)
+                rnd2 = random.randint(0, len(popObj) - 1)
+            # kill the loser
+            if (popObj[rnd1].dist > popObj[rnd2].dist):
+                del popObj[rnd1]
+            else:
+                del popObj[rnd2]
+
+        # Update dashboard
+        newOfvFound = False
+        for seq in popObj:
+            if (seq.dist < dashboard['bestOfv']):
+                newOfvFound = True
+                dashboard['bestOfv'] = seq.dist
+                dashboard['bestSeq'] = [i.key for i in seq.traverse()]
+        if (newOfvFound):
+            iterNoImp = 0
+        else:
+            iterNoImp += 1
+        iterTotal += 1
+
+        # Check stopping criteria
+        if ('numNoImproveIter' in stop):
+            if (iterNoImp > stop['numNoImproveIter']):
+                contFlag = False
+                break
+        if ('numIter' in stop):
+            if (iterTotal > stop['numIter']):
+                contFlag = False
+                break
+        if ('runtime' in stop):
+            if ((datetime.datetime.now() - startTime).total_seconds() > stop['runtime']):
+                contFlag = False
+                break
+
+    seqObj = Route(tau, asymFlag)
+    for i in dashboard['bestSeq']:
+        seqObj.append(nodeObj[i].clone())
+    seqObj.rehead(depotID)
+
+    return seqObj
