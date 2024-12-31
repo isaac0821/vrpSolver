@@ -3,8 +3,8 @@ requires = ["setuptools>=68.2.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "vrpSolver"
-version = "0.0.57"
+name = "geoVeRoPy"
+version = "0.0.1"
 authors = [
   { name="Lan Peng", email="lanpeng@shu.edu.cn" },
 ]

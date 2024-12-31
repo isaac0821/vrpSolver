@@ -7,7 +7,7 @@ long_description = """
 
 setuptools.setup(
 	name="vrpSolver",
-	version="0.0.56",
+	version="0.0.58",
 	author="Lan Peng",
 	author_email="lanpeng@shu.edu.cn",
 	description="VRP Solver",
