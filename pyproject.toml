@@ -28,6 +28,6 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/isaac0821/vrpSolver/"
-Issues = "https://github.com/isaac0821/vrpSolver/issues"
-Documentation = "https://isaac0821.github.io/vrpSolver/"
+Homepage = "https://github.com/isaac0821/geoVeRoPy/"
+Issues = "https://github.com/isaac0821/geoVeRoPy/issues"
+Documentation = "https://isaac0821.github.io/geoVeRoPy/"
