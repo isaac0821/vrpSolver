@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>geoVeRoPy.common &#8212; geoVeRoPy 0.0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b849a4e9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinxdoc.css?v=87629129" />
+    <script src="../../_static/documentation_options.js?v=d45e8c67"></script>
+    <script src="../../_static/doctools.js?v=9a2dae69"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">geoVeRoPy 0.0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">geoVeRoPy.common</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for geoVeRoPy.common</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">import</span> <span class="nn">math</span>
+<span class="kn">import</span> <span class="nn">datetime</span>
+<span class="kn">import</span> <span class="nn">functools</span>
+
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">import</span> <span class="nn">pickle5</span> <span class="k">as</span> <span class="nn">pickle</span>
+<span class="k">except</span><span class="p">(</span><span class="ne">ImportError</span><span class="p">):</span>
+    <span class="kn">import</span> <span class="nn">pickle</span>
+
+<span class="n">CONST_EPSILON</span> <span class="o">=</span> <span class="mf">0.00001</span>
+<span class="n">CONST_EARTH_RADIUS_MILES</span> <span class="o">=</span> <span class="mf">3958.8</span>
+<span class="n">CONST_EARTH_RADIUS_METERS</span> <span class="o">=</span> <span class="mf">6378137.0</span>
+
+<span class="c1"># Type alias</span>
+<span class="n">pt</span> <span class="o">=</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>
+<span class="n">pt3D</span> <span class="o">=</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>
+<span class="n">poly</span> <span class="o">=</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span>
+<span class="n">polys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]]]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span>
+<span class="n">circle</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pt</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>
+<span class="n">line</span> <span class="o">=</span> <span class="nb">list</span><span class="p">[</span><span class="n">pt</span><span class="p">]</span>
+
+<span class="n">DEBUG_WRITE_LOG</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">DEBUG_PRINT_LOG</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">DEBUG_LOG_PATH</span> <span class="o">=</span> <span class="s2">&quot;log.log&quot;</span>
+
+<div class="viewcode-block" id="UnsupportedInputError">
+<a class="viewcode-back" href="../../geoVeRoPy.common.html#geoVeRoPy.common.UnsupportedInputError">[docs]</a>
+<span class="k">class</span> <span class="nc">UnsupportedInputError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="ZeroVectorError">
+<a class="viewcode-back" href="../../geoVeRoPy.common.html#geoVeRoPy.common.ZeroVectorError">[docs]</a>
+<span class="k">class</span> <span class="nc">ZeroVectorError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="InvalidPolygonError">
+<a class="viewcode-back" href="../../geoVeRoPy.common.html#geoVeRoPy.common.InvalidPolygonError">[docs]</a>
+<span class="k">class</span> <span class="nc">InvalidPolygonError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="EmptyError">
+<a class="viewcode-back" href="../../geoVeRoPy.common.html#geoVeRoPy.common.EmptyError">[docs]</a>
+<span class="k">class</span> <span class="nc">EmptyError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="MissingParameterError">
+<a class="viewcode-back" href="../../geoVeRoPy.common.html#geoVeRoPy.common.MissingParameterError">[docs]</a>
+<span class="k">class</span> <span class="nc">MissingParameterError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="KeyExistError">
+<a class="viewcode-back" href="../../geoVeRoPy.common.html#geoVeRoPy.common.KeyExistError">[docs]</a>
+<span class="k">class</span> <span class="nc">KeyExistError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="KeyNotExistError">
+<a class="viewcode-back" href="../../geoVeRoPy.common.html#geoVeRoPy.common.KeyNotExistError">[docs]</a>
+<span class="k">class</span> <span class="nc">KeyNotExistError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="OutOfRangeError">
+<a class="viewcode-back" href="../../geoVeRoPy.common.html#geoVeRoPy.common.OutOfRangeError">[docs]</a>
+<span class="k">class</span> <span class="nc">OutOfRangeError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="VrpSolverNotAvailableError">
+<a class="viewcode-back" href="../../geoVeRoPy.common.html#geoVeRoPy.common.VrpSolverNotAvailableError">[docs]</a>
+<span class="k">class</span> <span class="nc">VrpSolverNotAvailableError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="k">pass</span></div>
+
+
+<div class="viewcode-block" id="saveDictionary">
+<a class="viewcode-back" href="../../geoVeRoPy.common.html#geoVeRoPy.common.saveDictionary">[docs]</a>
+<span class="k">def</span> <span class="nf">saveDictionary</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Save the dictionary to local file as `.pkl`</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    obj: dict, required</span>
+<span class="sd">        The dictionary to be saved</span>
+<span class="sd">    name: str, required</span>
+<span class="sd">        The name of local file without `.pkl`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">saveName</span> <span class="o">=</span> <span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;.pkl&#39;</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;.pkl&#39;</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">pickle</span><span class="o">.</span><span class="n">HIGHEST_PROTOCOL</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="loadDictionary">
+<a class="viewcode-back" href="../../geoVeRoPy.common.html#geoVeRoPy.common.loadDictionary">[docs]</a>
+<span class="k">def</span> <span class="nf">loadDictionary</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load a dictionary from a local `.pkl` file</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    name: str, required</span>
+<span class="sd">        The name of local file with `.pkl`</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    dict</span>
+<span class="sd">        The dictionary loaded from local</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">name</span> <span class="o">+</span> <span class="s1">&#39;.pkl&#39;</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span></div>
+
+ 
+<div class="viewcode-block" id="rndPick">
+<a class="viewcode-back" href="../../geoVeRoPy.common.html#geoVeRoPy.common.rndPick">[docs]</a>
+<span class="k">def</span> <span class="nf">rndPick</span><span class="p">(</span><span class="n">coefficients</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="o">|</span><span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given a list of coefficients, randomly returns an index of the list by coefficient</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    coefficient: list, required</span>
+<span class="sd">        A list of probabilities.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+
+<span class="sd">    int</span>
+<span class="sd">        An index randomly selected</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">totalSum</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">coefficients</span><span class="p">)</span>
+    <span class="n">tmpSum</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">rnd</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">uniform</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">totalSum</span><span class="p">)</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">coefficients</span><span class="p">)):</span>
+        <span class="n">tmpSum</span> <span class="o">+=</span> <span class="n">coefficients</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">rnd</span> <span class="o">&lt;=</span> <span class="n">tmpSum</span><span class="p">:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">i</span>
+            <span class="k">break</span>
+    <span class="k">return</span> <span class="n">idx</span></div>
+
+
+<span class="k">def</span> <span class="nf">rndPickFromDict</span><span class="p">(</span><span class="n">coefficients</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="o">|</span><span class="nb">str</span><span class="p">:</span>
+    <span class="n">keys</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">coefficients</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">coefficients</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+    <span class="n">idx</span> <span class="o">=</span> <span class="n">rndPick</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">keys</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">list2String</span><span class="p">(</span><span class="n">l</span><span class="p">,</span> <span class="n">noCommaFlag</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="n">listString</span> <span class="o">=</span> <span class="s2">&quot;[&quot;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">noCommaFlag</span><span class="o">==</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">listString</span> <span class="o">+=</span> <span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">list2String</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span> <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span> <span class="o">==</span> <span class="nb">list</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span> <span class="k">for</span> <span class="n">elem</span> <span class="ow">in</span> <span class="n">l</span><span class="o">.</span><span class="n">copy</span><span class="p">()])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">listString</span> <span class="o">+=</span> <span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">list2String</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span> <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span> <span class="o">==</span> <span class="nb">list</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span> <span class="k">for</span> <span class="n">elem</span> <span class="ow">in</span> <span class="n">l</span><span class="o">.</span><span class="n">copy</span><span class="p">()])</span>
+    <span class="n">listString</span> <span class="o">+=</span> <span class="s2">&quot;]&quot;</span>
+    <span class="k">return</span> <span class="n">listString</span>
+
+<span class="k">def</span> <span class="nf">list2Tuple</span><span class="p">(</span><span class="n">l</span><span class="p">):</span>
+    <span class="n">sortedList</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">l</span><span class="p">]</span>
+    <span class="n">sortedList</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+    <span class="n">tp</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">sortedList</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">tp</span>
+
+<span class="k">def</span> <span class="nf">hyphenStr</span><span class="p">(</span><span class="n">s</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">length</span><span class="o">=</span><span class="mi">75</span><span class="p">,</span> <span class="n">sym</span><span class="o">=</span><span class="s1">&#39;-&#39;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">s</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">length</span> <span class="o">*</span> <span class="n">sym</span>
+    <span class="n">lenMidS</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">lenMidS</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">&lt;</span> <span class="n">length</span><span class="p">):</span>
+        <span class="n">lenLeftS</span> <span class="o">=</span> <span class="p">(</span><span class="nb">int</span><span class="p">)((</span><span class="n">length</span> <span class="o">-</span> <span class="n">lenMidS</span> <span class="o">-</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">lenRightS</span> <span class="o">=</span> <span class="n">length</span> <span class="o">-</span> <span class="n">lenMidS</span> <span class="o">-</span> <span class="n">lenLeftS</span> <span class="o">-</span> <span class="mi">2</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">lenLeftS</span> <span class="o">*</span> <span class="n">sym</span><span class="p">)</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="n">s</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="p">(</span><span class="n">lenRightS</span> <span class="o">*</span> <span class="n">sym</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">s</span>
+
+<span class="k">def</span> <span class="nf">splitList</span><span class="p">(</span><span class="n">inputList</span><span class="p">,</span> <span class="n">binNum</span><span class="p">):</span>
+    <span class="n">listLength</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">inputList</span><span class="p">)</span>
+    <span class="n">perFloor</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="n">listLength</span> <span class="o">/</span> <span class="n">binNum</span><span class="p">)</span>
+    <span class="n">sizePerBin</span> <span class="o">=</span> <span class="p">[</span><span class="n">perFloor</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">binNum</span><span class="p">)]</span>
+    <span class="n">residual</span> <span class="o">=</span> <span class="n">listLength</span> <span class="o">-</span> <span class="nb">sum</span><span class="p">(</span><span class="n">sizePerBin</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">residual</span><span class="p">):</span>
+        <span class="n">sizePerBin</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+    <span class="n">bins</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">acc</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sizePerBin</span><span class="p">)):</span>
+        <span class="n">bins</span><span class="o">.</span><span class="n">append</span><span class="p">([])</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">acc</span><span class="p">,</span> <span class="n">acc</span> <span class="o">+</span> <span class="n">sizePerBin</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+            <span class="n">bins</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inputList</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
+        <span class="n">acc</span> <span class="o">+=</span> <span class="n">sizePerBin</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">bins</span>
+
+<span class="k">def</span> <span class="nf">writeLog</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">logPath</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">DEBUG_WRITE_LOG</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">logPath</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="n">logPath</span> <span class="o">=</span> <span class="n">DEBUG_LOG_PATH</span>
+        <span class="n">f</span> <span class="o">=</span> <span class="nb">open</span><span class="p">(</span><span class="n">logPath</span><span class="p">,</span> <span class="s2">&quot;a&quot;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">string</span> <span class="o">+</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">DEBUG_PRINT_LOG</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">string</span><span class="p">)</span>
+    <span class="k">return</span>
+
+<span class="k">def</span> <span class="nf">is2IntervalOverlap</span><span class="p">(</span><span class="n">interval1</span><span class="p">,</span> <span class="n">interval2</span><span class="p">):</span>
+    <span class="n">i</span> <span class="o">=</span> <span class="p">[</span><span class="nb">min</span><span class="p">(</span><span class="n">interval1</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">interval1</span><span class="p">)]</span>
+    <span class="n">j</span> <span class="o">=</span> <span class="p">[</span><span class="nb">min</span><span class="p">(</span><span class="n">interval2</span><span class="p">),</span> <span class="nb">max</span><span class="p">(</span><span class="n">interval2</span><span class="p">)]</span>
+
+    <span class="n">iA</span> <span class="o">=</span> <span class="n">i</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">iB</span> <span class="o">=</span> <span class="n">i</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">jA</span> <span class="o">=</span> <span class="n">j</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">jB</span> <span class="o">=</span> <span class="n">j</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">iB</span> <span class="o">&lt;</span> <span class="n">jA</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">jB</span> <span class="o">&lt;</span> <span class="n">iA</span><span class="p">):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">return</span> <span class="kc">True</span>
+
+<span class="k">def</span> <span class="nf">splitIntoSubSeq</span><span class="p">(</span><span class="n">inputList</span><span class="p">,</span> <span class="n">selectFlag</span><span class="p">):</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">inputList</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">selectFlag</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="n">UnsupportedInputError</span><span class="p">(</span><span class="s2">&quot;ERROR: The length of `inputList` should be the same as the length of `selectFlag`&quot;</span><span class="p">)</span>
+    <span class="n">splitSub</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">sub</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">selectFlag</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">selectFlag</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="kc">True</span><span class="p">):</span>
+            <span class="n">sub</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">inputList</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">elif</span> <span class="p">(</span><span class="n">selectFlag</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="kc">False</span><span class="p">):</span>
+            <span class="k">if</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sub</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+                <span class="n">splitSub</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">sub</span><span class="p">])</span>
+                <span class="n">sub</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">sub</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="n">splitSub</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">sub</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">splitSub</span>
+
+<div class="viewcode-block" id="findBoundingBox">
+<a class="viewcode-back" href="../../geoVeRoPy.common.html#geoVeRoPy.common.findBoundingBox">[docs]</a>
+<span class="k">def</span> <span class="nf">findBoundingBox</span><span class="p">(</span>
+    <span class="n">boundingBox</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+    <span class="n">pts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pt</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">nodes</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">locFieldName</span> <span class="o">=</span> <span class="s1">&#39;loc&#39;</span><span class="p">,</span>
+    <span class="n">arcs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">arcFieldName</span> <span class="o">=</span> <span class="s1">&#39;arc&#39;</span><span class="p">,</span>
+    <span class="n">arcStartLocFieldName</span> <span class="o">=</span> <span class="s1">&#39;startLoc&#39;</span><span class="p">,</span>
+    <span class="n">arcEndLocFieldName</span> <span class="o">=</span> <span class="s1">&#39;endLoc&#39;</span><span class="p">,</span>
+    <span class="n">poly</span><span class="p">:</span> <span class="n">poly</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">polys</span><span class="p">:</span> <span class="n">polys</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> 
+    <span class="n">polygons</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">anchorFieldName</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;anchor&#39;</span><span class="p">,</span>
+    <span class="n">polyFieldName</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;poly&#39;</span><span class="p">,</span>
+    <span class="n">xyReverseFlag</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">edgeWidth</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">):</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given a list of objects, returns a bounding box of all given objects.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    boundingBox: list|tuple, optional, default as None</span>
+<span class="sd">        An existing bounding box</span>
+<span class="sd">    pts: list of pts, optional, default as None</span>
+<span class="sd">        A list of pts</span>
+<span class="sd">    nodes: dict, optional, default as None</span>
+<span class="sd">        A `nodes` dictionary</span>
+<span class="sd">    locFieldName: str, optional, default as &#39;loc&#39;</span>
+<span class="sd">        The field in `nodes` indicates locations of nodes</span>
+<span class="sd">    arcs: dict, optional, default as None</span>
+<span class="sd">        An `arcs` dictionary</span>
+<span class="sd">    arcFieldName: str, optional, default as &#39;arc&#39;</span>
+<span class="sd">        The field in `arcs` indicates locations of arcs</span>
+<span class="sd">    poly: poly, optional, default as None</span>
+<span class="sd">        A poly</span>
+<span class="sd">    polys: polys, optional, default as None</span>
+<span class="sd">        A list of polys</span>
+<span class="sd">    polygons: dict, optional, default as None</span>
+<span class="sd">        A `polygons` dictionary</span>
+<span class="sd">    anchorFieldName: str, optional, default as `anchor`</span>
+<span class="sd">        The field in `polygons` indicates anchor of each polygon</span>
+<span class="sd">    polyFieldName: str, optional, default as `poly`</span>
+<span class="sd">        The field in `polygons` indicates polygons</span>
+<span class="sd">    xyReverseFlag: bool, optional, default as True</span>
+<span class="sd">        True if x, y is reversed.</span>
+<span class="sd">    edgeWidth: float, optional, default as 0.1</span>
+<span class="sd">        The extra space around bounding box</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    (float, float, float, float)</span>
+<span class="sd">        A bounding box</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="p">(</span><span class="n">xMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">,</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">yMax</span><span class="p">)</span> <span class="o">=</span> <span class="n">boundingBox</span>
+    <span class="n">allX</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">allY</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">xMin</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">xMin</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">xMax</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">xMax</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">yMin</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">yMin</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">yMax</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">yMax</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">pts</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">pt</span> <span class="ow">in</span> <span class="n">pts</span><span class="p">:</span>
+            <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">nodes</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">nodes</span><span class="p">:</span>
+            <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">nodes</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">locFieldName</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">arcs</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">arcs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">arcFieldName</span> <span class="ow">in</span> <span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+                <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcFieldName</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcFieldName</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcFieldName</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+                <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcFieldName</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+            <span class="k">elif</span> <span class="p">(</span><span class="n">arcStartLocFieldName</span> <span class="ow">in</span> <span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">and</span> <span class="n">arcEndLocFieldName</span> <span class="ow">in</span> <span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+                <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcStartLocFieldName</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcStartLocFieldName</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+                <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcEndLocFieldName</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcEndLocFieldName</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>     
+    <span class="k">if</span> <span class="p">(</span><span class="n">poly</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">pt</span> <span class="ow">in</span> <span class="n">poly</span><span class="p">:</span>
+            <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">polys</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">poly</span> <span class="ow">in</span> <span class="n">polys</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">pt</span> <span class="ow">in</span> <span class="n">poly</span><span class="p">:</span>
+                <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">polygons</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">polygons</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">pt</span> <span class="ow">in</span> <span class="n">polygons</span><span class="p">[</span><span class="n">p</span><span class="p">][</span><span class="n">polyFieldName</span><span class="p">]:</span>
+                <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+    <span class="n">xMin</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">allX</span><span class="p">)</span> <span class="o">-</span> <span class="n">edgeWidth</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">allX</span><span class="p">)</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">allX</span><span class="p">))</span>
+    <span class="n">xMax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">allX</span><span class="p">)</span> <span class="o">+</span> <span class="n">edgeWidth</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">allX</span><span class="p">)</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">allX</span><span class="p">))</span>
+    <span class="n">yMin</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">allY</span><span class="p">)</span> <span class="o">-</span> <span class="n">edgeWidth</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">allY</span><span class="p">)</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">allY</span><span class="p">))</span>
+    <span class="n">yMax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">allY</span><span class="p">)</span> <span class="o">+</span> <span class="n">edgeWidth</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">allY</span><span class="p">)</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">allY</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">xyReverseFlag</span><span class="p">):</span>
+        <span class="n">xMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">,</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">yMax</span> <span class="o">=</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">yMax</span><span class="p">,</span> <span class="n">xMin</span><span class="p">,</span> <span class="n">xMax</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">xMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">,</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">yMax</span><span class="p">)</span></div>
+
+ 
+<span class="k">def</span> <span class="nf">findBoundingBox3D</span><span class="p">(</span>
+    <span class="n">boundingBox3D</span> <span class="o">=</span> <span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">),</span>
+    <span class="n">pts3D</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">pt</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">cone</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">arcs</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">arcFieldName</span> <span class="o">=</span> <span class="s1">&#39;arc&#39;</span><span class="p">,</span>
+    <span class="n">arcStartLocFieldName</span> <span class="o">=</span> <span class="s1">&#39;startLoc&#39;</span><span class="p">,</span>
+    <span class="n">arcEndLocFieldName</span> <span class="o">=</span> <span class="s1">&#39;endLoc&#39;</span><span class="p">,</span>
+    <span class="n">xyReverseFlag</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">edgeWidth</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">):</span>
+
+    <span class="p">(</span><span class="n">xMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">,</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">yMax</span><span class="p">,</span> <span class="n">zMin</span><span class="p">,</span> <span class="n">zMax</span><span class="p">)</span> <span class="o">=</span> <span class="n">boundingBox3D</span>
+    <span class="n">allX</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">allY</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">allZ</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">xMin</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">xMin</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">xMax</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">xMax</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">yMin</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">yMin</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">yMax</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">yMax</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">zMin</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">allZ</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">zMin</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">zMax</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">allZ</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">zMax</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">pts3D</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">pt</span> <span class="ow">in</span> <span class="n">pts3D</span><span class="p">:</span>
+            <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">allZ</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pt</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">arcs</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">arcs</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">arcFieldName</span> <span class="ow">in</span> <span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+                <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcFieldName</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcFieldName</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcFieldName</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+                <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcFieldName</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+                <span class="n">allZ</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcFieldName</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
+                <span class="n">allZ</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcFieldName</span><span class="p">][</span><span class="mi">1</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
+            <span class="k">elif</span> <span class="p">(</span><span class="n">arcStartLocFieldName</span> <span class="ow">in</span> <span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="ow">and</span> <span class="n">arcEndLocFieldName</span> <span class="ow">in</span> <span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+                <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcStartLocFieldName</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcStartLocFieldName</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+                <span class="n">allZ</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcStartLocFieldName</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
+                <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcEndLocFieldName</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcEndLocFieldName</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+                <span class="n">allZ</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">arcs</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">arcEndLocFieldName</span><span class="p">][</span><span class="mi">2</span><span class="p">])</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">cone</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="c1"># 顶点</span>
+        <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cone</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cone</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">allZ</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cone</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">cone</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="mi">3</span> <span class="k">else</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="c1"># 上边缘四个点</span>
+        <span class="n">rMax</span> <span class="o">=</span> <span class="n">cone</span><span class="p">[</span><span class="s1">&#39;maxHeight&#39;</span><span class="p">]</span> <span class="o">*</span> <span class="n">cone</span><span class="p">[</span><span class="s1">&#39;tanAlpha&#39;</span><span class="p">]</span>
+        <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cone</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">rMax</span><span class="p">)</span>
+        <span class="n">allX</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cone</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">rMax</span><span class="p">)</span>
+        <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cone</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="n">rMax</span><span class="p">)</span>
+        <span class="n">allY</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cone</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">rMax</span><span class="p">)</span>
+        <span class="n">allZ</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cone</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">][</span><span class="mi">2</span><span class="p">]</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">cone</span><span class="p">[</span><span class="s1">&#39;center&#39;</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="mi">3</span> <span class="k">else</span> <span class="mi">0</span> <span class="o">+</span> <span class="n">cone</span><span class="p">[</span><span class="s1">&#39;maxHeight&#39;</span><span class="p">])</span>
+
+    <span class="n">xMin</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">allX</span><span class="p">)</span> <span class="o">-</span> <span class="n">edgeWidth</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">allX</span><span class="p">)</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">allX</span><span class="p">))</span>
+    <span class="n">xMax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">allX</span><span class="p">)</span> <span class="o">+</span> <span class="n">edgeWidth</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">allX</span><span class="p">)</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">allX</span><span class="p">))</span>
+    <span class="n">yMin</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">allY</span><span class="p">)</span> <span class="o">-</span> <span class="n">edgeWidth</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">allY</span><span class="p">)</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">allY</span><span class="p">))</span>
+    <span class="n">yMax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">allY</span><span class="p">)</span> <span class="o">+</span> <span class="n">edgeWidth</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">allY</span><span class="p">)</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">allY</span><span class="p">))</span>
+    <span class="n">zMin</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">allZ</span><span class="p">)</span> <span class="o">-</span> <span class="n">edgeWidth</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">allZ</span><span class="p">)</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">allZ</span><span class="p">))</span>
+    <span class="n">zMax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">allZ</span><span class="p">)</span> <span class="o">+</span> <span class="n">edgeWidth</span> <span class="o">*</span> <span class="nb">abs</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">allZ</span><span class="p">)</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">allZ</span><span class="p">))</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">xyReverseFlag</span><span class="p">):</span>
+        <span class="n">xMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">,</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">yMax</span> <span class="o">=</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">yMax</span><span class="p">,</span> <span class="n">xMin</span><span class="p">,</span> <span class="n">xMax</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">xMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">,</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">yMax</span><span class="p">,</span> <span class="n">zMin</span><span class="p">,</span> <span class="n">zMax</span><span class="p">)</span>
+
+<div class="viewcode-block" id="findFigSize">
+<a class="viewcode-back" href="../../geoVeRoPy.common.html#geoVeRoPy.common.findFigSize">[docs]</a>
+<span class="k">def</span> <span class="nf">findFigSize</span><span class="p">(</span><span class="n">boundingBox</span><span class="p">,</span> <span class="n">width</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">height</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given a bounding box, a width(or height), returns the height(or width) of the figure</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+
+<span class="sd">    boundingBox: 4-tuple, required</span>
+<span class="sd">        The bounding box of the figure</span>
+<span class="sd">    width: float|None, optional, default as None</span>
+<span class="sd">        The desired width of the figure</span>
+<span class="sd">    height: float|None, optional, default as None</span>
+<span class="sd">        The desired height of the figure</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    float, float</span>
+<span class="sd">        The (width, height) proportional to bounding box</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="p">(</span><span class="n">xMin</span><span class="p">,</span> <span class="n">xMax</span><span class="p">,</span> <span class="n">yMin</span><span class="p">,</span> <span class="n">yMax</span><span class="p">)</span> <span class="o">=</span> <span class="n">boundingBox</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">h</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">width</span> <span class="o">==</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">height</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">xMax</span> <span class="o">-</span> <span class="n">xMin</span> <span class="o">&gt;</span> <span class="n">yMax</span> <span class="o">-</span> <span class="n">yMin</span><span class="p">):</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="mi">5</span>
+            <span class="n">h</span> <span class="o">=</span> <span class="mi">5</span> <span class="o">*</span> <span class="p">((</span><span class="n">yMax</span> <span class="o">-</span> <span class="n">yMin</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">xMax</span> <span class="o">-</span> <span class="n">xMin</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">w</span> <span class="o">=</span> <span class="mi">5</span> <span class="o">*</span> <span class="p">((</span><span class="n">xMax</span> <span class="o">-</span> <span class="n">xMin</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">yMax</span> <span class="o">-</span> <span class="n">yMin</span><span class="p">))</span>
+            <span class="n">h</span> <span class="o">=</span> <span class="mi">5</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">width</span> <span class="o">!=</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">height</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">width</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="n">width</span> <span class="o">*</span> <span class="p">((</span><span class="n">yMax</span> <span class="o">-</span> <span class="n">yMin</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">xMax</span> <span class="o">-</span> <span class="n">xMin</span><span class="p">))</span>
+    <span class="k">elif</span> <span class="p">(</span><span class="n">width</span> <span class="o">==</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">height</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">height</span> <span class="o">*</span> <span class="p">((</span><span class="n">xMax</span> <span class="o">-</span> <span class="n">xMin</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">yMax</span> <span class="o">-</span> <span class="n">yMin</span><span class="p">))</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="n">height</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">w</span> <span class="o">=</span> <span class="n">width</span>
+        <span class="n">h</span> <span class="o">=</span> <span class="n">height</span>
+    <span class="k">return</span> <span class="n">w</span><span class="p">,</span> <span class="n">h</span></div>
+
+
+<span class="n">globalRuntimeAnalysis</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="c1"># Support runtime tracking and store in dictionary of at most three level</span>
+<span class="k">def</span> <span class="nf">runtime</span><span class="p">(</span><span class="n">key1</span><span class="p">,</span> <span class="n">key2</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">key3</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">deco</span><span class="p">(</span><span class="n">func</span><span class="p">):</span>
+        <span class="nd">@functools</span><span class="o">.</span><span class="n">wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+        <span class="k">def</span> <span class="nf">fun</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+            <span class="n">t</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
+            <span class="n">result</span> <span class="o">=</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+            <span class="n">dt</span> <span class="o">=</span> <span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+            <span class="k">global</span> <span class="n">globalRuntimeAnalysis</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">key1</span> <span class="o">!=</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">key2</span> <span class="o">!=</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">key3</span> <span class="o">!=</span> <span class="kc">None</span><span class="p">):</span>
+                <span class="c1"># Store in globalRuntimeAnalysis[key1][key2][key3]</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">key1</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">globalRuntimeAnalysis</span><span class="p">):</span>
+                    <span class="n">globalRuntimeAnalysis</span><span class="p">[</span><span class="n">key1</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">key2</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">globalRuntimeAnalysis</span><span class="p">[</span><span class="n">key1</span><span class="p">]):</span>
+                    <span class="n">globalRuntimeAnalysis</span><span class="p">[</span><span class="n">key1</span><span class="p">][</span><span class="n">key2</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">key3</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">globalRuntimeAnalysis</span><span class="p">[</span><span class="n">key1</span><span class="p">][</span><span class="n">key2</span><span class="p">]):</span>
+                    <span class="n">globalRuntimeAnalysis</span><span class="p">[</span><span class="n">key1</span><span class="p">][</span><span class="n">key2</span><span class="p">][</span><span class="n">key3</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">dt</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">globalRuntimeAnalysis</span><span class="p">[</span><span class="n">key1</span><span class="p">][</span><span class="n">key2</span><span class="p">][</span><span class="n">key3</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+=</span> <span class="n">dt</span>
+                    <span class="n">globalRuntimeAnalysis</span><span class="p">[</span><span class="n">key1</span><span class="p">][</span><span class="n">key2</span><span class="p">][</span><span class="n">key3</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">elif</span> <span class="p">(</span><span class="n">key1</span> <span class="o">!=</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">key2</span> <span class="o">!=</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">key3</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+                <span class="c1"># Store in globalRuntimeAnalysis[key1][key2]</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">key1</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">globalRuntimeAnalysis</span><span class="p">):</span>
+                    <span class="n">globalRuntimeAnalysis</span><span class="p">[</span><span class="n">key1</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">key2</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">globalRuntimeAnalysis</span><span class="p">[</span><span class="n">key1</span><span class="p">]):</span>
+                    <span class="n">globalRuntimeAnalysis</span><span class="p">[</span><span class="n">key1</span><span class="p">][</span><span class="n">key2</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">dt</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">globalRuntimeAnalysis</span><span class="p">[</span><span class="n">key1</span><span class="p">][</span><span class="n">key2</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+=</span> <span class="n">dt</span>
+                    <span class="n">globalRuntimeAnalysis</span><span class="p">[</span><span class="n">key1</span><span class="p">][</span><span class="n">key2</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">elif</span> <span class="p">(</span><span class="n">key1</span> <span class="o">!=</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">key2</span> <span class="o">==</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">key3</span> <span class="o">==</span> <span class="kc">None</span><span class="p">):</span>
+                <span class="c1"># Store in globalRuntimeAnalysis[key1]</span>
+                <span class="k">if</span> <span class="p">(</span><span class="n">key1</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">globalRuntimeAnalysis</span><span class="p">):</span>
+                    <span class="n">globalRuntimeAnalysis</span><span class="p">[</span><span class="n">key1</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">dt</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">globalRuntimeAnalysis</span><span class="p">[</span><span class="n">key1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">+=</span> <span class="n">dt</span>
+                    <span class="n">globalRuntimeAnalysis</span><span class="p">[</span><span class="n">key1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">return</span> <span class="n">result</span>
+        <span class="k">return</span> <span class="n">fun</span>
+    <span class="k">return</span> <span class="n">deco</span>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">geoVeRoPy 0.0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">geoVeRoPy.common</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2025, Lan Peng.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.3.7.
+    </div>
+  </body>
+</html>
