@@ -77,6 +77,11 @@ target/
 *.ipynb
 !demo/*.ipynb
 
+# Sphinx files
+docstring
+doctrees
+html
+
 # Markdown documents
 **/*.md
 !README.md
