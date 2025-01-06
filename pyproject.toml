@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "geoVeRoPy"
-version = "0.0.1"
+version = "0.0.4"
 authors = [
   { name="Lan Peng", email="lanpeng@shu.edu.cn" },
 ]

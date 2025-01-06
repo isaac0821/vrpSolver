@@ -40,7 +40,7 @@ def distTimedSeg2TimedSeg(timedSeg1: list[tuple[pt, float]], timedSeg2: list[tup
 
         # t \in [et1, st2]
         # 1 stay, 2 stay
-        minDist2 = distEuclideanXY((ex1, ey1), (ex2, ey2))['dist']
+        minDist2 = distEuclideanXY((ex1, ey1), (ex2, ey2))
 
         # t \in [st2, et2]
         # 1 stay, 2 move

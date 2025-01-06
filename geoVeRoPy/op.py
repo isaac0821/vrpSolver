@@ -20,7 +20,7 @@ def solveOP(
     vehicleID: int|str = 0,
     edges: str = 'Euclidean',
     algo: str = 'IP',
-    detailsFlag: bool = False,
+    detailFlag: bool = False,
     metaFlag: bool = False,
     **kwargs
     ) -> dict|None:
@@ -50,7 +50,7 @@ def solveOP(
         or (nodeIDs == 'All' and endID not in nodes)):
         raise OutOfRangeError("ERROR: Cannot find `endID` in given `nodes`/`nodeIDs`")
 
-    if (detailsFlag == True):
+    if (detailFlag == True):
         # For animation propose
         if (vehicles == None):
             raise MissingParameterError("ERROR: Missing required field `vehicles`.")
@@ -66,7 +66,7 @@ def solveOP(
     # Define tau ==============================================================
     tau = None
     path = None
-    if (detailsFlag):
+    if (detailFlag):
         tau, path = matrixDist(
             nodes = nodes, 
             nodeIDs = nodeIDs,
@@ -122,7 +122,7 @@ def solveOP(
     nodeSeq = op['seq']
     
     # Post optimization (for detail information) ==============================
-    if (detailsFlag):
+    if (detailFlag):
         # 返回一个数组，表示路径中的每个点的位置，不包括时间信息
         shapepoints = []        
         for i in range(len(nodeSeq) - 1):
@@ -143,7 +143,7 @@ def solveOP(
             else:
                 shapepointsInBtw = path[nodeSeq[i - 1], nodeSeq[i]]
                 for j in range(1, len(shapepointsInBtw)):
-                    curTime += distEuclideanXY(shapepointsInBtw[j - 1], shapepointsInBtw[j])['dist'] / vehicles[vehicleID]['speed']
+                    curTime += distEuclideanXY(shapepointsInBtw[j - 1], shapepointsInBtw[j]) / vehicles[vehicleID]['speed']
                     curLoc = shapepointsInBtw[j]
                     timedSeq.append((curLoc, curTime))
 
@@ -155,7 +155,7 @@ def solveOP(
         else:
             shapepointsInBtw = path[nodeSeq[-2], nodeSeq[-1]]
             for j in range(1, len(shapepointsInBtw)):
-                curTime += distEuclideanXY(shapepointsInBtw[j - 1], shapepointsInBtw[j])['dist'] / vehicles[vehicleID]['speed']
+                curTime += distEuclideanXY(shapepointsInBtw[j - 1], shapepointsInBtw[j]) / vehicles[vehicleID]['speed']
                 curLoc = shapepointsInBtw[j]
                 timedSeq.append((curLoc, curTime))
 
@@ -175,7 +175,7 @@ def solveOP(
     }
     if (metaFlag):
         res['method'] = kwargs['method']
-    if (detailsFlag):
+    if (detailFlag):
         res['vehicles'] = vehicles
 
     return res

@@ -1440,7 +1440,7 @@ class ScheduleList(object):
             (t, interval) = self.jobs[n.key]['twTree'].earlisetAvail(n.prev.te if n.prev != None else 0)
             newTs = t
             newTe = t + interval.value
-            if (abs(newTs - n.ts) < CONST_EPSILON and abs(newTe - n.te) < CONST_EPSILON):
+            if (abs(newTs - n.ts) < 0.001 and abs(newTe - n.te) < 0.001):
                 break
             else:
                 n.ts = newTs

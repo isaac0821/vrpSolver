@@ -18,7 +18,7 @@ def solveTSP(
     serviceTime: float = 0,
     edges: str = 'Euclidean',
     algo: str = 'IP',
-    detailsFlag: bool = False,
+    detailFlag: bool = False,
     metaFlag: bool = False,
     **kwargs
     ) -> dict:
@@ -76,7 +76,7 @@ def solveTSP(
                 - meta = 'SimulatedAnnealing', use Simulated Annealing to improve a solution create by 'cons', choice of 'cons' are all construction heuristic available for 'Heuristic'
                 - meta = 'GeneticAlgorithm', use Genetic Algorithm to create solutions. Choice of 'cons' includes ['Random', 'RandomInsertion']
 
-    detailsFlag: bool, optional, default as False
+    detailFlag: bool, optional, default as False
         If True, an additional field `vehicle` will be added into the solution, which can be used for animation. See :func:`~vrpSolver.plot.aniRouting()`.
     **kwargs: optional
         Provide additional inputs for different `edges` options and `algo` options
@@ -115,7 +115,7 @@ def solveTSP(
         or (nodeIDs == 'All' and depotID not in nodes)):
         raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
 
-    if (detailsFlag == True):
+    if (detailFlag == True):
         # For animation propose
         if (vehicles == None):
             raise MissingParameterError("ERROR: Missing required field `vehicles`.")
@@ -148,16 +148,19 @@ def solveTSP(
 
     # Define tau ==============================================================
     tau = None
-    path = None
-    if (detailsFlag):
-        tau, path = matrixDist(
+    pathLoc = None
+    if (detailFlag):
+        res = matrixDist(
             nodes = nodes, 
             nodeIDs = nodeIDs,
             edges = edges, 
             locFieldName = locFieldName,
+            detailFlag = True
             **kwargs)
+        tau = res['tau']
+        pathLoc = res['pathLoc']
     else:
-        tau, _ = matrixDist(
+        tau = matrixDist(
             nodes = nodes, 
             nodeIDs = nodeIDs,
             edges = edges, 
@@ -283,12 +286,12 @@ def solveTSP(
         ofv = tsp['ofv'] + sumServiceTime
 
     # Post optimization (for detail information) ==============================
-    if (detailsFlag):
+    if (detailFlag):
         # 返回一个数组，表示路径中的每个点的位置，不包括时间信息
         shapepoints = []        
         for i in range(len(nodeSeq) - 1):
-            shapepoints.extend(path[nodeSeq[i], nodeSeq[i + 1]][:-1])
-        shapepoints.append(path[nodeSeq[-2], nodeSeq[-1]][-1])
+            shapepoints.extend(pathLoc[nodeSeq[i], nodeSeq[i + 1]][:-1])
+        shapepoints.append(pathLoc[nodeSeq[-2], nodeSeq[-1]][-1])
 
         # 返回一个数组，其中每个元素为二元数组，表示位置+时刻
         curTime = 0
@@ -302,9 +305,9 @@ def solveTSP(
                 curLoc = nodes[nodeSeq[i]][locFieldName]
                 timedSeq.append((curLoc, curTime))
             else:
-                shapepointsInBtw = path[nodeSeq[i - 1], nodeSeq[i]]
+                shapepointsInBtw = pathLoc[nodeSeq[i - 1], nodeSeq[i]]
                 for j in range(1, len(shapepointsInBtw)):
-                    curTime += distEuclideanXY(shapepointsInBtw[j - 1], shapepointsInBtw[j])['dist'] / vehicles[vehicleID]['speed']
+                    curTime += distEuclideanXY(shapepointsInBtw[j - 1], shapepointsInBtw[j]) / vehicles[vehicleID]['speed']
                     curLoc = shapepointsInBtw[j]
                     timedSeq.append((curLoc, curTime))
             # 如果有service time，则加上一段在原处等待的时间
@@ -321,9 +324,9 @@ def solveTSP(
             curLoc = nodes[nodeSeq[-1]][locFieldName]
             timedSeq.append((curLoc, curTime))
         else:
-            shapepointsInBtw = path[nodeSeq[-2], nodeSeq[-1]]
+            shapepointsInBtw = pathLoc[nodeSeq[-2], nodeSeq[-1]]
             for j in range(1, len(shapepointsInBtw)):
-                curTime += distEuclideanXY(shapepointsInBtw[j - 1], shapepointsInBtw[j])['dist'] / vehicles[vehicleID]['speed']
+                curTime += distEuclideanXY(shapepointsInBtw[j - 1], shapepointsInBtw[j]) / vehicles[vehicleID]['speed']
                 curLoc = shapepointsInBtw[j]
                 timedSeq.append((curLoc, curTime))
 
@@ -344,7 +347,7 @@ def solveTSP(
     if (metaFlag):
         res['algo'] = algo
         res['serviceTime'] = serviceTime
-    if (detailsFlag):
+    if (detailFlag):
         res['vehicles'] = vehicles
 
     res['runtime'] = (datetime.datetime.now() - startTime).total_seconds()

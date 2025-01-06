@@ -381,7 +381,7 @@ def _rndPtRoadNetworkPolyLatLon(N: int, roads: dict, poly: poly, roadClass: str 
         includedFlag = False
         if ('class' in clipRoad[rID] and clipRoad[rID]['class'] in roadClass):
             for i in range(len(clipRoad[rID]['shape']) - 1):
-                roadLength += distLatLon(clipRoad[rID]['shape'][i], clipRoad[rID]['shape'][i + 1])['dist']
+                roadLength += distLatLon(clipRoad[rID]['shape'][i], clipRoad[rID]['shape'][i + 1])
             lengths.append(roadLength)
             roadIDs.append(rID)
 
@@ -420,7 +420,7 @@ def _rndPtRoadNetworkPolyLatLons(N: int, roads: dict, polys: polys, roadClass: s
         includedFlag = False
         if ('class' in clipRoad[rID] and clipRoad[rID]['class'] in roadClass):
             for i in range(len(clipRoad[rID]['shape']) - 1):
-                roadLength += distLatLon(clipRoad[rID]['shape'][i], clipRoad[rID]['shape'][i + 1])['dist']
+                roadLength += distLatLon(clipRoad[rID]['shape'][i], clipRoad[rID]['shape'][i + 1])
             lengths.append(roadLength)
             roadIDs.append(rID)
 
@@ -451,14 +451,14 @@ def _rndPtRoadNetworkCircleLatLon(N: int, roads: dict, radius: float, center: pt
         roadLength = 0
         includedFlag = False
         for i in range(len(roads[rID]['shape'])):
-            if ('class' in roads[rID] and roads[rID]['class'] in roadClass and distLatLon(roads[rID]['shape'][i], center)['dist'] <= radius):
+            if ('class' in roads[rID] and roads[rID]['class'] in roadClass and distLatLon(roads[rID]['shape'][i], center) <= radius):
                 includedFlag = True
                 break
 
         # Check if this road is inside polygon
         if (includedFlag):
             for i in range(len(roads[rID]['shape']) - 1):
-                roadLength += distLatLon(roads[rID]['shape'][i], roads[rID]['shape'][i + 1])['dist']
+                roadLength += distLatLon(roads[rID]['shape'][i], roads[rID]['shape'][i + 1])
             lengths.append(roadLength)            
         else:
             lengths.append(0)
@@ -482,7 +482,7 @@ def _rndPtRoadNetworkCircleLatLon(N: int, roads: dict, radius: float, center: pt
             edgeLength = lengths[idx]
             edgeDist = random.uniform(0, 1) * edgeLength
             (lat, lon) = ptInSeqMileage(roads[roadIDs[idx]]['shape'], edgeDist, 'LatLon')
-            if (distLatLon([lat, lon], center)['dist'] <= radius):
+            if (distLatLon([lat, lon], center) <= radius):
                 insideFlag = True
         nodeLocs.append((lat, lon))
 
@@ -563,7 +563,7 @@ def rndNodeNeighbors(
             
             nodes[n]['neiShape'] = 'Poly'
             poly = [[i[0] + nodes[n][locFieldName][0], i[1] + nodes[n][locFieldName][1]] for i in kwargs['poly']]
-            nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON]
+            nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1]) > ERRTOL['distPt2Pt']]
             
     elif (shape == 'Circle'):
         for n in nodeIDs:
@@ -580,7 +580,7 @@ def rndNodeNeighbors(
                 nodes[n][locFieldName][0] + kwargs['radius'] * math.sin(2 * d * math.pi / lod),
                 nodes[n][locFieldName][1] + kwargs['radius'] * math.cos(2 * d * math.pi / lod),
             ] for d in range(lod + 1)]
-            nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON]
+            nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1]) > ERRTOL['distPt2Pt']]
         
     elif (shape == 'IsoCircle'):
         for n in nodeIDs:
@@ -599,7 +599,7 @@ def rndNodeNeighbors(
                     nodes[n][locFieldName][0] + r * math.sin(2 * d * math.pi / lod),
                     nodes[n][locFieldName][1] + r * math.cos(2 * d * math.pi / lod),
                 ] for d in range(lod + 1)]
-                nodes[n][neighborFieldName].append([poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON])
+                nodes[n][neighborFieldName].append([poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1]) > ERRTOL['distPt2Pt']])
 
     elif (shape == 'Egg'):
         for n in nodeIDs:
@@ -657,7 +657,7 @@ def rndNodeNeighbors(
             u = math.cos(math.radians(direction))
             v = math.sin(math.radians(direction))
             poly = [(nodes[n][locFieldName][0] + u * pt[0] + v * pt[1], nodes[n][locFieldName][1] + -v * pt[0] + u * pt[1]) for pt in polyB4Rot]
-            nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON]
+            nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1]) > ERRTOL['distPt2Pt']]
             
     elif (shape == 'RndSquare'):
         for n in nodeIDs:
@@ -714,7 +714,7 @@ def rndNodeNeighbors(
                 nodes[n][locFieldName][0] + (r[d] + kwargs['minRadius']) * math.sin(2 * d * math.pi / lod),
                 nodes[n][locFieldName][1] + (r[d] + kwargs['minRadius']) * math.cos(2 * d * math.pi / lod),
             ] for d in range(lod + 1)]
-            nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON]
+            nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1]) > ERRTOL['distPt2Pt']]
     
     elif (shape == 'RndConvexPoly'):
         for n in nodeIDs:
@@ -734,7 +734,7 @@ def rndNodeNeighbors(
                     pt = nodes[n][locFieldName], direction = deg, dist = r))
             polyShapely = shapely.convex_hull(shapely.MultiPoint(points = polyPts))
             poly = [i for i in mapping(polyShapely)['coordinates'][0]]
-            nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1])['dist'] > CONST_EPSILON]
+            nodes[n][neighborFieldName] = [poly[i] for i in range(len(poly)) if distEuclideanXY(poly[i], poly[i - 1]) > ERRTOL['distPt2Pt']]
 
     elif (shape == 'RndStar'):
         for n in nodeIDs:
@@ -756,7 +756,7 @@ def rndNodeNeighbors(
                 r = kwargs['minDiag'] / 2 + random.uniform(0, 1) * (kwargs['maxDiag'] - kwargs['minDiag']) / 2
                 polyPts.append(ptInDistXY(
                     pt = nodes[n][locFieldName], direction = degs[i], dist = r))
-            nodes[n][neighborFieldName] = [polyPts[i] for i in range(len(polyPts)) if distEuclideanXY(polyPts[i], polyPts[i - 1])['dist'] > CONST_EPSILON]
+            nodes[n][neighborFieldName] = [polyPts[i] for i in range(len(polyPts)) if distEuclideanXY(polyPts[i], polyPts[i - 1]) > ERRTOL['distPt2Pt']]
 
     else:
         raise UnsupportedInputError("ERROR: Unsupported option for `kwargs`. Supported 'shape' includes: 'Poly', 'Circle', 'Egg', 'RndSquare', 'RndConvexPoly' and 'RndCurvy'.")

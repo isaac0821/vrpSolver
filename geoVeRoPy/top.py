@@ -7,7 +7,7 @@ from .common import *
 from .geometry import *
 from .msg import *
 
-def ipTOP(
+def solveTOP(
     nodes: dict, 
     maxBudget: float,
     locFieldName: str = 'loc',
@@ -29,7 +29,7 @@ def ipTOP(
         'outputFlag': False,
         'env': None
     },
-    detailsFlag: bool = False,
+    detailFlag: bool = False,
     metaFlag: bool = False
     ) -> dict|None:
 

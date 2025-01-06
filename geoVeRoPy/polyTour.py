@@ -7,7 +7,7 @@ from .msg import *
 from .ds import *
 
 # Mileage of points on seq ====================================================
-def mileagePt(seq: list[pt], pt: pt, error = CONST_EPSILON) -> None | float | list[float]:
+def mileagePt(seq: list[pt], pt: pt) -> None | float | list[float]:
     """
     Given a sequence of locs, and a point, returns the mileage of point on the seq, None if not on the sequence
 
@@ -36,13 +36,13 @@ def mileagePt(seq: list[pt], pt: pt, error = CONST_EPSILON) -> None | float | li
     closestSeg = None
     for i in range(len(seq) - 1):
         seg = [seq[i], seq[i + 1]]
-        leng = distEuclideanXY(seq[i], seq[i + 1])['dist']
-        if (isPtOnSeg(pt, seg, interiorOnly=False, error=error)):
+        leng = distEuclideanXY(seq[i], seq[i + 1])
+        if (isPtOnSeg(pt, seg, interiorOnly=False)):
             onSeg.append((acc, seg))
         # 如果
         elif (len(onSeg) == 0):
             snapPt = ptFoot2Line(pt, seg)
-            dist2Snap = distEuclideanXY(pt, snapPt)['dist']
+            dist2Snap = distEuclideanXY(pt, snapPt)
             if (dist2Snap < closest2Snap):
                 closest2Snap = dist2Snap
                 closestSeg = (acc, seg)
@@ -55,11 +55,11 @@ def mileagePt(seq: list[pt], pt: pt, error = CONST_EPSILON) -> None | float | li
 
     # 逐个计算mileage
     for i in range(len(onSeg)):
-        dist2Ori = distEuclideanXY(pt, onSeg[i][1][0])['dist']
+        dist2Ori = distEuclideanXY(pt, onSeg[i][1][0])
         newMileage = dist2Ori + onSeg[i][0]
         repeatedFlag = False
         for exist in m:
-            if (abs(exist - newMileage) <= CONST_EPSILON):
+            if (abs(exist - newMileage) <= ERRTOL['distPt2Pt']):
                 repeatedFlag = True
         if (not repeatedFlag):
             m.append(newMileage)
@@ -72,7 +72,7 @@ def mileagePt(seq: list[pt], pt: pt, error = CONST_EPSILON) -> None | float | li
         return m
 
 # Path touring through polygons ===============================================
-def seqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
+def seqRemoveDegen(seq: list[pt]):
     """
     Given a sequence of points, returns a subset of points that only includes turning points of the sequence. If there are multiple points overlapped at the same location, keeps one of those points.
 
@@ -80,8 +80,6 @@ def seqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
     ----------
     seq: list[pt], required
         The coordinates of a sequence of points.
-    error: float, optional, default as CONST_EPSILON
-        Error tolerance.
 
     Returns
     -------
@@ -135,7 +133,7 @@ def seqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
         samePtFlag = False
 
         for pt in curLocList:
-            if (is2PtsSame(pt, seq[i], error)):
+            if (is2PtsSame(pt, seq[i])):
                 curAgg.append(i)
                 curLocList.append(seq[i])
                 samePtFlag = True
@@ -161,7 +159,7 @@ def seqRemoveDegen(seq: list[pt], error:float=CONST_EPSILON):
             removedFlag.append(False)
         else:
             dev = distPt2Seg(curLoc, [preLoc, sucLoc])
-            if (dev <= error):
+            if (dev <= ERRTOL['distPt2Seg']):
                 removedFlag.append(True)
             else:
                 removedFlag.append(False)
@@ -271,7 +269,7 @@ def ptSetSeq2Poly(seq, polygons:dict, polyFieldName = 'polygon'):
                     intPt = intPart['intersect']
 
                     # 距离seg[0]有多远，加入mileage
-                    m = distEuclideanXY(seg[0], intPt)['dist']
+                    m = distEuclideanXY(seg[0], intPt)
                     actions.append({
                         'loc': intPt,
                         'action': 'touch',
@@ -292,15 +290,15 @@ def ptSetSeq2Poly(seq, polygons:dict, polyFieldName = 'polygon'):
                         intPt2InnerFlag = True
 
                     # 两个端点的mileage
-                    m1 = distEuclideanXY(seg[0], intPt1)['dist']
-                    m2 = distEuclideanXY(seg[0], intPt2)['dist']
+                    m1 = distEuclideanXY(seg[0], intPt1)
+                    m2 = distEuclideanXY(seg[0], intPt2)
 
                     if (m1 > m2):
                         m1, m2 = m2, m1
                         intPt1, intPt2 = intPt2, intPt1
                         intPt1InnerFlag, intPt2InnerFlag = intPt2InnerFlag, intPt1InnerFlag
 
-                    if (abs(m1 - m2) <= CONST_EPSILON):
+                    if (abs(m1 - m2) <= ERRTOL['distPt2Pt']):
                         # 交点距离太近可能是误判
                         actions.append({
                             'loc': intPt1,
@@ -348,7 +346,7 @@ def ptSetSeq2Poly(seq, polygons:dict, polyFieldName = 'polygon'):
                                 'mileage': accMileage + m2,
                             })
     
-        accMileage += distEuclideanXY(seg[0], seg[1])['dist']
+        accMileage += distEuclideanXY(seg[0], seg[1])
 
     actions = sorted(actions, key = lambda d: d['mileage'])
 
@@ -377,7 +375,7 @@ def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', se
 
     # NOTE: 简化线段，去掉穿越点，如果已经处理过了，就不用重复计算了
     if (not seqDegenFlag):
-        seq = seqRemoveDegen(seq, error = 0.03)['newSeq']
+        seq = seqRemoveDegen(seq)['newSeq']
 
     # Step 0: turnPts =========================================================
     # NOTE: 所有的转折点必须在一个多边形的边缘上，所以必须给每个turn point找到一个polygon
@@ -390,7 +388,7 @@ def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', se
         inerPolys = []
         for p in polygons:
             d2Edge = distPt2Seq(pt = pt, seq = polygons[p][polyFieldName], closedFlag = True)
-            if (d2Edge <= 0.03):
+            if (d2Edge <= ERRTOL['distPt2Poly']):
                 tansPolys.append(p)
                 inerPolys.append(p)
             if (p not in inerPolys and isPtInPoly(pt=pt, poly=polygons[p][polyFieldName])):
@@ -418,7 +416,7 @@ def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', se
                 'belong': turnPts[i]['inerPolys'],
                 'mileage': accMileage
             }
-        accMileage += distEuclideanXY(seq[i], seq[i + 1])['dist']
+        accMileage += distEuclideanXY(seq[i], seq[i + 1])
         segIntPoly[i]['endMileage'] = accMileage
 
     # Step 2: For each segment, gets polygon intersected ======================
@@ -438,8 +436,8 @@ def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', se
                     if (s['status'] == 'Cross' and s['intersectType'] == 'Segment'):
                         int1 = s['intersect'][0]
                         int2 = s['intersect'][1]
-                        d1 = distEuclideanXY(segIntPoly[i]['seg'][0], int1)['dist']
-                        d2 = distEuclideanXY(segIntPoly[i]['seg'][0], int2)['dist']
+                        d1 = distEuclideanXY(segIntPoly[i]['seg'][0], int1)
+                        d2 = distEuclideanXY(segIntPoly[i]['seg'][0], int2)
                         if (d1 < d2):
                             segIntPoly[i]['intMileageList'].append((d1 + st, p, int1, 'enter'))
                             segIntPoly[i]['intMileageList'].append((d2 + st, p, int2, 'leave'))
@@ -451,15 +449,15 @@ def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', se
                     elif (s['status'] == 'Cross' and s['intersectType'] == 'Point'):
                         intP = s['intersect']
                         if (not is2PtsSame(intP, segIntPoly[i]['seg'][0]) and not is2PtsSame(intP, segIntPoly[i]['seg'][1])):
-                            dP = distEuclideanXY(segIntPoly[i]['seg'][0], intP)['dist']
+                            dP = distEuclideanXY(segIntPoly[i]['seg'][0], intP)
                             segIntPoly[i]['intMileageList'].append((dP + st, p, intP, 'tangle'))
 
             # 如果交出一个线段，计算线段的起始结束mileage
             elif (segInt['status'] == 'Cross' and segInt['intersectType'] == 'Segment'):
                 int1 = segInt['intersect'][0]
                 int2 = segInt['intersect'][1]
-                d1 = distEuclideanXY(segIntPoly[i]['seg'][0], int1)['dist']
-                d2 = distEuclideanXY(segIntPoly[i]['seg'][0], int2)['dist']
+                d1 = distEuclideanXY(segIntPoly[i]['seg'][0], int1)
+                d2 = distEuclideanXY(segIntPoly[i]['seg'][0], int2)
                 if (d1 < d2):
                     segIntPoly[i]['intMileageList'].append((d1 + st, p, int1, 'enter'))
                     segIntPoly[i]['intMileageList'].append((d2 + st, p, int2, 'leave'))
@@ -469,7 +467,7 @@ def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', se
             # 如果交出一个点，计算点的mileage
             elif (segInt['status'] == 'Cross' and segInt['intersectType'] == 'Point'):
                 intP = segInt['intersect']
-                dP = distEuclideanXY(segIntPoly[i]['seg'][0], intP)['dist']
+                dP = distEuclideanXY(segIntPoly[i]['seg'][0], intP)
                 segIntPoly[i]['intMileageList'].append((dP + st, p, intP, 'tangle'))
 
         # 对intMileageList进行排序
@@ -492,7 +490,7 @@ def segSetSeq2Poly(seq: list, polygons: dict, polyFieldName: str = 'polygon', se
             newPt = segIntPoly[i]['intMileageList'][k][2]
 
             # 如果mileage不增长，则不会单独交一段出来，除非是有tangle
-            if (abs(newMileage - curMileage) > CONST_EPSILON):
+            if (abs(newMileage - curMileage) > ERRTOL['distPt2Pt']):
                 segSet.append({
                     'shape': [curPt, newPt],
                     'type': 'Segment',
@@ -517,9 +515,7 @@ def polyPath2Mileage(repSeq: list, path: list[pt], nodes: dict, polyFieldName: s
     # NOTE: repSeq的第一项和最后一项应该是startLoc和endLoc对应的ID
 
     # Step 1: 先把转折点找出来
-    # NOTE: error取值不能太小，因为用的是30边形拟合的圆 + poly2Poly，导致误差其实还蛮大的
-    # NOTE: 这个有问题，但是不好调...error太大了不行，太小了也不行
-    degenPath = seqRemoveDegen(path, error = 0.015)
+    degenPath = seqRemoveDegen(path)
 
     # Step 2: 按照转折点，找到路径与每个poly的合法相交部分
     # 需要返回的字典列表
@@ -555,7 +551,7 @@ def polyPath2Mileage(repSeq: list, path: list[pt], nodes: dict, polyFieldName: s
             curTurnPt = path[aggNode[0]]
             distAdd2Acc = 0
             if (lastTurnPt != None):
-                distAdd2Acc = distEuclideanXY(lastTurnPt, curTurnPt)['dist']
+                distAdd2Acc = distEuclideanXY(lastTurnPt, curTurnPt)
 
             # 找到下个转折点
             nextTurnPt = None
@@ -649,8 +645,8 @@ def polyPath2Mileage(repSeq: list, path: list[pt], nodes: dict, polyFieldName: s
                     # NOTE: 这段必须处理成线段，如果是距离很短，那就是数值问题
                     if (neiIntSeg['intersectType'] == 'Segment'):
                         [loc1, loc2] = neiIntSeg['intersect']
-                        dist1 = distEuclideanXY(loc1, lastTurnPt)['dist']
-                        dist2 = distEuclideanXY(loc2, lastTurnPt)['dist']
+                        dist1 = distEuclideanXY(loc1, lastTurnPt)
+                        dist2 = distEuclideanXY(loc2, lastTurnPt)
                         if (dist1 < dist2):
                             mileage.append({
                                 'polyID': repSeq[prevInt[k]],
@@ -705,8 +701,8 @@ def polyPath2Mileage(repSeq: list, path: list[pt], nodes: dict, polyFieldName: s
                     # NOTE: 这段必须处理成线段，如果是距离很短，那就是数值问题
                     if (neiIntSeg['intersectType'] == 'Segment'):
                         [loc1, loc2] = neiIntSeg['intersect']
-                        dist1 = distEuclideanXY(loc1, curTurnPt)['dist']
-                        dist2 = distEuclideanXY(loc2, curTurnPt)['dist']
+                        dist1 = distEuclideanXY(loc1, curTurnPt)
+                        dist2 = distEuclideanXY(loc2, curTurnPt)
                         if (dist1 < dist2):
                             mileage.append({
                                 'polyID': repSeq[postInt[k]],
@@ -761,8 +757,8 @@ def polyPath2Mileage(repSeq: list, path: list[pt], nodes: dict, polyFieldName: s
                     intSeg = neiIntSeg['intersect']
                     loc1 = intSeg[0]
                     loc2 = intSeg[1]
-                    dist1 = distEuclideanXY(loc1, lastTurnPt)['dist']
-                    dist2 = distEuclideanXY(loc2, lastTurnPt)['dist']
+                    dist1 = distEuclideanXY(loc1, lastTurnPt)
+                    dist2 = distEuclideanXY(loc2, lastTurnPt)
                     if (dist1 < dist2):
                         mileage.append({
                             'polyID': repSeq[inclNode],
@@ -781,7 +777,7 @@ def polyPath2Mileage(repSeq: list, path: list[pt], nodes: dict, polyFieldName: s
                 # Case 3.2: 特殊情况下，如果穿透点+单独点为neighbor的切点，此时把穿透点处理成转折点
                 elif (neiIntSeg['intersectType'] == 'Point'):
                     tangLoc = neiIntSeg['intersect']
-                    dist = distEuclideanXY(tangLoc, lastTurnPt)['dist']
+                    dist = distEuclideanXY(tangLoc, lastTurnPt)
                     mileage.append({
                         'polyID': repSeq[inclNode],
                         'type': 'Touch',
@@ -798,7 +794,7 @@ def polyPath2Mileage(repSeq: list, path: list[pt], nodes: dict, polyFieldName: s
                     tangLoc = nearestPtLine2Poly(
                         degenPath['locatedSeg'][i], 
                         nodes[repSeq[inclNode]][polyFieldName])['ptOnLine']
-                    dist = distEuclideanXY(tangLoc, lastTurnPt)['dist']
+                    dist = distEuclideanXY(tangLoc, lastTurnPt)
                     mileage.append({
                         'polyID': repSeq[inclNode],
                         'type': 'Touch',
@@ -838,8 +834,8 @@ def polyPath2Mileage(repSeq: list, path: list[pt], nodes: dict, polyFieldName: s
                     for intSeg in neiIntSet:
                         loc1 = intSeg[1]['intersect'][0]
                         loc2 = intSeg[1]['intersect'][1]
-                        dist1 = distEuclideanXY(loc1, lastTurnPt)['dist']
-                        dist2 = distEuclideanXY(loc2, lastTurnPt)['dist']
+                        dist1 = distEuclideanXY(loc1, lastTurnPt)
+                        dist2 = distEuclideanXY(loc2, lastTurnPt)
                         if (dist1 < dist2):
                             mileage.append({
                                 'polyID': intSeg[0],
@@ -858,7 +854,7 @@ def polyPath2Mileage(repSeq: list, path: list[pt], nodes: dict, polyFieldName: s
                 # Case 4.1: 特殊情况下，如果穿透点+重合点为neighbor的切点，此时把穿透点处理成转折点
                 # NOTE: 这个目前很罕见，但是应该也可以生成对应的算例
                 else:
-                    dist = distEuclideanXY(tangLoc, lastTurnPt)['dist']
+                    dist = distEuclideanXY(tangLoc, lastTurnPt)
                     mileage.append({
                         'polyID': [repSeq[k] for k in degenPath['aggNodeList'][i]],
                         'type': 'Touch',
@@ -879,9 +875,7 @@ def serviceTimeCETSP(
     polyFieldName: str = 'polygon',
     mode: str = "AccuOverlap"):
 
-    seq = seqRemoveDegen(
-        seq = seq, 
-        error = 0.03)['newSeq']
+    seq = seqRemoveDegen(seq)['newSeq']
 
     # 每个Seg所属的polygon的集合: segSet[seg]['belong']
     segSet = segSetSeq2Poly(
@@ -893,7 +887,7 @@ def serviceTimeCETSP(
     # 补充计算下每段的长度
     for i in range(len(segSet)):
         if (segSet[i]['type'] == 'Segment'):
-            segSet[i]['length'] = distEuclideanXY(segSet[i]['shape'][0], segSet[i]['shape'][1])['dist']
+            segSet[i]['length'] = distEuclideanXY(segSet[i]['shape'][0], segSet[i]['shape'][1])
         else:
             segSet[i]['length'] = 0
 
@@ -909,13 +903,9 @@ def serviceTimeCETSP(
     for i in range(len(segSet)):
         for p in segSet[i]['belong']:
             polygons[p]['segSet'].append(i)
-
-
-    # return (segSet, polygons)
-
     ST = grb.Model("ServiceTime")
-    ST.setParam('LogToConsole', 0)
-    ST.setParam('OutputFlag', 0)
+    ST.setParam('LogToConsole', 1)
+    ST.setParam('OutputFlag', 1)
     ST.modelSense = grb.GRB.MINIMIZE
 
     # Decision variables ======================================================
@@ -1013,6 +1003,7 @@ def serviceTimeCETSP(
 
     return {
         'ofv': ofv,
+        # 'assignment': assignment,
         'timedSeq': timedSeq,
         'note': noteSeq
     }

@@ -38,7 +38,7 @@ def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, algo: str = 'SOCP', **kw
 
     # Sanity check ============================================================
     if (algo == 'AdaptIter'):
-        errTol = CONST_EPSILON
+        errTol = errTol['deltaDist']
         if ('errTol' in kwargs):
             errTol = kwargs['errTol']
         res = _poly2PolyPathAdaptIter(startPt, endPt, polys, errTol)
@@ -61,7 +61,7 @@ def poly2PolyPath(startPt: pt, endPt: pt, polys: polys, algo: str = 'SOCP', **kw
         'dist': res['dist']
     }
 
-def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, errTol = CONST_EPSILON):
+def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, errTol):
 
     """Given a list of points, each belongs to a neighborhood of a node, find the shortest path between each steps
 
@@ -91,7 +91,7 @@ def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, errTol = CONST
     # startPt to the first polygon
     cur = polyRings[0].head
     while (True):
-        d = distEuclideanXY(startPt, cur.value)['dist']
+        d = distEuclideanXY(startPt, cur.value)
         tau['s', (0, cur.key)] = d
         G.add_edge('s', (0, cur.key), weight = d)
         cur = cur.next
@@ -104,7 +104,7 @@ def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, errTol = CONST
         while (True):
             curJ = polyRings[i + 1].head
             while (True):
-                d = distEuclideanXY(curI.value, curJ.value)['dist']
+                d = distEuclideanXY(curI.value, curJ.value)
                 tau[(i, curI.key), (i + 1, curJ.key)] = d
                 G.add_edge((i, curI.key), (i + 1, curJ.key), weight = d)
                 curJ = curJ.next
@@ -117,7 +117,7 @@ def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, errTol = CONST
     # last polygon to endPt
     cur = polyRings[-1].head
     while (True):
-        d = distEuclideanXY(cur.value, endPt)['dist']
+        d = distEuclideanXY(cur.value, endPt)
         tau[(len(polys) - 1, cur.key), 'e'] = d
         G.add_edge((len(polys) - 1, cur.key), 'e', weight = d)
         cur = cur.next
@@ -126,10 +126,10 @@ def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, errTol = CONST
 
     sp = nx.dijkstra_path(G, 's', 'e')
 
-    dist = distEuclideanXY(startPt, polyRings[sp[1][0]].query(sp[1][1]).value)['dist']
+    dist = distEuclideanXY(startPt, polyRings[sp[1][0]].query(sp[1][1]).value)
     for i in range(1, len(sp) - 2):
         dist += tau[(sp[i][0], sp[i][1]), (sp[i + 1][0], sp[i + 1][1])]
-    dist += distEuclideanXY(polyRings[sp[-2][0]].query(sp[-2][1]).value, endPt)['dist']
+    dist += distEuclideanXY(polyRings[sp[-2][0]].query(sp[-2][1]).value, endPt)
     
     # Find detailed location
     refineFlag = True
@@ -160,7 +160,7 @@ def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, errTol = CONST
         startPolyPt = polyRings[sp[1][0]].query(sp[1][1])
         startNearPt = [startPolyPt.prev.prev, startPolyPt.prev, startPolyPt, startPolyPt.next, startPolyPt.next.next]
         for p in startNearPt:
-            d = distEuclideanXY(startPt, p.value)['dist']
+            d = distEuclideanXY(startPt, p.value)
             G.add_edge('s', (0, p.key), weight = d)
 
         # In between
@@ -180,7 +180,7 @@ def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, errTol = CONST
                     if (((polyIdx, kI.key), (polyNextIdx, kJ.key)) in tau):
                         d = tau[((polyIdx, kI.key), (polyNextIdx, kJ.key))]
                     else:
-                        d = distEuclideanXY(kI.value, kJ.value)['dist']
+                        d = distEuclideanXY(kI.value, kJ.value)
                         tau[((polyIdx, kI.key), (polyNextIdx, kJ.key))] = d
                     G.add_edge((polyIdx, kI.key), (polyNextIdx, kJ.key), weight = d)
 
@@ -188,15 +188,15 @@ def _poly2PolyPathAdaptIter(startPt: pt, endPt: pt, polys: polys, errTol = CONST
         endPolyPt = polyRings[sp[-2][0]].query(sp[-2][1])
         endNearPt = [endPolyPt.prev.prev, endPolyPt.prev, endPolyPt, endPolyPt.next, endPolyPt.next.next]
         for p in endNearPt:
-            d = distEuclideanXY(p.value, endPt)['dist']
+            d = distEuclideanXY(p.value, endPt)
             G.add_edge((len(polys) - 1, p.key), 'e', weight = d)
 
         sp = nx.dijkstra_path(G, 's', 'e')
 
-        newDist = distEuclideanXY(startPt, polyRings[sp[1][0]].query(sp[1][1]).value)['dist']
+        newDist = distEuclideanXY(startPt, polyRings[sp[1][0]].query(sp[1][1]).value)
         for i in range(1, len(sp) - 2):
             newDist += tau[(sp[i][0], sp[i][1]), (sp[i + 1][0], sp[i + 1][1])]
-        newDist += distEuclideanXY(polyRings[sp[-2][0]].query(sp[-2][1]).value, endPt)['dist']
+        newDist += distEuclideanXY(polyRings[sp[-2][0]].query(sp[-2][1]).value, endPt)
 
         if (abs(newDist - dist) <= errTol):
             refineFlag = False
@@ -722,8 +722,6 @@ def cone2ConePath(startPt: pt, endPt: pt, cones: dict, repSeq: list, tanAlpha: f
     # Distance btw visits
     for i in range(len(cones) + 1):
         model.addQConstr(d[i] ** 2 >= dx[i] ** 2 + dy[i] ** 2 + dz[i] ** 2)
-        # model.addQConstr(dx[i] ** 2 + dy[i] ** 2 >= CONST_EPSILON)
-
     for i in range(1, len(cones) + 1):
         model.addQConstr(rx[i] ** 2 + ry[i] ** 2 <= (tanAlpha * z[i]) ** 2)
 

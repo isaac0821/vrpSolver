@@ -8,7 +8,24 @@ try:
 except(ImportError):
     import pickle
 
-CONST_EPSILON = 0.00001
+# Error tolerant
+ERRTOL = {
+    # The distance between two points to be considered as the same point.
+    'distPt2Pt': 0.01, 
+    'distPt2Seg': 0.02,
+    'distPt2Poly': 0.03,
+    'deltaDist': 0.01,
+    'collinear': 0.001,
+    'slope2Slope': 0.001,
+    'vertical': 0.001
+}
+
+def configSetError(errorType, err):
+    global ERRTOL
+    ERRTOL[errorType] = err
+    return
+
+# Earth radius
 CONST_EARTH_RADIUS_MILES = 3958.8
 CONST_EARTH_RADIUS_METERS = 6378137.0
 

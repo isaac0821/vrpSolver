@@ -12,7 +12,7 @@ from .msg import *
 # 20231001 - Start writing script
 # =============================================================================
 
-def heuMTSP(
+def solveMTSP(
     nodes: dict,
     locFieldName: str = 'loc',
     depotID: int|str = 0,
@@ -32,7 +32,7 @@ def heuMTSP(
         'cons': 'Insertion', 
         'impv': ['2Opt', '2OptStar'],
     },
-    detailsFlag: bool = False,
+    detailFlag: bool = False,
     returnRouteObjectFlag = False
     ) -> dict|None:
 
@@ -69,7 +69,7 @@ def heuMTSP(
     # Define tau ==============================================================
     tau = None
     path = None
-    if (detailsFlag):
+    if (detailFlag):
         tau, path = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)
     else:
         tau, _ = matrixDist(nodes, edges, depotID, nodeIDs, serviceTime)

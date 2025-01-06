@@ -936,7 +936,7 @@ def plotPoly(
         x.append(poly[0][1])
         y.append(poly[0][0])
 
-    if (abs(x[-1] - x[0]) > CONST_EPSILON):
+    if (abs(x[-1] - x[0]) > ERRTOL['distPt2Pt']):
         x.append(x[0])
         y.append(y[0])
 

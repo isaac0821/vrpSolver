@@ -21,7 +21,7 @@ def solveTSPTW(
     predefinedArcs: list[list[tuple[int|str]]] = [],
     edges: str = 'Euclidean',
     algo: str = 'IP',
-    detailsFlag: bool = False,
+    detailFlag: bool = False,
     metaFlag: bool = False,
     **kwargs
     ) -> dict:
@@ -43,7 +43,7 @@ def solveTSPTW(
         or (nodeIDs == 'All' and depotID not in nodes)):
         raise OutOfRangeError("ERROR: Cannot find `depotID` in given `nodes`/`nodeIDs`")
 
-    if (detailsFlag == True):
+    if (detailFlag == True):
         # For animation propose
         if (vehicles == None):
             raise MissingParameterError("ERROR: Missing required field `vehicles`.")
@@ -62,7 +62,7 @@ def solveTSPTW(
     # Define tau ==============================================================
     tau = None
     path = None
-    if (detailsFlag):
+    if (detailFlag):
         tau, path = matrixDist(
             nodes = nodes, 
             nodeIDs = nodeIDs,
@@ -148,7 +148,7 @@ def solveTSPTW(
 
     # Post optimization (for detail information) ==============================
     # FIXME: Needs rewrite for TSPTW
-    if (detailsFlag):
+    if (detailFlag):
         # 返回一个数组，表示路径中的每个点的位置，不包括时间信息
         shapepoints = []        
         for i in range(len(nodeSeq) - 1):
@@ -169,7 +169,7 @@ def solveTSPTW(
             else:
                 shapepointsInBtw = path[nodeSeq[i - 1], nodeSeq[i]]
                 for j in range(1, len(shapepointsInBtw)):
-                    curTime += distEuclideanXY(shapepointsInBtw[j - 1], shapepointsInBtw[j])['dist'] / vehicles[vehicleID]['speed']
+                    curTime += distEuclideanXY(shapepointsInBtw[j - 1], shapepointsInBtw[j]) / vehicles[vehicleID]['speed']
                     curLoc = shapepointsInBtw[j]
                     timedSeq.append((curLoc, curTime))
             # 如果有service time，则加上一段在原处等待的时间
@@ -188,7 +188,7 @@ def solveTSPTW(
         else:
             shapepointsInBtw = path[nodeSeq[-2], nodeSeq[-1]]
             for j in range(1, len(shapepointsInBtw)):
-                curTime += distEuclideanXY(shapepointsInBtw[j - 1], shapepointsInBtw[j])['dist'] / vehicles[vehicleID]['speed']
+                curTime += distEuclideanXY(shapepointsInBtw[j - 1], shapepointsInBtw[j]) / vehicles[vehicleID]['speed']
                 curLoc = shapepointsInBtw[j]
                 timedSeq.append((curLoc, curTime))
 
@@ -212,7 +212,7 @@ def solveTSPTW(
     if (metaFlag):
         res['algo'] = algo
         res['serviceTime'] = serviceTime
-    if (detailsFlag):
+    if (detailFlag):
         res['vehicles'] = vehicles
 
     return res

@@ -22,7 +22,7 @@ def solveVRPTW(
     customerIDs: list[int|str]|str = 'AllButDepot',
     edges: str = "Euclidean", 
     algo: str = 'CG_EarlyBranching',
-    detailsFlag: bool = False,
+    detailFlag: bool = False,
     metaFlag: bool = False,
     **kwargs
     ) -> dict|None:
@@ -54,7 +54,7 @@ def solveVRPTW(
 
     tau = None
     path = None
-    if (detailsFlag):
+    if (detailFlag):
         tau, path = matrixDist(
             nodes = nodes, 
             nodeIDs = customerIDs, 
@@ -238,7 +238,6 @@ def solveVRPTW(
             'route': route
         }
 
-    @runtime("pricingLabelSetting")
     def _pricingLabelSetting(pi):
         @runtime("createGraph")
         def _createGraph():
@@ -382,7 +381,6 @@ def solveVRPTW(
                 if (lastNode == dupDepotID):
                     path.append(curPath)
 
-                # queue = _cleanQueue(queue)
                 queue = _sortQueue(queue)
 
 
