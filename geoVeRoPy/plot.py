@@ -11,19 +11,83 @@ from .color import *
 from .msg import *
 from .province import *
 from .geometry import *
+from .travel import *
 
-# History =====================================================================
-# 20230518 - `plotNodes()` now will plot the neighborhood of nodes
-# 20230624 - Rename functions `plotArcs()`, `plotLocSeq()`, `plotNodeSeq()`
-# 20231022 - Refine `aniRouting()`
-# =============================================================================
+def findFigSize(boundingBox, width = None, height = None, latLonFlag = False):
+    """
+    Given a bounding box, a width(or height), returns the height(or width) of the figure
+
+    Parameters
+    ----------
+
+    boundingBox: 4-tuple, required
+        The bounding box of the figure
+    width: float|None, optional, default as None
+        The desired width of the figure
+    height: float|None, optional, default as None
+        The desired height of the figure
+
+    Returns
+    -------
+    float, float
+        The (width, height) proportional to bounding box
+
+    """
+    (xMin, xMax, yMin, yMax) = boundingBox
+
+    w = None
+    h = None
+
+    if (not latLonFlag):
+        if (width == None and height == None):
+            if (xMax - xMin > yMax - yMin):
+                w = 5
+                h = 5 * ((yMax - yMin) / (xMax - xMin))
+            else:
+                w = 5 * ((xMax - xMin) / (yMax - yMin))
+                h = 5
+        elif (width != None and height == None):
+            w = width
+            h = width * ((yMax - yMin) / (xMax - xMin))
+        elif (width == None and height != None):
+            w = height * ((xMax - xMin) / (yMax - yMin))
+            h = height
+        else:
+            w = width
+            h = height
+    else:
+        heightDelta = distLatLon(
+            (xMin, yMin + (yMax - yMin) / 2), 
+            (xMax, yMin + (yMax - yMin) / 2))
+        widthDelta = distLatLon(
+            (xMin + (xMax - xMin) / 2, yMin),
+            (xMin + (xMax - xMin) / 2, yMax))
+
+        if (width == None and height == None):
+            if (widthDelta > heightDelta):
+                w = 5
+                h = 5 * heightDelta / widthDelta
+            else:
+                w = 5 * widthDelta / heightDelta
+                h = 5
+        elif (width != None and height == None):
+            w = width
+            h = width * heightDelta / widthDelta
+        elif (width == None and height != None):
+            w = height * widthDelta / heightDelta
+            h = height
+        else:
+            w = width
+            h = height
+
+    return w, h
 
 def plotLocs(
     locs: list[pt],
     locColor: str = 'Random',
     locMarker: str = 'o',
     locMarkerSize: float = 1,
-    xyReverseFlag: bool = False,
+    latLonFlag: bool = False,
     fig = None,
     ax = None,
     figSize = (None, 5), 
@@ -45,7 +109,7 @@ def plotLocs(
         The shape of the marker
     locMarkerSize: str, optional, default as 1
         The size of the marker
-    xyReverseFlag: bool, optional, default as False
+    latLonFlag: bool, optional, default as False
         Reverse the x, y, (x, y) => (y, x). Used in plotting (lat, lon) coordinates.
     fig: matplotlib object, optional, default as None
         If fig and ax are provided, 
@@ -62,14 +126,14 @@ def plotLocs(
         fig, ax = plt.subplots()
         boundingBox = findBoundingBox(
             boundingBox = boundingBox, 
-            pts = locs)
+            pts = locs,
+            latLonFlag = latLonFlag)
         (xMin, xMax, yMin, yMax) = boundingBox
-        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1])
-        if (isinstance(fig, plt.Figure)):
-            fig.set_figwidth(width)
-            fig.set_figheight(height)
-            ax.set_xlim(xMin, xMax)
-            ax.set_ylim(yMin, yMax)
+        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1], latLonFlag)
+        fig.set_figwidth(width)
+        fig.set_figheight(height)
+        ax.set_xlim(xMin, xMax)
+        ax.set_ylim(yMin, yMax)
 
     # Draw locs ==============================================================
     for i in locs:
@@ -83,7 +147,7 @@ def plotLocs(
         # plot nodes ----------------------------------------------------------
         x = None
         y = None
-        if (not xyReverseFlag):
+        if (not latLonFlag):
             x = i[0]
             y = i[1]
         else:
@@ -111,7 +175,7 @@ def plotLocs3D(
     locColor: str = 'Random',
     locMarker: str = 'o',
     locMarkerSize: float = 1,
-    xyReverseFlag: bool = False,
+    latLonFlag: bool = False,
     fig = None,
     ax = None,
     figSize = (None, 5), 
@@ -133,7 +197,7 @@ def plotLocs3D(
             boundingBox3D = boundingBox3D, 
             pts3D = locs3D)
         (xMin, xMax, yMin, yMax, zMin, zMax) = boundingBox3D
-        # (width, height) = findFigSize(boundingBox3D, figSize[0], figSize[1])
+        # (width, height) = findFigSize(boundingBox3D, figSize[0], figSize[1], latLonFlag)
         # fig.set_figwidth(width)
         # fig.set_figheight(height)
         ax.set_xlim(xMin, xMax)
@@ -153,7 +217,7 @@ def plotLocs3D(
         x = None
         y = None
         z = i[2]
-        if (not xyReverseFlag):
+        if (not latLonFlag):
             x = i[0]
             y = i[1]
         else:
@@ -187,7 +251,7 @@ def plotNodes(
     neighborColor: str|None = 'gray',
     neighborOpacity: float = 0.5,
     neighborFillStyle: str = '///',
-    xyReverseFlag: bool = False,
+    latLonFlag: bool = False,
     fig = None,
     ax = None,
     figSize = (None, 5), 
@@ -218,7 +282,7 @@ def plotNodes(
         The opacity of neighborhood.
     neighborFillStyle: str, optional, default '///'
         The fill style of the neighborhood.
-    xyReverseFlag: bool, optional, default False
+    latLonFlag: bool, optional, default False
         True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
     fig: matplotlib object, optional, defaut None
         `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
@@ -250,9 +314,9 @@ def plotNodes(
             boundingBox = boundingBox, 
             nodes = nodes, 
             locFieldName = locFieldName, 
-            xyReverseFlag = xyReverseFlag)
+            latLonFlag = latLonFlag)
         (xMin, xMax, yMin, yMax) = boundingBox
-        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1])
+        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1], latLonFlag)
         if (isinstance(fig, plt.Figure)):
             fig.set_figwidth(width)
             fig.set_figheight(height)
@@ -279,7 +343,7 @@ def plotNodes(
         # plot nodes ----------------------------------------------------------
         x = None
         y = None
-        if (not xyReverseFlag):
+        if (not latLonFlag):
             x = nodes[n][locFieldName][0]
             y = nodes[n][locFieldName][1]
         else:
@@ -314,7 +378,7 @@ def plotNodes(
                 edgeColor = 'black',
                 fillColor = neighborColor,
                 opacity = neighborOpacity,
-                xyReverseFlag = xyReverseFlag,
+                latLonFlag = latLonFlag,
                 showAxis = showAxis,
                 fillStyle = neighborFillStyle)
         if ('neiShape' in nodes[n] and nodes[n]['neiShape'] == 'Isochrone'):
@@ -327,7 +391,7 @@ def plotNodes(
                     edgeColor = 'black',
                     fillColor = neighborColor,
                     opacity = neighborOpacity / len(nodes[n][neighborFieldName]),
-                    xyReverseFlag = xyReverseFlag,
+                    latLonFlag = latLonFlag,
                     showAxis = showAxis,
                     fillStyle = neighborFillStyle)            
         if ('neiShape' in nodes[n] and 'radius' in nodes[n] and nodes[n]['neiShape'] == 'Circle'):
@@ -342,7 +406,7 @@ def plotNodes(
                 edgeColor = 'black',
                 fillColor = neighborColor,
                 opacity = neighborOpacity,
-                xyReverseFlag = xyReverseFlag,
+                latLonFlag = latLonFlag,
                 showAxis = showAxis,
                 fillStyle = neighborFillStyle)
 
@@ -381,7 +445,7 @@ def plotArcs(
     neighborBtwWidth: float = 1,
     neighborBtwColor: str = 'gray',
     neighborFillStyle: str = '///',
-    xyReverseFlag: bool = False,
+    latLonFlag: bool = False,
     fig = None,
     ax = None,
     figSize = (None, 5), 
@@ -413,7 +477,7 @@ def plotArcs(
         `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
     ax: matplotlib object, optional, default None
         See `fig`
-    xyReverseFlag: bool, optional, default False
+    latLonFlag: bool, optional, default False
         True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
     figSize: 2-tuple, optional, default as (None, 5)
         Size of the figure in (width, height). If width or height is set to be None, it will be auto-adjusted.
@@ -446,9 +510,9 @@ def plotArcs(
             arcFieldName = arcFieldName,
             arcStartLocFieldName = arcStartLocFieldName,
             arcEndLocFieldName = arcEndLocFieldName, 
-            xyReverseFlag = xyReverseFlag)
+            latLonFlag = latLonFlag)
         (xMin, xMax, yMin, yMax) = boundingBox
-        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1])
+        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1], latLonFlag)
         if (isinstance(fig, plt.Figure)):
             fig.set_figwidth(width)
             fig.set_figheight(height)
@@ -459,7 +523,7 @@ def plotArcs(
     for i in arcs:
         x1, y1, x2, y2 = 0, 0, 0, 0
         if (arcFieldName in arcs[i]):        
-            if (not xyReverseFlag):
+            if (not latLonFlag):
                 x1 = arcs[i][arcFieldName][0][0]
                 x2 = arcs[i][arcFieldName][1][0]
                 y1 = arcs[i][arcFieldName][0][1]
@@ -470,7 +534,7 @@ def plotArcs(
                 y1 = arcs[i][arcFieldName][0][0]
                 y2 = arcs[i][arcFieldName][1][0]
         elif (arcStartLocFieldName in arcs[i] and arcEndLocFieldName in arcs[i]):
-            if (not xyReverseFlag):
+            if (not latLonFlag):
                 x1 = arcs[i][arcStartLocFieldName][0]
                 y1 = arcs[i][arcStartLocFieldName][1]
                 x2 = arcs[i][arcEndLocFieldName][0]
@@ -534,7 +598,7 @@ def plotArcs(
                 edgeColor = 'black',
                 fillColor = neighborEntColor,
                 opacity = neighborOpacity,
-                xyReverseFlag = xyReverseFlag,
+                latLonFlag = latLonFlag,
                 showAxis = showAxis,
                 fillStyle = neighborFillStyle)
         if ('neiB' in arcs[i]):
@@ -546,7 +610,7 @@ def plotArcs(
                 edgeColor = 'black',
                 fillColor = neighborEntColor,
                 opacity = neighborOpacity,
-                xyReverseFlag = xyReverseFlag,
+                latLonFlag = latLonFlag,
                 showAxis = showAxis,
                 fillStyle = neighborFillStyle)
         if ('neiBtw' in arcs[i]):
@@ -558,7 +622,7 @@ def plotArcs(
                 edgeColor = 'black',
                 fillColor = neighborBtwColor,
                 opacity = neighborOpacity,
-                xyReverseFlag = xyReverseFlag,
+                latLonFlag = latLonFlag,
                 showAxis = showAxis,
                 fillStyle = neighborFillStyle)
 
@@ -586,7 +650,7 @@ def plotLocSeq(
     arrowPosition: float = 0.5,
     arrowHeadWidth: float = 0.1,
     arrowHeadLength: float = 0.2,
-    xyReverseFlag: bool = False,
+    latLonFlag: bool = False,
     fig = None,
     ax = None,
     figSize = (None, 5), 
@@ -613,7 +677,7 @@ def plotLocSeq(
         Width of arrow head
     arrowHeadLength: float, optional, default 0.2
         Length of arrow head
-    xyReverseFlag: bool, optional, default False
+    latLonFlag: bool, optional, default False
         True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
     fig: matplotlib object, optional, default None
         `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
@@ -663,7 +727,7 @@ def plotLocSeq(
         startColor = nodeColor,
         endColor = nodeColor ,
         bothEndSize = nodeMarkerSize,
-        xyReverseFlag = xyReverseFlag,
+        latLonFlag = latLonFlag,
         figSize = figSize,
         boundingBox = boundingBox,
         showAxis = showAxis,
@@ -679,7 +743,7 @@ def plotLocSeq3D(
     lineDashes: tuple = (5, 2),
     nodeColor: str = 'black',
     nodeMarkerSize: float = 1,
-    xyReverseFlag: bool = False,
+    latLonFlag: bool = False,
     fig = None,
     ax = None,
     figSize = (None, 5), 
@@ -701,7 +765,7 @@ def plotLocSeq3D(
             boundingBox3D = boundingBox3D, 
             pts3D = locSeq3D)
         (xMin, xMax, yMin, yMax, zMin, zMax) = boundingBox3D
-        # (width, height) = findFigSize(boundingBox3D, figSize[0], figSize[1])
+        # (width, height) = findFigSize(boundingBox3D, figSize[0], figSize[1], latLonFlag)
         # fig.set_figwidth(width)
         # fig.set_figheight(height)
         ax.set_xlim(xMin, xMax)
@@ -712,7 +776,7 @@ def plotLocSeq3D(
     y = []
     z = []
     for loc in locSeq3D:
-        if (not xyReverseFlag):
+        if (not latLonFlag):
             x.append(loc[0])
             y.append(loc[1])
         else:
@@ -757,7 +821,7 @@ def plotNodeSeq(
     arrowPosition: float = 0.5,
     arrowHeadWidth: float = 0.1,
     arrowHeadLength: float = 0.2,
-    xyReverseFlag: bool = False,
+    latLonFlag: bool = False,
     fig = None,
     ax = None,
     figSize = (None, 5), 
@@ -785,7 +849,7 @@ def plotNodeSeq(
         Width of arrow head
     arrowHeadLength: float, optional, default 0.2
         Length of arrow head
-    xyReverseFlag: bool, optional, default False
+    latLonFlag: bool, optional, default False
         True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
     fig: matplotlib object, optional, default None
         `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
@@ -838,7 +902,7 @@ def plotNodeSeq(
         startColor = nodeColor,
         endColor = nodeColor ,
         bothEndSize = nodeMarkerSize,
-        xyReverseFlag = xyReverseFlag,
+        latLonFlag = latLonFlag,
         figSize = figSize,
         boundingBox = boundingBox,
         showAxis = showAxis,
@@ -854,7 +918,7 @@ def plotPoly(
     fillColor: str|None = None,
     fillStyle: str = "///",
     opacity: float = 0.5,
-    xyReverseFlag: bool = False,
+    latLonFlag: bool = False,
     fig = None,
     ax = None,
     figSize = (None, 5), 
@@ -881,7 +945,7 @@ def plotPoly(
         Style filled in the polygon
     opacity: float, optional, default 0.5
         Opacity of the polygon
-    xyReverseFlag: bool, optional, default False
+    latLonFlag: bool, optional, default False
         True if need to reverse the x, y coordinates, e.g., plot for (lat, lon)
     fig: matplotlib object, optional, defaut None
         `fig` and `ax` indicates the matplotlib object to plot on, if not provided, plot in a new figure
@@ -910,26 +974,33 @@ def plotPoly(
         fig, ax = plt.subplots()
         boundingBox = findBoundingBox(
             boundingBox = boundingBox, 
-            poly = poly)
+            poly = poly,
+            latLonFlag = latLonFlag)
+
         (xMin, xMax, yMin, yMax) = boundingBox
-        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1])
-        if (isinstance(fig, plt.Figure)):
-            fig.set_figwidth(width)
-            fig.set_figheight(height)
-            ax.set_xlim(xMin, xMax)
-            ax.set_ylim(yMin, yMax)
+        width = None
+        height = None
+        if (figSize == None or figSize[0] == None or figSize[1] == None):
+            (width, height) = findFigSize(boundingBox, figSize[0], figSize[1], latLonFlag)
+        else:
+            (width, height) = figSize
+
+        fig.set_figwidth(width)
+        fig.set_figheight(height)
+        ax.set_xlim(xMin, xMax)
+        ax.set_ylim(yMin, yMax)
 
     # Get the x, y list =======================================================
     x = []
     y = []
     for pt in poly:
-        if (not xyReverseFlag):
+        if (not latLonFlag):
             x.append(pt[0])
             y.append(pt[1])
         else:
             x.append(pt[1])
             y.append(pt[0])
-    if (not xyReverseFlag):
+    if (not latLonFlag):
         x.append(poly[0][0])
         y.append(poly[0][1])
     else:
@@ -970,7 +1041,7 @@ def plotPolyhedron3D(
     fillColor: str|None = None,
     fillStyle: str = "///",
     opacity: float = 0.5,
-    xyReverseFlag: bool = False,
+    latLonFlag: bool = False,
     fig = None,
     ax = None,
     figSize = (None, 5), 
@@ -991,7 +1062,7 @@ def plotCircle(
     fillColor: str|None = None,
     fillStyle: str = "///",
     opacity: float = 0.5,
-    xyReverseFlag: bool = False,
+    latLonFlag: bool = False,
     fig = None,
     ax = None,
     figSize = (None, 5), 
@@ -1013,7 +1084,7 @@ def plotCircle(
         fillColor = fillColor,
         fillStyle = fillStyle,
         opacity = opacity,
-        xyReverseFlag = xyReverseFlag,
+        latLonFlag = latLonFlag,
         fig = fig,
         ax = ax,
         figSize = figSize,
@@ -1042,7 +1113,7 @@ def plotCone3D(
             boundingBox3D = boundingBox3D, 
             cone = cone)
         (xMin, xMax, yMin, yMax, zMin, zMax) = boundingBox3D
-        # (width, height) = findFigSize(boundingBox3D, figSize[0], figSize[1])
+        # (width, height) = findFigSize(boundingBox3D, figSize[0], figSize[1], latLonFlag)
         # fig.set_figwidth(width)
         # fig.set_figheight(height)
         ax.set_xlim(xMin, xMax)
@@ -1093,7 +1164,7 @@ def plotPolygons(
     fillColor: str|None = None,
     fillStyle: str = "///",
     opacity: float = 0.5,
-    xyReverseFlag: bool = False,
+    latLonFlag: bool = False,
     fig = None,
     ax = None,
     figSize = (None, 5), 
@@ -1115,9 +1186,9 @@ def plotPolygons(
             polygons = polygons,
             anchorFieldName = anchorFieldName,
             polyFieldName = polyFieldName,
-            xyReverseFlag = xyReverseFlag)
+            latLonFlag = latLonFlag)
         (xMin, xMax, yMin, yMax) = boundingBox
-        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1])
+        (width, height) = findFigSize(boundingBox, figSize[0], figSize[1], latLonFlag)
         if (isinstance(fig, plt.Figure)):
             fig.set_figwidth(width)
             fig.set_figheight(height)
@@ -1135,7 +1206,7 @@ def plotPolygons(
             fillColor = fillColor,
             fillStyle = fillStyle,
             opacity = opacity,
-            xyReverseFlag = xyReverseFlag,
+            latLonFlag = latLonFlag,
             figSize = figSize)
 
     # Next, plot anchors ======================================================
@@ -1148,7 +1219,7 @@ def plotPolygons(
             ha = 'center'
             va = 'center'
             ct = polygons[p]['anchor']
-            if (xyReverseFlag):
+            if (latLonFlag):
                 ct = [ct[1], ct[0]]
             ax.annotate(lbl, ct, ha=ha, va=va)
 
@@ -1164,14 +1235,75 @@ def plotPolygons(
 
     return fig, ax
 
-def plotProvinceMap(
-    province: list[str]|str = [],
+def plotMapChina(
+    regionList: list,
+    readFromLocalFlag: bool = True,
+    localDirectory: str = "D:/Zoo/gull/geoVeRoPy/data/map",
+    saveToLocalFlag: bool = True,
     edgeWidth: float = 0.5,
     edgeColor: str = 'Random',
     fillColor: str|None = None,
     fillStyle: str = "///",
     opacity: float = 0.5,   
-    showAnchorFlag = False,
+    fig = None,
+    ax = None,
+    figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
+    showAxis: bool = True,
+    saveFigPath: str|None = None,
+    showFig: bool = True
+    ):
+
+    multiPoly = []
+
+    # 一会儿要绘制的边界线们
+    for region in regionList:
+        multiPoly.extend(findPolysChina(
+            province = region[0],
+            city = region[1],
+            district = region[2],
+            readFromLocalFlag = readFromLocalFlag,
+            localDirectory = localDirectory,
+            saveToLocalFlag = saveToLocalFlag))
+
+    # 计算范围大小
+    x = []
+    y = []
+    for polys in multiPoly:
+        for poly in polys:
+            for pt in poly:
+                x.append(pt[0])
+                y.append(pt[1])
+    boundingBox = (min(x), max(x), min(y), max(y))
+    figSize = findFigSize(boundingBox, figSize[0], figSize[1], True)
+
+    # 读取本地的
+    for polys in multiPoly:
+        for poly in polys:
+            fig, ax = plotPoly(
+                fig = fig,
+                ax = ax,
+                poly = poly,
+                edgeWidth = edgeWidth,
+                edgeColor = edgeColor,
+                fillColor = fillColor,
+                fillStyle = fillStyle,
+                opacity = opacity,
+                latLonFlag = True,
+                boundingBox = boundingBox,
+                figSize = figSize,
+                saveFigPath = saveFigPath,
+                showAxis = showAxis,
+                showFig = showFig)
+
+    return fig, ax
+
+def plotMapUS(
+    stateList: list[str]|str = [],
+    edgeWidth: float = 0.5,
+    edgeColor: str = 'Random',
+    fillColor: str|None = None,
+    fillStyle: str = "///",
+    opacity: float = 0.5,   
     fig = None,
     ax = None,
     figSize: list[int|float|None] | tuple[int|float|None, int|float|None] = (None, 5), 
@@ -1183,52 +1315,39 @@ def plotProvinceMap(
         fig, ax = plt.subplots()
     
     prvPoly = {}
-    if (type(province) == str):
-        province = [province]
-    for prv in province:
-        try:
-        # if 1:
-            if prv in prov:
-                ct = ptPolyCenter(prov[prv]['shape'])
-                prvPoly[prv] = {
-                    'anchor': ct,
-                    'label': prov[prv]['abbr'],
-                    'poly': prov[prv]['shape'],
-                }
-                if (prov[prv]['country'] == 'China'):
-                    rcParams['font.family'] = 'SimSun'
-                else:
-                    rcParams['font.family'] = 'DejaVu Sans'
-            else:
-                # 看看是不是输入的abbr
-                for k in prov:
-                    if (prv == prov[k]['abbr']):
-                        ct = ptPolyCenter(prov[k]['shape'])
-                        prvPoly[prv] = {
-                            'anchor': ct,
-                            'label': prov[k]['abbr'],
-                            'poly': prov[k]['shape'],
-                        }
-                        if (prov[k]['country'] == 'China'):
-                            rcParams['font.family'] = 'SimSun'
-                        else:
-                            rcParams['font.family'] = 'DejaVu Sans'
-        except:
-            raise UnsupportedInputError("Error: %s is not included yet, please stay tune." % country) 
+    if (type(stateList) == str):
+        stateList = [stateList]
+    for prv in stateList:
+        if prv in prov:
+            ct = ptPolyCenter(prov[prv]['shape'])
+            prvPoly[prv] = {
+                'anchor': ct,
+                'label': prov[prv]['abbr'],
+                'poly': prov[prv]['shape'],
+            }
+        else:
+            for k in prov:
+                if (prv == prov[k]['abbr']):
+                    ct = ptPolyCenter(prov[k]['shape'])
+                    prvPoly[prv] = {
+                        'anchor': ct,
+                        'label': prov[k]['abbr'],
+                        'poly': prov[k]['shape'],
+                    }
 
     fig, ax = plotPolygons(
         fig = fig,
         ax = ax,
         polygons = prvPoly,
-        showAnchorFlag = showAnchorFlag,
+        showAnchorFlag = False,
         edgeWidth = edgeWidth,
         edgeColor = edgeColor,
         fillColor = fillColor,
         fillStyle = fillStyle,
         opacity = opacity,
-        xyReverseFlag = True,
-        figSize=figSize,
-        saveFigPath=saveFigPath,
+        latLonFlag = True,
+        figSize = figSize,
+        saveFigPath = saveFigPath,
         showAxis = showAxis,
         showFig=showFig)
 
@@ -1284,50 +1403,35 @@ def plotRoads(
             try:    
                 for poly in roadBoundary:
                     for pt in poly:
-                        allX.append(float(pt[1]))
-                        allY.append(float(pt[0]))
+                        allX.append(float(pt[0]))
+                        allY.append(float(pt[1]))
             except:
                 for pt in roadBoundary:
-                    allX.append(float(pt[1]))
-                    allY.append(float(pt[0]))
+                    allX.append(float(pt[0]))
+                    allY.append(float(pt[1]))
         else:
             for road in roads:
                 for pt in roads[road]['shape']:
-                    allX.append(pt[1])
-                    allY.append(pt[0])
+                    allX.append(pt[0])
+                    allY.append(pt[1])
 
         (xMin, xMax, yMin, yMax) = boundingBox
         if (xMin == None):
-            xMin = min(allX) - 0.1 * abs(max(allX) - min(allX))
+            xMin = min(allX) - 0.05 * abs(max(allX) - min(allX))
         if (xMax == None):
-            xMax = max(allX) + 0.1 * abs(max(allX) - min(allX))
+            xMax = max(allX) + 0.05 * abs(max(allX) - min(allX))
         if (yMin == None):
-            yMin = min(allY) - 0.1 * abs(max(allY) - min(allY))
+            yMin = min(allY) - 0.05 * abs(max(allY) - min(allY))
         if (yMax == None):
-            yMax = max(allY) + 0.1 * abs(max(allY) - min(allY))
-        width = 0
-        height = 0
-        if (figSize == None or (figSize[0] == None and figSize[1] == None)):
-            if (xMax - xMin > yMax - yMin):
-                width = 5
-                height = 5 * ((yMax - yMin) / (xMax - xMin))
-            else:
-                width = 5 * ((xMax - xMin) / (yMax - yMin))
-                height = 5
-        elif (figSize != None and figSize[0] != None and figSize[1] == None):
-            width = figSize[0]
-            height = figSize[0] * ((yMax - yMin) / (xMax - xMin))
-        elif (figSize != None and figSize[0] == None and figSize[1] != None):
-            width = figSize[1] * ((xMax - xMin) / (yMax - yMin))
-            height = figSize[1]
-        else:
-            (width, height) = figSize
+            yMax = max(allY) + 0.05 * abs(max(allY) - min(allY))
+        boundingBox = (xMin, xMax, yMin, yMax)
+        figSize = findFigSize(boundingBox, figSize[0], figSize[1], True)
+        (width, height) = figSize
 
-        if (isinstance(fig, plt.Figure)):
-            fig.set_figwidth(width)
-            fig.set_figheight(height)
-            ax.set_xlim(xMin, xMax)
-            ax.set_ylim(yMin, yMax)
+        fig.set_figwidth(width)
+        fig.set_figheight(height)
+        ax.set_xlim(yMin, yMax)
+        ax.set_ylim(xMin, xMax)
 
     # Plot roads ==============================================================
     for road in roads:

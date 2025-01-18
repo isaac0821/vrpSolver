@@ -23,10 +23,6 @@ from .plot import *
 from .animation import *
 from .instance import *
 
-# Metaheuristic modules
-# from .GA import *
-# from .SA import *
-
 # Geometry
 from .geometry import *
 from .obj2Obj import *

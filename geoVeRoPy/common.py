@@ -238,7 +238,7 @@ def findBoundingBox(
     polygons: dict = None,
     anchorFieldName: str = 'anchor',
     polyFieldName: str = 'poly',
-    xyReverseFlag: bool = False,
+    latLonFlag: bool = False,
     edgeWidth: float = 0.1):
 
     """
@@ -268,7 +268,7 @@ def findBoundingBox(
         The field in `polygons` indicates anchor of each polygon
     polyFieldName: str, optional, default as `poly`
         The field in `polygons` indicates polygons
-    xyReverseFlag: bool, optional, default as True
+    latLonFlag: bool, optional, default as True
         True if x, y is reversed.
     edgeWidth: float, optional, default as 0.1
         The extra space around bounding box
@@ -332,7 +332,7 @@ def findBoundingBox(
     yMin = min(allY) - edgeWidth * abs(max(allY) - min(allY))
     yMax = max(allY) + edgeWidth * abs(max(allY) - min(allY))
 
-    if (xyReverseFlag):
+    if (latLonFlag):
         xMin, xMax, yMin, yMax = yMin, yMax, xMin, xMax
 
     return (xMin, xMax, yMin, yMax)
@@ -345,7 +345,7 @@ def findBoundingBox3D(
     arcFieldName = 'arc',
     arcStartLocFieldName = 'startLoc',
     arcEndLocFieldName = 'endLoc',
-    xyReverseFlag: bool = False,
+    latLonFlag: bool = False,
     edgeWidth: float = 0.1):
 
     (xMin, xMax, yMin, yMax, zMin, zMax) = boundingBox3D
@@ -406,51 +406,10 @@ def findBoundingBox3D(
     zMin = min(allZ) - edgeWidth * abs(max(allZ) - min(allZ))
     zMax = max(allZ) + edgeWidth * abs(max(allZ) - min(allZ))
 
-    if (xyReverseFlag):
+    if (latLonFlag):
         xMin, xMax, yMin, yMax = yMin, yMax, xMin, xMax
 
     return (xMin, xMax, yMin, yMax, zMin, zMax)
-
-def findFigSize(boundingBox, width = None, height = None):
-    """
-    Given a bounding box, a width(or height), returns the height(or width) of the figure
-
-    Parameters
-    ----------
-
-    boundingBox: 4-tuple, required
-        The bounding box of the figure
-    width: float|None, optional, default as None
-        The desired width of the figure
-    height: float|None, optional, default as None
-        The desired height of the figure
-
-    Returns
-    -------
-    float, float
-        The (width, height) proportional to bounding box
-
-    """
-    (xMin, xMax, yMin, yMax) = boundingBox
-    w = None
-    h = None
-    if (width == None and height == None):
-        if (xMax - xMin > yMax - yMin):
-            w = 5
-            h = 5 * ((yMax - yMin) / (xMax - xMin))
-        else:
-            w = 5 * ((xMax - xMin) / (yMax - yMin))
-            h = 5
-    elif (width != None and height == None):
-        w = width
-        h = width * ((yMax - yMin) / (xMax - xMin))
-    elif (width == None and height != None):
-        w = height * ((xMax - xMin) / (yMax - yMin))
-        h = height
-    else:
-        w = width
-        h = height
-    return w, h
 
 globalRuntimeAnalysis = {}
 # Support runtime tracking and store in dictionary of at most three level

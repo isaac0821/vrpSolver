@@ -156,9 +156,6 @@ def createRoadNetworkFromGeoJSON(
         'building': building
     }
 
-def convertRoadNetwork2Graph(road:dict):
-    return g
-
 def clipRoadsByPoly(
     roads: dict,
     poly: poly) -> dict:
@@ -191,15 +188,15 @@ def clipRoadsByPoly(
 
     return clip
 
-def clipRoadsByPolys(
+def clipRoadsByMultiPoly(
     roads: dict,
-    polys: polys) -> dict:
+    multiPoly: polys) -> dict:
 
     # FIXME: Currently using a stupid method, since it is a one-time function    
     # Roads ===================================================================
     clip = {}
     roadID = 0
-    for poly in polys:
+    for poly in multiPoly:
         for r in roads:
             # 最笨的办法，一条一条路处理
             seqInt = intSeq2Poly(roads[r]['shape'], poly)
