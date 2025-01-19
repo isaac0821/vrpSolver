@@ -84,6 +84,7 @@ def solveCETSP(
     else:
         raise UnsupportedInputError("ERROR: Neighborhood type is not supported")
 
+    cetsp = None
     if (algo == 'Exact'):
         if (neighbor == 'Circle'):
             cetsp = _solveCETSPGBDCircle(
@@ -128,8 +129,30 @@ def solveCETSP(
                 timeLimit = kwargs['timeLimit'] if 'timeLimit' in kwargs else None)
 
     elif (algo == 'Metaheuristic'):
-        if (kwargs['method'] == 'GA'):
-            cetsp = _solveCETSPGeneticAlgorithm()
+        if (kwargs['method'] == 'GA' or kwargs['method'] == 'GeneticAlgorithm'):
+            if ('popSize' not in kwargs):
+                raise MissingParameterError("ERROR: Need to specify the size of population in GA by 'popSize'.")
+            if ('neighRatio' not in kwargs):
+                warnings.warn("WARNING: Missing ratios of each local search operator, set to be default.")
+                kwargs['neighRatio'] = {
+                    'crossover': 0.4,
+                    'swap': 0.05,
+                    'exchange': 0.05,
+                    'rotate': 0.03
+                }
+            if ('stop' not in kwargs):
+                warnings.warn("WARNING: Missing stopping criteria, set to be default.")
+                kwargs['stop'] = {
+                    'runtime': 120
+                }
+            if (neighbor == 'Circle'):
+                cetsp = _solveCETSPGACircle(
+                    startLoc = startLoc,
+                    endLoc = endLoc,
+                    nodes = nodes,
+                    popSize = kwargs['popSize'],
+                    neighRatio = kwargs['neighRatio'],
+                    stop = kwargs['stop'])
 
     return cetsp
 
@@ -923,13 +946,11 @@ def _solveCETSPGBDLatLon(
         'cutCount': cutCount
     }
 
-def _solveCETSPGeneticAlgorithm(
+def _solveCETSPGACircle(
     startLoc: pt,
     endLoc: pt,
     nodes: dict, # Index from 1
-    neighbor: str = "Circle",
-    timeLimit: int | None = None,
-    popSize: int = None,
+    popSize: int,
     neighRatio: dict = {},
     stop: dict = {},
     **kwargs
@@ -1007,7 +1028,6 @@ def _solveCETSPGeneticAlgorithm(
             # 现在开始补齐        
             while (not completeFlag):
                 completeFlag = True
-                # print(self.turning, self.trespass, self.dist2NotInclude)
                 
                 # 先按照turnpoint构造一个路径
                 if (initPathFlag):
@@ -1075,7 +1095,7 @@ def _solveCETSPGeneticAlgorithm(
 
     def exchange(chromo, idxI, idxJ):
         seq = [i.key for i in chromo.seq.traverse()]
-        seq[idxI], seq[idxJ] =  seq[idxJ], seq[idxI]
+        seq[idxI], seq[idxJ] = seq[idxJ], seq[idxI]
         return chromosomeCETSP(startLoc, endLoc, nodes, seq)
 
     def rotate(chromo, idxI, idxJ):
@@ -1230,7 +1250,7 @@ def _solveCETSPGeneticAlgorithm(
                 dashboard['bestSeq'] = [i.key for i in chromo.seq.traverse()]
                 dashboard['bestChromo'] = chromo
         print(hyphenStr())
-        print("Iter: ", iterTotal, "\tofv: ", dashboard['bestOfv'])
+        print("Iter: ", iterTotal, "\nRuntime: ", round((datetime.datetime.now() - startTime).total_seconds(), 2), "[s]\nOFV: ", dashboard['bestOfv'])
         if (newOfvFound):
             iterNoImp = 0
         else:
