@@ -1012,8 +1012,6 @@ def _solveCETSPGACircle(
             for i in range(len(degen['aggNodeList'])):
                 if (degen['removedFlag'][i] == False):
                     self.turning.extend([seqTra[k] for k in degen['aggNodeList'][i]])
-                else:
-                    self.trespass.extend([seqTra[k] for k in degen['aggNodeList'][i]])
             self.path = degen['newSeq']
             self.dist = c2c['dist']
 
@@ -1055,7 +1053,7 @@ def _solveCETSPGACircle(
                 # 判断剩余的点是否为trespass点
                 self.dist2NotInclude = {}
                 for i in self.nodes:
-                    if (i not in self.turning and i not in self.trespass):
+                    if (i not in self.turning):
                         res = distPt2Seq(
                             pt = self.nodes[i]['loc'], 
                             seq = degen['newSeq'],
@@ -1276,6 +1274,7 @@ def _solveCETSPGACircle(
     return {
         'ofv': dashboard['bestOfv'],
         'seq': dashboard['bestSeq'],
+        'chromo': dashboard['bestChromo'],
         'path': dashboard['bestChromo'].path,
         'runtime': runtime,
         'convergence': convergence,
