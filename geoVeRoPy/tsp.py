@@ -17,7 +17,7 @@ def solveTSP(
     vehicleID: int|str = 0,
     serviceTime: float = 0,
     edges: str = 'Euclidean',
-    algo: str = 'IP',
+    algo: str = 'Exact',
     detailFlag: bool = False,
     metaFlag: bool = False,
     **kwargs
@@ -45,10 +45,10 @@ def solveTSP(
         The service time needed at each location. If `serviceTime` is provided in `nodes`, it will be ignored.
     edges: string, optional, default as 'Euclidean'
         The methods for the calculation of distances between nodes. Options and required additional information are referred to :func:`~vrpSolver.geometry.matrixDist()`.
-    algo: string, optional, default as 'IP'
+    algo: string, optional, default as 'Exact'
         Select the algorithm for calculating TSP. Options and required additional inputs are as follows:
         
-        1) (default) 'IP', use (Mixed) Integer Programming to solve TSP. Needs commercial solver such as Gurobi and COPT.
+        1) (default) 'Exact', use (Mixed) Integer Programming to solve TSP. Needs commercial solver such as Gurobi and COPT.
             - solver: str, supports 'Gurobi' and 'COPT'.
             - fml: str, choose formulation of TSP:
                 - if use 'Gurobi' as solver, fml supports the following options: ['DFJ_Lazy', 'DFJ_Plainloop', 'MTZ', 'ShortestPath', 'MultiCommodityFlow', 'QAP']. In fact, 'DFJ_Lazy' will be faster than all other formulations, implementation of different formulation is for education purpose.
@@ -122,7 +122,7 @@ def solveTSP(
         if (vehicleID not in vehicles):
             raise MissingParameterError("ERROR: Cannot find `vehicleID` in `vehicles`.")
 
-    if (algo == 'IP'):
+    if (algo == 'Exact'):
         if ('solver' not in kwargs and 'fml' not in kwargs):
             kwargs['solver'] = 'Gurobi'
             kwargs['fml'] = 'DFJ_Lazy'
@@ -178,7 +178,7 @@ def solveTSP(
     startTime = datetime.datetime.now()
 
     tsp = None
-    if (algo == 'IP'):
+    if (algo == 'Exact'):
         tsp = _ipTSP(
             nodeIDs = nodeIDs, 
             tau = tau, 
@@ -255,7 +255,7 @@ def solveTSP(
             tsp['meta'] = kwargs['meta']
 
     else:
-        raise OutOfRangeError("ERROR: Select 'algo' from ['IP', 'Heuristic', 'Metaheuristic'].")
+        raise OutOfRangeError("ERROR: Select 'algo' from ['Exact', 'Heuristic', 'Metaheuristic'].")
 
     # Fix the sequence to make it start from the depot ========================
     startIndex = 0
@@ -339,7 +339,7 @@ def solveTSP(
         'ofv': ofv,
         'seq': nodeSeq,
     }
-    if (algo == 'IP'):
+    if (algo == 'Exact'):
         res['gap'] = tsp['gap']
         res['solType'] = tsp['solType']
         res['lowerBound'] = tsp['lowerBound']

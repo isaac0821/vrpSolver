@@ -130,10 +130,17 @@ def plotLocs(
             latLonFlag = latLonFlag)
         (xMin, xMax, yMin, yMax) = boundingBox
         (width, height) = findFigSize(boundingBox, figSize[0], figSize[1], latLonFlag)
-        fig.set_figwidth(width)
-        fig.set_figheight(height)
-        ax.set_xlim(xMin, xMax)
-        ax.set_ylim(yMin, yMax)
+
+        if (not latLonFlag):
+            fig.set_figwidth(width)
+            fig.set_figheight(height)
+            ax.set_xlim(xMin, xMax)
+            ax.set_ylim(yMin, yMax)
+        else:
+            fig.set_figwidth(height)
+            fig.set_figheight(width)
+            ax.set_xlim(yMin, yMax)
+            ax.set_ylim(xMin, xMax)
 
     # Draw locs ==============================================================
     for i in locs:

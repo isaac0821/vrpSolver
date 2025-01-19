@@ -2,6 +2,41 @@ import requests
 
 from .common import *
 
+def findRegionChina(adcode):
+    if (adcode == 100000):
+        return {
+            'province': None,
+            'city': None,
+            'district': None
+        }
+    if (adcode == 419001):
+        return {
+            'province': '河南省',
+            'city': '焦作市',
+            'district': '济源市'
+        }
+
+    # 假如后两位不是0，则到区一级
+    if (adcode - int(adcode / int(100)) * 100 > 0):
+        district = adcodeChina[adcode]
+    else:
+        district = None
+
+    # 加入中间两位不是0，则到市一级
+    if (adcode - int(adcode / int(10000)) * 10000 > 0):
+        city = adcodeChina[int(adcode / int(100)) * 100]
+    else:
+        city = None
+
+    # 省一级
+    province = adcodeChina[int(adcode / int(10000)) * 10000]
+    
+    return {
+        'province': province,
+        'city': city,
+        'district': district
+    }
+
 def findAdcodeChina(province: str = None, city: str = None, district: str = None): 
     if (province == None and city == None and district == None):
         return 100000
